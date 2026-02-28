@@ -416,22 +416,22 @@ export default function VoicePage() {
     setVapiLoading(true);
 
     try {
-      // Use EWC assistant for browser test calls
-      let aid = assistants?.EWC?.id;
+      // Use Komal for browser test calls — she is the primary receptionist
+      let aid = assistants?.KOMAL?.id;
       if (!aid) {
         const res = await fetch('/api/vapi/provision', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ key: 'EWC' }),
+          body: JSON.stringify({ key: 'KOMAL' }),
         }).then(r => r.json()) as { success: boolean; assistantId?: string; error?: string };
         if (!res.success || !res.assistantId) {
-          console.error('[vapi] Failed to create EWC assistant:', res.error);
+          console.error('[vapi] Failed to provision Komal:', res.error);
           setCallState('idle');
           setVapiLoading(false);
           return;
         }
         aid = res.assistantId;
-        setAssistants(prev => prev ? { ...prev, EWC: { ...prev.EWC, id: aid!, provisioned: true } } : prev);
+        setAssistants(prev => prev ? { ...prev, KOMAL: { ...prev.KOMAL, id: aid!, provisioned: true } } : prev);
         setVapiConnected(true);
       }
 
