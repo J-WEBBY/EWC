@@ -450,10 +450,10 @@ function ReportModal({
                       {REPORT_METRICS.map(m => (
                         <button key={m.id} onClick={() => toggleMetric(m.id)}
                           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] border transition-all text-left ${
-                            selectedMetrics.includes(m.id) ? 'border-white/[0.12] bg-[#FAF9F5] text-[#524D66]' : 'border-[#EBE5FF] text-[#6E6688] hover:bg-[#FAF7F2]'
+                            selectedMetrics.includes(m.id) ? 'border-[#D5CCFF] bg-[#FAF9F5] text-[#524D66]' : 'border-[#EBE5FF] text-[#6E6688] hover:bg-[#FAF7F2]'
                           }`}>
                           <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0 ${
-                            selectedMetrics.includes(m.id) ? 'border-white/[0.2]' : 'border-white/[0.1]'
+                            selectedMetrics.includes(m.id) ? 'border-[#D5CCFF]' : 'border-[#EBE5FF]'
                           }`}
                             style={selectedMetrics.includes(m.id) ? { backgroundColor: `${brandColor}30`, borderColor: brandColor } : undefined}>
                             {selectedMetrics.includes(m.id) && <CheckCircle2 size={8} style={{ color: brandColor }} />}
@@ -737,7 +737,7 @@ export default function AnalyticsPage() {
                   <motion.div key={kpi.id}
                     initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.1 + i * 0.06 }}
-                    className="px-3 py-2.5 rounded-xl bg-white border border-[#EBE5FF] hover:border-white/[0.1] transition-all"
+                    className="px-3 py-2.5 rounded-xl bg-white border border-[#EBE5FF] hover:border-[#D5CCFF] transition-all"
                   >
                     <div className="flex items-center justify-between mb-1.5">
                       <div className="flex items-center gap-1.5">
@@ -1010,7 +1010,7 @@ export default function AnalyticsPage() {
                             }
                           }}
                           placeholder="Ask about the data..."
-                          className="w-full bg-transparent text-[11px] text-[#524D66] placeholder-white/15 outline-none" />
+                          className="w-full bg-transparent text-[11px] text-[#524D66] placeholder-[#B0A8C8] outline-none" />
                       </div>
                       <button disabled={!aiQuestion.trim() || loadingAI}
                         onClick={() => { handleAskAI(aiQuestion.trim()); setAiQuestion(''); }}

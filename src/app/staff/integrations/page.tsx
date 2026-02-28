@@ -568,7 +568,7 @@ export default function IntegrationsPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 }}
-            className="bg-white border border-white/[0.1] rounded-2xl overflow-hidden"
+            className="bg-white border border-[#EBE5FF] rounded-2xl overflow-hidden"
           >
             {/* Card header */}
             <div className="flex items-start justify-between px-6 py-5 border-b border-[#EBE5FF]">
@@ -610,7 +610,7 @@ export default function IntegrationsPage() {
             </div>
 
             {/* Card body — 2 columns: form/status + sync log */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-white/[0.06]">
+            <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-[#EBE5FF]">
 
               {/* LEFT: connect form or connected state */}
               <div className="p-6">

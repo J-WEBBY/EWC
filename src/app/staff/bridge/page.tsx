@@ -222,7 +222,7 @@ function ThreadReplyBubble({ reply, brandColor }: { reply: ThreadReply; brandCol
         </div>
         <div className={`inline-block px-3.5 py-2.5 rounded-xl text-[12px] leading-relaxed ${
           reply.is_own
-            ? 'bg-white border border-white/[0.1] text-[#524D66]'
+            ? 'bg-white border border-[#EBE5FF] text-[#524D66]'
             : 'text-[#524D66]'
         }`}
           style={reply.is_own ? { borderColor: `${brandColor}25` } : undefined}
@@ -374,7 +374,7 @@ function MessageDetail({
               onChange={e => setReplyText(e.target.value)}
               placeholder="Write a reply..."
               rows={2}
-              className="w-full bg-transparent text-[12px] text-[#524D66] placeholder-white/15 outline-none resize-none"
+              className="w-full bg-transparent text-[12px] text-[#524D66] placeholder-[#B0A8C8] outline-none resize-none"
               style={{ maxHeight: '100px' }}
             />
           </div>
@@ -652,7 +652,7 @@ export default function BridgePage() {
             {bridgeMode === 'inbox' && (
               <button onClick={() => setShowFilters(!showFilters)}
                 className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] border transition-all ${
-                  showFilters ? 'text-[#524D66] border-white/[0.12] bg-[#FAF9F5]' : 'text-[#6E6688] border-[#EBE5FF]'
+                  showFilters ? 'text-[#524D66] border-[#D5CCFF] bg-[#FAF9F5]' : 'text-[#6E6688] border-[#EBE5FF]'
                 }`}>
                 <Filter size={11} /> Filters
               </button>
@@ -795,7 +795,7 @@ export default function BridgePage() {
                   <Search size={13} className="text-[#6E6688] flex-shrink-0" />
                   <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
                     placeholder="Search messages..."
-                    className="flex-1 bg-transparent text-[12px] text-[#524D66] placeholder-white/15 outline-none" />
+                    className="flex-1 bg-transparent text-[12px] text-[#524D66] placeholder-[#B0A8C8] outline-none" />
                   {searchQuery && (
                     <button onClick={() => setSearchQuery('')} className="text-[#6E6688] hover:text-[#6E6688]">
                       <X size={12} />
@@ -946,7 +946,7 @@ export default function BridgePage() {
                     onChange={e => setAgentInput(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleAgentSend()}
                     placeholder={agentTarget === 'primary' ? `Describe issue — ${aiName} will route it...` : `Message ${agents.find(a => a.id === agentTarget)?.name || 'agent'}...`}
-                    className="flex-1 bg-white border border-[#EBE5FF] rounded-lg px-3.5 py-2.5 text-[12px] text-[#1A1035] placeholder-white/20 outline-none focus:border-white/[0.15] transition-colors"
+                    className="flex-1 bg-white border border-[#EBE5FF] rounded-lg px-3.5 py-2.5 text-[12px] text-[#1A1035] placeholder-[#B0A8C8] outline-none focus:border-[#D5CCFF] transition-colors"
                     disabled={isRouting}
                   />
                   <button
