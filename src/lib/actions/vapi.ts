@@ -3,8 +3,9 @@
 // =============================================================================
 // Vapi Server Actions — EWC AI Voice System
 //
-// Three assistants:
-//   EWC      — inbound receptionist (primary_agent persona)
+// Four assistants:
+//   Komal    — unified receptionist (voice layer over all three agents) PRIMARY
+//   EWC      — legacy inbound receptionist (primary_agent persona)
 //   Orion    — outbound sales / missed call recovery (sales_agent persona)
 //   Aria     — outbound patient retention / CRM follow-up (crm_agent persona)
 // =============================================================================
@@ -16,6 +17,7 @@ const PRIVATE_KEY = process.env.VAPI_PRIVATE_KEY ?? '';
 // Assistant name constants (used for lookup — do not change without migrating)
 // ---------------------------------------------------------------------------
 export const ASSISTANT_NAMES = {
+  KOMAL: 'Komal — EWC Receptionist',
   EWC:   'EWC — Inbound Receptionist',
   ORION: 'Orion — Outbound Sales',
   ARIA:  'Aria — Patient Retention',
@@ -136,6 +138,14 @@ COMPLIANCE:
 // Voice profiles per assistant
 // ---------------------------------------------------------------------------
 const VOICE_PROFILES: Record<AssistantKey, object> = {
+  KOMAL: {
+    provider: '11labs',
+    voiceId: 'XB0fDUnXU5powFXDhCwa', // Charlotte — warm professional British female
+    stability: 0.5,
+    similarityBoost: 0.8,
+    style: 0.3,
+    useSpeakerBoost: true,
+  },
   EWC: {
     provider: '11labs',
     voiceId: 'EXAVITQu4vr4xnSDxMaL', // Sarah — warm British female
@@ -157,12 +167,14 @@ const VOICE_PROFILES: Record<AssistantKey, object> = {
 };
 
 const FIRST_MESSAGES: Record<AssistantKey, string> = {
+  KOMAL: "Hello, thank you for calling Edgbaston Wellness Clinic. This call may be recorded for quality and training purposes. My name is Komal — how can I help you today?",
   EWC: "Hello, thank you for calling Edgbaston Wellness Clinic. This call may be recorded for quality and training purposes. I'm here to help — how can I assist you today?",
   ORION: "Hi there, this is Orion calling from Edgbaston Wellness Clinic. I noticed you reached out to us recently and I wanted to make sure we could help. Is now a good time to chat?",
   ARIA: "Hello, this is Aria calling from Edgbaston Wellness Clinic. I'm just reaching out to check how you're getting on. Is now a good time for a quick chat?",
 };
 
 const SYSTEM_PROMPTS: Record<AssistantKey, string> = {
+  KOMAL: EWC_PROMPT, // Komal uses the provision route's full orchestrating prompt — this is a fallback only
   EWC: EWC_PROMPT,
   ORION: ORION_PROMPT,
   ARIA: ARIA_PROMPT,
@@ -281,6 +293,7 @@ export async function getAllAssistantStatuses(): Promise<{
     return {
       connected: false,
       assistants: {
+        KOMAL: { name: ASSISTANT_NAMES.KOMAL, provisioned: false },
         EWC:   { name: ASSISTANT_NAMES.EWC,   provisioned: false },
         ORION: { name: ASSISTANT_NAMES.ORION, provisioned: false },
         ARIA:  { name: ASSISTANT_NAMES.ARIA,  provisioned: false },
@@ -296,6 +309,7 @@ export async function getAllAssistantStatuses(): Promise<{
     return {
       connected: true,
       assistants: {
+        KOMAL: { id: find('KOMAL')?.id, name: ASSISTANT_NAMES.KOMAL, provisioned: !!find('KOMAL') },
         EWC:   { id: find('EWC')?.id,   name: ASSISTANT_NAMES.EWC,   provisioned: !!find('EWC')   },
         ORION: { id: find('ORION')?.id, name: ASSISTANT_NAMES.ORION, provisioned: !!find('ORION') },
         ARIA:  { id: find('ARIA')?.id,  name: ASSISTANT_NAMES.ARIA,  provisioned: !!find('ARIA')  },
@@ -305,6 +319,7 @@ export async function getAllAssistantStatuses(): Promise<{
     return {
       connected: false,
       assistants: {
+        KOMAL: { name: ASSISTANT_NAMES.KOMAL, provisioned: false },
         EWC:   { name: ASSISTANT_NAMES.EWC,   provisioned: false },
         ORION: { name: ASSISTANT_NAMES.ORION, provisioned: false },
         ARIA:  { name: ASSISTANT_NAMES.ARIA,  provisioned: false },

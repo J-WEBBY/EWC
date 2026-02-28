@@ -1028,6 +1028,46 @@ export default function VoicePage() {
                   {/* AI Voice Agents */}
                   <div className="bg-white border border-[#EBE5FF] rounded-xl p-5">
                     <h3 className="text-[11px] uppercase tracking-[0.15em] text-[#6E6688] font-medium mb-4">AI Voice Agents</h3>
+
+                    {/* Komal — primary receptionist, visually distinct */}
+                    {(() => {
+                      const status = assistants?.['KOMAL'];
+                      const isProvisioned = status?.provisioned ?? false;
+                      const isProvisioning = provisioningKey === 'KOMAL';
+                      return (
+                        <div className="mb-4 px-4 py-3 bg-[#1A1035] border border-[#2D1F6E] rounded-xl">
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 rounded-full flex-shrink-0"
+                                style={{ background: isProvisioned ? '#a78bfa' : '#4B3F8A' }} />
+                              <span className="text-[13px] font-medium text-white">Komal</span>
+                              <span className="text-[11px] text-white/50">— Primary receptionist</span>
+                            </div>
+                            {isProvisioned ? (
+                              <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-[#a78bfa]/20 text-[#a78bfa]">
+                                Ready
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => handleProvision('KOMAL')}
+                                disabled={isProvisioning}
+                                className="flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-lg bg-white text-[#1A1035] hover:bg-white/90 transition-colors disabled:opacity-50"
+                              >
+                                {isProvisioning ? <Loader2 size={10} className="animate-spin" /> : <Zap size={10} />}
+                                {isProvisioning ? 'Creating…' : 'Provision'}
+                              </button>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-white/40 pl-4">Unified voice · EWC + Orion + Aria modes · all calls</p>
+                          {isProvisioned && status?.id && (
+                            <p className="text-[9px] text-white/20 pl-4 mt-0.5 font-mono">{status.id.slice(0, 18)}…</p>
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    {/* Legacy agents */}
+                    <p className="text-[10px] uppercase tracking-[0.15em] text-[#C4BEDD] font-medium mb-2">Legacy agents</p>
                     <div className="space-y-3">
                       {([
                         {
@@ -1089,7 +1129,7 @@ export default function VoicePage() {
                     </div>
                     <p className="text-[11px] text-[#8B84A0] mt-4 leading-relaxed">
                       Webhook: <code className="text-[10px] text-[#6E6688]">/api/vapi/webhook</code><br />
-                      Assign EWC to your UK phone number in the Vapi dashboard.
+                      Assign Komal to your phone number in the Vapi dashboard.
                     </p>
                   </div>
                 </div>
