@@ -1,19 +1,20 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Phone, PhoneMissed, PhoneCall, PhoneOff,
-  ChevronRight, Clock, Zap, Mic, MicOff,
+  Phone, PhoneMissed, PhoneCall,
+  ChevronRight, Zap, Mic, MicOff,
   Settings, Save, Play, RotateCcw, TrendingUp, TrendingDown,
   Volume2, Brain, BarChart3, Sparkles, Shield, AlertCircle,
-  CheckCircle2, XCircle, Edit3, MessageSquare,
+  CheckCircle2, XCircle, Edit3, MessageSquare, PhoneOff, Loader2,
 } from 'lucide-react';
 import {
   getStaffProfile, getLatestTenantAndUser, type StaffProfile,
 } from '@/lib/actions/staff-onboarding';
 import { StaffNav } from '@/components/staff-nav';
+import { getOrCreateVapiAssistant, getVapiStatus, getVapiCalls, type VapiCall } from '@/lib/actions/vapi';
 
 // =============================================================================
 // TYPES
@@ -43,9 +44,10 @@ interface ReceptionistIdentity {
 }
 
 type Tab = 'overview' | 'identity' | 'intelligence' | 'settings';
+type CallState = 'idle' | 'connecting' | 'active' | 'ending';
 
 // =============================================================================
-// MOCK DATA
+// MOCK FALLBACK DATA
 // =============================================================================
 
 const MOCK_CALLS: CallEntry[] = [
@@ -54,9 +56,6 @@ const MOCK_CALLS: CallEntry[] = [
   { id: 'c3', type: 'inbound',  caller: 'James Thornton',   phone: '07634 789012', duration: '5m 51s', timestamp: '16:32', outcome: 'CoolSculpting enquiry — brochure sent',        outcome_type: 'info',        ai_handled: true,  sentiment: 'positive', topic: 'CoolSculpting' },
   { id: 'c4', type: 'outbound', caller: 'Emma Clarke',      phone: '07701 123456', duration: '2m 10s', timestamp: '14:15', outcome: 'Appointment reminder confirmed',                outcome_type: 'booked',      ai_handled: true,  sentiment: 'positive', topic: 'Reminder'      },
   { id: 'c5', type: 'inbound',  caller: 'David Okafor',     phone: '07788 901234', duration: '8m 03s', timestamp: '11:44', outcome: 'GP screening — transferred to Dr Ganata',      outcome_type: 'transferred', ai_handled: false, sentiment: 'neutral',  topic: 'GP Screening'  },
-  { id: 'c6', type: 'missed',   caller: 'Unknown',          phone: '07655 432109', duration: null,     timestamp: '18:22', outcome: 'After-hours — voicemail left',                 outcome_type: 'voicemail',   ai_handled: true,  sentiment: 'neutral',  topic: 'Unknown'       },
-  { id: 'c7', type: 'inbound',  caller: 'Priya Sharma',     phone: '07923 678901', duration: '4m 17s', timestamp: '10:55', outcome: 'IV Therapy enquiry — pricing sent via SMS',    outcome_type: 'info',        ai_handled: true,  sentiment: 'positive', topic: 'IV Therapy'    },
-  { id: 'c8', type: 'inbound',  caller: 'Marcus Webb',      phone: '07501 234567', duration: '6m 42s', timestamp: '13:20', outcome: 'Weight loss programme — consultation booked',  outcome_type: 'booked',      ai_handled: true,  sentiment: 'positive', topic: 'Weight Loss'   },
 ];
 
 const ENQUIRY_TOPICS = [
@@ -69,18 +68,18 @@ const ENQUIRY_TOPICS = [
 ];
 
 const OBJECTIONS = [
-  { text: '"Is it safe?"',       count: 14, handled: true  },
-  { text: '"How much does it cost?"', count: 11, handled: true  },
-  { text: '"How long does it last?"', count: 9,  handled: true  },
-  { text: '"Do I need a consultation?"', count: 7, handled: true  },
-  { text: '"Can I speak to a doctor?"', count: 5,  handled: false },
+  { text: '"Is it safe?"',                   count: 14, handled: true  },
+  { text: '"How much does it cost?"',         count: 11, handled: true  },
+  { text: '"How long does it last?"',         count: 9,  handled: true  },
+  { text: '"Do I need a consultation?"',      count: 7,  handled: true  },
+  { text: '"Can I speak to a doctor?"',       count: 5,  handled: false },
 ];
 
 const VOICE_OPTIONS = [
-  { id: 'aria-1',    label: 'Aria',    desc: 'Warm, female, British'   },
-  { id: 'nova-1',    label: 'Nova',    desc: 'Clear, female, neutral'  },
-  { id: 'atlas-1',   label: 'Atlas',   desc: 'Calm, male, British'     },
-  { id: 'ember-1',   label: 'Ember',   desc: 'Bright, female, American'},
+  { id: 'EXAVITQu4vr4xnSDxMaL', label: 'Sarah',  desc: 'Warm, female, British'    },
+  { id: 'pFZP5JQG7iQjIQuC4Bku', label: 'Lily',   desc: 'Clear, female, British'   },
+  { id: 'N2lVS1w4EtoT3dr4eOWO', label: 'Callum', desc: 'Calm, male, British'      },
+  { id: 'XB0fDUnXU5powFXDhCwa', label: 'Charlotte', desc: 'Bright, female, British' },
 ];
 
 const HOLD_OPTIONS = [
@@ -91,12 +90,45 @@ const HOLD_OPTIONS = [
 
 const DEFAULT_IDENTITY: ReceptionistIdentity = {
   name: 'Aria',
-  voice: 'aria-1',
+  voice: 'EXAVITQu4vr4xnSDxMaL',
   personality: 'warm',
   greeting: "Hello, thank you for calling Edgbaston Wellness Clinic. I'm Aria, your AI receptionist. How can I help you today?",
   holdMusic: 'ambient',
   afterHoursMsg: "Thank you for calling Edgbaston Wellness Clinic. We're currently closed. Our hours are Monday to Friday, 9am to 6pm. Please leave your number and we'll call you back first thing tomorrow.",
 };
+
+// =============================================================================
+// HELPERS
+// =============================================================================
+
+function formatDuration(seconds?: number): string {
+  if (!seconds) return '—';
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}m ${s}s`;
+}
+
+function vapiCallToEntry(c: VapiCall): CallEntry {
+  const isMissed = ['no-answer', 'voicemail', 'failed', 'busy'].includes(c.endedReason ?? '');
+  const caller = c.customer?.name ?? c.customer?.number ?? 'Unknown';
+  const phone = c.customer?.number ?? '—';
+  const dt = c.startedAt ? new Date(c.startedAt) : new Date();
+  const timestamp = dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+
+  return {
+    id: c.id,
+    type: isMissed ? 'missed' : c.type === 'outboundPhoneCall' ? 'outbound' : 'inbound',
+    caller,
+    phone,
+    duration: formatDuration(c.durationSeconds),
+    timestamp,
+    outcome: c.analysis?.summary ?? (isMissed ? 'Missed — no answer' : 'AI handled'),
+    outcome_type: isMissed ? 'missed' : 'info',
+    ai_handled: true,
+    sentiment: 'neutral',
+    topic: 'Inbound',
+  };
+}
 
 // =============================================================================
 // SUB-COMPONENTS
@@ -106,7 +138,6 @@ function StatCard({ label, value, sub, color, trend, delay }: {
   label: string; value: string | number; sub?: string;
   color?: string; trend?: 'up' | 'down' | 'flat'; delay?: number;
 }) {
-  const trendColor = trend === 'up' ? '#4ade80' : trend === 'down' ? '#f87171' : '#6E6688';
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
@@ -117,8 +148,8 @@ function StatCard({ label, value, sub, color, trend, delay }: {
         <span className="text-[11px] uppercase tracking-[0.15em] text-[#6E6688] font-medium">{label}</span>
         {trend && trend !== 'flat' && (
           trend === 'up'
-            ? <TrendingUp size={13} style={{ color: trendColor }} />
-            : <TrendingDown size={13} style={{ color: trendColor }} />
+            ? <TrendingUp size={13} className="text-[#4ade80]" />
+            : <TrendingDown size={13} className="text-[#f87171]" />
         )}
       </div>
       <div className="flex items-end gap-2">
@@ -146,7 +177,7 @@ function CallRow({ call, brandColor }: { call: CallEntry; brandColor: string }) 
     negative: '#f87171',
   };
   return (
-    <div className="flex items-center gap-4 px-5 py-3 border-b border-[#EBE5FF] last:border-0 group hover:bg-[#F0ECFF] transition-colors">
+    <div className="flex items-center gap-4 px-5 py-3 border-b border-[#EBE5FF] last:border-0 hover:bg-[#FAF9F5] transition-colors">
       <div className="w-7 h-7 rounded-lg bg-[#FAF9F5] border border-[#EBE5FF] flex items-center justify-center flex-shrink-0">
         {call.type === 'missed'   ? <PhoneMissed size={12} className="text-[#f87171]/60" /> :
          call.type === 'outbound' ? <PhoneCall size={12} className="text-[#6E6688]" /> :
@@ -166,7 +197,7 @@ function CallRow({ call, brandColor }: { call: CallEntry; brandColor: string }) 
         <p className="text-[12px] text-[#6E6688] truncate">{call.outcome}</p>
       </div>
       <div className="flex items-center gap-3 flex-shrink-0">
-        <div className="w-1.5 h-1.5 rounded-full" style={{ background: sentimentDot[call.sentiment] }} title={call.sentiment} />
+        <div className="w-1.5 h-1.5 rounded-full" style={{ background: sentimentDot[call.sentiment] }} />
         <span className="text-[11px] font-medium px-2 py-0.5 rounded-md"
           style={{ color: outcomeColors[call.outcome_type], background: `${outcomeColors[call.outcome_type]}14` }}>
           {call.outcome_type}
@@ -175,6 +206,77 @@ function CallRow({ call, brandColor }: { call: CallEntry; brandColor: string }) 
         <span className="text-[11px] text-[#8B84A0] w-10 text-right">{call.timestamp}</span>
       </div>
     </div>
+  );
+}
+
+// =============================================================================
+// LIVE CALL WIDGET
+// =============================================================================
+
+function LiveCallWidget({ callState, onEnd, onMute, isMuted, brandColor }: {
+  callState: CallState;
+  onEnd: () => void;
+  onMute: () => void;
+  isMuted: boolean;
+  brandColor: string;
+}) {
+  if (callState === 'idle') return null;
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95, y: 8 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.95, y: 8 }}
+      className="fixed bottom-6 right-6 z-50 bg-white border border-[#EBE5FF] rounded-2xl shadow-xl p-5 w-72"
+    >
+      <div className="flex items-center gap-3 mb-4">
+        <motion.div
+          animate={callState === 'active' ? { scale: [1, 1.2, 1], opacity: [1, 0.6, 1] } : {}}
+          transition={{ duration: 1.5, repeat: Infinity }}
+          className="w-2.5 h-2.5 rounded-full"
+          style={{ background: callState === 'connecting' ? '#f59e0b' : '#4ade80' }}
+        />
+        <span className="text-[13px] font-medium text-[#1A1035]">
+          {callState === 'connecting' ? 'Connecting to Aria…' : 'Live call in progress'}
+        </span>
+      </div>
+
+      {callState === 'active' && (
+        <div className="flex gap-0.5 items-end h-8 mb-4 px-1">
+          {Array.from({ length: 20 }).map((_, i) => (
+            <motion.div
+              key={i}
+              animate={{ scaleY: [0.3, Math.random() * 0.7 + 0.5, 0.3] }}
+              transition={{ duration: 0.4 + (i % 5) * 0.1, repeat: Infinity, delay: i * 0.04 }}
+              className="flex-1 rounded-full"
+              style={{ background: brandColor, opacity: 0.6, transformOrigin: 'bottom' }}
+            />
+          ))}
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <button
+          onClick={onMute}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-[12px] font-medium border transition-all ${
+            isMuted
+              ? 'bg-[#f87171]/10 border-[#f87171]/30 text-[#f87171]'
+              : 'border-[#EBE5FF] text-[#6E6688] hover:text-[#524D66]'
+          }`}
+        >
+          {isMuted ? <MicOff size={12} /> : <Mic size={12} />}
+          {isMuted ? 'Unmute' : 'Mute'}
+        </button>
+        <button
+          onClick={onEnd}
+          className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-[12px] font-medium bg-[#f87171]/10 border border-[#f87171]/30 text-[#f87171] hover:bg-[#f87171]/20 transition-all"
+        >
+          <PhoneOff size={12} /> End Call
+        </button>
+      </div>
+      <p className="text-[10px] text-[#8B84A0] mt-3 text-center">
+        Speaking with Aria — EWC AI Receptionist
+      </p>
+    </motion.div>
   );
 }
 
@@ -194,12 +296,23 @@ export default function VoicePage() {
   const [identity, setIdentity] = useState<ReceptionistIdentity>(DEFAULT_IDENTITY);
   const [saved, setSaved]       = useState(false);
   const [testingVoice, setTestingVoice] = useState(false);
-  const [liveCall, setLiveCall] = useState(false);
   const [maintenanceMode, setMaintenanceMode] = useState(false);
+
+  // Vapi state
+  const [vapiConnected, setVapiConnected]   = useState(false);
+  const [assistantId, setAssistantId]       = useState<string | null>(null);
+  const [callState, setCallState]           = useState<CallState>('idle');
+  const [isMuted, setIsMuted]               = useState(false);
+  const [vapiCalls, setVapiCalls]           = useState<CallEntry[]>([]);
+  const [vapiLoading, setVapiLoading]       = useState(false);
+  const vapiRef = useRef<import('@vapi-ai/web').default | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const brandColor = profile?.brandColor || '#8A6CFF';
 
+  // ---------------------------------------------------------------------------
+  // Auth + profile
+  // ---------------------------------------------------------------------------
   useEffect(() => {
     (async () => {
       let uid = urlUserId;
@@ -215,12 +328,50 @@ export default function VoicePage() {
     })();
   }, [urlUserId, router]);
 
-  // Simulate a live call blipping on/off
+  // ---------------------------------------------------------------------------
+  // Vapi: check status + load calls
+  // ---------------------------------------------------------------------------
   useEffect(() => {
-    const t = setInterval(() => setLiveCall(v => !v), 7000);
-    return () => clearInterval(t);
+    (async () => {
+      const status = await getVapiStatus();
+      setVapiConnected(status.connected);
+      if (status.assistantId) setAssistantId(status.assistantId);
+
+      const callsRes = await getVapiCalls(20);
+      if (callsRes.success && callsRes.calls.length > 0) {
+        setVapiCalls(callsRes.calls.map(vapiCallToEntry));
+      }
+    })();
   }, []);
 
+  // ---------------------------------------------------------------------------
+  // Vapi SDK: initialise (browser-only, dynamic import)
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const publicKey = process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY;
+    if (!publicKey) return;
+
+    import('@vapi-ai/web').then(({ default: Vapi }) => {
+      const vapi = new Vapi(publicKey);
+      vapiRef.current = vapi;
+
+      vapi.on('call-start', () => setCallState('active'));
+      vapi.on('call-end', () => { setCallState('idle'); setIsMuted(false); });
+      vapi.on('error', (err) => {
+        console.error('[vapi]', err);
+        setCallState('idle');
+      });
+    });
+
+    return () => {
+      vapiRef.current?.stop();
+    };
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // Handlers
+  // ---------------------------------------------------------------------------
   function handleSave() {
     setSaved(true);
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -232,19 +383,62 @@ export default function VoicePage() {
     setTimeout(() => setTestingVoice(false), 2500);
   }
 
-  if (loading || !profile) {
-    return (
-      <div className="min-h-screen pl-[240px] bg-[#FAF7F2] flex items-center justify-center">
-        <motion.div animate={{ opacity: [0.2, 0.5, 0.2] }} transition={{ duration: 1.8, repeat: Infinity }}
-          className="w-1.5 h-1.5 rounded-full bg-[#F0EDE5]" />
-      </div>
-    );
-  }
+  const handleStartCall = useCallback(async () => {
+    if (callState !== 'idle') return;
+    setCallState('connecting');
+    setVapiLoading(true);
 
-  const totalCalls  = MOCK_CALLS.length;
-  const missedCount = MOCK_CALLS.filter(c => c.type === 'missed').length;
-  const aiHandled   = MOCK_CALLS.filter(c => c.ai_handled).length;
-  const booked      = MOCK_CALLS.filter(c => c.outcome_type === 'booked').length;
+    try {
+      // Provision assistant if not yet created
+      let aid = assistantId;
+      if (!aid) {
+        const res = await getOrCreateVapiAssistant();
+        if (!res.success || !res.assistantId) {
+          console.error('[vapi] Failed to create assistant:', res.error);
+          setCallState('idle');
+          setVapiLoading(false);
+          return;
+        }
+        aid = res.assistantId;
+        setAssistantId(aid);
+        setVapiConnected(true);
+      }
+
+      if (!vapiRef.current) {
+        setCallState('idle');
+        setVapiLoading(false);
+        return;
+      }
+
+      await vapiRef.current.start(aid);
+    } catch (err) {
+      console.error('[vapi] Start error:', err);
+      setCallState('idle');
+    } finally {
+      setVapiLoading(false);
+    }
+  }, [callState, assistantId]);
+
+  const handleEndCall = useCallback(() => {
+    setCallState('ending');
+    vapiRef.current?.stop();
+  }, []);
+
+  const handleMute = useCallback(() => {
+    if (!vapiRef.current) return;
+    const next = !isMuted;
+    vapiRef.current.setMuted(next);
+    setIsMuted(next);
+  }, [isMuted]);
+
+  // ---------------------------------------------------------------------------
+  // Derived data
+  // ---------------------------------------------------------------------------
+  const displayCalls = vapiCalls.length > 0 ? vapiCalls : MOCK_CALLS;
+  const totalCalls  = displayCalls.length;
+  const missedCount = displayCalls.filter(c => c.type === 'missed').length;
+  const aiHandled   = displayCalls.filter(c => c.ai_handled).length;
+  const booked      = displayCalls.filter(c => c.outcome_type === 'booked').length;
   const answerRate  = Math.round(((totalCalls - missedCount) / totalCalls) * 100);
   const aiPct       = Math.round((aiHandled / totalCalls) * 100);
 
@@ -254,6 +448,15 @@ export default function VoicePage() {
     { id: 'intelligence',  label: 'Intelligence',  icon: Brain      },
     { id: 'settings',      label: 'Settings',      icon: Settings   },
   ];
+
+  if (loading || !profile) {
+    return (
+      <div className="min-h-screen pl-[240px] bg-[#FAF7F2] flex items-center justify-center">
+        <motion.div animate={{ opacity: [0.2, 0.5, 0.2] }} transition={{ duration: 1.8, repeat: Infinity }}
+          className="w-1.5 h-1.5 rounded-full bg-[#8B84A0]" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen pl-[240px]">
@@ -270,25 +473,28 @@ export default function VoicePage() {
               <p className="text-[13px] text-[#6E6688] mt-1">Aria — voice identity, call metrics, and conversation intelligence.</p>
             </div>
             <div className="flex items-center gap-3">
-              {/* Live call pulse */}
+              {/* Call state indicator */}
               <AnimatePresence>
-                {liveCall && (
+                {callState !== 'idle' && (
                   <motion.div
                     initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.9 }}
-                    className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#FAF9F5] border border-[#D5CCFF]"
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-[#EBE5FF]"
                   >
                     <motion.div
                       animate={{ scale: [1, 1.35, 1], opacity: [1, 0.5, 1] }}
                       transition={{ duration: 1.2, repeat: Infinity }}
                       className="w-2 h-2 rounded-full"
-                      style={{ background: '#4ade80' }}
+                      style={{ background: callState === 'connecting' ? '#f59e0b' : '#4ade80' }}
                     />
-                    <span className="text-[12px] text-[#524D66]">Live call in progress</span>
+                    <span className="text-[12px] text-[#524D66]">
+                      {callState === 'connecting' ? 'Connecting…' : 'Live call in progress'}
+                    </span>
                     <Mic size={12} className="text-[#6E6688]" />
                   </motion.div>
                 )}
               </AnimatePresence>
+
               {/* Maintenance toggle */}
               <button
                 onClick={() => setMaintenanceMode(v => !v)}
@@ -301,10 +507,17 @@ export default function VoicePage() {
                 {maintenanceMode ? <MicOff size={13} /> : <Mic size={13} />}
                 {maintenanceMode ? 'Maintenance' : 'Live'}
               </button>
-              {/* Status */}
-              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#F0ECFF] border border-[#EBE5FF]">
-                <div className="w-2 h-2 rounded-full bg-[#F0EDE5]" />
-                <span className="text-[12px] text-[#6E6688]">Vapi.ai — pending</span>
+
+              {/* Vapi connection status */}
+              <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${
+                vapiConnected
+                  ? 'bg-white border-[#EBE5FF]'
+                  : 'bg-[#FEF3C7] border-[#D97706]/20'
+              }`}>
+                <div className={`w-2 h-2 rounded-full ${vapiConnected ? 'bg-[#4ade80]' : 'bg-[#f59e0b]'}`} />
+                <span className="text-[12px] text-[#6E6688]">
+                  {vapiConnected ? 'Vapi.ai — connected' : 'Vapi.ai — pending'}
+                </span>
               </div>
             </div>
           </div>
@@ -340,24 +553,23 @@ export default function VoicePage() {
 
               {/* KPI row */}
               <div className="grid grid-cols-5 gap-3 mb-8">
-                <StatCard label="Calls Today"   value={totalCalls}     trend="up"   color={brandColor} delay={0.06} />
+                <StatCard label="Calls Today"   value={totalCalls}       trend="up"   color={brandColor} delay={0.06} />
                 <StatCard label="Answer Rate"   value={`${answerRate}%`} trend="up"   color="#4ade80"    delay={0.10} />
-                <StatCard label="AI Handled"    value={`${aiPct}%`}    trend="up"   color={brandColor} delay={0.13} />
-                <StatCard label="Bookings"       value={booked}         trend="up"   color="#60a5fa"    delay={0.16} />
-                <StatCard label="Avg Duration"  value="4m 12s" sub="per call"       delay={0.19} />
+                <StatCard label="AI Handled"    value={`${aiPct}%`}      trend="up"   color={brandColor} delay={0.13} />
+                <StatCard label="Bookings"      value={booked}           trend="up"   color="#60a5fa"    delay={0.16} />
+                <StatCard label="Avg Duration"  value="4m 12s" sub="per call"         delay={0.19} />
               </div>
 
               {/* Sentiment bar */}
               <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }}
-                className="mb-8 bg-[#F0ECFF] border border-[#EBE5FF] rounded-xl p-5">
+                className="mb-8 bg-white border border-[#EBE5FF] rounded-xl p-5">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-[11px] uppercase tracking-[0.15em] text-[#6E6688] font-medium">Caller Sentiment — Today</span>
                   <span className="text-[11px] text-[#8B84A0]">{totalCalls} calls analysed</span>
                 </div>
                 <div className="flex gap-1 h-2 rounded-full overflow-hidden">
-                  {/* positive 62%, neutral 25%, negative 13% */}
                   <div className="rounded-l-full" style={{ width: '62%', background: '#4ade80', opacity: 0.7 }} />
-                  <div style={{ width: '25%', background: '#F0EDE5' }} />
+                  <div style={{ width: '25%', background: '#e5e3f0' }} />
                   <div className="rounded-r-full" style={{ width: '13%', background: '#f87171', opacity: 0.7 }} />
                 </div>
                 <div className="flex gap-6 mt-3">
@@ -374,11 +586,13 @@ export default function VoicePage() {
               {/* Call feed */}
               <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.26 }}>
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-[11px] uppercase tracking-[0.18em] text-[#6E6688] font-medium">Recent Calls</h2>
-                  <span className="text-[11px] text-[#6E6688]">Today · {MOCK_CALLS.length} calls</span>
+                  <h2 className="text-[11px] uppercase tracking-[0.18em] text-[#6E6688] font-medium">
+                    Recent Calls {vapiCalls.length > 0 ? '— Live from Vapi' : '— Sample data'}
+                  </h2>
+                  <span className="text-[11px] text-[#6E6688]">{displayCalls.length} calls</span>
                 </div>
-                <div className="bg-[#F0ECFF] border border-[#EBE5FF] rounded-xl overflow-hidden">
-                  {MOCK_CALLS.map(call => <CallRow key={call.id} call={call} brandColor={brandColor} />)}
+                <div className="bg-white border border-[#EBE5FF] rounded-xl overflow-hidden">
+                  {displayCalls.map(call => <CallRow key={call.id} call={call} brandColor={brandColor} />)}
                 </div>
               </motion.div>
             </motion.div>
@@ -394,8 +608,8 @@ export default function VoicePage() {
                 {/* Left: controls */}
                 <div className="col-span-8 space-y-5">
 
-                  {/* Name + Voice */}
-                  <div className="bg-[#F0ECFF] border border-[#EBE5FF] rounded-xl p-6">
+                  {/* Name + Personality */}
+                  <div className="bg-white border border-[#EBE5FF] rounded-xl p-6">
                     <h3 className="text-[11px] uppercase tracking-[0.15em] text-[#6E6688] font-medium mb-5">Receptionist Identity</h3>
                     <div className="grid grid-cols-2 gap-5">
                       <div>
@@ -403,7 +617,7 @@ export default function VoicePage() {
                         <input
                           value={identity.name}
                           onChange={e => setIdentity(v => ({ ...v, name: e.target.value }))}
-                          className="w-full bg-[#FAF9F5] border border-[#D5CCFF] rounded-lg px-3 py-2.5 text-[14px] text-[#1A1035] outline-none focus:border-[#D5CCFF] transition-colors"
+                          className="w-full bg-[#FAF7F2] border border-[#EBE5FF] rounded-lg px-3 py-2.5 text-[14px] text-[#1A1035] outline-none focus:border-[#D5CCFF] transition-colors"
                         />
                       </div>
                       <div>
@@ -415,7 +629,7 @@ export default function VoicePage() {
                               onClick={() => setIdentity(v => ({ ...v, personality: p }))}
                               className={`flex-1 py-2 rounded-lg text-[12px] font-medium border transition-all capitalize ${
                                 identity.personality === p
-                                  ? 'border-[#D5CCFF] bg-white text-[#1A1035]'
+                                  ? 'border-[#D5CCFF] bg-[#FAF7F2] text-[#1A1035]'
                                   : 'border-[#EBE5FF] text-[#6E6688] hover:text-[#524D66]'
                               }`}
                             >
@@ -428,8 +642,8 @@ export default function VoicePage() {
                   </div>
 
                   {/* Voice selection */}
-                  <div className="bg-[#F0ECFF] border border-[#EBE5FF] rounded-xl p-6">
-                    <h3 className="text-[11px] uppercase tracking-[0.15em] text-[#6E6688] font-medium mb-5">Voice</h3>
+                  <div className="bg-white border border-[#EBE5FF] rounded-xl p-6">
+                    <h3 className="text-[11px] uppercase tracking-[0.15em] text-[#6E6688] font-medium mb-5">Voice (ElevenLabs)</h3>
                     <div className="grid grid-cols-2 gap-3">
                       {VOICE_OPTIONS.map(v => (
                         <button
@@ -437,8 +651,8 @@ export default function VoicePage() {
                           onClick={() => setIdentity(id => ({ ...id, voice: v.id }))}
                           className={`flex items-center justify-between px-4 py-3.5 rounded-xl border transition-all text-left ${
                             identity.voice === v.id
-                              ? 'bg-[#FAF9F5] border-[#D5CCFF]'
-                              : 'bg-[#F0ECFF] border-[#EBE5FF] hover:border-[#D5CCFF]'
+                              ? 'bg-[#FAF7F2] border-[#D5CCFF]'
+                              : 'bg-white border-[#EBE5FF] hover:border-[#D5CCFF]'
                           }`}
                         >
                           <div>
@@ -452,7 +666,6 @@ export default function VoicePage() {
                             <button
                               onClick={e => { e.stopPropagation(); handleTestVoice(); }}
                               className="p-1.5 rounded-lg bg-[#FAF7F2] hover:bg-[#EBE5FF] transition-colors"
-                              title="Preview voice"
                             >
                               <Volume2 size={12} className="text-[#6E6688]" />
                             </button>
@@ -462,28 +675,24 @@ export default function VoicePage() {
                     </div>
                     {testingVoice && (
                       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className="mt-3 flex items-center gap-3 px-4 py-2.5 bg-[#FAF9F5] border border-[#EBE5FF] rounded-lg">
-                        <motion.div
-                          animate={{ scaleX: [1, 1.8, 0.6, 1.5, 0.8, 1] }}
-                          transition={{ duration: 2, repeat: Infinity }}
-                          className="flex gap-0.5 items-end h-4"
-                        >
+                        className="mt-3 flex items-center gap-3 px-4 py-2.5 bg-[#FAF7F2] border border-[#EBE5FF] rounded-lg">
+                        <div className="flex gap-0.5 items-end h-4">
                           {[3, 5, 7, 4, 6, 3, 5].map((h, i) => (
                             <motion.div key={i}
-                              animate={{ scaleY: [1, Math.random() * 2 + 0.5, 1] }}
+                              animate={{ scaleY: [1, 1.5 + (i % 3) * 0.5, 1] }}
                               transition={{ duration: 0.4 + i * 0.1, repeat: Infinity, delay: i * 0.06 }}
                               className="w-0.5 rounded-full"
                               style={{ height: h * 2, background: brandColor, opacity: 0.7 }}
                             />
                           ))}
-                        </motion.div>
+                        </div>
                         <span className="text-[12px] text-[#6E6688]">Playing preview…</span>
                       </motion.div>
                     )}
                   </div>
 
                   {/* Greeting script */}
-                  <div className="bg-[#F0ECFF] border border-[#EBE5FF] rounded-xl p-6">
+                  <div className="bg-white border border-[#EBE5FF] rounded-xl p-6">
                     <div className="flex items-center justify-between mb-5">
                       <h3 className="text-[11px] uppercase tracking-[0.15em] text-[#6E6688] font-medium">Greeting Script</h3>
                       <button
@@ -497,37 +706,36 @@ export default function VoicePage() {
                       value={identity.greeting}
                       onChange={e => setIdentity(v => ({ ...v, greeting: e.target.value }))}
                       rows={3}
-                      className="w-full bg-[#FAF9F5] border border-[#D5CCFF] rounded-lg px-3 py-2.5 text-[13px] text-[#1A1035] leading-relaxed outline-none focus:border-[#D5CCFF] transition-colors resize-none"
+                      className="w-full bg-[#FAF7F2] border border-[#EBE5FF] rounded-lg px-3 py-2.5 text-[13px] text-[#1A1035] leading-relaxed outline-none focus:border-[#D5CCFF] transition-colors resize-none"
                     />
                     <p className="text-[11px] text-[#8B84A0] mt-2">
                       Variables: <code className="text-[#6E6688]">{'{{clinic_name}}'}</code> · <code className="text-[#6E6688]">{'{{receptionist_name}}'}</code>
                     </p>
                   </div>
 
-                  {/* After-hours message */}
-                  <div className="bg-[#F0ECFF] border border-[#EBE5FF] rounded-xl p-6">
+                  {/* After-hours */}
+                  <div className="bg-white border border-[#EBE5FF] rounded-xl p-6">
                     <h3 className="text-[11px] uppercase tracking-[0.15em] text-[#6E6688] font-medium mb-5">After-Hours Message</h3>
                     <textarea
                       value={identity.afterHoursMsg}
                       onChange={e => setIdentity(v => ({ ...v, afterHoursMsg: e.target.value }))}
                       rows={3}
-                      className="w-full bg-[#FAF9F5] border border-[#D5CCFF] rounded-lg px-3 py-2.5 text-[13px] text-[#1A1035] leading-relaxed outline-none focus:border-[#D5CCFF] transition-colors resize-none"
+                      className="w-full bg-[#FAF7F2] border border-[#EBE5FF] rounded-lg px-3 py-2.5 text-[13px] text-[#1A1035] leading-relaxed outline-none focus:border-[#D5CCFF] transition-colors resize-none"
                     />
                   </div>
 
-                  {/* Save button */}
+                  {/* Save */}
                   <div className="flex items-center gap-3">
                     <button
                       onClick={handleSave}
-                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-medium transition-all"
-                      style={{ background: brandColor, color: '#ffffff' }}
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-medium bg-[#1A1035] text-white hover:bg-[#2D1F6E] transition-colors"
                     >
                       {saved ? <CheckCircle2 size={14} /> : <Save size={14} />}
                       {saved ? 'Saved' : 'Save Identity'}
                     </button>
                     <button
                       onClick={handleTestVoice}
-                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-medium border border-[#D5CCFF] text-[#524D66] hover:text-[#1A1035] hover:border-[#D5CCFF] transition-all"
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-medium border border-[#D5CCFF] text-[#524D66] hover:text-[#1A1035] transition-colors"
                     >
                       <Play size={13} /> Test Greeting
                     </button>
@@ -536,9 +744,8 @@ export default function VoicePage() {
 
                 {/* Right: live preview */}
                 <div className="col-span-4 space-y-4">
-                  <div className="bg-[#F0ECFF] border border-[#EBE5FF] rounded-xl p-5 sticky top-20">
+                  <div className="bg-white border border-[#EBE5FF] rounded-xl p-5 sticky top-20">
                     <h3 className="text-[11px] uppercase tracking-[0.15em] text-[#6E6688] font-medium mb-5">Live Preview</h3>
-                    {/* Avatar orb */}
                     <div className="flex justify-center mb-5">
                       <div className="relative">
                         <motion.div
@@ -554,17 +761,15 @@ export default function VoicePage() {
                       </div>
                     </div>
                     <p className="text-center text-[16px] font-semibold text-[#1A1035] mb-1">{identity.name}</p>
-                    <p className="text-center text-[12px] text-[#6E6688] mb-5 capitalize">{identity.personality} · {VOICE_OPTIONS.find(v => v.id === identity.voice)?.desc}</p>
-
-                    {/* Greeting preview */}
-                    <div className="bg-white border border-[#EBE5FF] rounded-xl p-4">
+                    <p className="text-center text-[12px] text-[#6E6688] mb-5 capitalize">
+                      {identity.personality} · {VOICE_OPTIONS.find(v => v.id === identity.voice)?.desc}
+                    </p>
+                    <div className="bg-[#FAF7F2] border border-[#EBE5FF] rounded-xl p-4">
                       <p className="text-[11px] uppercase tracking-[0.12em] text-[#8B84A0] mb-2">Greeting</p>
                       <p className="text-[12px] text-[#524D66] leading-relaxed italic">
                         &ldquo;{identity.greeting.replace('{{clinic_name}}', 'Edgbaston Wellness Clinic').replace('{{receptionist_name}}', identity.name)}&rdquo;
                       </p>
                     </div>
-
-                    {/* Hold music */}
                     <div className="mt-4">
                       <p className="text-[11px] text-[#6E6688] mb-2">Hold music</p>
                       <div className="flex gap-2">
@@ -574,7 +779,7 @@ export default function VoicePage() {
                             onClick={() => setIdentity(v => ({ ...v, holdMusic: h.id }))}
                             className={`flex-1 py-1.5 rounded-lg text-[11px] border transition-all ${
                               identity.holdMusic === h.id
-                                ? 'border-[#D5CCFF] text-[#1A1035] bg-[#FAF9F5]'
+                                ? 'border-[#D5CCFF] text-[#1A1035] bg-[#FAF7F2]'
                                 : 'border-[#EBE5FF] text-[#8B84A0] hover:border-[#D5CCFF]'
                             }`}
                           >
@@ -598,7 +803,7 @@ export default function VoicePage() {
 
                 {/* Enquiry topics */}
                 <div className="col-span-6">
-                  <div className="bg-[#F0ECFF] border border-[#EBE5FF] rounded-xl p-6">
+                  <div className="bg-white border border-[#EBE5FF] rounded-xl p-6">
                     <h3 className="text-[11px] uppercase tracking-[0.15em] text-[#6E6688] font-medium mb-5">Top Enquiry Topics — This Week</h3>
                     <div className="space-y-3">
                       {ENQUIRY_TOPICS.map((t, i) => (
@@ -614,7 +819,7 @@ export default function VoicePage() {
                               <span className="text-[12px] font-medium text-[#524D66] w-8 text-right">{t.pct}%</span>
                             </div>
                           </div>
-                          <div className="h-1.5 rounded-full bg-[#FAF9F5] overflow-hidden">
+                          <div className="h-1.5 rounded-full bg-[#FAF7F2] overflow-hidden">
                             <motion.div
                               initial={{ width: 0 }} animate={{ width: `${t.pct}%` }}
                               transition={{ delay: 0.1 + i * 0.07, duration: 0.6, ease: 'easeOut' }}
@@ -630,11 +835,11 @@ export default function VoicePage() {
 
                 {/* Objection handling */}
                 <div className="col-span-6">
-                  <div className="bg-[#F0ECFF] border border-[#EBE5FF] rounded-xl p-6">
+                  <div className="bg-white border border-[#EBE5FF] rounded-xl p-6">
                     <h3 className="text-[11px] uppercase tracking-[0.15em] text-[#6E6688] font-medium mb-5">Objection Handling</h3>
                     <div className="space-y-2.5">
                       {OBJECTIONS.map(o => (
-                        <div key={o.text} className="flex items-center justify-between px-4 py-3 bg-[#F0ECFF] border border-[#EBE5FF] rounded-xl">
+                        <div key={o.text} className="flex items-center justify-between px-4 py-3 bg-[#FAF7F2] border border-[#EBE5FF] rounded-xl">
                           <span className="text-[12px] text-[#524D66]">{o.text}</span>
                           <div className="flex items-center gap-3 flex-shrink-0">
                             <span className="text-[11px] text-[#8B84A0]">{o.count}×</span>
@@ -654,15 +859,15 @@ export default function VoicePage() {
 
                 {/* Conversion funnel */}
                 <div className="col-span-12">
-                  <div className="bg-[#F0ECFF] border border-[#EBE5FF] rounded-xl p-6">
+                  <div className="bg-white border border-[#EBE5FF] rounded-xl p-6">
                     <h3 className="text-[11px] uppercase tracking-[0.15em] text-[#6E6688] font-medium mb-6">Call Conversion Funnel — This Week</h3>
                     <div className="flex items-end gap-4">
                       {[
                         { label: 'Calls Received', value: 125, pct: 100, color: '#8B84A0' },
-                        { label: 'AI Handled',      value: 104, pct: 83,  color: '#6E6688' },
-                        { label: 'Engaged',         value: 89,  pct: 71,  color: '#6E6688' },
-                        { label: 'Interested',      value: 62,  pct: 50,  color: '#6E6688' },
-                        { label: 'Bookings',        value: 31,  pct: 25,  color: brandColor              },
+                        { label: 'AI Handled',     value: 104, pct: 83,  color: '#6E6688' },
+                        { label: 'Engaged',        value: 89,  pct: 71,  color: '#6E6688' },
+                        { label: 'Interested',     value: 62,  pct: 50,  color: '#6E6688' },
+                        { label: 'Bookings',       value: 31,  pct: 25,  color: brandColor },
                       ].map((f, i) => (
                         <div key={f.label} className="flex-1 text-center">
                           <div className="flex flex-col justify-end h-28 mb-2">
@@ -675,7 +880,8 @@ export default function VoicePage() {
                           </div>
                           <p className="text-[20px] font-semibold text-[#1A1035] leading-none">{f.value}</p>
                           <p className="text-[10px] text-[#8B84A0] mt-1">{f.label}</p>
-                          <p className="text-[10px] font-medium mt-0.5" style={{ color: f.color === brandColor ? brandColor : '#6E6688' }}>{f.pct}%</p>
+                          <p className="text-[10px] font-medium mt-0.5"
+                            style={{ color: f.color === brandColor ? brandColor : '#6E6688' }}>{f.pct}%</p>
                         </div>
                       ))}
                     </div>
@@ -694,7 +900,7 @@ export default function VoicePage() {
                 <div className="col-span-7 space-y-5">
 
                   {/* Operating hours */}
-                  <div className="bg-[#F0ECFF] border border-[#EBE5FF] rounded-xl p-6">
+                  <div className="bg-white border border-[#EBE5FF] rounded-xl p-6">
                     <h3 className="text-[11px] uppercase tracking-[0.15em] text-[#6E6688] font-medium mb-5">Operating Hours</h3>
                     <div className="space-y-3">
                       {[
@@ -702,11 +908,11 @@ export default function VoicePage() {
                         { day: 'Saturday',         hours: '10:00 – 14:00', active: true  },
                         { day: 'Sunday',           hours: 'Closed',        active: false },
                       ].map(row => (
-                        <div key={row.day} className="flex items-center justify-between px-4 py-3 bg-[#F0ECFF] border border-[#EBE5FF] rounded-xl">
+                        <div key={row.day} className="flex items-center justify-between px-4 py-3 bg-[#FAF7F2] border border-[#EBE5FF] rounded-xl">
                           <span className="text-[13px] text-[#524D66]">{row.day}</span>
                           <div className="flex items-center gap-3">
                             <span className={`text-[12px] ${row.active ? 'text-[#524D66]' : 'text-[#6E6688]'}`}>{row.hours}</span>
-                            <div className={`w-1.5 h-1.5 rounded-full ${row.active ? 'bg-[#4ade80]/50' : 'bg-[#F0EDE5]'}`} />
+                            <div className={`w-1.5 h-1.5 rounded-full ${row.active ? 'bg-[#4ade80]/50' : 'bg-[#e5e3f0]'}`} />
                           </div>
                         </div>
                       ))}
@@ -715,16 +921,16 @@ export default function VoicePage() {
                   </div>
 
                   {/* Escalation rules */}
-                  <div className="bg-[#F0ECFF] border border-[#EBE5FF] rounded-xl p-6">
+                  <div className="bg-white border border-[#EBE5FF] rounded-xl p-6">
                     <h3 className="text-[11px] uppercase tracking-[0.15em] text-[#6E6688] font-medium mb-5">Escalation Rules</h3>
                     <div className="space-y-3">
                       {[
-                        { trigger: 'Caller requests doctor',         action: 'Transfer to clinical team',     enabled: true  },
-                        { trigger: 'Emergency keywords detected',    action: 'Transfer to 999 + notify staff', enabled: true  },
-                        { trigger: 'Cannot resolve after 3 turns',   action: 'Offer callback + SMS summary',   enabled: true  },
-                        { trigger: 'Caller sounds distressed',       action: 'Transfer to reception',          enabled: false },
+                        { trigger: 'Caller requests doctor',        action: 'Transfer to clinical team',     enabled: true  },
+                        { trigger: 'Emergency keywords detected',   action: 'Transfer to 999 + notify staff', enabled: true  },
+                        { trigger: 'Cannot resolve after 3 turns',  action: 'Offer callback + SMS summary',   enabled: true  },
+                        { trigger: 'Caller sounds distressed',      action: 'Transfer to reception',          enabled: false },
                       ].map(r => (
-                        <div key={r.trigger} className="flex items-start gap-4 px-4 py-3 bg-[#F0ECFF] border border-[#EBE5FF] rounded-xl">
+                        <div key={r.trigger} className="flex items-start gap-4 px-4 py-3 bg-[#FAF7F2] border border-[#EBE5FF] rounded-xl">
                           <div className={`mt-0.5 w-1.5 h-1.5 rounded-full flex-shrink-0 ${r.enabled ? '' : 'opacity-30'}`}
                             style={{ background: r.enabled ? brandColor : '#6E6688' }} />
                           <div className="flex-1">
@@ -738,7 +944,7 @@ export default function VoicePage() {
                   </div>
 
                   {/* Compliance */}
-                  <div className="bg-[#F0ECFF] border border-[#EBE5FF] rounded-xl p-6">
+                  <div className="bg-white border border-[#EBE5FF] rounded-xl p-6">
                     <div className="flex items-center gap-3 mb-5">
                       <Shield size={14} className="text-[#6E6688]" />
                       <h3 className="text-[11px] uppercase tracking-[0.15em] text-[#6E6688] font-medium">Compliance & Recording</h3>
@@ -762,20 +968,25 @@ export default function VoicePage() {
                   </div>
                 </div>
 
-                {/* Right: quick actions */}
+                {/* Right: quick actions + integration status */}
                 <div className="col-span-5 space-y-4">
-                  <div className="bg-[#F0ECFF] border border-[#EBE5FF] rounded-xl p-5">
+                  <div className="bg-white border border-[#EBE5FF] rounded-xl p-5">
                     <h3 className="text-[11px] uppercase tracking-[0.15em] text-[#6E6688] font-medium mb-4">Quick Actions</h3>
                     <div className="space-y-2">
                       {[
-                        { label: 'Test live call',       icon: Phone,        action: () => {} },
-                        { label: 'Edit greeting script', icon: Edit3,        action: () => setTab('identity') },
-                        { label: 'Connect Vapi.ai',      icon: Zap,          action: () => router.push(`/staff/account?userId=${userId}`) },
-                        { label: 'View call recordings', icon: MessageSquare, action: () => {} },
+                        {
+                          label: callState !== 'idle' ? 'End test call' : 'Test live call (browser)',
+                          icon: callState !== 'idle' ? PhoneOff : Phone,
+                          action: callState !== 'idle' ? handleEndCall : handleStartCall,
+                          loading: vapiLoading,
+                        },
+                        { label: 'Edit greeting script', icon: Edit3,        action: () => setTab('identity'), loading: false },
+                        { label: 'View call recordings', icon: MessageSquare, action: () => {},                loading: false },
+                        { label: 'Integrations page',    icon: Zap,          action: () => router.push(`/staff/integrations?userId=${userId}`), loading: false },
                       ].map(a => (
-                        <button key={a.label} onClick={a.action}
-                          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] text-[#6E6688] hover:text-[#524D66] hover:bg-[#FAF9F5] transition-all text-left border border-transparent hover:border-[#EBE5FF]">
-                          <a.icon size={13} className="flex-shrink-0" />
+                        <button key={a.label} onClick={a.action} disabled={a.loading}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] text-[#6E6688] hover:text-[#524D66] hover:bg-[#FAF7F2] transition-all text-left border border-transparent hover:border-[#EBE5FF] disabled:opacity-50">
+                          {a.loading ? <Loader2 size={13} className="animate-spin flex-shrink-0" /> : <a.icon size={13} className="flex-shrink-0" />}
                           {a.label}
                           <ChevronRight size={11} className="ml-auto opacity-40" />
                         </button>
@@ -783,13 +994,13 @@ export default function VoicePage() {
                     </div>
                   </div>
 
-                  <div className="bg-[#F0ECFF] border border-[#EBE5FF] rounded-xl p-5">
+                  <div className="bg-white border border-[#EBE5FF] rounded-xl p-5">
                     <h3 className="text-[11px] uppercase tracking-[0.15em] text-[#6E6688] font-medium mb-4">Integration Status</h3>
                     <div className="space-y-3">
                       {[
-                        { name: 'Vapi.ai Voice',  status: 'Pending',   color: '#f59e0b' },
-                        { name: 'Twilio SMS',     status: 'Pending',   color: '#f59e0b' },
-                        { name: 'Cliniko',        status: 'Pending',   color: '#f59e0b' },
+                        { name: 'Vapi.ai Voice', status: vapiConnected ? 'Connected' : 'Pending', color: vapiConnected ? '#4ade80' : '#f59e0b' },
+                        { name: 'Twilio SMS',    status: 'Pending',    color: '#f59e0b' },
+                        { name: 'Cliniko',       status: 'Pending',    color: '#f59e0b' },
                       ].map(s => (
                         <div key={s.name} className="flex items-center justify-between">
                           <span className="text-[13px] text-[#524D66]">{s.name}</span>
@@ -800,12 +1011,12 @@ export default function VoicePage() {
                         </div>
                       ))}
                     </div>
-                    <button
-                      onClick={() => router.push(`/staff/account?userId=${userId}`)}
-                      className="mt-4 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[12px] font-medium border border-[#D5CCFF] text-[#6E6688] hover:text-[#524D66] hover:border-[#D5CCFF] transition-all"
-                    >
-                      <Zap size={12} /> Configure Integrations
-                    </button>
+                    <p className="text-[11px] text-[#8B84A0] mt-4 leading-relaxed">
+                      Webhook URL for Vapi dashboard:<br />
+                      <code className="text-[10px] text-[#6E6688] break-all">
+                        /api/vapi/webhook
+                      </code>
+                    </p>
                   </div>
                 </div>
               </div>
@@ -814,6 +1025,19 @@ export default function VoicePage() {
 
         </AnimatePresence>
       </div>
+
+      {/* Floating live call widget */}
+      <AnimatePresence>
+        {callState !== 'idle' && (
+          <LiveCallWidget
+            callState={callState}
+            onEnd={handleEndCall}
+            onMute={handleMute}
+            isMuted={isMuted}
+            brandColor={brandColor}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
