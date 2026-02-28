@@ -1,0 +1,1385 @@
+{
+  "tenant": {
+    "company_name": "University of Oldbury Students' Guild",
+    "company_legal_name": "University of Oldbury Students' Guild Ltd",
+    "company_registration_number": "RC000842",
+    "primary_email": "joe@uoo.co.uk",
+    "primary_phone": "+44 121 555 0142",
+    "website_url": "https://guild.uoo.ac.uk",
+    "address_line_1": "Guild House",
+    "address_line_2": "University Campus, Oldbury Road",
+    "city": "Oldbury",
+    "region": "West Midlands",
+    "postal_code": "B69 4PL",
+    "country": "United Kingdom",
+    "organization_type": "student_union",
+    "organization_subtype": "university_guild",
+    "industry_slug": "education"
+  },
+
+  "activation_key": {
+    "key_code": "JWEBLY-DEMO-2026",
+    "intended_email": "joe@uoo.co.uk",
+    "intended_industry_slug": "education",
+    "intended_company_name": "University of Oldbury Students' Guild",
+    "notes": "Demo client for JWEBLY system pilot. First education sector deployment.",
+    "created_by": "JWEBLY Agency - Joe"
+  },
+
+  "discovery_audit": {
+    "discovery_call_date": "2026-01-28",
+    "conducted_by": "Joe Webster",
+    "decision_maker_name": "Sarah Thompson",
+    "decision_maker_role": "Guild President",
+    "decision_maker_email": "s.thompson@uoo.ac.uk",
+
+    "team_size_range": "11-50",
+    "annual_budget_range": "£250,000-£500,000",
+    "founding_year": 1967,
+
+    "current_tools": [
+      {
+        "name": "Microsoft 365",
+        "category": "productivity",
+        "satisfaction_score": 7,
+        "notes": "Good for email and docs, but poor for workflow automation. No cross-department visibility."
+      },
+      {
+        "name": "Trello",
+        "category": "project_management",
+        "satisfaction_score": 5,
+        "notes": "Team rarely updates boards, becomes stale quickly. Officers abandon it mid-term."
+      },
+      {
+        "name": "WhatsApp Groups",
+        "category": "communication",
+        "satisfaction_score": 3,
+        "notes": "Chaotic, messages get lost, no accountability. 47 different groups, context switches constantly."
+      },
+      {
+        "name": "Google Forms",
+        "category": "data_collection",
+        "satisfaction_score": 4,
+        "notes": "Basic but limited analysis. Data trapped in spreadsheets, no integration."
+      },
+      {
+        "name": "Custom WordPress",
+        "category": "website",
+        "satisfaction_score": 6,
+        "notes": "Functional but outdated, hard to maintain. No one remembers how to update plugins."
+      },
+      {
+        "name": "QuickBooks",
+        "category": "accounting",
+        "satisfaction_score": 7,
+        "notes": "Works well but not integrated with society budgets. Manual reconciliation takes hours."
+      },
+      {
+        "name": "Canva",
+        "category": "design",
+        "satisfaction_score": 8,
+        "notes": "Marketing team loves it, but brand assets scattered. No asset management."
+      },
+      {
+        "name": "MailChimp",
+        "category": "email_marketing",
+        "satisfaction_score": 5,
+        "notes": "Segments outdated, lists not synced with membership. Low open rates."
+      },
+      {
+        "name": "Paper Diary",
+        "category": "room_booking",
+        "satisfaction_score": 2,
+        "notes": "Room bookings in physical diary. Double bookings happen weekly."
+      }
+    ],
+
+    "pain_points": [
+      {
+        "description": "Student societies submit event proposals via email, leading to lost requests and duplicate submissions",
+        "severity": "high",
+        "category": "societies_activities",
+        "impact": "20+ hours/week spent on manual tracking",
+        "department": "Student Activities"
+      },
+      {
+        "description": "Society budget requests require 4-5 email exchanges before approval, with no visibility into queue position",
+        "severity": "high",
+        "category": "societies_activities",
+        "impact": "Societies miss event windows while waiting for approval",
+        "department": "Student Activities"
+      },
+      {
+        "description": "Equipment loan tracking is done on paper - items go missing, no one knows what's available",
+        "severity": "medium",
+        "category": "societies_activities",
+        "impact": "£3,000+ equipment replaced annually due to losses",
+        "department": "Student Activities"
+      },
+      {
+        "description": "BUCS fixture coordination relies on personal memory - conflicts with academic schedules not caught early",
+        "severity": "medium",
+        "category": "societies_activities",
+        "impact": "Teams forfeit matches due to scheduling conflicts",
+        "department": "Student Activities"
+      },
+      {
+        "description": "Course rep feedback forms submitted but never systematically analysed - patterns invisible",
+        "severity": "high",
+        "category": "education_representation",
+        "impact": "Same issues raised year after year with no resolution tracking",
+        "department": "Student Voice & Representation"
+      },
+      {
+        "description": "Academic appeal support requests handled in email - no case tracking, no precedent lookup",
+        "severity": "high",
+        "category": "education_representation",
+        "impact": "Inconsistent advice given, students fall through gaps",
+        "department": "Student Voice & Representation"
+      },
+      {
+        "description": "Student feedback on teaching quality is collected but not correlated with course changes",
+        "severity": "medium",
+        "category": "education_representation",
+        "impact": "Cannot demonstrate student voice leading to improvements",
+        "department": "Student Voice & Representation"
+      },
+      {
+        "description": "Advice centre cases tracked in Excel with no workflow automation or follow-up reminders",
+        "severity": "critical",
+        "category": "welfare_support",
+        "impact": "Students wait 3-5 days for initial response, vulnerable cases missed",
+        "department": "Welfare & Support"
+      },
+      {
+        "description": "Hardship fund applications paper-based, processing takes 2-3 weeks when students need urgent help",
+        "severity": "critical",
+        "category": "welfare_support",
+        "impact": "Students in crisis wait too long, some drop out",
+        "department": "Welfare & Support"
+      },
+      {
+        "description": "Safeguarding concerns logged but no pattern recognition - can't see repeat issues",
+        "severity": "critical",
+        "category": "welfare_support",
+        "impact": "Early warning signs missed, reactive not proactive",
+        "department": "Welfare & Support"
+      },
+      {
+        "description": "Mental health first aider deployments tracked in personal calendars, no oversight",
+        "severity": "high",
+        "category": "welfare_support",
+        "impact": "Burnout risk for first aiders, coverage gaps",
+        "department": "Welfare & Support"
+      },
+      {
+        "description": "Social media content calendar in Trello, video assets in Canva, copy in Google Docs - nothing linked",
+        "severity": "medium",
+        "category": "marketing_comms",
+        "impact": "2-3 hours daily searching for assets and context",
+        "department": "Marketing & Communications"
+      },
+      {
+        "description": "Societies request promotional support via DMs, email, WhatsApp - requests lost constantly",
+        "severity": "high",
+        "category": "marketing_comms",
+        "impact": "Events poorly promoted, societies frustrated",
+        "department": "Marketing & Communications"
+      },
+      {
+        "description": "Newsletter audience segments outdated - sending irrelevant content to students",
+        "severity": "medium",
+        "category": "marketing_comms",
+        "impact": "15% open rate, high unsubscribes",
+        "department": "Marketing & Communications"
+      },
+      {
+        "description": "Video archive unorganised - hours spent recreating content that exists somewhere",
+        "severity": "low",
+        "category": "marketing_comms",
+        "impact": "Duplicated effort, inconsistent quality",
+        "department": "Marketing & Communications"
+      },
+      {
+        "description": "120+ society accounts reconciled manually in QuickBooks - one person's full-time job",
+        "severity": "high",
+        "category": "finance_governance",
+        "impact": "Delayed financial reporting, audit risk",
+        "department": "Finance & Administration"
+      },
+      {
+        "description": "Expense claims processed via paper forms, receipts get lost, reimbursements take weeks",
+        "severity": "medium",
+        "category": "finance_governance",
+        "impact": "Staff frustration, out-of-pocket costs",
+        "department": "Finance & Administration"
+      },
+      {
+        "description": "Charity Commission reporting requires manual data gathering from 6+ sources",
+        "severity": "high",
+        "category": "finance_governance",
+        "impact": "3-week annual process, compliance risk",
+        "department": "Finance & Administration"
+      },
+      {
+        "description": "Trustee meeting papers prepared manually, previous decisions not easily searchable",
+        "severity": "medium",
+        "category": "finance_governance",
+        "impact": "Trustees make decisions without full historical context",
+        "department": "Finance & Administration"
+      },
+      {
+        "description": "Room bookings in paper diary - double bookings happen weekly, no visibility for planners",
+        "severity": "high",
+        "category": "operations_events",
+        "impact": "Events disrupted, staff time wasted resolving conflicts",
+        "department": "Operations & Facilities"
+      },
+      {
+        "description": "Event risk assessments filed in folders, not linked to bookings - H&S gaps",
+        "severity": "high",
+        "category": "operations_events",
+        "impact": "Compliance risk, potential liability",
+        "department": "Operations & Facilities"
+      },
+      {
+        "description": "Supplier contracts stored in filing cabinet, renewal dates missed",
+        "severity": "medium",
+        "category": "operations_events",
+        "impact": "Unfavourable auto-renewals, missed negotiation opportunities",
+        "department": "Operations & Facilities"
+      },
+      {
+        "description": "Building maintenance requests via email, no prioritisation or tracking",
+        "severity": "medium",
+        "category": "operations_events",
+        "impact": "Issues persist for months, reactive maintenance",
+        "department": "Operations & Facilities"
+      },
+      {
+        "description": "AGM motions submitted by email, tracking and communication ad hoc",
+        "severity": "medium",
+        "category": "democracy_governance",
+        "impact": "Low student engagement, questions about legitimacy",
+        "department": "Sabbatical Officers"
+      },
+      {
+        "description": "Policy decisions not systematically recorded - precedent unclear",
+        "severity": "high",
+        "category": "democracy_governance",
+        "impact": "Inconsistent decisions, re-debating settled issues",
+        "department": "Sabbatical Officers"
+      },
+      {
+        "description": "Election candidate management done in spreadsheets, no workflow",
+        "severity": "medium",
+        "category": "democracy_governance",
+        "impact": "Candidate experience poor, complaints about fairness",
+        "department": "Sabbatical Officers"
+      },
+      {
+        "description": "Sabbatical officer handover is chaotic - institutional knowledge lost every year",
+        "severity": "critical",
+        "category": "handover_memory",
+        "impact": "2-3 month productivity loss each summer",
+        "department": "Sabbatical Officers"
+      },
+      {
+        "description": "Each new officer reinvents processes - no record of what worked before",
+        "severity": "critical",
+        "category": "handover_memory",
+        "impact": "Repeated failures, wasted innovation",
+        "department": "Sabbatical Officers"
+      },
+      {
+        "description": "Staff knowledge concentrated in 2-3 long-serving people - bus factor of 1",
+        "severity": "critical",
+        "category": "handover_memory",
+        "impact": "Organisation paralysed if key staff sick or leave",
+        "department": "All"
+      },
+      {
+        "description": "Previous manifesto commitments and outcomes not tracked - can't learn from past",
+        "severity": "high",
+        "category": "handover_memory",
+        "impact": "Same promises made, same mistakes repeated",
+        "department": "Sabbatical Officers"
+      },
+      {
+        "description": "No centralised view of all guild activities - information scattered across email, Trello, and WhatsApp",
+        "severity": "high",
+        "category": "cross_cutting",
+        "impact": "Decisions made with incomplete information",
+        "department": "All"
+      },
+      {
+        "description": "Cannot track student engagement across different guild services",
+        "severity": "medium",
+        "category": "cross_cutting",
+        "impact": "Funding applications lack evidence of impact",
+        "department": "All"
+      }
+    ],
+
+    "bottlenecks": [
+      {
+        "process": "Society Event Approval",
+        "department": "Student Activities",
+        "impact": "Events cancelled due to late approvals",
+        "frequency": "50+ per week during term",
+        "current_lead_time": "2-3 weeks",
+        "desired_lead_time": "24-48 hours for standard events"
+      },
+      {
+        "process": "Society Budget Reallocation",
+        "department": "Student Activities",
+        "impact": "Societies miss opportunities, frustration builds",
+        "frequency": "15-20 per month",
+        "current_lead_time": "2-4 weeks",
+        "desired_lead_time": "1 week"
+      },
+      {
+        "process": "Equipment Loan Request",
+        "department": "Student Activities",
+        "impact": "Equipment double-booked or unavailable",
+        "frequency": "30+ per week",
+        "current_lead_time": "No system - first come first served",
+        "desired_lead_time": "Instant availability check and booking"
+      },
+      {
+        "process": "Course Rep Feedback Aggregation",
+        "department": "Student Voice & Representation",
+        "impact": "Patterns not surfaced until too late",
+        "frequency": "Termly batch processing",
+        "current_lead_time": "4-6 weeks post-collection",
+        "desired_lead_time": "Real-time theme detection"
+      },
+      {
+        "process": "Academic Appeal Support",
+        "department": "Student Voice & Representation",
+        "impact": "Students miss appeal deadlines",
+        "frequency": "5-10 per week",
+        "current_lead_time": "3-5 days initial response",
+        "desired_lead_time": "Same day initial assessment"
+      },
+      {
+        "process": "Advice Centre Case Triage",
+        "department": "Welfare & Support",
+        "impact": "Vulnerable students waiting too long",
+        "frequency": "30-40 per week",
+        "current_lead_time": "3-5 days",
+        "desired_lead_time": "Same day triage, urgent cases immediate"
+      },
+      {
+        "process": "Hardship Fund Application",
+        "department": "Welfare & Support",
+        "impact": "Students in financial crisis waiting",
+        "frequency": "10-15 per week",
+        "current_lead_time": "2-3 weeks",
+        "desired_lead_time": "48 hours for urgent, 1 week standard"
+      },
+      {
+        "process": "Safeguarding Concern Escalation",
+        "department": "Welfare & Support",
+        "impact": "Critical concerns not flagged appropriately",
+        "frequency": "5-10 per month",
+        "current_lead_time": "Variable - depends who notices",
+        "desired_lead_time": "Automatic pattern flagging"
+      },
+      {
+        "process": "Promotional Content Request",
+        "department": "Marketing & Communications",
+        "impact": "Events poorly promoted",
+        "frequency": "40+ per week",
+        "current_lead_time": "1-2 weeks",
+        "desired_lead_time": "3 days for standard, 24h for urgent"
+      },
+      {
+        "process": "Newsletter Content Assembly",
+        "department": "Marketing & Communications",
+        "impact": "Rushed content, errors, missed deadlines",
+        "frequency": "Weekly",
+        "current_lead_time": "Full day to compile",
+        "desired_lead_time": "Auto-aggregation with human curation"
+      },
+      {
+        "process": "Society Account Reconciliation",
+        "department": "Finance & Administration",
+        "impact": "Delayed financial visibility",
+        "frequency": "Monthly for 120+ accounts",
+        "current_lead_time": "3-4 days per month",
+        "desired_lead_time": "Real-time reconciliation"
+      },
+      {
+        "process": "Expense Claim Processing",
+        "department": "Finance & Administration",
+        "impact": "Staff and students out of pocket",
+        "frequency": "50+ per month",
+        "current_lead_time": "2-3 weeks",
+        "desired_lead_time": "5 working days"
+      },
+      {
+        "process": "Room Booking Coordination",
+        "department": "Operations & Facilities",
+        "impact": "Double bookings, wasted prep time",
+        "frequency": "100+ per week",
+        "current_lead_time": "Variable - no system",
+        "desired_lead_time": "Instant confirmation"
+      },
+      {
+        "process": "Risk Assessment Review",
+        "department": "Operations & Facilities",
+        "impact": "Events proceed without proper review",
+        "frequency": "20-30 per week",
+        "current_lead_time": "3-5 days",
+        "desired_lead_time": "24 hours for standard templates"
+      },
+      {
+        "process": "AGM Motion Processing",
+        "department": "Sabbatical Officers",
+        "impact": "Confusion about what's being voted on",
+        "frequency": "Annual (50+ motions)",
+        "current_lead_time": "Ad hoc communication",
+        "desired_lead_time": "Structured workflow with deadlines"
+      },
+      {
+        "process": "Sabbatical Handover Documentation",
+        "department": "Sabbatical Officers",
+        "impact": "Knowledge lost, mistakes repeated",
+        "frequency": "Annual",
+        "current_lead_time": "2-3 months ramp-up",
+        "desired_lead_time": "2 weeks to full operational capacity"
+      }
+    ],
+
+    "primary_goals": [
+      {
+        "goal": "Automate society event approval workflow with intelligent routing and auto-approval for standard requests",
+        "priority": 1,
+        "timeframe": "Q1 2026",
+        "success_criteria": "80% of standard events auto-approved within 24 hours",
+        "department": "Student Activities"
+      },
+      {
+        "goal": "Create institutional memory system that captures decision context, outcomes, and lessons learned",
+        "priority": 2,
+        "timeframe": "Q1-Q2 2026",
+        "success_criteria": "New officers productive within 2 weeks, can query past decisions",
+        "department": "Sabbatical Officers"
+      },
+      {
+        "goal": "Implement unified welfare case management with automated triage and pattern detection",
+        "priority": 3,
+        "timeframe": "Q1 2026",
+        "success_criteria": "Same-day triage for all cases, urgent cases flagged automatically",
+        "department": "Welfare & Support"
+      },
+      {
+        "goal": "Centralise all guild operations in single dashboard with role-based views",
+        "priority": 4,
+        "timeframe": "Q1-Q2 2026",
+        "success_criteria": "100% team adoption, eliminate WhatsApp for work communication",
+        "department": "All"
+      },
+      {
+        "goal": "Automate society budget tracking with real-time visibility and self-service requests",
+        "priority": 5,
+        "timeframe": "Q2 2026",
+        "success_criteria": "Societies can track own budgets, requests processed in 1 week",
+        "department": "Finance & Administration"
+      },
+      {
+        "goal": "Implement digital room booking system with conflict prevention and equipment integration",
+        "priority": 6,
+        "timeframe": "Q1 2026",
+        "success_criteria": "Zero double bookings, equipment availability visible at booking",
+        "department": "Operations & Facilities"
+      },
+      {
+        "goal": "Build course rep feedback analytics with theme detection and trend tracking",
+        "priority": 7,
+        "timeframe": "Q2 2026",
+        "success_criteria": "Real-time dashboard of student concerns by department/course",
+        "department": "Student Voice & Representation"
+      },
+      {
+        "goal": "Create content request workflow with asset management and approval tracking",
+        "priority": 8,
+        "timeframe": "Q2 2026",
+        "success_criteria": "All promotional requests processed in 3 days, asset library searchable",
+        "department": "Marketing & Communications"
+      },
+      {
+        "goal": "Implement transparent audit trail for all financial transactions and decisions",
+        "priority": 9,
+        "timeframe": "Q2 2026",
+        "success_criteria": "Audit prep reduced to 1 week, real-time compliance dashboard",
+        "department": "Finance & Administration"
+      },
+      {
+        "goal": "Build student engagement analytics for funding evidence and impact reporting",
+        "priority": 10,
+        "timeframe": "Q3 2026",
+        "success_criteria": "Automated impact reports for grant applications",
+        "department": "All"
+      }
+    ],
+
+    "success_metrics": [
+      {
+        "metric": "Event approval turnaround time",
+        "target": "< 24 hours for standard events",
+        "current_baseline": "2-3 weeks average",
+        "department": "Student Activities"
+      },
+      {
+        "metric": "Society budget request resolution",
+        "target": "< 1 week",
+        "current_baseline": "2-4 weeks",
+        "department": "Finance & Administration"
+      },
+      {
+        "metric": "Welfare case initial response",
+        "target": "Same day for all, urgent immediate",
+        "current_baseline": "3-5 days",
+        "department": "Welfare & Support"
+      },
+      {
+        "metric": "Hardship fund processing",
+        "target": "48 hours urgent, 1 week standard",
+        "current_baseline": "2-3 weeks",
+        "department": "Welfare & Support"
+      },
+      {
+        "metric": "Sabbatical officer ramp-up time",
+        "target": "2 weeks to full productivity",
+        "current_baseline": "2-3 months",
+        "department": "Sabbatical Officers"
+      },
+      {
+        "metric": "Room booking double-booking rate",
+        "target": "0%",
+        "current_baseline": "5-10 per week",
+        "department": "Operations & Facilities"
+      },
+      {
+        "metric": "Team WhatsApp messages for work",
+        "target": "0 (all work comms in system)",
+        "current_baseline": "200+ messages/day",
+        "department": "All"
+      },
+      {
+        "metric": "Budget audit preparation time",
+        "target": "1 week",
+        "current_baseline": "3 weeks",
+        "department": "Finance & Administration"
+      },
+      {
+        "metric": "Society account reconciliation time",
+        "target": "Real-time",
+        "current_baseline": "3-4 days/month",
+        "department": "Finance & Administration"
+      },
+      {
+        "metric": "Promotional content request fulfilment",
+        "target": "3 days standard",
+        "current_baseline": "1-2 weeks",
+        "department": "Marketing & Communications"
+      },
+      {
+        "metric": "Course rep feedback analysis turnaround",
+        "target": "Real-time theme detection",
+        "current_baseline": "4-6 weeks post-collection",
+        "department": "Student Voice & Representation"
+      },
+      {
+        "metric": "Institutional knowledge retrieval",
+        "target": "Any past decision findable in < 30 seconds",
+        "current_baseline": "Not possible - knowledge in people's heads",
+        "department": "All"
+      }
+    ],
+
+    "operational_workflows": {
+      "societies_activities": {
+        "description": "Managing 120+ student societies and 15 sports clubs",
+        "daily_tasks": [
+          "Process event proposal submissions (10-15/day)",
+          "Answer society queries (20-30/day)",
+          "Coordinate equipment loans",
+          "Update society noticeboard",
+          "Respond to budget questions"
+        ],
+        "weekly_tasks": [
+          "Society committee meetings",
+          "BUCS fixture coordination",
+          "New society registration processing",
+          "Budget reallocation requests",
+          "Equipment inventory check"
+        ],
+        "key_decisions": [
+          "Event approval (risk, capacity, timing)",
+          "Budget allocation",
+          "Society recognition/derecognition",
+          "Equipment purchase priorities"
+        ],
+        "handover_critical": true
+      },
+      "education_representation": {
+        "description": "Academic representation and student voice",
+        "daily_tasks": [
+          "Monitor course rep feedback channels",
+          "Support academic appeal cases",
+          "Liaise with university academic staff"
+        ],
+        "weekly_tasks": [
+          "Course rep coordination meetings",
+          "Feedback aggregation and reporting",
+          "Policy response drafting",
+          "Training session delivery"
+        ],
+        "key_decisions": [
+          "Appeal case prioritisation",
+          "Which feedback themes to escalate",
+          "Campaign focus areas",
+          "Resource allocation for representation"
+        ],
+        "handover_critical": true
+      },
+      "welfare_support": {
+        "description": "Student welfare, advice and support services",
+        "daily_tasks": [
+          "Advice centre appointments (8-10/day)",
+          "Email/phone query triage",
+          "Safeguarding log updates",
+          "External referral coordination"
+        ],
+        "weekly_tasks": [
+          "Team case review",
+          "Welfare campaign planning",
+          "Training delivery",
+          "Multi-agency meetings"
+        ],
+        "key_decisions": [
+          "Case triage and priority",
+          "Safeguarding escalation",
+          "Hardship fund allocation",
+          "External referral pathways"
+        ],
+        "handover_critical": true,
+        "sensitivity": "high"
+      },
+      "marketing_comms": {
+        "description": "Communications, social media, and content creation",
+        "daily_tasks": [
+          "Social media posting (3-5 platforms)",
+          "Content request triage",
+          "Event promotion scheduling",
+          "Analytics monitoring"
+        ],
+        "weekly_tasks": [
+          "Newsletter compilation",
+          "Content calendar planning",
+          "Video production",
+          "Brand asset updates"
+        ],
+        "key_decisions": [
+          "Content prioritisation",
+          "Crisis communication response",
+          "Brand guideline exceptions",
+          "Campaign resource allocation"
+        ],
+        "handover_critical": false
+      },
+      "finance_governance": {
+        "description": "Financial management and compliance",
+        "daily_tasks": [
+          "Invoice processing",
+          "Society payment queries",
+          "Budget monitoring",
+          "Receipt processing"
+        ],
+        "weekly_tasks": [
+          "Society account reconciliation batch",
+          "Expense claim processing",
+          "Cash flow reporting",
+          "Trustee paper preparation"
+        ],
+        "key_decisions": [
+          "Payment authorisation",
+          "Budget virement approval",
+          "Audit response",
+          "Financial policy exceptions"
+        ],
+        "handover_critical": false
+      },
+      "operations_facilities": {
+        "description": "Building, events, and operational logistics",
+        "daily_tasks": [
+          "Room booking management (20+/day)",
+          "Maintenance request logging",
+          "Contractor coordination",
+          "Health & safety checks"
+        ],
+        "weekly_tasks": [
+          "Large event coordination",
+          "Supplier review meetings",
+          "Risk assessment processing",
+          "Facilities planning"
+        ],
+        "key_decisions": [
+          "Room allocation conflicts",
+          "Maintenance prioritisation",
+          "Supplier selection",
+          "Event feasibility"
+        ],
+        "handover_critical": false
+      },
+      "democracy_governance": {
+        "description": "Democratic processes and organisational governance",
+        "daily_tasks": [
+          "Policy query responses",
+          "Governance email monitoring"
+        ],
+        "weekly_tasks": [
+          "Officer team meetings",
+          "Committee paper preparation",
+          "Stakeholder liaison"
+        ],
+        "annual_critical": [
+          "AGM coordination and motion processing",
+          "Election management",
+          "Trustee board meetings",
+          "Annual report compilation"
+        ],
+        "key_decisions": [
+          "Constitutional interpretation",
+          "Policy implementation",
+          "Democratic procedure rulings"
+        ],
+        "handover_critical": true
+      }
+    },
+
+    "handover_requirements": {
+      "description": "Critical institutional memory needs for annual officer transition",
+      "current_state": {
+        "handover_period": "2 weeks in July (insufficient)",
+        "documentation": "Ad hoc Word documents, often not completed",
+        "knowledge_transfer": "Verbal briefings, easily forgotten",
+        "system_access": "Credentials on sticky notes, accounts not properly transitioned"
+      },
+      "desired_state": {
+        "handover_period": "Continuous knowledge capture, 2-week structured transition",
+        "documentation": "Living documents automatically updated with decision context",
+        "knowledge_transfer": "Queryable institutional memory - ask questions, get contextual answers",
+        "system_access": "Automated credential rotation and access provisioning"
+      },
+      "key_knowledge_to_capture": [
+        "Why decisions were made, not just what was decided",
+        "What was tried and didn't work (negative knowledge)",
+        "Key stakeholder relationships and context",
+        "Precedents and how similar situations were handled",
+        "Ongoing negotiations and their history",
+        "Unwritten rules and institutional conventions",
+        "What each manifesto commitment actually meant in practice"
+      ],
+      "handover_documents_needed": [
+        "Role-specific operational guide",
+        "Key contact relationships map",
+        "Ongoing project status summaries",
+        "Budget and financial position",
+        "Pending decisions and their context",
+        "Known upcoming challenges",
+        "What I wish I'd known when I started"
+      ]
+    },
+
+    "tech_stack": {
+      "email": "Microsoft 365 / Outlook",
+      "calendar": "Outlook Calendar (shared)",
+      "documents": "SharePoint + OneDrive",
+      "website": "WordPress (self-hosted)",
+      "accounting": "QuickBooks Online",
+      "payments": "Stripe (for society payments)",
+      "membership_database": "Custom Access database (legacy, 15 years old)",
+      "room_booking": "Paper diary + shared Excel",
+      "social_media": "Native apps (Instagram, TikTok, X)",
+      "design": "Canva Pro",
+      "email_marketing": "MailChimp",
+      "project_management": "Trello (poorly adopted)",
+      "communication": "WhatsApp (47 groups), Microsoft Teams (underused)"
+    },
+
+    "integration_requirements": [
+      {
+        "system": "Microsoft 365",
+        "priority": "critical",
+        "purpose": "Calendar sync, email integration, SSO, document access",
+        "notes": "University provides M365 licenses. SSO would reduce password fatigue."
+      },
+      {
+        "system": "QuickBooks Online",
+        "priority": "high",
+        "purpose": "Two-way budget sync, invoice automation, expense tracking",
+        "notes": "Need read/write access. Must sync society sub-accounts."
+      },
+      {
+        "system": "University Student Records API",
+        "priority": "medium",
+        "purpose": "Verify student status for membership, course/department data",
+        "notes": "University IT approval required - process started. GDPR considerations."
+      },
+      {
+        "system": "Stripe",
+        "priority": "medium",
+        "purpose": "Society payment tracking, event ticketing reconciliation",
+        "notes": "Already have Stripe Connect setup for society payments."
+      },
+      {
+        "system": "Canva",
+        "priority": "low",
+        "purpose": "Asset management integration, brand template sync",
+        "notes": "Marketing team already proficient, just need asset organisation."
+      }
+    ],
+
+    "data_migration_needs": [
+      {
+        "source": "Legacy Access Database",
+        "data_type": "Student society memberships (5 years)",
+        "record_count": "~8,500 records",
+        "priority": "high",
+        "notes": "Database is 15 years old, needs significant cleanup. Schema undocumented."
+      },
+      {
+        "source": "Trello Boards",
+        "data_type": "Historical event records, project notes, decisions",
+        "record_count": "~2,000 cards across 30+ boards",
+        "priority": "medium",
+        "notes": "Extract insights for knowledge base. Many boards abandoned."
+      },
+      {
+        "source": "SharePoint",
+        "data_type": "Policy documents, procedures, templates, meeting minutes",
+        "record_count": "~500 documents",
+        "priority": "high",
+        "notes": "Need full text search capability. Current folder structure chaotic."
+      },
+      {
+        "source": "QuickBooks",
+        "data_type": "Historical financial transactions (3 years)",
+        "record_count": "~15,000 transactions",
+        "priority": "medium",
+        "notes": "For pattern recognition and budget forecasting."
+      },
+      {
+        "source": "Email Archives",
+        "data_type": "Key decision threads (selective)",
+        "record_count": "To be determined",
+        "priority": "low",
+        "notes": "Critical institutional context in email. Selective import."
+      }
+    ],
+
+    "compliance_requirements": [
+      {
+        "requirement": "UK GDPR",
+        "category": "data_protection",
+        "notes": "Student data is personal data under GDPR. Special category data in welfare."
+      },
+      {
+        "requirement": "Charity Commission Reporting",
+        "category": "financial_compliance",
+        "notes": "Registered charity - annual returns required, public benefit demonstration."
+      },
+      {
+        "requirement": "University Data Sharing Agreement",
+        "category": "institutional_compliance",
+        "notes": "Must comply with university data governance. Joint controller scenarios."
+      },
+      {
+        "requirement": "Safeguarding Policy",
+        "category": "welfare_compliance",
+        "notes": "Working with vulnerable students - DBS checks for relevant roles."
+      },
+      {
+        "requirement": "NUS Affiliation",
+        "category": "organisational_compliance",
+        "notes": "Must meet NUS democratic standards for affiliation."
+      },
+      {
+        "requirement": "Education Act Compliance",
+        "category": "legal",
+        "notes": "Student union charitable status requirements."
+      }
+    ],
+
+    "security_requirements": [
+      {
+        "requirement": "MFA for all staff accounts",
+        "priority": "critical"
+      },
+      {
+        "requirement": "Data residency in UK/EU",
+        "priority": "high"
+      },
+      {
+        "requirement": "Role-based access control",
+        "priority": "critical"
+      },
+      {
+        "requirement": "Audit logging for sensitive data access",
+        "priority": "high"
+      },
+      {
+        "requirement": "Annual penetration testing",
+        "priority": "medium"
+      },
+      {
+        "requirement": "Encryption at rest and in transit",
+        "priority": "critical"
+      },
+      {
+        "requirement": "Automated credential rotation on role changes",
+        "priority": "high"
+      }
+    ],
+
+    "stakeholder_map": [
+      {
+        "name": "Sarah Thompson",
+        "role": "Guild President",
+        "influence": "high",
+        "interest": "high",
+        "engagement": "Champion - driving the initiative",
+        "notes": "Term ends July 2026. Wants legacy project."
+      },
+      {
+        "name": "David Chen",
+        "role": "Operations Manager",
+        "influence": "high",
+        "interest": "medium",
+        "engagement": "Cautious supporter - burned by past failures",
+        "notes": "15 years institutional knowledge. Key to operational buy-in."
+      },
+      {
+        "name": "Rachel Williams",
+        "role": "Finance Manager",
+        "influence": "high",
+        "interest": "high",
+        "engagement": "Strong supporter - sees efficiency gains",
+        "notes": "12 years experience. Owns budget and compliance."
+      },
+      {
+        "name": "Laura Martinez",
+        "role": "Activities Manager",
+        "influence": "medium",
+        "interest": "high",
+        "engagement": "Enthusiastic - daily pain points",
+        "notes": "Will be primary daily user for societies workflow."
+      },
+      {
+        "name": "University IT",
+        "role": "External stakeholder",
+        "influence": "medium",
+        "interest": "low",
+        "engagement": "Gatekeeping - need for API access",
+        "notes": "Must work within their security requirements."
+      },
+      {
+        "name": "Trustee Board",
+        "role": "Governance",
+        "influence": "high",
+        "interest": "medium",
+        "engagement": "Need visibility for sign-off",
+        "notes": "Will need to approve significant spend."
+      }
+    ],
+
+    "agency_notes": "University of Oldbury Students' Guild is a well-established student union serving approximately 12,000 students. They have 5 elected sabbatical officers (full-time paid positions for students) who change annually, plus 18 permanent staff members. The organisation has significant challenges with knowledge transfer due to the annual turnover of leadership.\n\nThe Guild manages approximately 120 student societies and 15 sports clubs, each with their own budgets, events, and leadership. Event coordination is their biggest operational headache, but the deeper issue is institutional memory.\n\nTHE KILLER INSIGHT: Every July, 5 new officers arrive knowing nothing. They spend 2-3 months just learning how things work. By the time they're effective, they're planning their exit. The permanent staff (David, Rachel) carry everything, but they're stretched thin and becoming single points of failure.\n\nJWEBLY here isn't just about workflows - it's about building an 'organisational brain' that remembers what the people forget. Every decision, every context, every 'why we do it this way' captured and queryable. When a new officer asks 'has anyone tried X before?' the system should know.\n\nSarah Thompson (Guild President) is highly motivated and technically literate. She's in her final year and wants to leave a 'lasting legacy system' before her term ends in July 2026. This creates both urgency and risk - we need to ensure the system outlasts her tenure.\n\nThe permanent staff, particularly David Chen (Operations Manager) and Rachel Williams (Finance Manager), are the institutional memory. They are supportive but have been burned by past 'digital transformation' attempts that were abandoned when the championing officer left.\n\nRECOMMENDED APPROACH:\n1. Quick win: Society event approval workflow (visible improvement, high frequency)\n2. Foundation: Room booking system (eliminates daily pain)\n3. Strategic: Knowledge base with context capture (the long-term value)\n4. Critical path: Handover system ready before July 2026\n\nPotential case study opportunity if successful - education sector is underserved by operational intelligence tools. Student unions are a perfect test case for 'high turnover leadership' problem that affects many organisations.\n\nRISKS:\n- Sarah leaves before system embedded - mitigation: David/Rachel as co-owners\n- Scope creep from officer enthusiasm - mitigation: phased rollout\n- University IT blocking integrations - mitigation: work standalone first\n- Staff resistance to 'another system' - mitigation: show immediate value",
+
+    "recommended_tier": "professional",
+    "estimated_implementation_complexity": "medium-high",
+    "status": "approved",
+    "approved_by": "Joe Webster",
+    "approved_at": "2026-01-30T14:30:00Z"
+  },
+
+  "departments": [
+    {
+      "name": "Sabbatical Officers",
+      "description": "Elected student officers serving full-time paid positions",
+      "display_order": 1,
+      "is_required": true,
+      "suggested_roles": ["Guild President", "VP Education", "VP Welfare", "VP Activities", "VP Community"]
+    },
+    {
+      "name": "Operations & Facilities",
+      "description": "Building management, room bookings, events logistics",
+      "display_order": 2,
+      "is_required": true,
+      "suggested_roles": ["Operations Manager", "Facilities Coordinator", "Events Officer"]
+    },
+    {
+      "name": "Student Activities",
+      "description": "Society support, sports clubs, volunteering programmes",
+      "display_order": 3,
+      "is_required": true,
+      "suggested_roles": ["Activities Manager", "Societies Coordinator", "Sports Development Officer", "Volunteering Coordinator"]
+    },
+    {
+      "name": "Student Voice & Representation",
+      "description": "Academic representation, campaigns, democracy",
+      "display_order": 4,
+      "is_required": true,
+      "suggested_roles": ["Student Voice Manager", "Representation Coordinator", "Campaigns Officer"]
+    },
+    {
+      "name": "Welfare & Support",
+      "description": "Advice centre, mental health, accessibility support",
+      "display_order": 5,
+      "is_required": true,
+      "suggested_roles": ["Welfare Manager", "Advice Centre Manager", "Wellbeing Officer"]
+    },
+    {
+      "name": "Finance & Administration",
+      "description": "Budgets, HR, compliance, governance",
+      "display_order": 6,
+      "is_required": true,
+      "suggested_roles": ["Finance Manager", "Finance Assistant", "HR & Admin Officer"]
+    },
+    {
+      "name": "Marketing & Communications",
+      "description": "Digital presence, campaigns, design, internal comms",
+      "display_order": 7,
+      "is_required": true,
+      "suggested_roles": ["Marketing Manager", "Digital Content Officer", "Graphic Designer"]
+    },
+    {
+      "name": "Commercial Services",
+      "description": "Guild shop, bar, catering, venue hire",
+      "display_order": 8,
+      "is_required": false,
+      "suggested_roles": ["Commercial Manager", "Bar Manager", "Retail Supervisor"]
+    }
+  ],
+
+  "staff_members": [
+    {
+      "email": "s.thompson@uoo.ac.uk",
+      "first_name": "Sarah",
+      "last_name": "Thompson",
+      "job_title": "Guild President",
+      "department": "Sabbatical Officers",
+      "is_admin": true,
+      "notes": "Decision maker. Final year Politics & International Relations. Term ends July 2026."
+    },
+    {
+      "email": "j.okonkwo@uoo.ac.uk",
+      "first_name": "James",
+      "last_name": "Okonkwo",
+      "job_title": "VP Education",
+      "department": "Sabbatical Officers",
+      "is_admin": false,
+      "notes": "Final year Law. Focuses on academic representation and course reps."
+    },
+    {
+      "email": "a.patel@uoo.ac.uk",
+      "first_name": "Aisha",
+      "last_name": "Patel",
+      "job_title": "VP Welfare",
+      "department": "Sabbatical Officers",
+      "is_admin": false,
+      "notes": "Final year Psychology. Leads welfare campaigns and advice services oversight."
+    },
+    {
+      "email": "m.jones@uoo.ac.uk",
+      "first_name": "Marcus",
+      "last_name": "Jones",
+      "job_title": "VP Activities",
+      "department": "Sabbatical Officers",
+      "is_admin": false,
+      "notes": "Final year Sports Science. Oversees societies and sports clubs."
+    },
+    {
+      "email": "e.chen@uoo.ac.uk",
+      "first_name": "Emily",
+      "last_name": "Chen",
+      "job_title": "VP Community",
+      "department": "Sabbatical Officers",
+      "is_admin": false,
+      "notes": "Final year Environmental Science. Focus on sustainability and local community."
+    },
+    {
+      "email": "d.chen@guild.uoo.ac.uk",
+      "first_name": "David",
+      "last_name": "Chen",
+      "job_title": "Operations Manager",
+      "department": "Operations & Facilities",
+      "is_admin": true,
+      "notes": "15 years at Guild. Institutional memory. Key stakeholder for system adoption."
+    },
+    {
+      "email": "k.williams@guild.uoo.ac.uk",
+      "first_name": "Karen",
+      "last_name": "Williams",
+      "job_title": "Facilities Coordinator",
+      "department": "Operations & Facilities",
+      "is_admin": false,
+      "notes": "Manages room bookings, building maintenance, health & safety."
+    },
+    {
+      "email": "t.ahmed@guild.uoo.ac.uk",
+      "first_name": "Tariq",
+      "last_name": "Ahmed",
+      "job_title": "Events Officer",
+      "department": "Operations & Facilities",
+      "is_admin": false,
+      "notes": "Coordinates large-scale guild events, freshers' week, graduation ball."
+    },
+    {
+      "email": "l.martinez@guild.uoo.ac.uk",
+      "first_name": "Laura",
+      "last_name": "Martinez",
+      "job_title": "Activities Manager",
+      "department": "Student Activities",
+      "is_admin": true,
+      "notes": "Oversees all 120 societies and 15 sports clubs. Critical role for event workflow."
+    },
+    {
+      "email": "r.singh@guild.uoo.ac.uk",
+      "first_name": "Raj",
+      "last_name": "Singh",
+      "job_title": "Societies Coordinator",
+      "department": "Student Activities",
+      "is_admin": false,
+      "notes": "Day-to-day society support, budget queries, event approvals."
+    },
+    {
+      "email": "c.brown@guild.uoo.ac.uk",
+      "first_name": "Chris",
+      "last_name": "Brown",
+      "job_title": "Sports Development Officer",
+      "department": "Student Activities",
+      "is_admin": false,
+      "notes": "Works with BUCS teams and recreational sports."
+    },
+    {
+      "email": "n.taylor@guild.uoo.ac.uk",
+      "first_name": "Natalie",
+      "last_name": "Taylor",
+      "job_title": "Volunteering Coordinator",
+      "department": "Student Activities",
+      "is_admin": false,
+      "notes": "Runs Guild volunteer programme, community partnerships."
+    },
+    {
+      "email": "r.williams@guild.uoo.ac.uk",
+      "first_name": "Rachel",
+      "last_name": "Williams",
+      "job_title": "Finance Manager",
+      "department": "Finance & Administration",
+      "is_admin": true,
+      "notes": "12 years at Guild. Manages all budgets, society accounts, compliance."
+    },
+    {
+      "email": "p.green@guild.uoo.ac.uk",
+      "first_name": "Peter",
+      "last_name": "Green",
+      "job_title": "Finance Assistant",
+      "department": "Finance & Administration",
+      "is_admin": false,
+      "notes": "Invoice processing, expense claims, budget monitoring."
+    },
+    {
+      "email": "h.jackson@guild.uoo.ac.uk",
+      "first_name": "Helen",
+      "last_name": "Jackson",
+      "job_title": "HR & Admin Officer",
+      "department": "Finance & Administration",
+      "is_admin": false,
+      "notes": "Staff HR, student staff contracts, governance support."
+    },
+    {
+      "email": "m.scott@guild.uoo.ac.uk",
+      "first_name": "Michael",
+      "last_name": "Scott",
+      "job_title": "Welfare Manager",
+      "department": "Welfare & Support",
+      "is_admin": false,
+      "notes": "Manages advice centre and welfare referrals."
+    },
+    {
+      "email": "s.lee@guild.uoo.ac.uk",
+      "first_name": "Sophie",
+      "last_name": "Lee",
+      "job_title": "Advice Centre Manager",
+      "department": "Welfare & Support",
+      "is_admin": false,
+      "notes": "Academic appeals, housing advice, financial hardship."
+    },
+    {
+      "email": "j.davis@guild.uoo.ac.uk",
+      "first_name": "Jennifer",
+      "last_name": "Davis",
+      "job_title": "Marketing Manager",
+      "department": "Marketing & Communications",
+      "is_admin": false,
+      "notes": "Brand management, campaign planning, analytics."
+    },
+    {
+      "email": "a.wilson@guild.uoo.ac.uk",
+      "first_name": "Alex",
+      "last_name": "Wilson",
+      "job_title": "Digital Content Officer",
+      "department": "Marketing & Communications",
+      "is_admin": false,
+      "notes": "Social media, website updates, email newsletters."
+    }
+  ],
+
+  "knowledge_base_categories": [
+    {
+      "name": "Governance",
+      "slug": "governance",
+      "description": "Constitution, bylaws, trustee documents, AGM records"
+    },
+    {
+      "name": "Policies & Procedures",
+      "slug": "policies",
+      "description": "HR policies, safeguarding, health & safety, data protection"
+    },
+    {
+      "name": "Society Management",
+      "slug": "societies",
+      "description": "Society handbook, event guidelines, budget allocation rules"
+    },
+    {
+      "name": "Finance",
+      "slug": "finance",
+      "description": "Budget templates, expense procedures, audit reports"
+    },
+    {
+      "name": "Training Materials",
+      "slug": "training",
+      "description": "Staff induction, officer training, volunteer guides"
+    },
+    {
+      "name": "Templates",
+      "slug": "templates",
+      "description": "Letter templates, form templates, contract templates"
+    },
+    {
+      "name": "Handover Documents",
+      "slug": "handover",
+      "description": "Role-specific handover notes, project histories, lessons learned"
+    },
+    {
+      "name": "External Guidelines",
+      "slug": "external",
+      "description": "University policies, NUS resources, legal guidance"
+    },
+    {
+      "name": "Decision Log",
+      "slug": "decisions",
+      "description": "Historical decisions with context and outcomes"
+    },
+    {
+      "name": "Stakeholder Relationships",
+      "slug": "stakeholders",
+      "description": "Key contacts, relationship history, negotiation context"
+    }
+  ],
+
+  "ai_configuration": {
+    "suggested_name": "Atlas",
+    "suggested_tone": "academic",
+    "suggested_color": "#1E3A5F",
+    "personality_traits": [
+      "Knowledgeable but approachable",
+      "Encouraging student empowerment",
+      "Process-oriented but flexible",
+      "Mindful of handover and continuity",
+      "Supportive of democratic processes",
+      "Protective of institutional memory"
+    ],
+    "domain_terminology": {
+      "client": "student",
+      "customer": "member",
+      "employee": "staff member",
+      "project": "initiative",
+      "deadline": "action deadline",
+      "meeting": "committee meeting",
+      "report": "update",
+      "manager": "coordinator"
+    },
+    "prohibited_responses": [
+      "Never give legal advice on employment or academic matters",
+      "Never process welfare referrals without human review",
+      "Never approve budget changes above £500 without human approval",
+      "Never share individual student data across departments",
+      "Never contradict official Guild policy",
+      "Never make safeguarding decisions - always escalate to designated officer"
+    ],
+    "institutional_memory_prompts": [
+      "Have we tried this approach before?",
+      "What happened last time we did X?",
+      "Who handled this type of situation previously?",
+      "What was the context behind this decision?",
+      "What did the previous officer learn about this?"
+    ]
+  },
+
+  "sample_societies": [
+    {"name": "Computer Science Society", "members": 245, "annual_budget": 1200},
+    {"name": "Drama Society", "members": 89, "annual_budget": 3500},
+    {"name": "Islamic Society", "members": 412, "annual_budget": 2000},
+    {"name": "Women in STEM", "members": 156, "annual_budget": 800},
+    {"name": "Gaming Society", "members": 320, "annual_budget": 1500},
+    {"name": "Debate Society", "members": 67, "annual_budget": 2200},
+    {"name": "Photography Society", "members": 134, "annual_budget": 900},
+    {"name": "African Caribbean Society", "members": 278, "annual_budget": 1800},
+    {"name": "Law Society", "members": 198, "annual_budget": 1400},
+    {"name": "Mental Health Awareness Society", "members": 89, "annual_budget": 600}
+  ],
+
+  "sample_cases": {
+    "societies_activities": [
+      {
+        "scenario": "Drama Society requests £500 additional budget for spring production 3 weeks before event",
+        "typical_handling": "4-5 email exchanges, Activities Manager to Finance, waiting for committee approval",
+        "desired_handling": "Self-service request, auto-routing based on amount, approval within 48 hours"
+      },
+      {
+        "scenario": "Two societies both request main hall for same Friday evening",
+        "typical_handling": "First person to check paper diary wins, second society only finds out when they call",
+        "desired_handling": "Real-time availability, waitlist functionality, auto-notification of alternatives"
+      }
+    ],
+    "welfare_support": [
+      {
+        "scenario": "Student discloses financial hardship during drop-in, needs emergency fund",
+        "typical_handling": "Paper form, 2-3 week processing, student anxiety increases",
+        "desired_handling": "Digital submission, same-day triage, 48-hour emergency processing track"
+      },
+      {
+        "scenario": "Course rep reports multiple students struggling in same module",
+        "typical_handling": "Email to VP Education, no systematic tracking of pattern",
+        "desired_handling": "Auto-aggregation of feedback, pattern flagging, trend dashboard"
+      }
+    ],
+    "handover": [
+      {
+        "scenario": "New VP Activities asks 'Did we ever consider a winter ball?'",
+        "typical_handling": "Ask David (if he remembers), search old emails (if they're accessible)",
+        "desired_handling": "Query knowledge base: 'winter ball attempts' - get 2019 and 2022 attempts with outcomes and lessons"
+      },
+      {
+        "scenario": "New officer making decision similar to one made 2 years ago",
+        "typical_handling": "Reinvent the wheel, possibly make same mistake",
+        "desired_handling": "System surfaces 'Similar decision made in 2024: [context] - outcome was [X]'"
+      }
+    ]
+  }
+}

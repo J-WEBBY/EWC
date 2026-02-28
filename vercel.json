@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cliniko/sync",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}

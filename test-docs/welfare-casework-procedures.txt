@@ -1,0 +1,125 @@
+University of Oldbury Students' Guild — Welfare & Advice Service Procedures
+Confidential — Staff Use Only
+Version 2.1 — Updated January 2026
+
+OVERVIEW
+The Guild Advice Service handles approximately 1,800 cases per academic year across five categories: academic appeals (35%), housing disputes (25%), financial hardship (20%), mental health support (12%), and employment rights (8%). This document outlines procedures for each.
+
+SECTION 1: CASE MANAGEMENT
+
+1.1 Initial Contact Protocol
+- All enquiries logged in CaseTracker system within 1 working day
+- Triage assessment completed using RAG rating:
+  RED: Immediate risk (homelessness, suicidal ideation, violence) — same-day response
+  AMBER: Urgent but not immediate (academic appeal deadline within 7 days, rent arrears) — 2-day response
+  GREEN: Standard query — 5-day response
+- Case reference assigned: WC-[YEAR]-[NUMBER] (e.g., WC-2026-0142)
+
+1.2 Confidentiality
+- All case data classified as CONFIDENTIAL
+- Information shared only with: student's explicit consent, safeguarding duty, legal obligation
+- Case files stored in encrypted database, access restricted to Advice team + VP Welfare
+- Paper notes shredded at end of each day
+- No case details discussed outside secure Advice office
+
+1.3 Caseload Management
+- Maximum active caseload per adviser: 40 cases
+- Average case duration: Academic appeals 6 weeks, Housing 4 weeks, Financial 3 weeks
+- Complex cases flagged to Senior Adviser for supervision
+- Monthly case review meeting with VP Welfare
+
+SECTION 2: ACADEMIC APPEALS
+
+2.1 Grounds for Appeal (per university regulations)
+- Procedural irregularity in assessment
+- Extenuating circumstances not previously disclosed
+- Evidence of bias or prejudice
+- New evidence not available at time of original decision
+
+2.2 Guild Adviser Role
+- Review student's situation and assess strength of case (honest assessment even if unfavourable)
+- Help student gather evidence (medical notes, personal statements, third-party testimony)
+- Draft appeal letter (student must approve final version — their voice, not ours)
+- Accompany student to formal hearings if requested
+- Do NOT attend exam boards or access confidential university committee papers
+
+2.3 Key Deadlines
+- University appeal window: 21 calendar days from results publication
+- Guild must submit within 14 days to allow university processing time
+- Late submissions only accepted with evidence of extenuating circumstances
+
+SECTION 3: HOUSING DISPUTES
+
+3.1 Common Issues
+- Deposit disputes (most common — 40% of housing cases)
+- Disrepair and landlord non-compliance
+- Housemate disputes and contract exit requests
+- Rent increases mid-tenancy
+- HMO licensing violations
+
+3.2 Procedure
+- Gather tenancy agreement, correspondence, photographic evidence
+- Check if landlord is on Guild Accredited Landlord scheme (currently 45 properties, 180 beds)
+- For deposit disputes: advise on TDS/MyDeposits adjudication process
+- For disrepair: template letters provided (Letter-H1 through H5)
+- Escalation: refer to Shelter, Citizens Advice, or Environmental Health as appropriate
+- Do NOT provide legal advice — advisers signpost, not represent
+
+3.3 Landlord Accreditation Scheme
+- Accredited landlords agree to: fair deposits, 48hr repair response, no mid-year rent increases
+- Annual inspection by Guild housing officer
+- Removal from scheme: formal warning, then delisting after second substantiated complaint
+
+SECTION 4: FINANCIAL HARDSHIP
+
+4.1 Guild Hardship Fund
+- Annual budget: £35,000 (university contribution £20,000, Guild contribution £15,000)
+- Maximum grant per student: £500 per academic year
+- Eligibility: enrolled UoO student, demonstrable financial need, all other funding explored first
+- Application reviewed within 5 working days by Hardship Panel (Finance Director + VP Welfare + external trustee)
+- Emergency payments (food/rent crisis): £100 max, authorised by VP Welfare same day
+
+4.2 Assessment Criteria
+- Priority given to: care leavers, estranged students, students with dependants, disabled students
+- Evidence required: bank statements (3 months), income/expenditure breakdown, evidence of other applications (Student Finance, university hardship fund, bursaries)
+- Funds paid directly to landlord/utility company where possible (safeguarding measure)
+
+4.3 Money Advice
+- Budget planning tools and templates available
+- Referral pathway to StepChange for debt management
+- Annual "Money Smart" campaign during November (financial literacy workshops)
+
+SECTION 5: MENTAL HEALTH SUPPORT
+
+5.1 Important: Guild Does NOT Provide Clinical Services
+- We provide: listening, signposting, practical support, advocacy
+- We do NOT provide: counselling, therapy, diagnosis, medication advice
+- Always refer to: university counselling service, GP, Samaritans (116 123), crisis team
+
+5.2 Safeguarding Protocol
+- If student discloses intent to harm self or others: IMMEDIATE escalation
+- Contact: University Safeguarding Lead (Dr. Claire Simmons: 0121-XXX-XXXX)
+- If imminent danger: call 999, then university security (ext. 2222)
+- All safeguarding concerns logged in separate encrypted register
+- Debrief for staff member within 24 hours with line manager
+
+5.3 Ongoing Support
+- "Check In" programme: fortnightly wellbeing drop-ins (no appointment needed)
+- Exam stress support sessions: January and May
+- Peer support training: 25 student volunteers trained per year
+- Collaboration with Student Minds charity for awareness campaigns
+
+SECTION 6: REPORTING
+
+6.1 Monthly Report to VP Welfare
+- Case volumes by category
+- RAG status breakdown
+- Average resolution time
+- Emerging trends or policy issues
+- Anonymised case studies for Board reporting
+
+6.2 Annual Impact Report
+- Published each July
+- Total cases, outcomes, student satisfaction
+- Policy changes achieved through casework evidence
+- Presented to Board of Trustees and university senior management

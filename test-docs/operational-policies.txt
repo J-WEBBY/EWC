@@ -1,0 +1,96 @@
+University of Oldbury Students' Guild — Operational Policies & Procedures Manual
+Version 3.2 — Effective September 2025
+
+SECTION 1: GOVERNANCE FRAMEWORK
+
+1.1 Decision Authority Matrix
+- Expenditure up to £500: Department head approval
+- Expenditure £500-£5,000: President + Finance Director dual approval
+- Expenditure £5,000-£25,000: Executive Committee approval (quorum: 3 of 4 officers)
+- Expenditure over £25,000: Board of Trustees approval
+- Emergency expenditure: President may authorise up to £10,000 with retrospective Board ratification within 14 days
+
+1.2 Meeting Cadence
+- Executive Committee: Weekly (Monday 10am)
+- Senior Management Team: Fortnightly (Wednesday 2pm)
+- Board of Trustees: Quarterly + AGM in November
+- Student Council: Monthly during term time (first Thursday, 6pm)
+
+SECTION 2: FINANCIAL PROCEDURES
+
+2.1 Budget Management
+- Annual budget cycle: Draft by May, Board approval by July, operational from August 1
+- Monthly management accounts produced by 15th of following month
+- Quarterly variance analysis presented to Executive Committee
+- All budget holders must flag variances exceeding 10% within 5 working days
+
+2.2 Procurement
+- Purchases over £1,000 require minimum 3 quotes
+- Purchases over £10,000 require formal tender process (minimum 21 days)
+- Preferred supplier list reviewed annually by Finance Director
+- All contracts over £5,000 reviewed by Guild solicitor before signing
+
+2.3 Cash Handling
+- Bar and shop tills reconciled daily by shift supervisor
+- Cash banked within 2 working days (max holding: £2,000 in safe)
+- Till discrepancies over £20 investigated and reported to Commercial Director
+- Card payments preferred — Guild targeting 90% cashless by 2026
+
+SECTION 3: HUMAN RESOURCES
+
+3.1 Staffing
+- 28 permanent staff, 45 casual/student staff
+- Student staff: minimum National Living Wage, maximum 15 hours/week during term
+- All staff: enhanced DBS check required
+- Probation period: 3 months (permanent), 4 weeks (casual)
+
+3.2 Sabbatical Officers
+- Four elected positions: President, VP Education, VP Welfare, VP Activities
+- Term: 12 months (July 1 to June 30)
+- Salary: £22,500 (reviewed annually, pegged to NUS recommended rate)
+- Handover period: 2 weeks overlap with outgoing officers
+- Mandatory training: NUS Lead & Change programme, trustee duties, media training
+
+3.3 Performance Management
+- Annual appraisals for all permanent staff (April-May cycle)
+- 360-degree feedback for sabbatical officers at 6-month mark
+- Capability procedure: informal discussion → formal improvement plan → final review
+- Disciplinary procedure follows ACAS Code of Practice
+
+SECTION 4: HEALTH & SAFETY
+
+4.1 Event Safety
+- All events with 100+ attendees require formal risk assessment (template RA-001)
+- Licensed capacity: Main Hall 800, Bar 250, Meeting Rooms 30-60
+- First aiders required: 1 per 100 attendees
+- SIA-licensed security required for all evening events selling alcohol
+- External event organisers must provide £5M public liability insurance
+
+4.2 Building Operations
+- Building open hours: Monday-Friday 8am-11pm, Saturday 10am-11pm, Sunday closed (except events)
+- Fire evacuation drill: once per term, coordinated with university fire officer
+- CCTV: 24 cameras, 30-day retention, managed by Estates department
+- Lone working policy: No staff member alone in building after 9pm
+
+SECTION 5: DATA PROTECTION (GDPR)
+
+5.1 Data Controller: Students' Guild (separate from university)
+5.2 DPO: Sarah Thompson (interim, pending appointment of dedicated DPO)
+5.3 Student data: Membership records, society memberships, election data, welfare case files
+5.4 Retention: Membership data 6 years post-graduation, welfare case files 3 years, financial records 7 years
+5.5 Consent: Opt-in for marketing, legitimate interest for core membership services
+5.6 Subject Access Requests: Processed within 30 calendar days, logged in SAR register
+
+SECTION 6: COMPLAINTS & FEEDBACK
+
+6.1 Student Complaints
+- Stage 1: Informal resolution with relevant department (5 working days)
+- Stage 2: Formal written complaint to Chief Executive (10 working days)
+- Stage 3: Appeal to Board of Trustees sub-committee (20 working days)
+- Stage 4: External review by OIA (Office of the Independent Adjudicator)
+
+6.2 Feedback Mechanisms
+- Annual Student Survey (November, target 25% response rate)
+- Termly feedback forums (open to all students)
+- Online feedback form on Guild website (monitored weekly)
+- NSS free-text comments analysis (conducted by VP Education each July)

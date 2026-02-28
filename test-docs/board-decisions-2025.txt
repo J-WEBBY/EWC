@@ -1,0 +1,62 @@
+University of Oldbury Students' Guild — Board of Trustees Decision Log
+Academic Year 2024-2025
+
+MEETING: 14 October 2024 — Emergency Budget Session
+Decision BD-2024-001: Approved emergency reallocation of £45,000 from the reserves fund to cover unexpected roof repair costs in the Guild building east wing.
+Rationale: Structural survey revealed water ingress threatening server room. Delay would risk data loss and insurance void.
+Vote: Unanimous (7-0)
+Action Owner: Sarah Thompson (Finance)
+Status: Completed. Works finished December 2024.
+
+MEETING: 11 November 2024 — Regular Board Meeting
+Decision BD-2024-002: Approved new mental health first aid training programme for all student-facing staff (32 employees).
+Rationale: 340% increase in welfare casework since 2021. University counselling service wait time now 6 weeks. Guild must be first responder.
+Cost: £12,800 (training provider: MHFA England)
+Vote: 6-1 (dissent from external trustee citing budget pressure)
+Action Owner: Liam Chen (VP Welfare)
+Status: 22 of 32 staff trained by March 2025. Remaining 10 scheduled for May.
+
+Decision BD-2024-003: Rejected proposal to outsource Guild bar operations to external catering company.
+Rationale: Student consultation showed 78% opposition. Bar profits (£180K/year) fund societies. Outsourcing would remove student employment pipeline (45 part-time student jobs). Commercial director presented 3-year growth plan showing bar can achieve 15% margin improvement without outsourcing.
+Vote: 5-2
+
+Decision BD-2024-004: Approved investment of £28,000 in new event sound and lighting equipment.
+Rationale: Current system is 8 years old, failing regularly. Cost of hiring external AV for events last year: £19,000. Payback in under 2 years.
+Vote: Unanimous
+
+MEETING: 3 February 2025 — Regular Board Meeting
+Decision BD-2025-001: Approved 3-year Digital Transformation Strategy.
+Key commitments: (1) Replace legacy membership database with cloud-based system, (2) Implement AI-assisted decision support for commercial operations, (3) Digitise all society admin processes.
+Budget: £95,000 over 3 years (Year 1: £45,000)
+Vote: 6-1
+
+Decision BD-2025-002: Approved new Ethical Investment Policy for Guild reserves (£320,000).
+Constraints: No fossil fuels, no arms manufacturers, no companies with poor labour practices. Minimum 60% in ESG-rated funds.
+Vote: Unanimous
+
+Decision BD-2025-003: Approved creation of Student Food Bank, operating from Guild basement storage area.
+Rationale: 23% of students reported food insecurity in annual survey. Partnership with Trussell Trust for supply chain.
+Startup cost: £4,200 (shelving, refrigeration, signage)
+Vote: Unanimous
+Status: Operational since March 2025. Serving 80-120 students per week.
+
+MEETING: 5 May 2025 — Regular Board Meeting
+Decision BD-2025-004: Approved lease extension for Guild building (25-year term with university).
+Key terms: Peppercorn rent maintained. University commits to £500K building maintenance fund. Guild retains commercial revenue rights.
+Legal review: Completed by Browne & Partners LLP.
+Vote: Unanimous
+
+Decision BD-2025-005: Deferred decision on expanding Guild gym facilities.
+Rationale: Feasibility study showed £280K cost. Board requested exploration of partnership model with university sports centre instead.
+Action: Priya Patel to present partnership proposal by October 2025.
+
+Decision BD-2025-006: Approved annual accounts for 2023-24.
+Turnover: £2.1M | Surplus: £48,000 | Reserves: £320,000
+Auditor: Grant Thornton — clean audit opinion
+Vote: Unanimous
+
+MEETING: 8 September 2025 — Strategy Away Day
+Decision BD-2025-007: Approved Guild Strategic Plan 2025-2028 "Every Student, Every Voice."
+Three pillars: (1) Representation Excellence, (2) Inclusive Community, (3) Sustainable Operations.
+KPIs: Student satisfaction >85%, society participation >40%, commercial growth 10% YoY.
+Vote: Unanimous
