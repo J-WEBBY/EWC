@@ -647,7 +647,7 @@ export default function VoicePage() {
                     </div>
                     <p className="text-[11px] text-[#8B84A0] mt-4">
                       <AlertCircle size={10} className="inline mr-1 text-[#f59e0b]/50" />
-                      1 objection requires a script update — "Can I speak to a doctor?"
+                      1 objection requires a script update — &quot;Can I speak to a doctor?&quot;
                     </p>
                   </div>
                 </div>
