@@ -15,7 +15,7 @@ import {
 } from '@/lib/actions/staff-onboarding';
 import { StaffNav } from '@/components/staff-nav';
 import {
-  getOrCreateAssistant, getAllAssistantStatuses, getVapiCalls,
+  getAllAssistantStatuses, getVapiCalls,
   type VapiCall, type AssistantKey,
 } from '@/lib/actions/vapi';
 
@@ -391,13 +391,19 @@ export default function VoicePage() {
   const handleProvision = useCallback(async (key: AssistantKey) => {
     setProvisioningKey(key);
     try {
-      const res = await getOrCreateAssistant(key);
-      if (res.success) {
+      const res = await fetch('/api/vapi/provision', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key }),
+      }).then(r => r.json()) as { success: boolean; assistantId?: string; error?: string };
+      if (res.success && res.assistantId) {
         setAssistants(prev => prev ? {
           ...prev,
-          [key]: { ...prev[key], id: res.assistantId, provisioned: true },
+          [key]: { ...prev[key], id: res.assistantId!, provisioned: true },
         } : prev);
         setVapiConnected(true);
+      } else {
+        console.error('[provision] failed:', res.error);
       }
     } finally {
       setProvisioningKey(null);
@@ -413,7 +419,11 @@ export default function VoicePage() {
       // Use EWC assistant for browser test calls
       let aid = assistants?.EWC?.id;
       if (!aid) {
-        const res = await getOrCreateAssistant('EWC');
+        const res = await fetch('/api/vapi/provision', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: 'EWC' }),
+        }).then(r => r.json()) as { success: boolean; assistantId?: string; error?: string };
         if (!res.success || !res.assistantId) {
           console.error('[vapi] Failed to create EWC assistant:', res.error);
           setCallState('idle');
