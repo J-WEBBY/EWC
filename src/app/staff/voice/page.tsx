@@ -14,7 +14,10 @@ import {
   getStaffProfile, getLatestTenantAndUser, type StaffProfile,
 } from '@/lib/actions/staff-onboarding';
 import { StaffNav } from '@/components/staff-nav';
-import { getOrCreateVapiAssistant, getVapiStatus, getVapiCalls, type VapiCall } from '@/lib/actions/vapi';
+import {
+  getOrCreateAssistant, getAllAssistantStatuses, getVapiCalls,
+  type VapiCall, type AssistantKey,
+} from '@/lib/actions/vapi';
 
 // =============================================================================
 // TYPES
@@ -300,10 +303,11 @@ export default function VoicePage() {
 
   // Vapi state
   const [vapiConnected, setVapiConnected]   = useState(false);
-  const [assistantId, setAssistantId]       = useState<string | null>(null);
+  const [assistants, setAssistants]         = useState<Record<AssistantKey, { id?: string; name: string; provisioned: boolean }> | null>(null);
   const [callState, setCallState]           = useState<CallState>('idle');
   const [isMuted, setIsMuted]               = useState(false);
   const [vapiCalls, setVapiCalls]           = useState<CallEntry[]>([]);
+  const [provisioningKey, setProvisioningKey] = useState<AssistantKey | null>(null);
   const [vapiLoading, setVapiLoading]       = useState(false);
   const vapiRef = useRef<import('@vapi-ai/web').default | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -333,11 +337,12 @@ export default function VoicePage() {
   // ---------------------------------------------------------------------------
   useEffect(() => {
     (async () => {
-      const status = await getVapiStatus();
-      setVapiConnected(status.connected);
-      if (status.assistantId) setAssistantId(status.assistantId);
-
-      const callsRes = await getVapiCalls(20);
+      const [statusRes, callsRes] = await Promise.all([
+        getAllAssistantStatuses(),
+        getVapiCalls(20),
+      ]);
+      setVapiConnected(statusRes.connected);
+      setAssistants(statusRes.assistants);
       if (callsRes.success && callsRes.calls.length > 0) {
         setVapiCalls(callsRes.calls.map(vapiCallToEntry));
       }
@@ -383,24 +388,40 @@ export default function VoicePage() {
     setTimeout(() => setTestingVoice(false), 2500);
   }
 
+  const handleProvision = useCallback(async (key: AssistantKey) => {
+    setProvisioningKey(key);
+    try {
+      const res = await getOrCreateAssistant(key);
+      if (res.success) {
+        setAssistants(prev => prev ? {
+          ...prev,
+          [key]: { ...prev[key], id: res.assistantId, provisioned: true },
+        } : prev);
+        setVapiConnected(true);
+      }
+    } finally {
+      setProvisioningKey(null);
+    }
+  }, []);
+
   const handleStartCall = useCallback(async () => {
     if (callState !== 'idle') return;
     setCallState('connecting');
     setVapiLoading(true);
 
     try {
-      // Provision assistant if not yet created
-      let aid = assistantId;
+      // Use EWC assistant for browser test calls
+      let aid = assistants?.EWC?.id;
       if (!aid) {
-        const res = await getOrCreateVapiAssistant();
+        const res = await getOrCreateAssistant('EWC');
         if (!res.success || !res.assistantId) {
-          console.error('[vapi] Failed to create assistant:', res.error);
+          console.error('[vapi] Failed to create EWC assistant:', res.error);
           setCallState('idle');
           setVapiLoading(false);
           return;
         }
         aid = res.assistantId;
-        setAssistantId(aid);
+        setAssistants(prev => prev ? { ...prev, EWC: { ...prev.EWC, id: aid!, provisioned: true } } : prev);
         setVapiConnected(true);
       }
 
@@ -417,7 +438,7 @@ export default function VoicePage() {
     } finally {
       setVapiLoading(false);
     }
-  }, [callState, assistantId]);
+  }, [callState, assistants]);
 
   const handleEndCall = useCallback(() => {
     setCallState('ending');
@@ -510,13 +531,13 @@ export default function VoicePage() {
 
               {/* Vapi connection status */}
               <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${
-                vapiConnected
-                  ? 'bg-white border-[#EBE5FF]'
-                  : 'bg-[#FEF3C7] border-[#D97706]/20'
+                vapiConnected ? 'bg-white border-[#EBE5FF]' : 'bg-[#FEF3C7] border-[#D97706]/20'
               }`}>
                 <div className={`w-2 h-2 rounded-full ${vapiConnected ? 'bg-[#4ade80]' : 'bg-[#f59e0b]'}`} />
                 <span className="text-[12px] text-[#6E6688]">
-                  {vapiConnected ? 'Vapi.ai — connected' : 'Vapi.ai — pending'}
+                  {vapiConnected
+                    ? `Vapi — ${[assistants?.EWC, assistants?.ORION, assistants?.ARIA].filter(a => a?.provisioned).length}/3 agents ready`
+                    : 'Vapi.ai — pending'}
                 </span>
               </div>
             </div>
@@ -994,28 +1015,71 @@ export default function VoicePage() {
                     </div>
                   </div>
 
+                  {/* AI Voice Agents */}
                   <div className="bg-white border border-[#EBE5FF] rounded-xl p-5">
-                    <h3 className="text-[11px] uppercase tracking-[0.15em] text-[#6E6688] font-medium mb-4">Integration Status</h3>
+                    <h3 className="text-[11px] uppercase tracking-[0.15em] text-[#6E6688] font-medium mb-4">AI Voice Agents</h3>
                     <div className="space-y-3">
-                      {[
-                        { name: 'Vapi.ai Voice', status: vapiConnected ? 'Connected' : 'Pending', color: vapiConnected ? '#4ade80' : '#f59e0b' },
-                        { name: 'Twilio SMS',    status: 'Pending',    color: '#f59e0b' },
-                        { name: 'Cliniko',       status: 'Pending',    color: '#f59e0b' },
-                      ].map(s => (
-                        <div key={s.name} className="flex items-center justify-between">
-                          <span className="text-[13px] text-[#524D66]">{s.name}</span>
-                          <span className="text-[11px] font-medium px-2 py-0.5 rounded-md"
-                            style={{ color: s.color, background: `${s.color}15` }}>
-                            {s.status}
-                          </span>
-                        </div>
-                      ))}
+                      {([
+                        {
+                          key: 'EWC' as AssistantKey,
+                          label: 'EWC',
+                          role: 'Inbound receptionist',
+                          trigger: 'All inbound phone calls',
+                          color: '#8A6CFF',
+                        },
+                        {
+                          key: 'ORION' as AssistantKey,
+                          label: 'Orion',
+                          role: 'Outbound sales',
+                          trigger: 'Missed calls · new leads',
+                          color: '#60a5fa',
+                        },
+                        {
+                          key: 'ARIA' as AssistantKey,
+                          label: 'Aria',
+                          role: 'Patient retention',
+                          trigger: 'Follow-up · re-booking',
+                          color: '#4ade80',
+                        },
+                      ]).map(agent => {
+                        const status = assistants?.[agent.key];
+                        const isProvisioned = status?.provisioned ?? false;
+                        const isProvisioning = provisioningKey === agent.key;
+                        return (
+                          <div key={agent.key} className="px-4 py-3 bg-[#FAF7F2] border border-[#EBE5FF] rounded-xl">
+                            <div className="flex items-center justify-between mb-1">
+                              <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full flex-shrink-0"
+                                  style={{ background: isProvisioned ? agent.color : '#D5CCFF' }} />
+                                <span className="text-[13px] font-medium text-[#1A1035]">{agent.label}</span>
+                                <span className="text-[11px] text-[#8B84A0]">— {agent.role}</span>
+                              </div>
+                              {isProvisioned ? (
+                                <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-[#4ade80]/10 text-[#166534]">
+                                  Ready
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => handleProvision(agent.key)}
+                                  disabled={isProvisioning}
+                                  className="flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-lg bg-[#1A1035] text-white hover:bg-[#2D1F6E] transition-colors disabled:opacity-50"
+                                >
+                                  {isProvisioning ? <Loader2 size={10} className="animate-spin" /> : <Zap size={10} />}
+                                  {isProvisioning ? 'Creating…' : 'Provision'}
+                                </button>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-[#8B84A0] pl-4">{agent.trigger}</p>
+                            {isProvisioned && status?.id && (
+                              <p className="text-[9px] text-[#C4BEDD] pl-4 mt-0.5 font-mono">{status.id.slice(0, 18)}…</p>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                     <p className="text-[11px] text-[#8B84A0] mt-4 leading-relaxed">
-                      Webhook URL for Vapi dashboard:<br />
-                      <code className="text-[10px] text-[#6E6688] break-all">
-                        /api/vapi/webhook
-                      </code>
+                      Webhook: <code className="text-[10px] text-[#6E6688]">/api/vapi/webhook</code><br />
+                      Assign EWC to your UK phone number in the Vapi dashboard.
                     </p>
                   </div>
                 </div>
