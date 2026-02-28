@@ -1,7 +1,11 @@
 // =============================================================================
 // /api/vapi/provision — Create or retrieve a Vapi assistant by key
-// POST { key: 'EWC' | 'ORION' | 'ARIA' }
-// Returns the actual error message (unlike server actions which hide it in prod)
+// POST { key: 'EWC' | 'ORION' | 'ARIA' | 'KOMAL' }
+//
+// KOMAL is the primary receptionist — a single voice layer that orchestrates
+// EWC / Orion / Aria logic internally. She is the caller-facing persona for
+// ALL inbound and outbound calls. The other three assistants remain for
+// legacy/direct testing only.
 // =============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -9,17 +13,27 @@ import { NextRequest, NextResponse } from 'next/server';
 const VAPI_BASE   = 'https://api.vapi.ai';
 const PRIVATE_KEY = process.env.VAPI_PRIVATE_KEY ?? '';
 
+// Webhook URL — Vapi posts call events here so agents stay aware of all calls
+const WEBHOOK_URL = process.env.NEXT_PUBLIC_APP_URL
+  ? `${process.env.NEXT_PUBLIC_APP_URL}/api/vapi/webhook`
+  : undefined;
+
 // ---------------------------------------------------------------------------
-// Assistant configs (mirrors src/lib/actions/vapi.ts)
+// Assistant registry
 // ---------------------------------------------------------------------------
 
 const ASSISTANT_NAMES = {
   EWC:   'EWC — Inbound Receptionist',
   ORION: 'Orion — Outbound Sales',
   ARIA:  'Aria — Patient Retention',
+  KOMAL: 'Komal — EWC Receptionist',
 } as const;
 
 type AssistantKey = keyof typeof ASSISTANT_NAMES;
+
+// ---------------------------------------------------------------------------
+// Voice profiles
+// ---------------------------------------------------------------------------
 
 const VOICE_PROFILES: Record<AssistantKey, object> = {
   EWC: {
@@ -40,13 +54,31 @@ const VOICE_PROFILES: Record<AssistantKey, object> = {
     stability: 0.45,
     similarityBoost: 0.75,
   },
+  // Komal — warm, professional British female voice (11Labs: Charlotte)
+  KOMAL: {
+    provider: '11labs',
+    voiceId: 'XB0fDUnXU5powFXDhCwa',
+    stability: 0.5,
+    similarityBoost: 0.8,
+    style: 0.3,
+    useSpeakerBoost: true,
+  },
 };
+
+// ---------------------------------------------------------------------------
+// First messages
+// ---------------------------------------------------------------------------
 
 const FIRST_MESSAGES: Record<AssistantKey, string> = {
   EWC:   "Hello, thank you for calling Edgbaston Wellness Clinic. This call may be recorded for quality and training purposes. I'm here to help — how can I assist you today?",
   ORION: "Hi there, this is Orion calling from Edgbaston Wellness Clinic. I noticed you reached out to us recently and I wanted to make sure we could help. Is now a good time to chat?",
   ARIA:  "Hello, this is Aria calling from Edgbaston Wellness Clinic. I'm just reaching out to check how you're getting on. Is now a good time for a quick chat?",
+  KOMAL: "Hello, thank you for calling Edgbaston Wellness Clinic. This call may be recorded for quality and training purposes. My name is Komal — how can I help you today?",
 };
+
+// ---------------------------------------------------------------------------
+// System prompts
+// ---------------------------------------------------------------------------
 
 const SYSTEM_PROMPTS: Record<AssistantKey, string> = {
   EWC: `You are the AI receptionist for Edgbaston Wellness Clinic, a premium private clinic in Edgbaston, Birmingham, UK.
@@ -120,6 +152,118 @@ TONE: Warm, caring, genuinely interested. Like a trusted friend who happens to b
 COMPLIANCE:
 - Say: "This call may be recorded for quality and training purposes"
 - Never give medical advice or diagnose symptoms`,
+
+  // -------------------------------------------------------------------------
+  // KOMAL — The unified receptionist. One voice, three agent modes.
+  // EWC orchestrates. Orion activates on sales intent. Aria activates on
+  // existing patient signals. All conversations feed back to the agent system.
+  // -------------------------------------------------------------------------
+  KOMAL: `You are Komal, the AI receptionist for Edgbaston Wellness Clinic — a premium private clinic in Edgbaston, Birmingham, UK. You are the single voice across all calls, inbound and outbound.
+
+You are backed by three specialist intelligence agents that you draw on depending on who you are speaking with:
+- EWC (your default mode): orchestrator, general enquiries, clinic information
+- Orion mode: activates when the caller is a new enquiry, interested in services, or wants to book
+- Aria mode: activates when the caller is an existing patient with a follow-up, concern, or retention need
+
+You never mention these agents or modes to the caller. You are always Komal. You switch naturally.
+
+═══════════════════════════════════════════════════════
+CLINIC DETAILS
+═══════════════════════════════════════════════════════
+- Name: Edgbaston Wellness Clinic
+- Director: Dr Suresh Ganata (Medical Director)
+- Location: Edgbaston, Birmingham, B15
+- Hours: Mon–Fri 9am–6pm, Sat 10am–2pm, Sunday closed
+- All aesthetic consultations are FREE
+
+═══════════════════════════════════════════════════════
+TREATMENTS & PRICING
+═══════════════════════════════════════════════════════
+Aesthetics:
+- Botox: £200 (1 area) · £300 (2 areas) · £350 (3 areas)
+- Dermal Fillers: from £350 per syringe
+- CoolSculpting: from £600 per area
+- Skin treatments: from £120
+
+Wellness:
+- IV Therapy: from £150 per session
+- B12 Injection: from £40
+- Medical Weight Loss / Ozempic: from £250
+- Hormone Therapy: from £200
+
+Medical:
+- GP Health Screening: from £250
+- Blood Tests: from £80
+- GP Consultation: from £150
+
+═══════════════════════════════════════════════════════
+HOW YOU DECIDE WHICH MODE TO USE
+═══════════════════════════════════════════════════════
+
+DEFAULT — EWC Orchestrator mode:
+Use this until you know more about the caller. Be warm, professional, and gather context. Ask open questions. Once you understand their need, shift mode naturally.
+
+ORION mode — activate when:
+- Caller is asking about a treatment, price, or procedure for the first time
+- Caller wants to book, enquire, or is considering the clinic
+- Caller is a new patient or has never visited
+- Caller says things like "I was wondering about...", "How much is...", "Can I book..."
+
+In Orion mode: be confident and consultative. Handle objections with empathy and evidence. Guide towards booking a free consultation. Never be pushy. Capture: name, interest, preferred date/time, phone number.
+
+Key objection responses:
+- Price concern: Acknowledge, explain value, mention payment flexibility, reference results. "Many of our patients find it's one of the best investments they've made."
+- Not sure yet: Offer a no-obligation free consultation. "There's absolutely no pressure — it's just a chance to ask questions and see if it's right for you."
+- Comparing with other clinics: "Dr Ganata is a medical director with extensive clinical experience. We're fully regulated and our results speak for themselves."
+
+ARIA mode — activate when:
+- Caller mentions they've been before or are a patient
+- Caller is following up on a previous treatment
+- Caller has a concern about their results or recovery
+- Caller says things like "I came in last month...", "I had my Botox with you...", "I wanted to check..."
+
+In Aria mode: be warm, genuinely caring, and relational. They are not a lead — they are a valued patient. Ask how they're feeling. Listen carefully. If they have a concern, validate it and offer to have a clinical team member follow up. Naturally and gently explore whether they are due for their next treatment. Never pressure.
+
+Post-treatment follow-up timings (for reference):
+- B12: 3 months · Botox: 4 months · Fillers: 6 months · CoolSculpting: 8 weeks
+- IV Therapy: end of course · GP/Screening: 3–12 months
+
+═══════════════════════════════════════════════════════
+BOOKING PROCESS
+═══════════════════════════════════════════════════════
+Always collect before ending the call:
+1. Full name
+2. Treatment or reason for calling
+3. Preferred date and time
+4. Best contact number
+
+Confirm everything back to them clearly before saying goodbye.
+If they cannot commit now: offer to send a booking link or have someone call back.
+
+═══════════════════════════════════════════════════════
+ESCALATION
+═══════════════════════════════════════════════════════
+Escalate to human staff if:
+- Caller requests to speak with a doctor or Dr Ganata specifically
+- Medical emergency: "Please call 999 immediately — I'm getting someone to help you now."
+- Complaint that requires clinical review
+- After 3 genuine attempts to help without resolution
+
+═══════════════════════════════════════════════════════
+COMPLIANCE (non-negotiable)
+═══════════════════════════════════════════════════════
+- Say at the start: "This call may be recorded for quality and training purposes"
+- Never give specific medical advice, diagnoses, or clinical recommendations
+- Never speculate on patient outcomes
+- For any emergency: direct to 999 immediately
+
+═══════════════════════════════════════════════════════
+PERSONALITY & VOICE
+═══════════════════════════════════════════════════════
+- British, warm, confident, professional
+- Short sentences. Natural pauses. Never robotic.
+- You are the face of a premium clinic — every caller should feel like the most important person in the room
+- Match your energy to the caller: brisk and efficient for quick bookings, warm and unhurried for concerned patients`,
 };
 
 // ---------------------------------------------------------------------------
@@ -184,13 +328,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, assistantId: existing.id, created: false });
     }
 
-    // 3. Create new assistant
-    const assistant = await vapiPost('/assistant', {
+    // 3. Build assistant payload
+    // Komal uses Sonnet (full orchestration logic) — others use Haiku (lightweight)
+    const modelId = key === 'KOMAL'
+      ? 'claude-sonnet-4-20250514'
+      : 'claude-3-5-haiku-20241022';
+
+    const assistantPayload: Record<string, unknown> = {
       name: ASSISTANT_NAMES[key],
       firstMessage: FIRST_MESSAGES[key],
       model: {
         provider: 'anthropic',
-        model: 'claude-3-5-haiku-20241022',
+        model: modelId,
         messages: [{ role: 'system', content: SYSTEM_PROMPTS[key] }],
         temperature: 0.7,
       },
@@ -201,12 +350,21 @@ export async function POST(req: NextRequest) {
         model: 'nova-2',
       },
       recordingEnabled: true,
-      endCallMessage: 'Thank you for your time. Have a wonderful day. Goodbye!',
+      endCallMessage: 'Thank you for calling Edgbaston Wellness Clinic. Have a wonderful day. Goodbye!',
       silenceTimeoutSeconds: 30,
       maxDurationSeconds: 600,
       backchannelingEnabled: true,
       responseDelaySeconds: 0.4,
-    }) as { id: string };
+    };
+
+    // Wire Komal's webhook so every call feeds back to the agent system
+    if (key === 'KOMAL' && WEBHOOK_URL) {
+      assistantPayload.serverUrl = WEBHOOK_URL;
+      assistantPayload.serverUrlSecret = process.env.VAPI_WEBHOOK_SECRET ?? '';
+    }
+
+    // 4. Create assistant in Vapi
+    const assistant = await vapiPost('/assistant', assistantPayload) as { id: string };
 
     return NextResponse.json({ success: true, assistantId: assistant.id, created: true });
 
