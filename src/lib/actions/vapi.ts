@@ -182,15 +182,20 @@ async function vapiRequest(path: string, options: RequestInit = {}) {
     },
   });
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Vapi API error ${res.status}: ${text}`);
+    const text = await res.text().catch(() => res.statusText);
+    console.error(`[vapi] API error ${res.status} on ${path}:`, text);
+    throw new Error(`Vapi ${res.status}: ${text.slice(0, 200)}`);
   }
   return res.json();
 }
 
 async function listAssistants(): Promise<{ id: string; name: string }[]> {
   const data = await vapiRequest('/assistant?limit=100');
-  return Array.isArray(data) ? data : [];
+  // Vapi returns plain array
+  if (Array.isArray(data)) return data;
+  // Some API versions wrap in { results: [] }
+  if (data && Array.isArray(data.results)) return data.results;
+  return [];
 }
 
 // ---------------------------------------------------------------------------
