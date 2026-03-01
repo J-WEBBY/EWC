@@ -206,7 +206,6 @@ export async function syncAppointments(
         return {
           cliniko_id:              a.id,
           cliniko_patient_id:      a.patient_id ?? null,
-          cliniko_practitioner_id: a.practitioner_id ?? null,
           appointment_type:        a.appointment_type_name ?? null,
           practitioner_name:       null, // enriched separately via practitioners sync
           starts_at:               a.starts_at,
