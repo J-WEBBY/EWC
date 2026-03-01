@@ -19,17 +19,6 @@ import { VAPI_TOOL_REGISTRY } from '@/lib/vapi/tool-registry';
 
 // Tier 1 tools get a 3s timeout; ask_agent manages its own 8s timeout
 const TIER1_TIMEOUT_MS = 3_000;
-const TIER1_TOOLS = new Set([
-  'identify_caller',
-  'get_clinic_info',
-  'search_knowledge_base',
-  'get_patient_history',
-  'check_appointment_slots',
-  'capture_lead',
-  'create_booking_request',
-  'log_call_concern',
-  'escalate_to_human',
-]);
 
 const GENERIC_FALLBACK = "I wasn't able to get that information right now — let me have our team follow up with you shortly.";
 

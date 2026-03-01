@@ -9,7 +9,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Phone, PhoneMissed, PhoneCall,
-  Brain, Settings, CheckCircle2, XCircle,
+  Brain, CheckCircle2, XCircle,
   AlertCircle, Loader2, RefreshCw, Save,
   Zap, User, ChevronRight,
 } from 'lucide-react';
@@ -549,7 +549,7 @@ export default function ReceptionPage() {
                       <div className="flex items-center gap-2 mt-2">
                         <AlertCircle size={12} className="text-amber-400/60 flex-shrink-0" />
                         <p className="text-[11px] text-amber-400/60">
-                          Greeting should include recording consent: "This call may be recorded…"
+                          Greeting should include recording consent: &ldquo;This call may be recorded&hellip;&rdquo;
                         </p>
                       </div>
                     )}
@@ -880,7 +880,7 @@ export default function ReceptionPage() {
                   </div>
                 ) : (
                   <p className="text-[12px] text-white/25">
-                    Click "Check now" to verify API connectivity and environment variable status.
+                    Click &ldquo;Check now&rdquo; to verify API connectivity and environment variable status.
                   </p>
                 )}
               </div>
