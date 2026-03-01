@@ -38,13 +38,13 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ArrowLeft, Send, Loader2, CheckCircle2,
+  ArrowLeft, ArrowRight, Send, Loader2, CheckCircle2,
   ShieldAlert, BarChart3, Scan, Zap,
   TrendingUp, Users, Phone, AlertTriangle,
   RefreshCw, Activity, Brain, MessageSquare,
   Clock, Sparkles, Settings2,
   PlusCircle, Globe, Calendar, FileText,
-  Share2, Wrench, X, BookOpen,
+  Share2, Wrench, X, BookOpen, ChevronDown,
   type LucideIcon,
 } from 'lucide-react';
 import {
@@ -333,8 +333,18 @@ export default function AgentChatPage() {
   const [prefsSaved, setPrefsSaved]         = useState(false);
   const [focusInput, setFocusInput]         = useState('');
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const textareaRef    = useRef<HTMLTextAreaElement>(null);
+  // ── Naming modal ───────────────────────────────────────────────────────────
+  const [namingConv, setNamingConv]             = useState(false);
+  const [convNameInput, setConvNameInput]       = useState('');
+  const [pendingFirstMsg, setPendingFirstMsg]   = useState<string | null>(null);
+
+  // ── Switch agent dropdown ──────────────────────────────────────────────────
+  const [switchOpen, setSwitchOpen]         = useState(false);
+
+  const messagesEndRef  = useRef<HTMLDivElement>(null);
+  const textareaRef     = useRef<HTMLTextAreaElement>(null);
+  const switchRef       = useRef<HTMLDivElement>(null);
+  const nameInputRef    = useRef<HTMLInputElement>(null);
 
   // ── Auto-scroll chat ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -355,12 +365,22 @@ export default function AgentChatPage() {
     return () => document.removeEventListener('mousedown', handler);
   }, [toolsOpen]);
 
-  // ── loadConversations ──────────────────────────────────────────────────────
-  const loadConversations = useCallback(async (uid: string) => {
-    const convs = await getAgentConversations(agentKey, uid);
-    setConversations(convs);
-    setConvsLoaded(true);
-  }, [agentKey]);
+  // ── Close switch dropdown on outside click ─────────────────────────────────
+  useEffect(() => {
+    if (!switchOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (switchRef.current && !switchRef.current.contains(e.target as Node)) {
+        setSwitchOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [switchOpen]);
+
+  // ── Auto-focus naming input when modal opens ───────────────────────────────
+  useEffect(() => {
+    if (namingConv) setTimeout(() => nameInputRef.current?.focus(), 50);
+  }, [namingConv]);
 
   // ── Init (profile + agent + conversation + convs) ──────────────────────────
   useEffect(() => {
@@ -413,26 +433,79 @@ export default function AgentChatPage() {
     });
   }, [activeTab, prefsLoaded, userId, agentKey]);
 
-  // ── handleNewChat ──────────────────────────────────────────────────────────
-  const handleNewChat = useCallback(async () => {
+  // ── handleNewChat — shows naming modal ────────────────────────────────────
+  const handleNewChat = useCallback(() => {
     if (!userId) return;
-    setMessages([]);
-    setStreamingText('');
-    setActiveToolCall(null);
-    setActiveTab('chat');
-    const res = await createConversation('clinic', userId, agentKey);
+    setPendingFirstMsg(null);
+    setConvNameInput('');
+    setNamingConv(true);
+  }, [userId]);
+
+  // ── handleConfirmName — creates conversation with chosen name ──────────────
+  const handleConfirmName = useCallback(async () => {
+    const name = convNameInput.trim() || 'New Chat';
+    setNamingConv(false);
+    setConvNameInput('');
+
+    const res = await createConversation('clinic', userId, agentKey, name);
     if (res.success && res.conversationId) {
       const newConv: AgentConversationSummary = {
         id: res.conversationId,
-        title: null,
+        title: name,
         message_count: 0,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
+      setMessages([]);
+      setStreamingText('');
+      setActiveToolCall(null);
+      setActiveTab('chat');
       setConversationId(res.conversationId);
       setConversations(prev => [newConv, ...prev]);
+
+      // If triggered by first send, fire the pending message
+      if (pendingFirstMsg) {
+        const msg = pendingFirstMsg;
+        setPendingFirstMsg(null);
+        // Small tick to let state settle
+        setTimeout(() => handleSendDirect(msg, res.conversationId!), 0);
+      }
     }
-  }, [userId, agentKey]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [convNameInput, userId, agentKey, pendingFirstMsg]);
+
+  // ── handleSkipName — proceed without a custom name ────────────────────────
+  const handleSkipName = useCallback(async () => {
+    setNamingConv(false);
+    setConvNameInput('');
+
+    if (pendingFirstMsg === null) {
+      // Pure "New Chat" without a pending send — just create with default title
+      const res = await createConversation('clinic', userId, agentKey, 'New Chat');
+      if (res.success && res.conversationId) {
+        const newConv: AgentConversationSummary = {
+          id: res.conversationId,
+          title: 'New Chat',
+          message_count: 0,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        setMessages([]);
+        setStreamingText('');
+        setActiveToolCall(null);
+        setActiveTab('chat');
+        setConversationId(res.conversationId);
+        setConversations(prev => [newConv, ...prev]);
+      }
+    } else {
+      // Skip naming but still send the pending message
+      const msg = pendingFirstMsg;
+      setPendingFirstMsg(null);
+      // Let existing conversationId be used; fire send directly
+      setTimeout(() => handleSendDirect(msg, null), 0);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingFirstMsg, userId, agentKey]);
 
   // ── handleSelectConversation ───────────────────────────────────────────────
   const handleSelectConversation = useCallback(async (convId: string) => {
@@ -456,14 +529,29 @@ export default function AgentChatPage() {
     setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'auto' }), 80);
   }, [conversationId, messages.length]);
 
-  // ── handleSend ─────────────────────────────────────────────────────────────
-  const handleSend = useCallback(async (preset?: string) => {
+  // ── handleSend — intercepts first message to prompt for name ──────────────
+  const handleSend = useCallback((preset?: string) => {
     const text = (preset ?? input).trim();
     if (!text || sending) return;
+    // Show naming modal before sending the very first message in this chat
+    if (messages.length === 0) {
+      setPendingFirstMsg(text);
+      setConvNameInput('');
+      setNamingConv(true);
+      setInput('');
+      if (textareaRef.current) textareaRef.current.style.height = 'auto';
+      return;
+    }
+    handleSendDirect(text, conversationId);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [input, sending, messages.length, conversationId]);
 
-    let convId = conversationId;
+  // ── handleSendDirect — actual SSE send (bypasses naming modal) ─────────────
+  const handleSendDirect = useCallback(async (text: string, convIdOverride: string | null | undefined) => {
+    if (!text || sending) return;
+
+    let convId = convIdOverride !== undefined ? convIdOverride : conversationId;
     let accumulated = '';
-    const isFirstMessage = messages.length === 0;
 
     try {
       if (!convId) {
@@ -481,14 +569,6 @@ export default function AgentChatPage() {
       setStreamingText('');
       setActiveToolCall(null);
       if (textareaRef.current) textareaRef.current.style.height = 'auto';
-
-      // Optimistically title the conversation with the first message
-      if (isFirstMessage && convId) {
-        const shortTitle = text.slice(0, 50) + (text.length > 50 ? '…' : '');
-        setConversations(prev => prev.map(c =>
-          c.id === convId ? { ...c, title: shortTitle, updated_at: new Date().toISOString() } : c,
-        ));
-      }
 
       const res = await fetch('/api/primary-agent/chat', {
         method: 'POST',
@@ -580,7 +660,8 @@ export default function AgentChatPage() {
       setStreamingText('');
       setActiveToolCall(null);
     }
-  }, [input, sending, conversationId, setConversationId, userId, agentKey, messages.length]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sending, userId, agentKey]);
 
   // ── handleSavePrefs ────────────────────────────────────────────────────────
   const handleSavePrefs = useCallback(async () => {
@@ -767,34 +848,56 @@ export default function AgentChatPage() {
               </div>
             )}
 
-            {/* Agent switcher */}
-            <div className="px-4 pb-5 flex-shrink-0">
+            {/* Switch agent — compact dropdown */}
+            <div className="px-4 pb-5 flex-shrink-0" ref={switchRef}>
               <div className="h-px mb-3 mt-3" style={{ backgroundColor: `${color}14` }} />
-              <p className="text-[9px] uppercase tracking-[0.18em] font-semibold mb-2" style={{ color: `${color}99` }}>
-                Switch Agent
-              </p>
-              <div className="space-y-1.5">
-                {otherAgents.map(key => {
-                  const otherCfg = AGENT_CONFIG[key] || DEFAULT_CONFIG;
-                  return (
-                    <button
-                      key={key}
-                      onClick={() => router.push(`/staff/agents/${key}?userId=${userId}`)}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left transition-all hover:bg-white hover:border-[#EBE5FF] border border-transparent"
+              <div className="relative">
+                <button
+                  onClick={() => setSwitchOpen(o => !o)}
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl border border-transparent hover:bg-white hover:border-[#EBE5FF] transition-all"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="flex -space-x-1.5">
+                      {otherAgents.map(k => (
+                        <div key={k} className="w-3.5 h-3.5 rounded-full border-2 border-white flex-shrink-0"
+                          style={{ backgroundColor: (AGENT_CONFIG[k] || DEFAULT_CONFIG).color }} />
+                      ))}
+                    </div>
+                    <span className="text-[11px] text-[#6E6688] font-medium">Switch agent</span>
+                  </div>
+                  <ChevronDown size={10} className="text-[#8B84A0] transition-transform"
+                    style={{ transform: switchOpen ? 'rotate(180deg)' : 'none' }} />
+                </button>
+
+                <AnimatePresence>
+                  {switchOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 4, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 2, scale: 0.98 }}
+                      transition={{ duration: 0.13 }}
+                      className="absolute bottom-full mb-1 left-0 right-0 bg-white border border-[#EBE5FF] rounded-xl overflow-hidden shadow-lg z-10"
                     >
-                      <motion.div
-                        className="w-2 h-2 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: otherCfg.color }}
-                        animate={{ opacity: [0.5, 1, 0.5] }}
-                        transition={{ duration: 2.2, repeat: Infinity }}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[12px] font-medium text-[#1A1035] leading-none">{otherCfg.displayName}</p>
-                        <p className="text-[10px] text-[#8B84A0] mt-0.5">{otherCfg.role}</p>
-                      </div>
-                    </button>
-                  );
-                })}
+                      {otherAgents.map(key => {
+                        const otherCfg = AGENT_CONFIG[key] || DEFAULT_CONFIG;
+                        return (
+                          <button
+                            key={key}
+                            onClick={() => router.push(`/staff/agents/${key}?userId=${userId}`)}
+                            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-[#FAF7F2] transition-colors"
+                          >
+                            <div className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                              style={{ backgroundColor: otherCfg.color }} />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[12px] font-medium text-[#1A1035] leading-none">{otherCfg.displayName}</p>
+                              <p className="text-[10px] text-[#8B84A0] mt-0.5">{otherCfg.role}</p>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
 
@@ -802,7 +905,87 @@ export default function AgentChatPage() {
         </div>
 
         {/* ── RIGHT PANEL ─────────────────────────────────────────── */}
-        <div className="flex-1 flex flex-col min-w-0 bg-[#FAF7F2]">
+        <div className="flex-1 flex flex-col min-w-0 bg-[#FAF7F2] relative">
+
+          {/* Naming modal */}
+          <AnimatePresence>
+            {namingConv && (
+              <>
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute inset-0 bg-black/[0.06] backdrop-blur-[2px] z-30"
+                  onClick={handleSkipName}
+                />
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.96, y: 10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.96, y: 6 }}
+                  transition={{ duration: 0.18 }}
+                  className="absolute inset-0 flex items-center justify-center z-40 pointer-events-none"
+                >
+                  <div
+                    className="pointer-events-auto bg-white border border-[#EBE5FF] rounded-2xl shadow-xl p-6 w-[380px]"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <p className="text-[15px] font-semibold text-[#1A1035] tracking-tight mb-1">
+                      Name this conversation
+                    </p>
+                    <p className="text-[12px] text-[#8B84A0] mb-4 leading-relaxed">
+                      Give this chat a name so you can find it later in your history.
+                    </p>
+
+                    {pendingFirstMsg && (
+                      <div className="rounded-xl bg-[#FAF7F2] border border-[#EBE5FF] px-3 py-2.5 mb-4 flex items-start gap-2">
+                        <MessageSquare size={11} className="mt-0.5 flex-shrink-0 text-[#8B84A0]" />
+                        <p className="text-[11px] text-[#6E6688] italic leading-relaxed line-clamp-2">
+                          &ldquo;{pendingFirstMsg}&rdquo;
+                        </p>
+                      </div>
+                    )}
+
+                    <input
+                      ref={nameInputRef}
+                      type="text"
+                      value={convNameInput}
+                      onChange={e => setConvNameInput(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') handleConfirmName();
+                        if (e.key === 'Escape') handleSkipName();
+                      }}
+                      placeholder="e.g. Morning briefing, Patient retention review…"
+                      maxLength={80}
+                      className="w-full text-[13px] px-4 py-3 rounded-xl border border-[#EBE5FF] bg-[#FAF7F2] text-[#1A1035] placeholder:text-[#8B84A0] outline-none mb-4 transition-all"
+                      style={{ '--tw-ring-color': color } as React.CSSProperties}
+                      onFocus={e => (e.currentTarget.style.borderColor = `${color}50`)}
+                      onBlur={e => (e.currentTarget.style.borderColor = '#EBE5FF')}
+                    />
+
+                    <div className="flex items-center justify-between">
+                      <button
+                        onClick={handleSkipName}
+                        className="text-[12px] text-[#8B84A0] hover:text-[#524D66] transition-colors px-2 py-1"
+                      >
+                        Skip
+                      </button>
+                      <button
+                        onClick={handleConfirmName}
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-semibold text-white transition-all"
+                        style={{ backgroundColor: color }}
+                        onMouseEnter={e => (e.currentTarget.style.opacity = '0.88')}
+                        onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+                      >
+                        {pendingFirstMsg ? 'Start Chat' : 'Create'}
+                        <ArrowRight size={13} />
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
 
           {/* Tab header */}
           <div className="flex-shrink-0 px-6 py-0 border-b border-[#EBE5FF] bg-white/60 backdrop-blur-sm flex items-center gap-1">
