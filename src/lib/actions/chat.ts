@@ -384,6 +384,21 @@ export async function deleteConversation(
   }
 }
 
+export async function hardDeleteConversation(
+  conversationId: string,
+): Promise<{ success: boolean; error?: string }> {
+  if (!UUID_RE.test(conversationId)) return { success: false, error: 'Invalid conversation ID' };
+  try {
+    const db = createSovereignClient();
+    await db.from('chat_messages').delete().eq('conversation_id', conversationId);
+    await db.from('chat_conversations').delete().eq('id', conversationId);
+    return { success: true };
+  } catch (err) {
+    console.error('[chat] hardDeleteConversation threw:', err);
+    return { success: false, error: 'Failed to delete conversation' };
+  }
+}
+
 export async function renameConversation(
   _tenantId: string,
   conversationId: string,

@@ -57,7 +57,10 @@ import {
   getStaffProfile, getLatestTenantAndUser,
   type StaffProfile,
 } from '@/lib/actions/staff-onboarding';
-import { createConversation, getConversationMessages } from '@/lib/actions/chat';
+import {
+  createConversation, getConversationMessages,
+  deleteConversation, hardDeleteConversation,
+} from '@/lib/actions/chat';
 import {
   getAgentPreferences, saveAgentPreferences,
   type AgentPreferences, DEFAULT_AGENT_PREFS,
@@ -341,10 +344,15 @@ export default function AgentChatPage() {
   // ── Switch agent dropdown ──────────────────────────────────────────────────
   const [switchOpen, setSwitchOpen]         = useState(false);
 
+  // ── Conversation context menu ──────────────────────────────────────────────
+  const [convMenu, setConvMenu]             = useState<string | null>(null); // convId with open menu
+  const [confirmDelete, setConfirmDelete]   = useState<string | null>(null); // convId pending confirm
+
   const messagesEndRef  = useRef<HTMLDivElement>(null);
   const textareaRef     = useRef<HTMLTextAreaElement>(null);
   const switchRef       = useRef<HTMLDivElement>(null);
   const nameInputRef    = useRef<HTMLInputElement>(null);
+  const convMenuRef     = useRef<HTMLDivElement>(null);
 
   // ── Auto-scroll chat ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -381,6 +389,19 @@ export default function AgentChatPage() {
   useEffect(() => {
     if (namingConv) setTimeout(() => nameInputRef.current?.focus(), 50);
   }, [namingConv]);
+
+  // ── Close conv menu on outside click ──────────────────────────────────────
+  useEffect(() => {
+    if (!convMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (convMenuRef.current && !convMenuRef.current.contains(e.target as Node)) {
+        setConvMenu(null);
+        setConfirmDelete(null);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [convMenu]);
 
   // ── Init (profile + agent + conversation + convs) ──────────────────────────
   useEffect(() => {
@@ -506,6 +527,29 @@ export default function AgentChatPage() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingFirstMsg, userId, agentKey]);
+
+  // ── handleArchiveConv ─────────────────────────────────────────────────────
+  const handleArchiveConv = useCallback(async (convId: string) => {
+    setConvMenu(null);
+    setConversations(prev => prev.filter(c => c.id !== convId));
+    if (conversationId === convId) {
+      setMessages([]);
+      setConversationId(null);
+    }
+    await deleteConversation('clinic', convId);
+  }, [conversationId]);
+
+  // ── handleDeleteConv — hard delete after confirmation ─────────────────────
+  const handleDeleteConv = useCallback(async (convId: string) => {
+    setConvMenu(null);
+    setConfirmDelete(null);
+    setConversations(prev => prev.filter(c => c.id !== convId));
+    if (conversationId === convId) {
+      setMessages([]);
+      setConversationId(null);
+    }
+    await hardDeleteConversation(convId);
+  }, [conversationId]);
 
   // ── handleSelectConversation ───────────────────────────────────────────────
   const handleSelectConversation = useCallback(async (convId: string) => {
@@ -793,34 +837,107 @@ export default function AgentChatPage() {
                 ) : (
                   <div className="space-y-0.5 overflow-y-auto flex-1 pr-1">
                     {conversations.map(conv => {
-                      const isActive = conv.id === conversationId;
+                      const isActive   = conv.id === conversationId;
+                      const menuOpen   = convMenu === conv.id;
+                      const confirming = confirmDelete === conv.id;
                       const title = (conv.title && conv.title !== 'New Conversation')
                         ? conv.title
                         : 'New conversation';
                       return (
-                        <button
+                        <div
                           key={conv.id}
-                          onClick={() => handleSelectConversation(conv.id)}
-                          className={`w-full text-left px-2.5 py-2 rounded-xl border transition-all ${
+                          className={`group relative rounded-xl border transition-all ${
                             isActive
                               ? 'border-transparent'
                               : 'border-transparent hover:bg-white hover:border-[#EBE5FF]'
                           }`}
                           style={isActive ? { backgroundColor: `${color}12`, borderColor: `${color}22` } : {}}
                         >
-                          <div className="flex items-start gap-1.5">
-                            <MessageSquare size={10} className="mt-0.5 flex-shrink-0"
-                              style={{ color: isActive ? color : '#8B84A0' }} />
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-[11px] font-medium truncate leading-snug ${isActive ? 'text-[#1A1035]' : 'text-[#524D66]'}`}>
-                                {title}
-                              </p>
-                              <p className="text-[10px] text-[#8B84A0] mt-0.5">
-                                {conv.message_count > 0 ? `${conv.message_count} msg · ` : ''}{relativeTime(conv.updated_at)}
-                              </p>
+                          <button
+                            onClick={() => handleSelectConversation(conv.id)}
+                            className="w-full text-left px-2.5 py-2 pr-7"
+                          >
+                            <div className="flex items-start gap-1.5">
+                              <MessageSquare size={10} className="mt-0.5 flex-shrink-0"
+                                style={{ color: isActive ? color : '#8B84A0' }} />
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-[11px] font-medium truncate leading-snug ${isActive ? 'text-[#1A1035]' : 'text-[#524D66]'}`}>
+                                  {title}
+                                </p>
+                                <p className="text-[10px] text-[#8B84A0] mt-0.5">
+                                  {conv.message_count > 0 ? `${conv.message_count} msg · ` : ''}{relativeTime(conv.updated_at)}
+                                </p>
+                              </div>
                             </div>
-                          </div>
-                        </button>
+                          </button>
+
+                          {/* ··· menu trigger */}
+                          <button
+                            onClick={e => { e.stopPropagation(); setConvMenu(menuOpen ? null : conv.id); setConfirmDelete(null); }}
+                            className={`absolute right-1.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-md flex items-center justify-center transition-opacity ${
+                              menuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                            }`}
+                            style={{ backgroundColor: menuOpen ? `${color}14` : 'transparent' }}
+                          >
+                            <span className="text-[10px] text-[#8B84A0] leading-none font-bold tracking-[-1px]">···</span>
+                          </button>
+
+                          {/* Dropdown menu */}
+                          <AnimatePresence>
+                            {menuOpen && !confirming && (
+                              <motion.div
+                                ref={convMenuRef}
+                                initial={{ opacity: 0, scale: 0.95, y: -4 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.95, y: -2 }}
+                                transition={{ duration: 0.1 }}
+                                className="absolute right-0 top-full mt-1 w-[140px] bg-white border border-[#EBE5FF] rounded-xl shadow-lg overflow-hidden z-20"
+                              >
+                                <button
+                                  onClick={e => { e.stopPropagation(); handleArchiveConv(conv.id); }}
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-left text-[11px] text-[#524D66] hover:bg-[#FAF7F2] transition-colors"
+                                >
+                                  <span className="text-[#8B84A0]">⊖</span> Archive
+                                </button>
+                                <button
+                                  onClick={e => { e.stopPropagation(); setConfirmDelete(conv.id); }}
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-left text-[11px] text-[#DC2626] hover:bg-[#FEF2F2] transition-colors border-t border-[#EBE5FF]"
+                                >
+                                  <span>⊗</span> Delete
+                                </button>
+                              </motion.div>
+                            )}
+
+                            {/* Inline delete confirm */}
+                            {confirming && (
+                              <motion.div
+                                ref={convMenuRef}
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.1 }}
+                                className="absolute right-0 top-full mt-1 w-[160px] bg-white border border-[#EBE5FF] rounded-xl shadow-lg p-3 z-20"
+                                onClick={e => e.stopPropagation()}
+                              >
+                                <p className="text-[10px] text-[#1A1035] font-medium mb-2">Delete permanently?</p>
+                                <div className="flex gap-1.5">
+                                  <button
+                                    onClick={() => { setConfirmDelete(null); setConvMenu(null); }}
+                                    className="flex-1 text-[10px] py-1 rounded-lg border border-[#EBE5FF] text-[#524D66] hover:bg-[#FAF7F2] transition-colors"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    onClick={e => { e.stopPropagation(); handleDeleteConv(conv.id); }}
+                                    className="flex-1 text-[10px] py-1 rounded-lg bg-[#DC2626] text-white hover:opacity-90 transition-opacity"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
                       );
                     })}
                   </div>
