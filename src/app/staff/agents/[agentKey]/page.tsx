@@ -43,6 +43,8 @@ import {
   TrendingUp, Users, Phone, AlertTriangle,
   RefreshCw, Activity, Brain, MessageSquare,
   Clock, Sparkles, Settings2,
+  PlusCircle, Globe, Calendar, FileText,
+  Share2, Wrench, X, BookOpen,
   type LucideIcon,
 } from 'lucide-react';
 import {
@@ -55,7 +57,7 @@ import {
   getStaffProfile, getLatestTenantAndUser,
   type StaffProfile,
 } from '@/lib/actions/staff-onboarding';
-import { createConversation } from '@/lib/actions/chat';
+import { createConversation, getConversationMessages } from '@/lib/actions/chat';
 import {
   getAgentPreferences, saveAgentPreferences,
   type AgentPreferences, DEFAULT_AGENT_PREFS,
@@ -154,7 +156,34 @@ const DEFAULT_CONFIG: AgentConfig = {
 const AGENT_KEYS = ['primary_agent', 'sales_agent', 'crm_agent'] as const;
 
 // =============================================================================
-// TOOL LABELS
+// TOOLS CONFIG
+// =============================================================================
+
+interface ToolDef { key: string; label: string; icon: LucideIcon; desc: string }
+
+const ALL_TOOL_DEFS: ToolDef[] = [
+  { key: 'get_clinic_overview',   label: 'Clinic Overview', icon: BarChart3,     desc: 'Real-time snapshot of signals, appointments and revenue' },
+  { key: 'query_patients',        label: 'Patient Search',  icon: Users,         desc: 'Search and retrieve patient records by name or ID' },
+  { key: 'query_appointments',    label: 'Appointments',    icon: Calendar,      desc: 'Query scheduled, upcoming and past appointments' },
+  { key: 'query_signals',         label: 'Signals',         icon: ShieldAlert,   desc: 'Browse, filter and read operational signals' },
+  { key: 'create_signal',         label: 'Create Signal',   icon: Zap,           desc: 'Raise a new operational or compliance signal' },
+  { key: 'update_signal',         label: 'Update Signal',   icon: RefreshCw,     desc: 'Update status, priority or notes on a signal' },
+  { key: 'knowledge_base_search', label: 'Knowledge Base',  icon: BookOpen,      desc: 'Search protocols, pricing and compliance documents' },
+  { key: 'web_search',            label: 'Web Search',      icon: Globe,         desc: 'Search the web for current clinical or market information' },
+  { key: 'generate_report',       label: 'Generate Report', icon: FileText,      desc: 'Create structured operational and governance reports' },
+  { key: 'route_to_specialist',   label: 'Delegate',        icon: Share2,        desc: 'Route tasks to Orion (acquisition) or Aria (retention)' },
+  { key: 'run_proactive_scan',    label: 'Health Scan',     icon: Scan,          desc: 'Run a full multi-pillar operational health check' },
+  { key: 'get_department_info',   label: 'Departments',     icon: Activity,      desc: 'Load department structure, teams and staff info' },
+];
+
+const AGENT_TOOL_KEYS: Record<string, string[]> = {
+  primary_agent: ['get_clinic_overview','query_patients','query_appointments','query_signals','create_signal','update_signal','knowledge_base_search','web_search','generate_report','route_to_specialist','run_proactive_scan','get_department_info'],
+  sales_agent:   ['query_patients','query_appointments','query_signals','create_signal','knowledge_base_search','web_search','generate_report'],
+  crm_agent:     ['query_patients','query_appointments','query_signals','create_signal','update_signal','knowledge_base_search','web_search','generate_report'],
+};
+
+// =============================================================================
+// TOOL CALL LABELS (for streaming indicator)
 // =============================================================================
 
 const TOOL_LABELS: Record<string, string> = {
@@ -259,6 +288,11 @@ export default function AgentChatPage() {
   const cfg      = AGENT_CONFIG[agentKey] || DEFAULT_CONFIG;
   const color    = cfg.color;
 
+  // Derive per-agent tool list
+  const agentTools = (AGENT_TOOL_KEYS[agentKey] || AGENT_TOOL_KEYS.primary_agent)
+    .map(k => ALL_TOOL_DEFS.find(t => t.key === k))
+    .filter(Boolean) as ToolDef[];
+
   // ── Core state ─────────────────────────────────────────────────────────────
   const [profile, setProfile]               = useState<StaffProfile | null>(null);
   const [userId, setUserId]                 = useState(urlUserId || '');
@@ -273,6 +307,15 @@ export default function AgentChatPage() {
   const [sending, setSending]               = useState(false);
   const [streamingText, setStreamingText]   = useState('');
   const [activeToolCall, setActiveToolCall] = useState<string | null>(null);
+
+  // ── Conversation history ───────────────────────────────────────────────────
+  const [conversations, setConversations]   = useState<AgentConversationSummary[]>([]);
+  const [convsLoaded, setConvsLoaded]       = useState(false);
+  const [loadingConv, setLoadingConv]       = useState(false);
+
+  // ── Tools panel ────────────────────────────────────────────────────────────
+  const [toolsOpen, setToolsOpen]           = useState(false);
+  const [hoveredTool, setHoveredTool]       = useState<string | null>(null);
 
   // ── Tab state ──────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab]           = useState<Tab>('chat');
@@ -298,7 +341,28 @@ export default function AgentChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, streamingText]);
 
-  // ── Init (profile + agent + conversation) ─────────────────────────────────
+  // ── Close tools panel on outside click ────────────────────────────────────
+  useEffect(() => {
+    if (!toolsOpen) return;
+    const handler = (e: MouseEvent) => {
+      const panel = document.getElementById('tools-panel');
+      const btn   = document.getElementById('tools-btn');
+      if (panel && !panel.contains(e.target as Node) && btn && !btn.contains(e.target as Node)) {
+        setToolsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [toolsOpen]);
+
+  // ── loadConversations ──────────────────────────────────────────────────────
+  const loadConversations = useCallback(async (uid: string) => {
+    const convs = await getAgentConversations(agentKey, uid);
+    setConversations(convs);
+    setConvsLoaded(true);
+  }, [agentKey]);
+
+  // ── Init (profile + agent + conversation + convs) ──────────────────────────
   useEffect(() => {
     if (!agentKey) return;
     (async () => {
@@ -307,17 +371,20 @@ export default function AgentChatPage() {
       const safeUid = uid || urlUserId || '';
       setUserId(safeUid);
 
-      const [profileRes, agentData, memoriesData, convRes] = await Promise.all([
+      const [profileRes, agentData, memoriesData, convRes, convsList] = await Promise.all([
         getStaffProfile(tid, safeUid),
         getAgentByKey(tid, agentKey),
         getAgentMemoriesByKey(agentKey),
         createConversation(tid, safeUid, agentKey),
+        getAgentConversations(agentKey, safeUid),
       ]);
 
       if (profileRes.success && profileRes.data) setProfile(profileRes.data.profile);
       if (agentData) setAgent(agentData);
       setMemories(memoriesData);
       if (convRes.success && convRes.conversationId) setConversationId(convRes.conversationId);
+      setConversations(convsList);
+      setConvsLoaded(true);
       setLoading(false);
     })();
   }, [agentKey, urlUserId]);
@@ -346,6 +413,49 @@ export default function AgentChatPage() {
     });
   }, [activeTab, prefsLoaded, userId, agentKey]);
 
+  // ── handleNewChat ──────────────────────────────────────────────────────────
+  const handleNewChat = useCallback(async () => {
+    if (!userId) return;
+    setMessages([]);
+    setStreamingText('');
+    setActiveToolCall(null);
+    setActiveTab('chat');
+    const res = await createConversation('clinic', userId, agentKey);
+    if (res.success && res.conversationId) {
+      const newConv: AgentConversationSummary = {
+        id: res.conversationId,
+        title: null,
+        message_count: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      setConversationId(res.conversationId);
+      setConversations(prev => [newConv, ...prev]);
+    }
+  }, [userId, agentKey]);
+
+  // ── handleSelectConversation ───────────────────────────────────────────────
+  const handleSelectConversation = useCallback(async (convId: string) => {
+    if (convId === conversationId && messages.length > 0) {
+      setActiveTab('chat');
+      return;
+    }
+    setLoadingConv(true);
+    setActiveTab('chat');
+    setMessages([]);
+    const res = await getConversationMessages('clinic', convId);
+    if (res.success && res.messages) {
+      setMessages(res.messages.map(m => ({
+        id: m.id,
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+      })));
+    }
+    setConversationId(convId);
+    setLoadingConv(false);
+    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'auto' }), 80);
+  }, [conversationId, messages.length]);
+
   // ── handleSend ─────────────────────────────────────────────────────────────
   const handleSend = useCallback(async (preset?: string) => {
     const text = (preset ?? input).trim();
@@ -353,6 +463,7 @@ export default function AgentChatPage() {
 
     let convId = conversationId;
     let accumulated = '';
+    const isFirstMessage = messages.length === 0;
 
     try {
       if (!convId) {
@@ -370,6 +481,14 @@ export default function AgentChatPage() {
       setStreamingText('');
       setActiveToolCall(null);
       if (textareaRef.current) textareaRef.current.style.height = 'auto';
+
+      // Optimistically title the conversation with the first message
+      if (isFirstMessage && convId) {
+        const shortTitle = text.slice(0, 50) + (text.length > 50 ? '…' : '');
+        setConversations(prev => prev.map(c =>
+          c.id === convId ? { ...c, title: shortTitle, updated_at: new Date().toISOString() } : c,
+        ));
+      }
 
       const res = await fetch('/api/primary-agent/chat', {
         method: 'POST',
@@ -419,6 +538,14 @@ export default function AgentChatPage() {
               setMessages(prev => [...prev, { id: `ai-${Date.now()}`, role: 'assistant', content: event.response || accumulated }]);
               setStreamingText('');
               setActiveToolCall(null);
+              // Update local conversation message count
+              if (convId) {
+                setConversations(prev => prev.map(c =>
+                  c.id === convId
+                    ? { ...c, message_count: (c.message_count || 0) + 2, updated_at: new Date().toISOString() }
+                    : c,
+                ));
+              }
             } else if (event.type === 'error') {
               gotDone = true;
               const overloaded = (event.content || '').includes('529');
@@ -453,7 +580,7 @@ export default function AgentChatPage() {
       setStreamingText('');
       setActiveToolCall(null);
     }
-  }, [input, sending, conversationId, setConversationId, userId, agentKey]);
+  }, [input, sending, conversationId, setConversationId, userId, agentKey, messages.length]);
 
   // ── handleSavePrefs ────────────────────────────────────────────────────────
   const handleSavePrefs = useCallback(async () => {
@@ -500,13 +627,13 @@ export default function AgentChatPage() {
       <div className="fixed inset-0 left-[240px] flex bg-[#FAF7F2]">
 
         {/* ── LEFT PANEL ──────────────────────────────────────────── */}
-        <div className="relative w-[272px] flex-shrink-0 border-r border-[#EBE5FF] flex flex-col overflow-y-auto">
+        <div className="relative w-[272px] flex-shrink-0 border-r border-[#EBE5FF] flex flex-col overflow-hidden">
           <div className="absolute inset-0 pointer-events-none" style={{ backgroundColor: color, opacity: 0.03 }} />
 
-          <div className="relative z-10 flex flex-col flex-1">
+          <div className="relative z-10 flex flex-col flex-1 min-h-0">
 
             {/* Back */}
-            <div className="px-5 pt-6 pb-2 flex items-center justify-between">
+            <div className="px-5 pt-6 pb-2 flex items-center justify-between flex-shrink-0">
               <button
                 onClick={() => router.push(`/staff/agents?userId=${userId}`)}
                 className="flex items-center gap-1.5 text-[11px] text-[#6E6688] hover:text-[#524D66] transition-colors"
@@ -521,7 +648,7 @@ export default function AgentChatPage() {
             </div>
 
             {/* Orb + identity */}
-            <div className="flex flex-col items-center px-5 pt-4 pb-4">
+            <div className="flex flex-col items-center px-5 pt-4 pb-4 flex-shrink-0">
               <AgentOrb color={color} size={44} active={sending} />
               <div className="mt-3 text-center">
                 <h1 className="text-[20px] font-semibold tracking-tight text-[#1A1035] leading-none">{agentName}</h1>
@@ -536,7 +663,7 @@ export default function AgentChatPage() {
 
             {/* Stats */}
             {agent && (
-              <div className="mx-4 mb-4 grid grid-cols-2 gap-2">
+              <div className="mx-4 mb-4 grid grid-cols-2 gap-2 flex-shrink-0">
                 <div className="rounded-xl border border-[#EBE5FF] bg-white/70 p-3 text-center">
                   <p className="text-[20px] font-semibold text-[#1A1035] leading-none tracking-tight">
                     {agent.total_signals_handled}
@@ -545,40 +672,84 @@ export default function AgentChatPage() {
                 </div>
                 <div className="rounded-xl border border-[#EBE5FF] bg-white/70 p-3 text-center">
                   <p className="text-[20px] font-semibold text-[#1A1035] leading-none tracking-tight">
-                    {agent.avg_confidence_score > 0 ? `${(agent.avg_confidence_score * 100).toFixed(0)}%` : '—'}
+                    {conversations.length}
                   </p>
-                  <p className="text-[9px] uppercase tracking-[0.14em] text-[#8B84A0] mt-1.5 font-medium">Confidence</p>
+                  <p className="text-[9px] uppercase tracking-[0.14em] text-[#8B84A0] mt-1.5 font-medium">Chats</p>
                 </div>
               </div>
             )}
 
-            <div className="mx-4 h-px mb-3" style={{ backgroundColor: `${color}14` }} />
+            <div className="mx-4 h-px flex-shrink-0" style={{ backgroundColor: `${color}14` }} />
 
-            {/* Quick prompts — only in chat tab */}
+            {/* ── CONVERSATIONS LIST (chat tab) ── */}
             {activeTab === 'chat' && (
-              <div className="px-4 mb-3">
-                <p className="text-[9px] uppercase tracking-[0.18em] font-semibold mb-2.5" style={{ color: `${color}99` }}>
-                  Quick Actions
-                </p>
-                <div className="space-y-1.5">
-                  {cfg.quickPrompts.map(({ label, icon: Icon }) => (
-                    <button
-                      key={label}
-                      onClick={() => handleSend(label)}
-                      disabled={sending}
-                      className="w-full flex items-start gap-2.5 px-3 py-2.5 rounded-xl text-left text-[12px] text-[#524D66] border border-transparent transition-all disabled:opacity-40 hover:bg-white hover:border-[#EBE5FF] hover:text-[#1A1035] hover:shadow-sm"
-                    >
-                      <Icon size={12} className="flex-shrink-0 mt-0.5" style={{ color }} />
-                      <span className="leading-relaxed">{label}</span>
-                    </button>
-                  ))}
+              <div className="px-4 pt-3 flex-1 min-h-0 flex flex-col">
+                <div className="flex items-center justify-between mb-2.5 flex-shrink-0">
+                  <p className="text-[9px] uppercase tracking-[0.18em] font-semibold" style={{ color: `${color}99` }}>
+                    Conversations
+                  </p>
+                  <button
+                    onClick={handleNewChat}
+                    className="flex items-center gap-1 text-[10px] font-semibold transition-all px-2 py-1 rounded-lg"
+                    style={{ color, backgroundColor: `${color}10` }}
+                    onMouseEnter={e => (e.currentTarget.style.backgroundColor = `${color}18`)}
+                    onMouseLeave={e => (e.currentTarget.style.backgroundColor = `${color}10`)}
+                  >
+                    <PlusCircle size={10} />
+                    New
+                  </button>
                 </div>
+
+                {!convsLoaded ? (
+                  <div className="flex items-center gap-1 py-2 flex-shrink-0">
+                    {[0, 1, 2].map(i => (
+                      <motion.div key={i} className="w-1 h-1 rounded-full" style={{ backgroundColor: color }}
+                        animate={{ opacity: [0.2, 1, 0.2] }} transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.18 }} />
+                    ))}
+                  </div>
+                ) : conversations.length === 0 ? (
+                  <p className="text-[11px] text-[#8B84A0] italic py-1 flex-shrink-0">No conversations yet</p>
+                ) : (
+                  <div className="space-y-0.5 overflow-y-auto flex-1 pr-1">
+                    {conversations.map(conv => {
+                      const isActive = conv.id === conversationId;
+                      const title = (conv.title && conv.title !== 'New Conversation')
+                        ? conv.title
+                        : 'New conversation';
+                      return (
+                        <button
+                          key={conv.id}
+                          onClick={() => handleSelectConversation(conv.id)}
+                          className={`w-full text-left px-2.5 py-2 rounded-xl border transition-all ${
+                            isActive
+                              ? 'border-transparent'
+                              : 'border-transparent hover:bg-white hover:border-[#EBE5FF]'
+                          }`}
+                          style={isActive ? { backgroundColor: `${color}12`, borderColor: `${color}22` } : {}}
+                        >
+                          <div className="flex items-start gap-1.5">
+                            <MessageSquare size={10} className="mt-0.5 flex-shrink-0"
+                              style={{ color: isActive ? color : '#8B84A0' }} />
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-[11px] font-medium truncate leading-snug ${isActive ? 'text-[#1A1035]' : 'text-[#524D66]'}`}>
+                                {title}
+                              </p>
+                              <p className="text-[10px] text-[#8B84A0] mt-0.5">
+                                {conv.message_count > 0 ? `${conv.message_count} msg · ` : ''}{relativeTime(conv.updated_at)}
+                              </p>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
 
             {/* Capabilities — shown in non-chat tabs */}
             {activeTab !== 'chat' && cfg.capabilities.length > 0 && (
-              <div className="px-4 mb-3">
+              <div className="px-4 pt-3 mb-3 flex-shrink-0">
                 <p className="text-[9px] uppercase tracking-[0.18em] font-semibold mb-2.5" style={{ color: `${color}99` }}>
                   Capabilities
                 </p>
@@ -597,8 +768,8 @@ export default function AgentChatPage() {
             )}
 
             {/* Agent switcher */}
-            <div className="mt-auto px-4 pb-5">
-              <div className="h-px mb-3" style={{ backgroundColor: `${color}14` }} />
+            <div className="px-4 pb-5 flex-shrink-0">
+              <div className="h-px mb-3 mt-3" style={{ backgroundColor: `${color}14` }} />
               <p className="text-[9px] uppercase tracking-[0.18em] font-semibold mb-2" style={{ color: `${color}99` }}>
                 Switch Agent
               </p>
@@ -657,7 +828,6 @@ export default function AgentChatPage() {
                 </button>
               );
             })}
-            {/* Conversation count badge in chat tab */}
             {activeTab === 'chat' && messages.length > 0 && (
               <span className="ml-auto text-[11px] text-[#8B84A0]">
                 {messages.length} message{messages.length !== 1 ? 's' : ''}
@@ -680,91 +850,216 @@ export default function AgentChatPage() {
               >
                 {/* Messages */}
                 <div className="flex-1 overflow-y-auto px-6 py-6 min-h-0">
-                  {messages.length === 0 && !sending && (
+
+                  {/* Loading conversation */}
+                  {loadingConv && (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="flex items-center gap-1.5">
+                          {[0, 1, 2].map(i => (
+                            <motion.div key={i} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }}
+                              animate={{ opacity: [0.2, 1, 0.2], y: [0, -3, 0] }}
+                              transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.18 }} />
+                          ))}
+                        </div>
+                        <p className="text-[11px] text-[#8B84A0]">Loading conversation…</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Empty state with quick prompts */}
+                  {!loadingConv && messages.length === 0 && !sending && (
                     <motion.div
                       initial={{ opacity: 0, y: 12 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.15 }}
-                      className="flex flex-col items-center justify-center h-full text-center gap-5"
+                      transition={{ delay: 0.1 }}
+                      className="flex flex-col items-center justify-center h-full text-center gap-6"
                     >
                       <AgentOrb color={color} size={44} />
                       <div>
                         <h2 className="text-[20px] font-semibold text-[#1A1035] tracking-tight mb-1.5">{agentName}</h2>
                         <p className="text-[13px] text-[#6E6688] max-w-xs leading-relaxed">{cfg.tagline}</p>
-                        <p className="text-[11px] text-[#8B84A0] mt-2">Choose a quick action on the left, or type a message below.</p>
+                      </div>
+                      {/* Quick prompts */}
+                      <div className="grid grid-cols-2 gap-2 max-w-sm w-full">
+                        {cfg.quickPrompts.map(({ label, icon: Icon }) => (
+                          <button
+                            key={label}
+                            onClick={() => handleSend(label)}
+                            disabled={sending}
+                            className="flex items-start gap-2 px-3 py-2.5 rounded-xl text-left text-[11px] text-[#524D66] border border-[#EBE5FF] bg-white hover:border-[#D5CCFF] hover:shadow-sm transition-all disabled:opacity-40"
+                          >
+                            <Icon size={11} className="flex-shrink-0 mt-0.5" style={{ color }} />
+                            <span className="leading-relaxed">{label}</span>
+                          </button>
+                        ))}
                       </div>
                     </motion.div>
                   )}
 
-                  <div className="space-y-5 max-w-3xl mx-auto">
-                    <AnimatePresence initial={false}>
-                      {messages.map(msg => (
-                        <motion.div
-                          key={msg.id}
-                          initial={{ opacity: 0, y: 8 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.2 }}
-                          className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                        >
-                          {msg.role === 'assistant' && (
-                            <div className="w-7 h-7 rounded-full flex-shrink-0 mt-0.5 flex items-center justify-center"
-                              style={{ background: `${color}14` }}>
-                              <motion.div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }}
-                                animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 2.5, repeat: Infinity }} />
-                            </div>
-                          )}
-                          <div className={`max-w-[72%] rounded-2xl px-4 py-3 text-[13px] leading-relaxed ${
-                            msg.role === 'user'
-                              ? 'bg-[#1A1035] text-white rounded-tr-md'
-                              : 'bg-white border border-[#EBE5FF] text-[#1A1035] rounded-tl-md shadow-sm'
-                          }`}>
-                            {msg.role === 'assistant' ? (
-                              <div className="prose prose-slate prose-sm max-w-none [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:ml-4 [&_li]:mb-1 [&_code]:text-[11px] [&_code]:bg-[#F5F2EB] [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_strong]:text-[#1A1035] [&_strong]:font-semibold [&_table]:text-[12px] [&_th]:text-[#1A1035] [&_td]:text-[#524D66]">
-                                <ReactMarkdown>{msg.content}</ReactMarkdown>
+                  {/* Messages */}
+                  {!loadingConv && (
+                    <div className="space-y-5 max-w-3xl mx-auto">
+                      <AnimatePresence initial={false}>
+                        {messages.map(msg => (
+                          <motion.div
+                            key={msg.id}
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                          >
+                            {msg.role === 'assistant' && (
+                              <div className="w-7 h-7 rounded-full flex-shrink-0 mt-0.5 flex items-center justify-center"
+                                style={{ background: `${color}14` }}>
+                                <motion.div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }}
+                                  animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 2.5, repeat: Infinity }} />
                               </div>
-                            ) : msg.content}
+                            )}
+                            <div className={`max-w-[72%] rounded-2xl px-4 py-3 text-[13px] leading-relaxed ${
+                              msg.role === 'user'
+                                ? 'bg-[#1A1035] text-white rounded-tr-md'
+                                : 'bg-white border border-[#EBE5FF] text-[#1A1035] rounded-tl-md shadow-sm'
+                            }`}>
+                              {msg.role === 'assistant' ? (
+                                <div className="prose prose-slate prose-sm max-w-none [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:ml-4 [&_li]:mb-1 [&_code]:text-[11px] [&_code]:bg-[#F5F2EB] [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_strong]:text-[#1A1035] [&_strong]:font-semibold [&_table]:text-[12px] [&_th]:text-[#1A1035] [&_td]:text-[#524D66]">
+                                  <ReactMarkdown>{msg.content}</ReactMarkdown>
+                                </div>
+                              ) : msg.content}
+                            </div>
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
+
+                      {(streamingText || activeToolCall || sending) && (
+                        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex gap-3 justify-start">
+                          <div className="w-7 h-7 rounded-full flex-shrink-0 mt-0.5 flex items-center justify-center"
+                            style={{ background: `${color}14` }}>
+                            <motion.div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }}
+                              animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 0.8, repeat: Infinity }} />
+                          </div>
+                          <div className="max-w-[72%] rounded-2xl rounded-tl-md px-4 py-3 bg-white border border-[#EBE5FF] shadow-sm">
+                            {activeToolCall && (
+                              <div className="flex items-center gap-1.5 mb-2">
+                                <Loader2 size={10} className="animate-spin flex-shrink-0" style={{ color: `${color}80` }} />
+                                <p className="text-[10px] italic" style={{ color: `${color}80` }}>{activeToolCall}</p>
+                              </div>
+                            )}
+                            {streamingText ? (
+                              <div className="text-[13px] text-[#1A1035] leading-relaxed prose prose-slate prose-sm max-w-none [&_p]:mb-2 [&_p:last-child]:mb-0">
+                                <ReactMarkdown>{streamingText}</ReactMarkdown>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1.5 py-0.5">
+                                {[0, 1, 2].map(i => (
+                                  <motion.div key={i} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }}
+                                    animate={{ opacity: [0.3, 1, 0.3], y: [0, -3, 0] }}
+                                    transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.15 }} />
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </motion.div>
-                      ))}
-                    </AnimatePresence>
+                      )}
 
-                    {(streamingText || activeToolCall || sending) && (
-                      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex gap-3 justify-start">
-                        <div className="w-7 h-7 rounded-full flex-shrink-0 mt-0.5 flex items-center justify-center"
-                          style={{ background: `${color}14` }}>
-                          <motion.div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }}
-                            animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 0.8, repeat: Infinity }} />
-                        </div>
-                        <div className="max-w-[72%] rounded-2xl rounded-tl-md px-4 py-3 bg-white border border-[#EBE5FF] shadow-sm">
-                          {activeToolCall && (
-                            <div className="flex items-center gap-1.5 mb-2">
-                              <Loader2 size={10} className="animate-spin flex-shrink-0" style={{ color: `${color}80` }} />
-                              <p className="text-[10px] italic" style={{ color: `${color}80` }}>{activeToolCall}</p>
-                            </div>
-                          )}
-                          {streamingText ? (
-                            <div className="text-[13px] text-[#1A1035] leading-relaxed prose prose-slate prose-sm max-w-none [&_p]:mb-2 [&_p:last-child]:mb-0">
-                              <ReactMarkdown>{streamingText}</ReactMarkdown>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-1.5 py-0.5">
-                              {[0, 1, 2].map(i => (
-                                <motion.div key={i} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }}
-                                  animate={{ opacity: [0.3, 1, 0.3], y: [0, -3, 0] }}
-                                  transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.15 }} />
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </motion.div>
-                    )}
-
-                    <div ref={messagesEndRef} />
-                  </div>
+                      <div ref={messagesEndRef} />
+                    </div>
+                  )}
                 </div>
 
-                {/* Input */}
-                <div className="flex-shrink-0 px-6 pb-6 pt-3 border-t border-[#EBE5FF] bg-white/40">
+                {/* Input area */}
+                <div className="flex-shrink-0 px-6 pb-6 pt-2 border-t border-[#EBE5FF] bg-white/40">
+
+                  {/* Tools row */}
+                  <div className="relative max-w-3xl mx-auto mb-2">
+                    <button
+                      id="tools-btn"
+                      onClick={() => setToolsOpen(o => !o)}
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium border transition-all"
+                      style={toolsOpen
+                        ? { backgroundColor: `${color}12`, borderColor: `${color}30`, color }
+                        : { backgroundColor: 'white', borderColor: '#EBE5FF', color: '#8B84A0' }}
+                    >
+                      <Wrench size={9} />
+                      Tools
+                      <span className="text-[9px] opacity-60">({agentTools.length})</span>
+                    </button>
+
+                    {/* Tools popover */}
+                    <AnimatePresence>
+                      {toolsOpen && (
+                        <motion.div
+                          id="tools-panel"
+                          initial={{ opacity: 0, y: 6, scale: 0.98 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 4, scale: 0.98 }}
+                          transition={{ duration: 0.14 }}
+                          className="absolute bottom-full mb-2 left-0 w-[380px] bg-white border border-[#EBE5FF] rounded-2xl shadow-xl overflow-hidden z-20"
+                        >
+                          {/* Header */}
+                          <div className="flex items-center justify-between px-4 py-3 border-b border-[#F0EBF8]">
+                            <div>
+                              <p className="text-[12px] font-semibold text-[#1A1035]">Available Tools</p>
+                              <p className="text-[10px] text-[#8B84A0]">
+                                {agentName} uses these automatically when needed
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => setToolsOpen(false)}
+                              className="w-6 h-6 rounded-full flex items-center justify-center transition-colors hover:bg-[#F5F2EB] text-[#8B84A0] hover:text-[#524D66]"
+                            >
+                              <X size={12} />
+                            </button>
+                          </div>
+
+                          {/* Tool grid */}
+                          <div className="p-3 grid grid-cols-2 gap-1.5 max-h-[280px] overflow-y-auto">
+                            {agentTools.map(tool => {
+                              const hovered = hoveredTool === tool.key;
+                              return (
+                                <div
+                                  key={tool.key}
+                                  onMouseEnter={() => setHoveredTool(tool.key)}
+                                  onMouseLeave={() => setHoveredTool(null)}
+                                  className="flex items-start gap-2.5 px-3 py-2.5 rounded-xl transition-all cursor-default"
+                                  style={{ backgroundColor: hovered ? `${color}0C` : '#F8F6F2' }}
+                                >
+                                  <div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 transition-all"
+                                    style={{ backgroundColor: hovered ? `${color}18` : `${color}0A` }}>
+                                    <tool.icon size={11} style={{ color: hovered ? color : '#8B84A0' }} />
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-[11px] font-semibold text-[#1A1035] leading-none">{tool.label}</p>
+                                    <AnimatePresence>
+                                      {hovered && (
+                                        <motion.p
+                                          initial={{ opacity: 0, height: 0 }}
+                                          animate={{ opacity: 1, height: 'auto' }}
+                                          exit={{ opacity: 0, height: 0 }}
+                                          transition={{ duration: 0.12 }}
+                                          className="text-[10px] text-[#6E6688] mt-0.5 leading-snug overflow-hidden"
+                                        >
+                                          {tool.desc}
+                                        </motion.p>
+                                      )}
+                                    </AnimatePresence>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* Footer */}
+                          <div className="px-4 py-2.5 border-t border-[#F0EBF8] flex items-center gap-1.5">
+                            <div className="w-1.5 h-1.5 rounded-full bg-[#4ade80]" />
+                            <p className="text-[10px] text-[#8B84A0]">All tools active — hover to see details</p>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {/* Input */}
                   <div
                     className="flex items-end gap-3 px-4 py-3 rounded-2xl border bg-white transition-all max-w-3xl mx-auto focus-within:shadow-sm"
                     style={{ borderColor: '#E8E2D6' }}
@@ -903,26 +1198,27 @@ export default function AgentChatPage() {
                       ) : (
                         <div className="space-y-2">
                           {activityConvs.map(conv => (
-                            <div key={conv.id} className="rounded-xl border border-[#EBE5FF] bg-white px-4 py-3 flex items-center gap-3 hover:shadow-sm transition-shadow">
+                            <button
+                              key={conv.id}
+                              onClick={() => handleSelectConversation(conv.id)}
+                              className="w-full rounded-xl border border-[#EBE5FF] bg-white px-4 py-3 flex items-center gap-3 hover:shadow-sm transition-shadow text-left"
+                            >
                               <div className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center"
                                 style={{ background: `${color}14` }}>
                                 <MessageSquare size={11} style={{ color }} />
                               </div>
                               <div className="flex-1 min-w-0">
                                 <p className="text-[13px] font-medium text-[#1A1035] truncate">
-                                  {conv.title || 'Conversation'}
+                                  {(conv.title && conv.title !== 'New Conversation') ? conv.title : 'New conversation'}
                                 </p>
                                 <p className="text-[11px] text-[#8B84A0] mt-0.5">
                                   {conv.message_count} message{conv.message_count !== 1 ? 's' : ''} · {relativeTime(conv.updated_at)}
                                 </p>
                               </div>
-                              <button
-                                onClick={() => setActiveTab('chat')}
-                                className="text-[11px] text-[#8B84A0] hover:text-[#524D66] transition-colors flex-shrink-0"
-                              >
+                              <span className="text-[11px] text-[#8B84A0] hover:text-[#524D66] transition-colors flex-shrink-0">
                                 Open →
-                              </button>
-                            </div>
+                              </span>
+                            </button>
                           ))}
                         </div>
                       )}
@@ -984,7 +1280,6 @@ export default function AgentChatPage() {
                 ) : (
                   <div className="px-6 py-6 max-w-2xl mx-auto">
 
-                    {/* Header */}
                     <div className="mb-6">
                       <div className="flex items-center gap-2 mb-1">
                         <Sparkles size={14} style={{ color }} />
@@ -1083,7 +1378,6 @@ export default function AgentChatPage() {
                             );
                           })}
                         </div>
-                        {/* Custom area input */}
                         <div className="flex gap-2">
                           <input
                             type="text"
@@ -1116,7 +1410,6 @@ export default function AgentChatPage() {
                             Add
                           </button>
                         </div>
-                        {/* Custom focus tags */}
                         {prefs.focus_areas.filter(f => !PRESET_FOCUSES.includes(f)).length > 0 && (
                           <div className="flex flex-wrap gap-1.5 mt-2">
                             {prefs.focus_areas.filter(f => !PRESET_FOCUSES.includes(f)).map(f => (
