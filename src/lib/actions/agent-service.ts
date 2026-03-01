@@ -135,6 +135,84 @@ export async function getAgentMemoriesByKey(
 }
 
 // ---------------------------------------------------------------------------
+// getAgentActivitySignals — signals created by this agent (for hub Activity tab)
+// ---------------------------------------------------------------------------
+
+export interface AgentSignalSummary {
+  id: string;
+  title: string;
+  description: string | null;
+  priority: string;
+  status: string;
+  signal_type: string;
+  category: string | null;
+  created_at: string;
+}
+
+export async function getAgentActivitySignals(
+  agentKey: string,
+  limit = 20,
+): Promise<AgentSignalSummary[]> {
+  const db = createSovereignClient();
+
+  const { data: agent } = await db
+    .from('agents')
+    .select('id')
+    .eq('agent_key', agentKey)
+    .single();
+
+  if (!agent) return [];
+
+  const { data, error } = await db
+    .from('signals')
+    .select('id, title, description, priority, status, signal_type, category, created_at')
+    .eq('source_agent_id', agent.id)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error('[agent-service] getAgentActivitySignals error:', error);
+    return [];
+  }
+  return (data || []) as AgentSignalSummary[];
+}
+
+// ---------------------------------------------------------------------------
+// getAgentConversations — recent conversations with this agent for a user
+// ---------------------------------------------------------------------------
+
+export interface AgentConversationSummary {
+  id: string;
+  title: string | null;
+  message_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function getAgentConversations(
+  agentKey: string,
+  userId: string,
+  limit = 10,
+): Promise<AgentConversationSummary[]> {
+  const db = createSovereignClient();
+
+  const { data, error } = await db
+    .from('chat_conversations')
+    .select('id, title, message_count, created_at, updated_at')
+    .eq('agent_scope', agentKey)
+    .eq('user_id', userId)
+    .eq('is_archived', false)
+    .order('updated_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error('[agent-service] getAgentConversations error:', error);
+    return [];
+  }
+  return (data || []) as AgentConversationSummary[];
+}
+
+// ---------------------------------------------------------------------------
 // upsertCategory — no-op in new schema (categories are on signals directly)
 // Accepts any args for backward compat with old callers
 // ---------------------------------------------------------------------------

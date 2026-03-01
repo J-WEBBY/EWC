@@ -462,8 +462,8 @@ async function loadAgentContext(
   userId: string,
   agentScope?: string,
 ): Promise<AgentContext_> {
-  const sovereign   = createSovereignClient();
-  const agentKey    = agentScope || 'primary_agent';
+  const sovereign = createSovereignClient();
+  const agentKey  = agentScope || 'primary_agent';
 
   const [clinicResult, userResult, agentResult, memoriesResult] = await Promise.all([
     sovereign
@@ -473,7 +473,7 @@ async function loadAgentContext(
       .single(),
     sovereign
       .from('users')
-      .select('first_name, last_name, role:roles(name)')
+      .select('first_name, last_name, job_title, settings, department:departments(name), role:roles(name)')
       .eq('id', userId)
       .single(),
     sovereign
@@ -490,29 +490,74 @@ async function loadAgentContext(
   ]);
 
   const clinic    = clinicResult.data;
-  const user      = userResult.data as { first_name: string; last_name: string; role?: { name: string } | null } | null;
+  const user      = userResult.data as {
+    first_name: string;
+    last_name: string;
+    job_title?: string | null;
+    settings?: Record<string, unknown> | null;
+    department?: { name: string } | null;
+    role?: { name: string } | null;
+  } | null;
   const agentData = agentResult.data as { name: string; display_name?: string | null; system_prompt?: string | null } | null;
   const memories  = memoriesResult.data || [];
 
-  const userName  = user ? `${user.first_name} ${user.last_name}` : 'Staff Member';
-  const userRole  = user?.role?.name || 'Staff';
+  const firstName  = user?.first_name || 'Staff Member';
+  const lastName   = user?.last_name || '';
+  const userName   = `${firstName} ${lastName}`.trim();
+  const userRole   = user?.role?.name || 'Staff';
+  const jobTitle   = user?.job_title || null;
+  const deptName   = (user?.department as { name: string } | null)?.name || null;
+
+  // Load per-user preferences from users.settings.agent_prefs
+  const settings  = user?.settings as Record<string, unknown> | null;
+  const userPrefs = (settings?.agent_prefs as Record<string, unknown> | null)?.[agentKey] as {
+    tone?: string; verbosity?: string; focus_areas?: string[]; custom_instructions?: string;
+  } | null;
 
   const now     = new Date();
   const dateStr = now.toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 
-  // Use the agent's rich DB system prompt (set by migration 022)
-  // Fall back to a minimal prompt if the agent isn't in DB yet
-  const agentName = agentData?.display_name || agentData?.name || clinic?.ai_name || 'EWC';
-  const basePrompt: string = (agentData?.system_prompt as string | null | undefined)
+  const agentName  = agentData?.display_name || agentData?.name || clinic?.ai_name || 'EWC';
+  const basePrompt = (agentData?.system_prompt as string | null | undefined)
     ?? `You are ${agentName}, an AI assistant for ${clinic?.clinic_name || 'Edgbaston Wellness Clinic'}. Be professional, warm, and helpful.`;
 
-  // Inject live operational context after the base prompt
+  // Inject live context after the base prompt
   const contextLines: string[] = [
     '\n\n--- OPERATIONAL CONTEXT ---',
     `Date/Time: ${dateStr}, ${timeStr} (UK)`,
-    `Staff: ${userName} (${userRole})`,
+    `\nYou are speaking with: ${userName}`,
+    `Role: ${userRole}${jobTitle ? ` — ${jobTitle}` : ''}`,
   ];
+
+  if (deptName) contextLines.push(`Department: ${deptName}`);
+  contextLines.push(`Address them as "${firstName}" and tailor your expertise to their specific role and needs.`);
+
+  // Inject per-user preferences if set
+  if (userPrefs) {
+    const lines: string[] = [];
+    if (userPrefs.tone && userPrefs.tone !== 'professional') {
+      lines.push(`Communication tone: ${userPrefs.tone}`);
+    }
+    if (userPrefs.verbosity === 'brief') {
+      lines.push('Keep responses concise and actionable — the user prefers brevity.');
+    } else if (userPrefs.verbosity === 'detailed') {
+      lines.push('Provide thorough, detailed responses — the user wants full context.');
+    }
+    if (userPrefs.focus_areas?.length) {
+      lines.push(`User priority areas: ${userPrefs.focus_areas.join(', ')}`);
+    }
+    if (userPrefs.custom_instructions) {
+      lines.push(`User instruction: ${userPrefs.custom_instructions}`);
+    }
+    if (lines.length > 0) {
+      contextLines.push('\n--- USER PREFERENCES ---');
+      contextLines.push(...lines);
+      contextLines.push('--- END PREFERENCES ---');
+    }
+  }
+
+  contextLines.push('--- END CONTEXT ---');
 
   if (memories.length > 0) {
     contextLines.push(`\n--- RECENT MEMORY (${memories.length} items) ---`);
