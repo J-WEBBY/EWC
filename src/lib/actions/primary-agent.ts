@@ -11,7 +11,7 @@ import {
   upsertCategory,
 } from '@/lib/actions/agent-service';
 import { runAgentLoop, runAgentLoopStreaming } from '@/lib/ai/agent-executor';
-import { ALL_TOOLS } from '@/lib/ai/tools';
+import { getToolsForAgent } from '@/lib/ai/tools';
 import type { AgentContext, AgentResponse, AgentStreamEvent, ToolCallRecord } from '@/lib/ai/types';
 import type { SignalPriority } from '@/lib/types/database';
 import type { DBAgent } from '@/lib/actions/agent-service';
@@ -443,6 +443,92 @@ async function backgroundClassify(
 }
 
 // =============================================================================
+// loadAgentContext — Build system prompt + tool set for a specific agent
+//
+// Replaces buildAgentSystemPrompt. Uses:
+//   - Agent's system_prompt from DB (set by migration 022)
+//   - clinic_config for clinic name (replaces broken tenants query)
+//   - users table by id only (no tenant_id filter — single-tenant)
+//   - agent_memories for live context injection
+//   - getToolsForAgent for per-agent tool subsets
+// =============================================================================
+
+interface AgentContext_ {
+  systemPrompt: string;
+  tools: ReturnType<typeof getToolsForAgent>;
+}
+
+async function loadAgentContext(
+  userId: string,
+  agentScope?: string,
+): Promise<AgentContext_> {
+  const sovereign   = createSovereignClient();
+  const agentKey    = agentScope || 'primary_agent';
+
+  const [clinicResult, userResult, agentResult, memoriesResult] = await Promise.all([
+    sovereign
+      .from('clinic_config')
+      .select('clinic_name, ai_name')
+      .limit(1)
+      .single(),
+    sovereign
+      .from('users')
+      .select('first_name, last_name, role:roles(name)')
+      .eq('id', userId)
+      .single(),
+    sovereign
+      .from('agents')
+      .select('name, display_name, system_prompt')
+      .eq('agent_key', agentKey)
+      .single(),
+    sovereign
+      .from('agent_memories')
+      .select('content, memory_type, importance')
+      .eq('agent_key', agentKey)
+      .order('importance', { ascending: false })
+      .limit(5),
+  ]);
+
+  const clinic    = clinicResult.data;
+  const user      = userResult.data as { first_name: string; last_name: string; role?: { name: string } | null } | null;
+  const agentData = agentResult.data as { name: string; display_name?: string | null; system_prompt?: string | null } | null;
+  const memories  = memoriesResult.data || [];
+
+  const userName  = user ? `${user.first_name} ${user.last_name}` : 'Staff Member';
+  const userRole  = user?.role?.name || 'Staff';
+
+  const now     = new Date();
+  const dateStr = now.toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+
+  // Use the agent's rich DB system prompt (set by migration 022)
+  // Fall back to a minimal prompt if the agent isn't in DB yet
+  const agentName = agentData?.display_name || agentData?.name || clinic?.ai_name || 'EWC';
+  const basePrompt: string = (agentData?.system_prompt as string | null | undefined)
+    ?? `You are ${agentName}, an AI assistant for ${clinic?.clinic_name || 'Edgbaston Wellness Clinic'}. Be professional, warm, and helpful.`;
+
+  // Inject live operational context after the base prompt
+  const contextLines: string[] = [
+    '\n\n--- OPERATIONAL CONTEXT ---',
+    `Date/Time: ${dateStr}, ${timeStr} (UK)`,
+    `Staff: ${userName} (${userRole})`,
+  ];
+
+  if (memories.length > 0) {
+    contextLines.push(`\n--- RECENT MEMORY (${memories.length} items) ---`);
+    for (const m of memories as { content: string; memory_type: string }[]) {
+      contextLines.push(`[${m.memory_type.toUpperCase()}] ${m.content.slice(0, 400)}`);
+    }
+    contextLines.push('--- END MEMORY ---');
+  }
+
+  const systemPrompt = basePrompt + contextLines.join('\n');
+  const tools        = getToolsForAgent(agentKey);
+
+  return { systemPrompt, tools };
+}
+
+// =============================================================================
 // agentChat — Full agentic interaction with tool use (non-streaming)
 // =============================================================================
 
@@ -453,7 +539,7 @@ export async function agentChat(
   userMessage: string,
   options?: { agentScope?: string },
 ): Promise<{ success: boolean; response?: string; toolCalls?: ToolCallRecord[]; error?: string }> {
-  if (!UUID_RE.test(tenantId)) return { success: false, error: 'INVALID_TENANT' };
+  // tenantId is 'clinic' (not a UUID) in this single-tenant setup — only validate userId + conversationId
   if (!UUID_RE.test(userId)) return { success: false, error: 'INVALID_USER' };
   if (!UUID_RE.test(conversationId)) return { success: false, error: 'INVALID_CONVERSATION' };
   if (!userMessage.trim()) return { success: false, error: 'EMPTY_MESSAGE' };
@@ -461,15 +547,18 @@ export async function agentChat(
   try {
     const sovereign = createSovereignClient();
 
-    // Load context in parallel
-    const [tenant, user, agents, existingMessages] = await Promise.all([
-      sovereign.from('tenants').select('company_name, ai_name, industry:industries(name)').eq('id', tenantId).single().then(r => r.data),
-      sovereign.from('users').select('first_name, last_name, job_title, department:departments!users_department_id_fkey(name), role:roles(name)').eq('id', userId).eq('tenant_id', tenantId).single().then(r => r.data),
-      getAgentsForTenant(tenantId),
-      sovereign.from('chat_messages').select('role, content').eq('conversation_id', conversationId).eq('tenant_id', tenantId).order('created_at', { ascending: true }).then(r => r.data),
+    // Load agent context (system prompt + tools) and conversation history in parallel
+    const [context, existingMessages] = await Promise.all([
+      loadAgentContext(userId, options?.agentScope),
+      sovereign
+        .from('chat_messages')
+        .select('role, content')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: true })
+        .then(r => r.data),
     ]);
 
-    const systemPrompt = buildAgentSystemPrompt(tenant, user, agents, options?.agentScope);
+    const { systemPrompt, tools } = context;
 
     // Build message history for the executor
     const history = (existingMessages || []).map((m: { role: string; content: string }) => ({
@@ -482,7 +571,7 @@ export async function agentChat(
       userId,
       conversationId,
       systemPrompt,
-      tools: ALL_TOOLS,
+      tools,
       model: ANTHROPIC_MODELS.SONNET,
       maxIterations: 10,
       maxTokens: 4096,
@@ -561,7 +650,8 @@ export async function* agentChatStream(
   userMessage: string,
   options?: { agentScope?: string },
 ): AsyncGenerator<AgentStreamEvent> {
-  if (!UUID_RE.test(tenantId) || !UUID_RE.test(userId) || !UUID_RE.test(conversationId)) {
+  // tenantId is 'clinic' (not a UUID) — only validate userId + conversationId
+  if (!UUID_RE.test(userId) || !UUID_RE.test(conversationId)) {
     yield { type: 'error', content: 'Invalid ID parameters' };
     return;
   }
@@ -573,14 +663,17 @@ export async function* agentChatStream(
   try {
     const sovereign = createSovereignClient();
 
-    const [tenant, user, agents, existingMessages] = await Promise.all([
-      sovereign.from('tenants').select('company_name, ai_name, industry:industries(name)').eq('id', tenantId).single().then(r => r.data),
-      sovereign.from('users').select('first_name, last_name, job_title, department:departments!users_department_id_fkey(name), role:roles(name)').eq('id', userId).eq('tenant_id', tenantId).single().then(r => r.data),
-      getAgentsForTenant(tenantId),
-      sovereign.from('chat_messages').select('role, content').eq('conversation_id', conversationId).eq('tenant_id', tenantId).order('created_at', { ascending: true }).then(r => r.data),
+    const [context, existingMessages] = await Promise.all([
+      loadAgentContext(userId, options?.agentScope),
+      sovereign
+        .from('chat_messages')
+        .select('role, content')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: true })
+        .then(r => r.data),
     ]);
 
-    const systemPrompt = buildAgentSystemPrompt(tenant, user, agents, options?.agentScope);
+    const { systemPrompt, tools } = context;
 
     const history = (existingMessages || []).map((m: { role: string; content: string }) => ({
       role: m.role as 'user' | 'assistant',
@@ -592,7 +685,7 @@ export async function* agentChatStream(
       userId,
       conversationId,
       systemPrompt,
-      tools: ALL_TOOLS,
+      tools,
       model: ANTHROPIC_MODELS.SONNET,
       maxIterations: 10,
       maxTokens: 4096,
@@ -658,88 +751,6 @@ export async function* agentChatStream(
     const msg = err instanceof Error ? err.message : String(err);
     yield { type: 'error', content: msg };
   }
-}
-
-// =============================================================================
-// buildAgentSystemPrompt — Comprehensive orchestrator prompt
-// =============================================================================
-
-function buildAgentSystemPrompt(
-  tenant: Record<string, unknown> | null,
-  user: Record<string, unknown> | null,
-  agents: DBAgent[],
-  agentScope?: string,
-): string {
-  const aiName = (tenant?.ai_name as string) || 'Ilyas';
-  const companyName = (tenant?.company_name as string) || 'the organisation';
-  const industryName = ((tenant?.industry as Record<string, string> | null)?.name) || 'operations';
-  const userName = user ? `${user.first_name} ${user.last_name}` : 'Team Member';
-  const userRole = ((user?.role as Record<string, string> | null)?.name) || 'Staff';
-  const userDept = ((user?.department as Record<string, string> | null)?.name) || 'General';
-
-  const agentList = agents.map(a =>
-    `- **${a.display_name || a.name}** (\`${a.agent_key}\`): ${a.description || 'No description'}. Domains: ${a.domains.join(', ')}`
-  ).join('\n');
-
-  const now = new Date();
-  const dateStr = now.toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-
-  let prompt = `You are ${aiName}, the Primary Intelligence Agent for ${companyName}, operating in the ${industryName} sector.
-
-You are speaking with ${userName}, a ${userRole} in the ${userDept} department.
-
-## CURRENT CONTEXT
-- **Date:** ${dateStr}
-- **Time:** ${timeStr}
-- **Location:** United Kingdom
-- **Timezone:** GMT/BST
-
-## YOUR ROLE
-You are the orchestrator — the most capable agent in the system. You are NOT just a router. You:
-1. **Handle requests directly** when you have the knowledge and tools
-2. **Search for information** using web search and the knowledge base
-3. **Query and create signals** (tasks, events, alerts) in the operational system
-4. **Generate reports** from analytics data
-5. **Delegate to specialists** only when their domain expertise is specifically needed
-6. **Run proactive scans** to identify organisational issues
-
-## AVAILABLE SPECIALIST AGENTS
-${agentList}
-
-## INTERACTION STYLE
-- **Be inquisitive first, act second** — when a user brings a request (especially planning, strategy, or new initiatives), ask clarifying questions before jumping to action. Understand their goals, constraints, and preferences.
-- **Help users develop their thinking** — don't just accept vague requests at face value. Probe deeper: What are the specific objectives? Who is the audience? What does success look like? What resources or constraints exist?
-- **Propose, don't impose** — present plans and recommendations as proposals for discussion. Use phrases like "Here's what I'd suggest — what do you think?" or "Before I create this, let me check a few things with you."
-- **Collaborate iteratively** — work through complex requests step by step with the user. First understand, then outline, then refine, then act. Don't try to do everything in one response.
-- **Only use tools when the user's intent is clear** — don't immediately create signals, delegate tasks, or run searches at the first mention. First understand what the user actually wants, then propose what you'll do, then execute once confirmed.
-- **Ask 2-3 focused questions** when a request is ambiguous — don't overwhelm with too many questions, but don't assume either.
-
-## GUIDELINES
-- Use British English throughout
-- Be concise, professional, and warm
-- **Always format responses in rich Markdown** — use headers (##, ###), bullet points, bold, numbered lists, and tables where appropriate
-- When asked about data, use query_signals or generate_report rather than guessing
-- When asked about external topics, use web_search with search_depth "advanced" for better results
-- When reporting search results, synthesise the information into a well-structured answer — do NOT dump raw results
-- When asked about internal policies, use knowledge_base_search first
-- Only delegate to specialists when the task specifically requires their domain AND the user has confirmed
-- Reference specific departments and agents when relevant`;
-
-  if (agentScope) {
-    const scopeInstructions: Record<string, string> = {
-      judge: 'Focus on evaluating signals, providing risk assessments, confidence scores, and actionable recommendations.',
-      agent: 'Focus on routing tasks to the correct specialist AI agent.',
-      automate: 'Focus on defining automated workflows, triggers, and rules.',
-      integrate: 'Focus on connecting external tools and data sources.',
-      simulate: 'Focus on modelling scenarios and predicting outcomes.',
-    };
-    if (scopeInstructions[agentScope]) {
-      prompt += `\n\n## ACTIVE MODE: ${agentScope.toUpperCase()}\n${scopeInstructions[agentScope]}`;
-    }
-  }
-
-  return prompt;
 }
 
 // =============================================================================
