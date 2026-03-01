@@ -1,5 +1,27 @@
 'use client';
 
+// Play a soft two-tone chime when the agent sends a reply
+function playAgentReplySound() {
+  try {
+    const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    const notes = [880, 1109]; // A5 + C#6 (major third)
+    notes.forEach((freq, i) => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      const t = ctx.currentTime + i * 0.13;
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.1, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+      osc.start(t);
+      osc.stop(t + 0.45);
+    });
+  } catch { /* audio unavailable — silent fail */ }
+}
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -295,6 +317,7 @@ export default function AgentChatPage() {
             } else if (event.type === 'tool_result') {
               setActiveToolCall(null);
             } else if (event.type === 'done') {
+              playAgentReplySound();
               setMessages(prev => [...prev, { id: `ai-${Date.now()}`, role: 'assistant', content: event.response || accumulated }]);
               setStreamingText('');
               setActiveToolCall(null);

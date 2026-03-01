@@ -84,5 +84,39 @@ def build_primary_tools(
     ]
 
 
-# Tool count for reference
+def build_specialist_tools(
+    tenant_id: str,
+    user_id: str,
+    conversation_id: Optional[str] = None,
+) -> list:
+    """
+    Focused tool set for specialist agents (Orion + Aria).
+    No delegation tools, no settings/admin tools — prevents recursion.
+    """
+    return [
+        # --- Signals ---
+        QuerySignalsTool(tenant_id=tenant_id),
+        CreateSignalTool(
+            tenant_id=tenant_id,
+            user_id=user_id,
+            conversation_id=conversation_id,
+        ),
+        UpdateSignalTool(tenant_id=tenant_id),
+
+        # --- Knowledge Base ---
+        KnowledgeBaseSearchTool(tenant_id=tenant_id),
+
+        # --- Reports ---
+        GenerateReportTool(tenant_id=tenant_id),
+
+        # --- Web Search ---
+        WebSearchTool(),
+
+        # --- Proactive Scan ---
+        RunProactiveScanTool(tenant_id=tenant_id),
+    ]
+
+
+# Tool counts for reference
 TOOL_COUNT = 18
+SPECIALIST_TOOL_COUNT = 7
