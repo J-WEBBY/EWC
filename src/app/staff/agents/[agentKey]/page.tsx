@@ -265,31 +265,29 @@ export default function AgentChatPage() {
     const text = (preset ?? input).trim();
     if (!text || sending) return;
 
-    // Ensure we have a conversationId — create one on-demand if page-load creation failed
     let convId = conversationId;
-    if (!convId) {
-      const res = await createConversation('clinic', userId, agentKey);
-      if (!res.success || !res.conversationId) {
-        setMessages(prev => [...prev, {
-          id: `err-${Date.now()}`, role: 'assistant',
-          content: 'Could not start conversation — please refresh the page.',
-        }]);
-        return;
-      }
-      convId = res.conversationId;
-      setConversationId(convId);
-    }
-
-    setMessages(prev => [...prev, { id: `u-${Date.now()}`, role: 'user', content: text }]);
-    setInput('');
-    setSending(true);
-    setStreamingText('');
-    setActiveToolCall(null);
-    if (textareaRef.current) textareaRef.current.style.height = 'auto';
-
     let accumulated = '';
 
+    // Everything in one try so any failure — including on-demand conv creation
+    // and server action throws — always results in a visible error message
     try {
+      // Create conversation on-demand if page-load creation failed
+      if (!convId) {
+        const res = await createConversation('clinic', userId, agentKey);
+        if (!res.success || !res.conversationId) {
+          throw new Error('Could not start conversation — please refresh the page.');
+        }
+        convId = res.conversationId;
+        setConversationId(convId);
+      }
+
+      setMessages(prev => [...prev, { id: `u-${Date.now()}`, role: 'user', content: text }]);
+      setInput('');
+      setSending(true);
+      setStreamingText('');
+      setActiveToolCall(null);
+      if (textareaRef.current) textareaRef.current.style.height = 'auto';
+
       const res = await fetch('/api/primary-agent/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -303,13 +301,14 @@ export default function AgentChatPage() {
       });
 
       if (!res.ok || !res.body) {
-        setMessages(prev => [...prev, { id: `err-${Date.now()}`, role: 'assistant', content: 'Connection error — please try again.' }]);
-        return;
+        const errText = await res.text().catch(() => res.statusText);
+        throw new Error(`Server error ${res.status}: ${errText.slice(0, 200)}`);
       }
 
       const reader  = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer    = '';
+      let gotDone   = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -332,29 +331,45 @@ export default function AgentChatPage() {
             } else if (event.type === 'tool_result') {
               setActiveToolCall(null);
             } else if (event.type === 'done') {
+              gotDone = true;
               playAgentReplySound();
               setMessages(prev => [...prev, { id: `ai-${Date.now()}`, role: 'assistant', content: event.response || accumulated }]);
               setStreamingText('');
               setActiveToolCall(null);
             } else if (event.type === 'error') {
+              gotDone = true;
               const overloaded = (event.content || '').includes('529');
               setMessages(prev => [...prev, {
                 id: `err-${Date.now()}`, role: 'assistant',
                 content: overloaded
                   ? 'AI temporarily overloaded — please try again in a moment.'
-                  : `Something went wrong: ${event.content}`,
+                  : `Error: ${event.content}`,
               }]);
               setStreamingText('');
               setActiveToolCall(null);
             }
-          } catch { /* skip malformed */ }
+          } catch { /* skip malformed SSE line */ }
         }
       }
-    } catch {
-      setMessages(prev => [...prev, {
-        id: `ai-${Date.now()}`, role: 'assistant',
-        content: accumulated || 'Request failed — please try again.',
-      }]);
+
+      // Stream closed without a done/error event (e.g. Vercel timeout)
+      if (!gotDone) {
+        if (accumulated) {
+          setMessages(prev => [...prev, { id: `ai-${Date.now()}`, role: 'assistant', content: accumulated }]);
+        } else {
+          setMessages(prev => [...prev, {
+            id: `err-${Date.now()}`, role: 'assistant',
+            content: 'No response received — the request may have timed out. Please try again.',
+          }]);
+        }
+        setStreamingText('');
+        setActiveToolCall(null);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Request failed — please try again.';
+      setMessages(prev => [...prev, { id: `err-${Date.now()}`, role: 'assistant', content: msg }]);
+      setStreamingText('');
+      setActiveToolCall(null);
     } finally {
       setSending(false);
       setStreamingText('');
@@ -364,13 +379,24 @@ export default function AgentChatPage() {
 
   if (loading || !profile) {
     return (
-      <div className="min-h-screen pl-[240px] bg-[#FAF7F2] flex items-center justify-center">
-        <motion.div
-          className="w-2 h-2 rounded-full"
-          style={{ backgroundColor: color }}
-          animate={{ opacity: [0.2, 1, 0.2] }}
-          transition={{ duration: 1.5, repeat: Infinity }}
-        />
+      <div className="min-h-screen pl-[240px] bg-[#FAF7F2] flex flex-col items-center justify-center gap-5">
+        <AgentOrb color={color} size={56} active />
+        <div className="flex flex-col items-center gap-1.5">
+          <p className="text-[15px] font-semibold text-[#1A1035] tracking-tight">
+            {cfg.displayName || agentKey}
+          </p>
+          <div className="flex items-center gap-1.5">
+            {[0, 1, 2].map(i => (
+              <motion.div
+                key={i}
+                className="w-1.5 h-1.5 rounded-full"
+                style={{ backgroundColor: color }}
+                animate={{ opacity: [0.2, 1, 0.2], y: [0, -3, 0] }}
+                transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.18 }}
+              />
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
