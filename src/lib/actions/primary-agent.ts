@@ -584,7 +584,6 @@ export async function agentChat(
     // Save messages to DB
     await sovereign.from('chat_messages').insert({
       conversation_id: conversationId,
-      tenant_id: tenantId,
       role: 'user',
       content: userMessage,
       agent_scope: options?.agentScope || null,
@@ -593,7 +592,6 @@ export async function agentChat(
     // Insert assistant message (try with metadata, fallback without)
     const assistantRow: Record<string, unknown> = {
       conversation_id: conversationId,
-      tenant_id: tenantId,
       role: 'assistant',
       content: result.text,
       agent_scope: options?.agentScope || null,
@@ -695,7 +693,6 @@ export async function* agentChatStream(
     // Save user message before streaming
     await sovereign.from('chat_messages').insert({
       conversation_id: conversationId,
-      tenant_id: tenantId,
       role: 'user',
       content: userMessage,
       agent_scope: options?.agentScope || null,
@@ -718,7 +715,6 @@ export async function* agentChatStream(
       // Try with metadata, fallback without
       const assistantRow: Record<string, unknown> = {
         conversation_id: conversationId,
-        tenant_id: tenantId,
         role: 'assistant',
         content: finalResponse,
         agent_scope: options?.agentScope || null,
@@ -758,7 +754,7 @@ export async function* agentChatStream(
 // =============================================================================
 
 async function generateConversationTitle(
-  tenantId: string,
+  _tenantId: string,
   conversationId: string,
   firstMessage: string,
 ): Promise<void> {
@@ -779,8 +775,7 @@ async function generateConversationTitle(
     await db
       .from('chat_conversations')
       .update({ title })
-      .eq('id', conversationId)
-      .eq('tenant_id', tenantId);
+      .eq('id', conversationId);
   } catch {
     // Non-critical — title will just remain null
   }

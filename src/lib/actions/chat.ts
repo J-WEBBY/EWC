@@ -144,7 +144,7 @@ export async function createConversation(
       .insert({
         user_id: userId,
         agent_scope: agentScope || null,
-        title: title || null,
+        title: title || 'New Conversation',
         message_count: 0,
       })
       .select('id')
