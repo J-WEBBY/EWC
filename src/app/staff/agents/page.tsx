@@ -10,7 +10,7 @@ import {
   Syringe, Sparkles, Droplets, Snowflake, BookOpen, AlertCircle, Gift,
   type LucideIcon,
 } from 'lucide-react';
-import { getAgentsForTenant, getAgentMemoriesByKey, type DBAgent, type AgentMemoryRecord } from '@/lib/actions/agent-service';
+import { getAgentsForTenant, type DBAgent } from '@/lib/actions/agent-service';
 import {
   getStaffProfile, getLatestTenantAndUser, type StaffProfile,
 } from '@/lib/actions/staff-onboarding';
@@ -21,7 +21,6 @@ import {
 } from '@/lib/actions/automations';
 import { AUTOMATION_REGISTRY } from '@/lib/automations/registry';
 
-type AgentMemory = AgentMemoryRecord;
 type PageTab = 'agents' | 'automations';
 
 // =============================================================================
@@ -116,20 +115,8 @@ function AgentCard({
   onToggle: () => void;
   onChat: () => void;
 }) {
-  const [memories, setMemories] = useState<AgentMemory[]>([]);
-  const [loadingMem, setLoadingMem] = useState(false);
-
   const profile = AGENT_PROFILES[agent.agent_key] ?? FALLBACK_PROFILE(agent);
   const c = profile.color;
-
-  useEffect(() => {
-    if (!expanded) return;
-    setLoadingMem(true);
-    getAgentMemoriesByKey(agent.agent_key).then(m => {
-      setMemories(m);
-      setLoadingMem(false);
-    });
-  }, [expanded, agent.agent_key]);
 
   return (
     <motion.div
@@ -228,75 +215,8 @@ function AgentCard({
           >
             <div className="px-6 pb-6" style={{ borderTop: `1px solid ${c}14` }}>
 
-              {/* Keywords + Domains */}
-              <div className="grid grid-cols-2 gap-5 mt-5">
-                <div>
-                  <p className="text-[9px] uppercase tracking-[0.22em] mb-2.5 font-semibold" style={{ color: `${c}80` }}>
-                    Keywords
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {agent.keywords?.length
-                      ? agent.keywords.map(k => (
-                          <span key={k} className="text-[10px] px-2 py-0.5 rounded-md text-[#524D66]"
-                            style={{ background: `${c}0C`, border: `1px solid ${c}20` }}>{k}</span>
-                        ))
-                      : <span className="text-[11px] text-[#6E6688]">None set</span>}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-[9px] uppercase tracking-[0.22em] mb-2.5 font-semibold" style={{ color: `${c}80` }}>
-                    Domains
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {agent.domains?.length
-                      ? agent.domains.map(d => (
-                          <span key={d} className="text-[10px] px-2 py-0.5 rounded-md text-[#524D66]"
-                            style={{ background: `${c}0C`, border: `1px solid ${c}20` }}>{d}</span>
-                        ))
-                      : <span className="text-[11px] text-[#6E6688]">None set</span>}
-                  </div>
-                </div>
-                {agent.critical_keywords?.length > 0 && (
-                  <div className="col-span-2">
-                    <p className="text-[9px] uppercase tracking-[0.22em] mb-2.5 font-semibold" style={{ color: `${c}80` }}>
-                      Critical Keywords
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {agent.critical_keywords.map(k => (
-                        <span key={k} className="text-[10px] px-2 py-0.5 rounded-md text-[#524D66]"
-                          style={{ background: `${c}0C`, border: `1px solid ${c}20` }}>{k}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Agent memories */}
-              <div className="mt-5">
-                <p className="text-[9px] uppercase tracking-[0.22em] mb-2.5 font-semibold" style={{ color: `${c}80` }}>
-                  Agent Memory
-                </p>
-                {loadingMem ? (
-                  <p className="text-[12px] text-[#6E6688]">Loading…</p>
-                ) : memories.length === 0 ? (
-                  <p className="text-[12px] text-[#6E6688] italic">No memories stored yet.</p>
-                ) : (
-                  <div className="space-y-1.5">
-                    {memories.slice(0, 4).map(m => (
-                      <div key={m.id} className="flex items-start gap-2.5 py-2 border-b last:border-0"
-                        style={{ borderColor: `${c}12` }}>
-                        <span className="text-[9px] uppercase tracking-[0.1em] flex-shrink-0 mt-0.5 w-14"
-                          style={{ color: `${c}80` }}>{m.memory_type}</span>
-                        <p className="text-[12px] text-[#524D66] leading-relaxed flex-1">{m.content}</p>
-                        <span className="text-[10px] text-[#8B84A0] flex-shrink-0">{relativeTime(m.created_at)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
               {/* CTA */}
-              <div className="flex items-center gap-3 mt-6">
+              <div className="flex items-center gap-3 mt-5">
                 <button
                   onClick={onChat}
                   className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[12px] font-semibold text-white transition-opacity"
