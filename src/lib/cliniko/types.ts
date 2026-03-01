@@ -105,9 +105,9 @@ export interface ClinikoAppointment {
   practitioner: { links: ClinikoLink };
   appointment_type: { links: ClinikoLink };
   business: { links: ClinikoLink };
-  // Extracted IDs (from links, parsed by our client)
-  patient_id?: number;
-  practitioner_id?: number;
+  // Extracted IDs (strings to preserve full precision — Cliniko IDs exceed JS float64)
+  patient_id?: string;
+  practitioner_id?: string;
   appointment_type_name?: string;
   links: { self: string };
 }
@@ -165,10 +165,10 @@ export interface ClinikoInvoice {
   practitioner: { links: ClinikoLink };
   appointment: { links: ClinikoLink } | null;
   invoice_items: ClinikoInvoiceItem[];
-  // Parsed IDs
-  patient_id?: number;
-  practitioner_id?: number;
-  appointment_id?: number | null;
+  // Parsed IDs (strings to preserve full precision)
+  patient_id?: string;
+  practitioner_id?: string;
+  appointment_id?: string | null;
   links: { self: string };
 }
 

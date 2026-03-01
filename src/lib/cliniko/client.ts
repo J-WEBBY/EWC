@@ -18,10 +18,11 @@ const USER_AGENT = 'EWC-Intelligence/1.0 (admin@edgbastonwellness.co.uk)';
 const PER_PAGE   = 100;
 const RATE_DELAY = 350; // ms between paginated requests (~170 req/min, safe under 200 limit)
 
-// Extract numeric ID from a Cliniko self-link: ".../patients/12345" → 12345
-function idFromLink(link: string): number | undefined {
+// Extract ID string from a Cliniko self-link: ".../patients/12345" → "12345"
+// Must return string — Cliniko IDs exceed JS float64 precision (parseInt loses last digits)
+function idFromLink(link: string): string | undefined {
   const m = link.match(/\/(\d+)$/);
-  return m ? parseInt(m[1], 10) : undefined;
+  return m ? m[1] : undefined;
 }
 
 // Small delay helper for rate limiting
