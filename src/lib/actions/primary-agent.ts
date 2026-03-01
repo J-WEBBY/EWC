@@ -627,8 +627,20 @@ async function loadAgentContext(
   const dateStr = now.toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 
-  const agentName  = agentData?.display_name || agentData?.name || clinic?.ai_name || 'EWC';
+  // Per-agent name fallback — prevents all agents defaulting to 'EWC' if DB query fails
+  const AGENT_NAME_FALLBACK: Record<string, string> = {
+    primary_agent: 'EWC',
+    sales_agent:   'Orion',
+    crm_agent:     'Aria',
+  };
+  const AGENT_PROMPT_FALLBACK: Record<string, string> = {
+    primary_agent: `You are EWC, the primary operational intelligence system for ${clinic?.clinic_name || 'Edgbaston Wellness Clinic'}. You orchestrate clinic operations, manage signals, and coordinate with specialist agents Orion (acquisition) and Aria (retention). Be precise, calm, and authoritative.`,
+    sales_agent:   `You are Orion, the patient acquisition and revenue intelligence specialist for ${clinic?.clinic_name || 'Edgbaston Wellness Clinic'}. You handle new patient enquiries, booking conversion, treatment knowledge, corporate wellness, and revenue pipeline analysis. Be commercially sharp and data-driven.`,
+    crm_agent:     `You are Aria, the patient retention and relationship specialist for ${clinic?.clinic_name || 'Edgbaston Wellness Clinic'}. You protect patient relationships, manage treatment follow-ups, handle DNAs, prevent churn, and ensure every patient feels genuinely valued. Be warm, empathetic, and precise.`,
+  };
+  const agentName  = agentData?.display_name || agentData?.name || AGENT_NAME_FALLBACK[agentKey] || clinic?.ai_name || 'EWC';
   const basePrompt = (agentData?.system_prompt as string | null | undefined)
+    ?? AGENT_PROMPT_FALLBACK[agentKey]
     ?? `You are ${agentName}, an AI assistant for ${clinic?.clinic_name || 'Edgbaston Wellness Clinic'}. Be professional, warm, and helpful.`;
 
   // Inject live context after the base prompt

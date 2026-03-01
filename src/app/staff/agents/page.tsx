@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Bot, Zap, RefreshCw, MessageSquare, Activity,
-  Play, ChevronRight, ChevronDown,
+  Play, ChevronRight, ChevronDown, Info,
   Clock, PhoneOff, CreditCard, RotateCcw, Target, CheckSquare,
   Syringe, Sparkles, Droplets, Snowflake, BookOpen, AlertCircle, Gift,
   type LucideIcon,
@@ -108,12 +108,13 @@ const FALLBACK_PROFILE = (agent: DBAgent): AgentProfile => ({
 // =============================================================================
 
 function AgentCard({
-  agent, expanded, onToggle, onChat,
+  agent, expanded, onToggle, onChat, onInfo,
 }: {
   agent: DBAgent;
   expanded: boolean;
   onToggle: () => void;
   onChat: () => void;
+  onInfo: () => void;
 }) {
   const profile = AGENT_PROFILES[agent.agent_key] ?? FALLBACK_PROFILE(agent);
   const c = profile.color;
@@ -227,7 +228,16 @@ function AgentCard({
                   <MessageSquare size={13} />
                   Chat with {profile.displayName}
                 </button>
-                <span className="text-[11px] text-[#8B84A0]">Opens dedicated agent workspace</span>
+                <button
+                  onClick={onInfo}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12px] font-medium transition-all border"
+                  style={{ color: c, borderColor: `${c}40`, background: `${c}08` }}
+                  onMouseEnter={e => (e.currentTarget.style.background = `${c}14`)}
+                  onMouseLeave={e => (e.currentTarget.style.background = `${c}08`)}
+                >
+                  <Info size={13} />
+                  Agent Info
+                </button>
               </div>
 
             </div>
@@ -541,6 +551,7 @@ export default function AgentsPage() {
                       expanded={expanded === agent.id}
                       onToggle={() => setExpanded(prev => prev === agent.id ? null : agent.id)}
                       onChat={() => router.push(`/staff/agents/${agent.agent_key}?userId=${userId}`)}
+                      onInfo={() => router.push(`/staff/agents/${agent.agent_key}?userId=${userId}&tab=info`)}
                     />
                   ))}
                 </div>

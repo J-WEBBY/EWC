@@ -42,7 +42,7 @@ import {
   ShieldAlert, BarChart3, Scan, Zap,
   TrendingUp, Users, Phone, AlertTriangle,
   RefreshCw, Activity, Brain, MessageSquare,
-  Clock, Sparkles, Settings2,
+  Clock, Sparkles, Settings2, Info,
   PlusCircle, Globe, Calendar, FileText,
   Share2, Wrench, X, BookOpen, ChevronDown,
   type LucideIcon,
@@ -271,7 +271,7 @@ interface Message {
   content: string;
 }
 
-type Tab = 'chat' | 'activity' | 'customize';
+type Tab = 'chat' | 'activity' | 'customize' | 'info';
 
 const TONE_OPTIONS   = ['casual', 'professional', 'formal'] as const;
 const VERB_OPTIONS   = ['brief', 'standard', 'detailed'] as const;
@@ -321,7 +321,8 @@ export default function AgentChatPage() {
   const [hoveredTool, setHoveredTool]       = useState<string | null>(null);
 
   // ── Tab state ──────────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab]           = useState<Tab>('chat');
+  const urlTab = searchParams.get('tab') as Tab | null;
+  const [activeTab, setActiveTab]           = useState<Tab>(urlTab && ['chat','activity','customize','info'].includes(urlTab) ? urlTab : 'chat');
 
   // ── Activity tab (lazy load) ───────────────────────────────────────────────
   const [activitySignals, setActivitySignals]         = useState<AgentSignalSummary[]>([]);
@@ -1110,6 +1111,7 @@ export default function AgentChatPage() {
               { key: 'chat',      label: 'Chat',         Icon: MessageSquare },
               { key: 'activity',  label: 'Activity Log', Icon: Clock },
               { key: 'customize', label: 'Customise',    Icon: Settings2 },
+              { key: 'info',      label: 'Agent Info',   Icon: Info },
             ] as { key: Tab; label: string; Icon: LucideIcon }[]).map(({ key, label, Icon }) => {
               const active = activeTab === key;
               return (
@@ -1768,6 +1770,85 @@ export default function AgentChatPage() {
                     </div>
                   </div>
                 )}
+              </motion.div>
+            )}
+
+            {/* INFO TAB */}
+            {activeTab === 'info' && (
+              <motion.div
+                key="info"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className="flex-1 overflow-y-auto px-6 py-6"
+              >
+                <div className="max-w-2xl mx-auto space-y-5">
+
+                  {/* Identity banner */}
+                  <div className="rounded-2xl p-5 flex items-start gap-5"
+                    style={{ background: `${color}08`, border: `1px solid ${color}20` }}>
+                    <AgentOrb color={color} size={36} />
+                    <div className="min-w-0">
+                      <h2 className="text-[20px] font-black tracking-tight text-[#1A1035] leading-none mb-1">{agentName}</h2>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.20em] mb-2" style={{ color: `${color}AA` }}>{cfg.role}</p>
+                      <p className="text-[13px] text-[#524D66] leading-relaxed">{cfg.tagline}</p>
+                    </div>
+                  </div>
+
+                  {/* Capabilities */}
+                  {cfg.capabilities.length > 0 && (
+                    <div className="rounded-xl border border-[#EBE5FF] bg-white p-4">
+                      <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-[#8B84A0] mb-3">What I can do</p>
+                      <div className="space-y-2.5">
+                        {cfg.capabilities.map(cap => (
+                          <div key={cap.label} className="flex items-start gap-3">
+                            <div className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0" style={{ backgroundColor: color }} />
+                            <div>
+                              <span className="text-[12px] font-semibold text-[#1A1035]">{cap.label}</span>
+                              <span className="text-[12px] text-[#8B84A0]"> — {cap.desc}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Available tools */}
+                  {agentTools.length > 0 && (
+                    <div className="rounded-xl border border-[#EBE5FF] bg-white p-4">
+                      <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-[#8B84A0] mb-3">Tools &amp; Access</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {agentTools.map(tool => (
+                          <div key={tool.key} className="flex items-center gap-2 px-3 py-2 rounded-lg"
+                            style={{ background: `${color}08`, border: `1px solid ${color}18` }}>
+                            <tool.icon size={11} style={{ color }} className="flex-shrink-0" />
+                            <span className="text-[11px] font-medium text-[#524D66]">{tool.label}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Try asking */}
+                  <div className="rounded-xl border border-[#EBE5FF] bg-white p-4">
+                    <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-[#8B84A0] mb-3">Try asking</p>
+                    <div className="space-y-2">
+                      {cfg.quickPrompts.map(({ label, icon: Icon }) => (
+                        <button
+                          key={label}
+                          onClick={() => { setActiveTab('chat'); setTimeout(() => handleSend(label), 150); }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left text-[12px] text-[#524D66] border border-[#EBE5FF] bg-[#FAF7F2] hover:border-[#D5CCFF] hover:bg-white transition-all"
+                        >
+                          <Icon size={11} className="flex-shrink-0" style={{ color }} />
+                          <span>{label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="pb-4" />
+                </div>
               </motion.div>
             )}
 
