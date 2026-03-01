@@ -334,16 +334,16 @@ export default function ReceptionPage() {
 
   // ---------- render ----------
   return (
-    <div className="min-h-screen bg-black">
-      {profile && <StaffNav profile={profile} userId={profile.userId ?? ''} brandColor={profile.brandColor ?? '#ffffff'} currentPath="Reception" />}
+    <div className="min-h-screen bg-black pl-[240px]">
+      {profile && <StaffNav profile={profile} userId={profile.userId ?? ''} brandColor={profile.brandColor ?? '#ffffff'} currentPath="Receptionist" />}
 
-      <div className="max-w-5xl mx-auto px-6 py-10">
+      <div className="max-w-5xl mx-auto px-8 py-10">
 
         {/* ── Header ─────────────────────────────────────────────────────── */}
         <div className="flex items-start justify-between mb-8">
           <div>
             <div className="flex items-center gap-3 mb-1.5">
-              <h1 className="text-[22px] font-semibold text-white tracking-tight">Reception</h1>
+              <h1 className="text-[22px] font-semibold text-white tracking-tight">Receptionist</h1>
               {vapiConnected === true && komalStatus?.provisioned === true && (
                 <motion.span
                   initial={{ opacity: 0 }} animate={{ opacity: 1 }}

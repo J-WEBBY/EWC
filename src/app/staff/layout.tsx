@@ -5,5 +5,9 @@ export default function StaffLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return children;
+  return (
+    <div className="theme-dark" style={{ backgroundColor: '#0A0A0A', minHeight: '100vh' }}>
+      {children}
+    </div>
+  );
 }

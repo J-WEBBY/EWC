@@ -37,3 +37,55 @@ body {
     display: none;
   }
 }
+
+/* =============================================================================
+   DARK MODE — applied to all staff pages via .theme-dark wrapper in
+   src/app/staff/layout.tsx. Overrides light-mode Tailwind classes.
+   Agent accent colours (purple, orange, teal) are preserved intentionally.
+   ============================================================================= */
+
+.theme-dark {
+  background-color: #0A0A0A;
+  color: rgba(255, 255, 255, 0.85);
+  min-height: 100vh;
+}
+
+/* ── Page & section backgrounds ─────────────────────────────────────────── */
+.theme-dark .bg-\[\#FAF7F2\]  { background-color: #0A0A0A !important; }
+.theme-dark .bg-\[\#FAF9F5\]  { background-color: rgba(255,255,255,0.04) !important; }
+.theme-dark .bg-\[\#F5F2EB\]  { background-color: rgba(255,255,255,0.06) !important; }
+.theme-dark .bg-\[\#F0EDE5\]  { background-color: rgba(255,255,255,0.04) !important; }
+.theme-dark .bg-\[\#FAFAFA\]  { background-color: rgba(255,255,255,0.03) !important; }
+
+/* ── White backgrounds — cards, panels, rows ─────────────────────────────── */
+.theme-dark div.bg-white     { background-color: rgba(255,255,255,0.03) !important; }
+.theme-dark li.bg-white      { background-color: rgba(255,255,255,0.03) !important; }
+.theme-dark section.bg-white { background-color: rgba(255,255,255,0.03) !important; }
+.theme-dark main.bg-white    { background-color: rgba(255,255,255,0.03) !important; }
+.theme-dark header.bg-white  { background-color: rgba(255,255,255,0.03) !important; }
+
+/* ── Primary text ────────────────────────────────────────────────────────── */
+.theme-dark .text-\[\#1A1035\]  { color: rgba(255,255,255,0.85) !important; }
+.theme-dark .text-\[\#1a1035\]  { color: rgba(255,255,255,0.85) !important; }
+
+/* ── Secondary / muted text ──────────────────────────────────────────────── */
+.theme-dark .text-\[\#6E6688\]  { color: rgba(255,255,255,0.40) !important; }
+.theme-dark .text-\[\#6e6688\]  { color: rgba(255,255,255,0.40) !important; }
+.theme-dark .text-\[\#8B84A0\]  { color: rgba(255,255,255,0.28) !important; }
+.theme-dark .text-\[\#8b84a0\]  { color: rgba(255,255,255,0.28) !important; }
+.theme-dark .text-\[\#524D66\]  { color: rgba(255,255,255,0.55) !important; }
+.theme-dark .text-\[\#524d66\]  { color: rgba(255,255,255,0.55) !important; }
+.theme-dark .text-\[\#9E99B5\]  { color: rgba(255,255,255,0.32) !important; }
+.theme-dark .text-\[\#9e99b5\]  { color: rgba(255,255,255,0.32) !important; }
+
+/* ── Borders ─────────────────────────────────────────────────────────────── */
+.theme-dark .border-\[\#EBE5FF\]  { border-color: rgba(255,255,255,0.08) !important; }
+.theme-dark .border-\[\#ebe5ff\]  { border-color: rgba(255,255,255,0.08) !important; }
+.theme-dark .border-\[\#D5CCFF\]  { border-color: rgba(255,255,255,0.14) !important; }
+.theme-dark .border-\[\#d5ccff\]  { border-color: rgba(255,255,255,0.14) !important; }
+
+/* ── Hover state overrides ───────────────────────────────────────────────── */
+.theme-dark .hover\:bg-white:hover              { background-color: rgba(255,255,255,0.06) !important; }
+.theme-dark .hover\:border-\[\#D5CCFF\]:hover   { border-color: rgba(255,255,255,0.14) !important; }
+.theme-dark .hover\:text-\[\#524D66\]:hover     { color: rgba(255,255,255,0.65) !important; }
+.theme-dark .hover\:text-\[\#6E6688\]:hover     { color: rgba(255,255,255,0.50) !important; }
