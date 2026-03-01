@@ -20,6 +20,7 @@ from crewai import Agent, Task, Crew, Process
 from config import PRIMARY_MODEL, SPECIALIST_MODEL
 from tools.registry import build_primary_tools, build_specialist_tools
 from db import get_supabase
+from embeddings import generate_embedding
 
 
 # =============================================================================
@@ -206,37 +207,94 @@ def run_ewc(
     conversation_id: Optional[str] = None,
     chat_history: Optional[list] = None,
 ) -> dict:
-    """Run EWC as the primary orchestrator with all tools."""
+    """
+    Run EWC as the primary orchestrator with Orion + Aria as collaborative delegates.
+    EWC handles the task directly but can delegate to Orion (revenue) or Aria
+    (retention) when their specialist domain adds value.
+    """
     clinic, user = load_context(user_id)
 
-    base_prompt = load_agent_db_prompt("primary_agent") or (
+    # --- EWC (orchestrator) ---
+    ewc_base = load_agent_db_prompt("primary_agent") or (
         f"You are EWC, the primary intelligence agent for "
         f"{clinic.get('clinic_name', 'Edgbaston Wellness Clinic')}. "
         "You are the orchestrator — handle operational queries directly, "
-        "delegate to Orion (revenue) or Aria (retention) when their specialist "
-        "domain is needed."
+        "and delegate to Orion (revenue/acquisition) or Aria (retention/patient care) "
+        "when their specialist domain is specifically needed."
     )
-    memories      = load_agent_memories("primary_agent")
-    live_snapshot = build_live_snapshot("primary_agent")
-    backstory     = base_prompt + live_snapshot + memories + _context_footer(clinic, user)
+    ewc_memories      = load_agent_memories("primary_agent")
+    ewc_snapshot      = build_live_snapshot("primary_agent")
+    ewc_backstory     = ewc_base + ewc_snapshot + ewc_memories + _context_footer(clinic, user)
 
-    tools = build_primary_tools("clinic", user_id, conversation_id)
+    # --- Orion (revenue specialist — delegate only) ---
+    orion_base = load_agent_db_prompt("sales_agent") or (
+        f"You are Orion, the revenue and patient acquisition specialist for "
+        f"{clinic.get('clinic_name', 'Edgbaston Wellness Clinic')}. "
+        "You analyse commercial opportunities, upsell potential, corporate wellness, "
+        "and the acquisition pipeline. Be confident, data-driven, and commercially sharp."
+    )
 
-    agent = Agent(
+    # --- Aria (retention specialist — delegate only) ---
+    aria_base = load_agent_db_prompt("crm_agent") or (
+        f"You are Aria, the patient retention and relationship specialist for "
+        f"{clinic.get('clinic_name', 'Edgbaston Wellness Clinic')}. "
+        "You protect the patient experience, identify churn risks, manage follow-ups, "
+        "and ensure every patient feels genuinely valued. Be warm, empathetic, precise."
+    )
+
+    ewc_tools      = build_primary_tools("clinic", user_id, conversation_id)
+    orion_tools    = build_specialist_tools("clinic", user_id, conversation_id, agent_key="sales_agent")
+    aria_tools     = build_specialist_tools("clinic", user_id, conversation_id, agent_key="crm_agent")
+
+    ewc_agent = Agent(
         role="EWC — Primary Orchestrator",
         goal=(
             "Understand the request fully, use tools to gather data, and provide "
-            "the most helpful, accurate, and actionable response. Exercise real "
-            "intelligence — reason through complexity, delegate to specialists when "
-            "their domain expertise is specifically needed."
+            "the most helpful, accurate, and actionable response. Delegate to Orion "
+            "for commercial/revenue questions and to Aria for patient retention or "
+            "relationship questions when their specialist expertise adds clear value."
         ),
-        backstory=backstory,
-        tools=tools,
+        backstory=ewc_backstory,
+        tools=ewc_tools,
         llm=f"anthropic/{PRIMARY_MODEL}",
         verbose=False,
         memory=False,
         max_iter=15,
         max_rpm=30,
+        allow_delegation=True,
+    )
+
+    orion_agent = Agent(
+        role="Orion — Revenue Intelligence",
+        goal=(
+            "Analyse the revenue pipeline, identify acquisition opportunities, "
+            "and provide commercially sharp recommendations. Be data-driven. "
+            "Frame everything in terms of patient value and clinic growth."
+        ),
+        backstory=orion_base,
+        tools=orion_tools,
+        llm=f"anthropic/{SPECIALIST_MODEL}",
+        verbose=False,
+        memory=False,
+        max_iter=8,
+        max_rpm=20,
+        allow_delegation=False,
+    )
+
+    aria_agent = Agent(
+        role="Aria — Patient Retention",
+        goal=(
+            "Protect patient relationships. Identify retention risks early, "
+            "recommend empathetic and proactive follow-up actions, and ensure "
+            "every patient feels genuinely valued. Be warm, precise, and caring."
+        ),
+        backstory=aria_base,
+        tools=aria_tools,
+        llm=f"anthropic/{SPECIALIST_MODEL}",
+        verbose=False,
+        memory=False,
+        max_iter=8,
+        max_rpm=20,
         allow_delegation=False,
     )
 
@@ -244,13 +302,14 @@ def run_ewc(
         description=_build_task_description(message, chat_history),
         expected_output=(
             "A clear, actionable response in Markdown. Include data from tools "
-            "where relevant. Provide analysis and recommendations."
+            "where relevant. If you delegated to Orion or Aria, synthesise their "
+            "findings into a cohesive response. Provide analysis and recommendations."
         ),
-        agent=agent,
+        agent=ewc_agent,
     )
 
     crew = Crew(
-        agents=[agent],
+        agents=[ewc_agent, orion_agent, aria_agent],
         tasks=[task],
         process=Process.sequential,
         verbose=False,
@@ -428,18 +487,30 @@ def run_primary_agent(
 # =============================================================================
 
 def _store_memory(agent_key: str, user_message: str, response_text: str) -> None:
-    """Store conversation summary in agent_memories (best-effort)."""
+    """
+    Store conversation summary in agent_memories with vector embedding.
+    Embedding is generated if OPENAI_API_KEY is set; stored as-is otherwise.
+    """
     try:
         summary = (
-            f"User asked: {user_message[:100]}. "
-            f"Agent responded: {response_text[:150]}"
+            f"User asked: {user_message[:200]}. "
+            f"Agent responded: {response_text[:300]}"
         )
         db = get_supabase()
-        db.table("agent_memories").insert({
+        result = db.table("agent_memories").insert({
             "agent_key":   agent_key,
             "memory_type": "conversation",
             "content":     summary,
             "importance":  0.3,
         }).execute()
-    except Exception:
-        pass
+
+        # Generate embedding and update the row if OpenAI is configured
+        if result.data:
+            memory_id = result.data[0]["id"]
+            embedding = generate_embedding(summary)
+            if embedding:
+                db.table("agent_memories").update({
+                    "embedding": embedding,
+                }).eq("id", memory_id).execute()
+    except Exception as e:
+        print(f"[memory] _store_memory error: {e}")

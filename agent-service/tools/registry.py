@@ -28,6 +28,7 @@ from tools.users import GetUserInfoTool
 from tools.scan import RunProactiveScanTool
 from tools.patients import QueryPatientsTool, QueryAppointmentsTool
 from tools.clinic_overview import GetClinicOverviewTool
+from tools.vector_memory import VectorMemorySearchTool
 
 
 def build_primary_tools(
@@ -90,6 +91,9 @@ def build_primary_tools(
 
         # --- Proactive Scan ---
         RunProactiveScanTool(tenant_id=tenant_id),
+
+        # --- Vector Memory ---
+        VectorMemorySearchTool(agent_key="primary_agent"),
     ]
 
 
@@ -97,6 +101,7 @@ def build_specialist_tools(
     tenant_id: str,
     user_id: str,
     conversation_id: Optional[str] = None,
+    agent_key: str = "primary_agent",
 ) -> list:
     """
     Focused tool set for specialist agents (Orion + Aria).
@@ -127,9 +132,12 @@ def build_specialist_tools(
 
         # --- Proactive Scan ---
         RunProactiveScanTool(tenant_id=tenant_id),
+
+        # --- Vector Memory ---
+        VectorMemorySearchTool(agent_key=agent_key),
     ]
 
 
 # Tool counts for reference
-TOOL_COUNT = 21        # 18 base + GetClinicOverview + QueryPatients + QueryAppointments
-SPECIALIST_TOOL_COUNT = 9  # 7 base + QueryPatients + QueryAppointments
+TOOL_COUNT = 22         # +VectorMemorySearchTool
+SPECIALIST_TOOL_COUNT = 10  # +VectorMemorySearchTool
