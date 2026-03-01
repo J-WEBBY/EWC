@@ -46,7 +46,6 @@ class GenerateReportTool(BaseTool):
         result = (
             db.table("signals")
             .select("id, priority, status, category, created_at")
-            .eq("tenant_id", self.tenant_id)
             .execute()
         )
         signals = result.data or []
@@ -96,7 +95,6 @@ class GenerateReportTool(BaseTool):
         result = (
             db.table("agents")
             .select("display_name, agent_key, total_signals_handled, avg_confidence_score, is_active")
-            .eq("tenant_id", self.tenant_id)
             .order("total_signals_handled", desc=True)
             .execute()
         )
@@ -126,7 +124,6 @@ class GenerateReportTool(BaseTool):
         depts_result = (
             db.table("departments")
             .select("id, name")
-            .eq("tenant_id", self.tenant_id)
             .execute()
         )
         depts = depts_result.data or []
@@ -138,7 +135,6 @@ class GenerateReportTool(BaseTool):
         users_result = (
             db.table("users")
             .select("department_id")
-            .eq("tenant_id", self.tenant_id)
             .eq("is_active", True)
             .execute()
         )
@@ -152,7 +148,6 @@ class GenerateReportTool(BaseTool):
         signals_result = (
             db.table("signals")
             .select("source_department_id")
-            .eq("tenant_id", self.tenant_id)
             .execute()
         )
         signal_counts: dict[str, int] = {}
@@ -175,7 +170,6 @@ class GenerateReportTool(BaseTool):
         result = (
             db.table("signals")
             .select("id, title, priority, status, category, created_at")
-            .eq("tenant_id", self.tenant_id)
             .in_("priority", ["high", "critical"])
             .in_("status", ["new", "processing", "judged", "awaiting_decision"])
             .order("created_at", desc=True)

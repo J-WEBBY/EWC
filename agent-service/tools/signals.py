@@ -59,7 +59,6 @@ class QuerySignalsTool(BaseTool):
                 "category, source_agent_id, source_department_id, tags, "
                 "created_at, assignment_confidence"
             )
-            .eq("tenant_id", self.tenant_id)
             .order("created_at", desc=True)
             .limit(limit)
         )
@@ -147,7 +146,6 @@ class CreateSignalTool(BaseTool):
 
         db = get_supabase()
         row = {
-            "tenant_id": self.tenant_id,
             "signal_type": signal_type,
             "title": title[:200],
             "description": description,
@@ -230,7 +228,6 @@ class UpdateSignalTool(BaseTool):
             db.table("signals")
             .update(updates)
             .eq("id", signal_id)
-            .eq("tenant_id", self.tenant_id)
             .execute()
         )
 
@@ -280,7 +277,6 @@ class EscalateSignalTool(BaseTool):
                 "data": json.dumps({"escalation_reason": reason}),
             })
             .eq("id", signal_id)
-            .eq("tenant_id", self.tenant_id)
             .execute()
         )
 

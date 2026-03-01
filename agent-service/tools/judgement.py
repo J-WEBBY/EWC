@@ -58,7 +58,6 @@ class JudgeSignalTool(BaseTool):
             db.table("signals")
             .select("id, title, status")
             .eq("id", signal_id)
-            .eq("tenant_id", self.tenant_id)
             .single()
             .execute()
         )
@@ -70,7 +69,6 @@ class JudgeSignalTool(BaseTool):
 
         # Create judgement record
         judgement_row = {
-            "tenant_id": self.tenant_id,
             "signal_id": signal_id,
             "confidence": confidence,
             "reasoning": reasoning,
@@ -94,7 +92,7 @@ class JudgeSignalTool(BaseTool):
         # Update signal status to judged
         db.table("signals").update({"status": "judged"}).eq(
             "id", signal_id
-        ).eq("tenant_id", self.tenant_id).execute()
+        ).execute()
 
         actions_str = ""
         if suggested_actions:
@@ -179,7 +177,6 @@ class GetPendingJudgementsTool(BaseTool):
                 "suggested_actions, risk_level, created_at, "
                 "signal:signals!judgements_signal_id_fkey(title, priority, status)"
             )
-            .eq("tenant_id", self.tenant_id)
             .order("created_at", desc=True)
             .limit(limit)
             .execute()

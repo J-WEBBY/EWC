@@ -126,7 +126,6 @@ class GetIntegrationsTool(BaseTool):
                 "id, status, last_synced_at, "
                 "integration_type:integration_types(name, category, description)"
             )
-            .eq("tenant_id", self.tenant_id)
             .execute()
         )
 

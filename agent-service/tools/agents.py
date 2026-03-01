@@ -26,7 +26,6 @@ class GetAgentsTool(BaseTool):
         result = (
             db.table("agents")
             .select("*")
-            .eq("tenant_id", self.tenant_id)
             .eq("is_active", True)
             .order("priority_weight", desc=True)
             .execute()
@@ -120,7 +119,6 @@ class RouteToSpecialistTool(BaseTool):
             agent_result = (
                 db.table("agents")
                 .select("*")
-                .eq("tenant_id", self.tenant_id)
                 .eq("agent_key", agent)
                 .single()
                 .execute()
@@ -140,7 +138,6 @@ class RouteToSpecialistTool(BaseTool):
         signal_result = (
             db.table("signals")
             .insert({
-                "tenant_id": self.tenant_id,
                 "signal_type": signal_type,
                 "title": (title or message[:80])[:200],
                 "description": message,

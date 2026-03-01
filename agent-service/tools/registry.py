@@ -26,6 +26,8 @@ from tools.web_search import WebSearchTool
 from tools.settings import ReadSettingsTool, UpdateSettingsTool, GetIntegrationsTool
 from tools.users import GetUserInfoTool
 from tools.scan import RunProactiveScanTool
+from tools.patients import QueryPatientsTool, QueryAppointmentsTool
+from tools.clinic_overview import GetClinicOverviewTool
 
 
 def build_primary_tools(
@@ -79,6 +81,13 @@ def build_primary_tools(
         UpdateSettingsTool(tenant_id=tenant_id),
         GetIntegrationsTool(tenant_id=tenant_id),
 
+        # --- Clinic Overview ---
+        GetClinicOverviewTool(tenant_id=tenant_id),
+
+        # --- Patients & Appointments ---
+        QueryPatientsTool(tenant_id=tenant_id),
+        QueryAppointmentsTool(tenant_id=tenant_id),
+
         # --- Proactive Scan ---
         RunProactiveScanTool(tenant_id=tenant_id),
     ]
@@ -112,11 +121,15 @@ def build_specialist_tools(
         # --- Web Search ---
         WebSearchTool(),
 
+        # --- Patients & Appointments ---
+        QueryPatientsTool(tenant_id=tenant_id),
+        QueryAppointmentsTool(tenant_id=tenant_id),
+
         # --- Proactive Scan ---
         RunProactiveScanTool(tenant_id=tenant_id),
     ]
 
 
 # Tool counts for reference
-TOOL_COUNT = 18
-SPECIALIST_TOOL_COUNT = 7
+TOOL_COUNT = 21        # 18 base + GetClinicOverview + QueryPatients + QueryAppointments
+SPECIALIST_TOOL_COUNT = 9  # 7 base + QueryPatients + QueryAppointments

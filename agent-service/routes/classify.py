@@ -62,7 +62,6 @@ async def classify_and_route(request: ClassifyRequest):
         agents_result = (
             db.table("agents")
             .select("id, agent_key, display_name, description, scope, is_catch_all, priority_weight")
-            .eq("tenant_id", request.tenant_id)
             .eq("is_active", True)
             .order("priority_weight", desc=True)
             .execute()
@@ -198,7 +197,6 @@ async def classify_and_route(request: ClassifyRequest):
         signal_result = (
             db.table("signals")
             .insert({
-                "tenant_id": request.tenant_id,
                 "signal_type": parsed.get("category", "general"),
                 "title": (parsed.get("intent") or request.text[:80])[:200],
                 "description": request.text,

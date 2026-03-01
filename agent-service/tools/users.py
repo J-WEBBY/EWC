@@ -41,7 +41,6 @@ class GetUserInfoTool(BaseTool):
                     "role:roles(name, permission_level)"
                 )
                 .eq("id", user_id)
-                .eq("tenant_id", self.tenant_id)
                 .single()
                 .execute()
             )
@@ -72,7 +71,6 @@ class GetUserInfoTool(BaseTool):
                 "department:departments!users_department_id_fkey(name), "
                 "role:roles(name)"
             )
-            .eq("tenant_id", self.tenant_id)
             .eq("is_active", True)
             .order("first_name")
             .execute()

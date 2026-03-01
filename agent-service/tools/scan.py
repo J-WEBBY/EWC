@@ -24,7 +24,6 @@ class RunProactiveScanTool(BaseTool):
         stale_result = (
             db.table("signals")
             .select("id, title, priority, status, created_at")
-            .eq("tenant_id", self.tenant_id)
             .in_("priority", ["high", "critical"])
             .in_("status", ["new", "processing"])
             .order("created_at")
@@ -44,7 +43,6 @@ class RunProactiveScanTool(BaseTool):
         unjudged_result = (
             db.table("signals")
             .select("id", count="exact")
-            .eq("tenant_id", self.tenant_id)
             .eq("status", "new")
             .execute()
         )
@@ -59,7 +57,6 @@ class RunProactiveScanTool(BaseTool):
         agents_result = (
             db.table("agents")
             .select("display_name, agent_key, total_signals_handled")
-            .eq("tenant_id", self.tenant_id)
             .eq("is_active", True)
             .eq("total_signals_handled", 0)
             .execute()
@@ -76,13 +73,11 @@ class RunProactiveScanTool(BaseTool):
         depts_result = (
             db.table("departments")
             .select("id, name")
-            .eq("tenant_id", self.tenant_id)
             .execute()
         )
         users_result = (
             db.table("users")
             .select("department_id")
-            .eq("tenant_id", self.tenant_id)
             .eq("is_active", True)
             .execute()
         )
@@ -106,7 +101,6 @@ class RunProactiveScanTool(BaseTool):
         kb_result = (
             db.table("knowledge_documents")
             .select("id", count="exact")
-            .eq("tenant_id", self.tenant_id)
             .execute()
         )
         doc_count = kb_result.count or 0

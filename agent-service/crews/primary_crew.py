@@ -91,6 +91,73 @@ def load_agent_memories(agent_key: str, limit: int = 5) -> str:
     return "\n".join(lines)
 
 
+def build_live_snapshot(agent_key: str) -> str:
+    """
+    Build a real-time operational snapshot for each agent.
+    Injected into backstory so agents are aware of current clinic state.
+    Mirrors TypeScript buildAgentLiveContext() in primary-agent.ts.
+    """
+    try:
+        db = get_supabase()
+        lines = ["", "", "## LIVE OPERATIONAL SNAPSHOT"]
+
+        if agent_key == "primary_agent":
+            from datetime import timedelta, timezone
+            week_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+            active_res   = db.table("signals").select("*", count="exact").in_("status", ["new", "processing", "pending_approval"]).execute()
+            critical_res = db.table("signals").select("*", count="exact").in_("status", ["new", "processing"]).eq("priority", "critical").execute()
+            pending_res  = db.table("signals").select("*", count="exact").eq("status", "pending_approval").execute()
+            resolved_res = db.table("signals").select("*", count="exact").eq("status", "resolved").gte("resolved_at", week_ago).execute()
+            active   = active_res.count or 0
+            critical = critical_res.count or 0
+            pending  = pending_res.count or 0
+            resolved = resolved_res.count or 0
+            lines.append(f"- Active signals (clinic-wide): **{active}**")
+            lines.append(f"- Critical signals: **{critical}**{' ⚠️ review immediately' if critical > 0 else ' ✓ none'}")
+            lines.append(f"- Pending approval: **{pending}**{' — staff decision required' if pending > 0 else ''}")
+            lines.append(f"- Resolved this week: **{resolved}**")
+
+        elif agent_key == "sales_agent":
+            from datetime import timedelta, timezone
+            week_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+            commercial_res = db.table("signals").select("id, title, priority").in_("status", ["new", "processing", "pending_approval"]).overlaps("tags", ["corporate", "invoice", "overdue", "new-account"]).order("priority", desc=True).limit(5).execute()
+            corp_week_res  = db.table("signals").select("*", count="exact").overlaps("tags", ["corporate", "new-account"]).gte("created_at", week_ago).execute()
+            overdue_res    = db.table("signals").select("*", count="exact").in_("status", ["new", "processing", "pending_approval"]).overlaps("tags", ["invoice", "overdue"]).execute()
+            corp_week     = corp_week_res.count or 0
+            overdue_count = overdue_res.count or 0
+            top_signals   = commercial_res.data or []
+            lines.append(f"- Corporate / commercial enquiries this week: **{corp_week}**")
+            lines.append(f"- Overdue invoice signals: **{overdue_count}**{' — chase required' if overdue_count > 0 else ''}")
+            if top_signals:
+                lines.append("- Open commercial signals:")
+                for s in top_signals:
+                    lines.append(f"  • [{s['priority'].upper()}] {s['title']}")
+            else:
+                lines.append("- No open commercial signals — pipeline is clear")
+
+        elif agent_key == "crm_agent":
+            churn_res   = db.table("signals").select("id, title, priority").in_("status", ["new", "processing", "pending_approval"]).overlaps("tags", ["churn-risk"]).order("priority", desc=True).limit(5).execute()
+            followup_res = db.table("signals").select("*", count="exact").in_("status", ["new", "processing"]).overlaps("tags", ["retention", "follow-up", "botox", "coolsculpting", "weight-management"]).execute()
+            dna_res      = db.table("signals").select("*", count="exact").in_("status", ["new", "processing"]).overlaps("tags", ["dna"]).execute()
+            churn_signals = churn_res.data or []
+            follow_ups    = followup_res.count or 0
+            dnas          = dna_res.count or 0
+            lines.append(f"- Active churn risk signals: **{len(churn_signals)}**{' — patients need attention' if churn_signals else ' ✓ none'}")
+            lines.append(f"- Active follow-up / retention tasks: **{follow_ups}**")
+            lines.append(f"- Open DNA signals: **{dnas}**{' — follow up within 24h' if dnas > 0 else ''}")
+            if churn_signals:
+                lines.append("- At-risk patients:")
+                for s in churn_signals:
+                    lines.append(f"  • [{s['priority'].upper()}] {s['title']}")
+
+        lines.append("(Use your tools to investigate any of the above in detail)")
+        return "\n".join(lines)
+
+    except Exception as e:
+        print(f"[primary_crew] build_live_snapshot error: {e}")
+        return ""
+
+
 def _context_footer(clinic: dict, user: dict) -> str:
     """Append live date/time and staff context to every agent backstory."""
     now = datetime.now()
@@ -149,8 +216,9 @@ def run_ewc(
         "delegate to Orion (revenue) or Aria (retention) when their specialist "
         "domain is needed."
     )
-    memories  = load_agent_memories("primary_agent")
-    backstory = base_prompt + memories + _context_footer(clinic, user)
+    memories      = load_agent_memories("primary_agent")
+    live_snapshot = build_live_snapshot("primary_agent")
+    backstory     = base_prompt + live_snapshot + memories + _context_footer(clinic, user)
 
     tools = build_primary_tools("clinic", user_id, conversation_id)
 
@@ -208,8 +276,9 @@ def run_orion(
         f"{clinic.get('clinic_name', 'Edgbaston Wellness Clinic')}. "
         "You own the acquisition and commercial pipeline."
     )
-    memories  = load_agent_memories("sales_agent")
-    backstory = base_prompt + memories + _context_footer(clinic, user)
+    memories      = load_agent_memories("sales_agent")
+    live_snapshot = build_live_snapshot("sales_agent")
+    backstory     = base_prompt + live_snapshot + memories + _context_footer(clinic, user)
 
     tools = build_specialist_tools("clinic", user_id, conversation_id)
 
@@ -266,8 +335,9 @@ def run_aria(
         f"{clinic.get('clinic_name', 'Edgbaston Wellness Clinic')}. "
         "You protect the patient experience and ensure every patient returns."
     )
-    memories  = load_agent_memories("crm_agent")
-    backstory = base_prompt + memories + _context_footer(clinic, user)
+    memories      = load_agent_memories("crm_agent")
+    live_snapshot = build_live_snapshot("crm_agent")
+    backstory     = base_prompt + live_snapshot + memories + _context_footer(clinic, user)
 
     tools = build_specialist_tools("clinic", user_id, conversation_id)
 

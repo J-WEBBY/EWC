@@ -55,7 +55,6 @@ async def chat_stream(request: ChatRequest):
                 db.table("chat_messages")
                 .select("role, content")
                 .eq("conversation_id", request.conversation_id)
-                .eq("tenant_id", request.tenant_id)
                 .order("created_at")
                 .execute()
             )
@@ -64,7 +63,6 @@ async def chat_stream(request: ChatRequest):
             # Save user message
             db.table("chat_messages").insert({
                 "conversation_id": request.conversation_id,
-                "tenant_id": request.tenant_id,
                 "role": "user",
                 "content": request.message,
                 "agent_scope": request.agent_scope,
@@ -158,7 +156,6 @@ async def chat_stream(request: ChatRequest):
             # Save assistant message
             db.table("chat_messages").insert({
                 "conversation_id": request.conversation_id,
-                "tenant_id": request.tenant_id,
                 "role": "assistant",
                 "content": response_text,
                 "agent_scope": request.agent_scope,
@@ -221,7 +218,6 @@ async def chat_send(request: ChatRequest):
             db.table("chat_messages")
             .select("role, content")
             .eq("conversation_id", request.conversation_id)
-            .eq("tenant_id", request.tenant_id)
             .order("created_at")
             .execute()
         )
@@ -230,7 +226,6 @@ async def chat_send(request: ChatRequest):
         # Save user message
         db.table("chat_messages").insert({
             "conversation_id": request.conversation_id,
-            "tenant_id": request.tenant_id,
             "role": "user",
             "content": request.message,
             "agent_scope": request.agent_scope,
@@ -272,7 +267,6 @@ async def chat_send(request: ChatRequest):
         # Save assistant message
         assistant_result = db.table("chat_messages").insert({
             "conversation_id": request.conversation_id,
-            "tenant_id": request.tenant_id,
             "role": "assistant",
             "content": result["response"],
             "agent_scope": request.agent_scope,
@@ -332,7 +326,7 @@ def _generate_title(tenant_id: str, conversation_id: str, first_message: str):
         db = get_supabase()
         db.table("chat_conversations").update({"title": title}).eq(
             "id", conversation_id
-        ).eq("tenant_id", tenant_id).execute()
+        ).execute()
         print(f"[chat] Title generated for {conversation_id}: {title}")
     except Exception as e:
         print(f"[chat] _generate_title error: {e}")

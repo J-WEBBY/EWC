@@ -38,7 +38,6 @@ class DepartmentInfoTool(BaseTool):
             db.table("departments")
             .select("id, name, description, parent_department_id, head_user_id, created_at")
             .eq("id", dept_id)
-            .eq("tenant_id", self.tenant_id)
             .single()
             .execute()
         )
@@ -51,7 +50,6 @@ class DepartmentInfoTool(BaseTool):
         members_result = (
             db.table("users")
             .select("id, first_name, last_name, job_title, email")
-            .eq("tenant_id", self.tenant_id)
             .eq("department_id", dept_id)
             .eq("is_active", True)
             .execute()
@@ -61,7 +59,6 @@ class DepartmentInfoTool(BaseTool):
         signals_result = (
             db.table("signals")
             .select("id, priority, status")
-            .eq("tenant_id", self.tenant_id)
             .eq("source_department_id", dept_id)
             .execute()
         )
@@ -88,7 +85,6 @@ class DepartmentInfoTool(BaseTool):
         depts_result = (
             db.table("departments")
             .select("id, name, description, parent_department_id")
-            .eq("tenant_id", self.tenant_id)
             .order("name")
             .execute()
         )
@@ -101,7 +97,6 @@ class DepartmentInfoTool(BaseTool):
         users_result = (
             db.table("users")
             .select("department_id")
-            .eq("tenant_id", self.tenant_id)
             .eq("is_active", True)
             .execute()
         )

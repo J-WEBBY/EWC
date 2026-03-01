@@ -38,7 +38,6 @@ class KnowledgeBaseSearchTool(BaseTool):
                 "document:knowledge_documents!knowledge_chunks_document_id_fkey("
                 "title, doc_type)"
             )
-            .eq("tenant_id", self.tenant_id)
             .or_(f"content.ilike.%{query}%,section_title.ilike.%{query}%")
             .order("chunk_index")
             .limit(limit)
@@ -52,7 +51,6 @@ class KnowledgeBaseSearchTool(BaseTool):
             docs_result = (
                 db.table("knowledge_documents")
                 .select("id, title, doc_type, summary")
-                .eq("tenant_id", self.tenant_id)
                 .ilike("title", f"%{query}%")
                 .limit(limit)
                 .execute()
