@@ -21,6 +21,7 @@ export async function getAgentsForTenant(_tenantId?: string): Promise<Agent[]> {
     .from('agents')
     .select('*')
     .eq('is_active', true)
+    .order('is_catch_all', { ascending: false })
     .order('created_at', { ascending: true });
 
   if (error) {
