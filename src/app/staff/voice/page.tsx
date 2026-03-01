@@ -1,8 +1,8 @@
 'use client';
 
 // =============================================================================
-// Reception Page — AI Voice Receptionist Management
-// B&W premium design. Real Vapi data. Functional tabs.
+// Receptionist Page — AI Voice Receptionist Management
+// Light-mode design matching staff design system. Real Vapi data. Functional.
 // =============================================================================
 
 import { useState, useEffect, useCallback } from 'react';
@@ -30,7 +30,7 @@ import {
 type Tab = 'overview' | 'identity' | 'intelligence' | 'settings';
 
 // ---------------------------------------------------------------------------
-// Constants — static, accurate
+// Constants
 // ---------------------------------------------------------------------------
 
 const VOICE_OPTIONS = [
@@ -136,43 +136,43 @@ function KpiCard({ label, value, sub, delay }: {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: delay ?? 0 }}
-      className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-5"
+      className="bg-white border border-[#EBE5FF] rounded-xl p-5 flex flex-col gap-3"
     >
-      <p className="text-[11px] uppercase tracking-[0.18em] text-white/25 font-medium mb-4">{label}</p>
+      <span className="text-[11px] uppercase tracking-[0.15em] text-[#6E6688] font-medium">{label}</span>
       <div className="flex items-baseline gap-2">
-        <span className="text-[28px] font-semibold tracking-tight text-white leading-none">{value}</span>
-        {sub && <span className="text-[12px] text-white/30">{sub}</span>}
+        <span className="text-[28px] font-semibold tracking-tight text-[#1A1035] leading-none">{value}</span>
+        {sub && <span className="text-[12px] text-[#8B84A0]">{sub}</span>}
       </div>
     </motion.div>
   );
 }
 
 function CallRow({ call }: { call: VapiCall }) {
-  const type    = callType(call);
-  const Icon    = type === 'missed' ? PhoneMissed : type === 'outbound' ? PhoneCall : Phone;
-  const caller  = call.customer?.name ?? call.customer?.number ?? 'Unknown';
-  const hasNum  = !!(call.customer?.number && call.customer?.name);
+  const type   = callType(call);
+  const Icon   = type === 'missed' ? PhoneMissed : type === 'outbound' ? PhoneCall : Phone;
+  const caller = call.customer?.name ?? call.customer?.number ?? 'Unknown';
+  const hasNum = !!(call.customer?.number && call.customer?.name);
   return (
-    <div className="flex items-start gap-4 py-3.5 border-b border-white/[0.05] last:border-0">
-      <div className="w-7 h-7 rounded-lg bg-white/[0.04] border border-white/[0.08] flex items-center justify-center flex-shrink-0 mt-0.5">
-        <Icon size={12} className={type === 'missed' ? 'text-red-400/60' : 'text-white/30'} />
+    <div className="flex items-start gap-4 py-3.5 border-b border-[#EBE5FF] last:border-0">
+      <div className="w-7 h-7 rounded-lg bg-[#FAF9F5] border border-[#EBE5FF] flex items-center justify-center flex-shrink-0 mt-0.5">
+        <Icon size={12} className={type === 'missed' ? 'text-red-400' : 'text-[#8B84A0]'} />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5">
-          <span className="text-[13px] font-medium text-white/80 truncate">{caller}</span>
+          <span className="text-[13px] font-medium text-[#1A1035] truncate">{caller}</span>
           {hasNum && (
-            <span className="text-[11px] text-white/25 hidden sm:inline">{call.customer!.number}</span>
+            <span className="text-[11px] text-[#9E99B5] hidden sm:inline">{call.customer!.number}</span>
           )}
           {type === 'missed' && (
-            <span className="text-[10px] text-red-400/60 uppercase tracking-[0.1em]">missed</span>
+            <span className="text-[10px] text-red-400 uppercase tracking-[0.1em]">missed</span>
           )}
         </div>
-        <p className="text-[12px] text-white/35 truncate">{callSummary(call)}</p>
+        <p className="text-[12px] text-[#8B84A0] truncate">{callSummary(call)}</p>
       </div>
       <div className="text-right flex-shrink-0">
-        <p className="text-[11px] text-white/25">{formatDate(call.startedAt)}</p>
+        <p className="text-[11px] text-[#9E99B5]">{formatDate(call.startedAt)}</p>
         {call.durationSeconds && (
-          <p className="text-[11px] text-white/15 mt-0.5">{formatDuration(call.durationSeconds)}</p>
+          <p className="text-[11px] text-[#C5BFDC] mt-0.5">{formatDuration(call.durationSeconds)}</p>
         )}
       </div>
     </div>
@@ -181,7 +181,7 @@ function CallRow({ call }: { call: VapiCall }) {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[11px] uppercase tracking-[0.18em] text-white/25 font-medium mb-3">
+    <p className="text-[11px] uppercase tracking-[0.18em] text-[#6E6688] font-medium mb-3">
       {children}
     </p>
   );
@@ -189,14 +189,14 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 function EnvRow({ label, ok, detail }: { label: string; ok: boolean; detail?: string }) {
   return (
-    <div className="flex items-center gap-3 py-2.5 border-b border-white/[0.05] last:border-0">
+    <div className="flex items-center gap-3 py-2.5 border-b border-[#EBE5FF] last:border-0">
       {ok
-        ? <CheckCircle2 size={13} className="text-green-400/70 flex-shrink-0" />
-        : <XCircle     size={13} className="text-red-400/60  flex-shrink-0" />
+        ? <CheckCircle2 size={13} className="text-green-500 flex-shrink-0" />
+        : <XCircle     size={13} className="text-red-400  flex-shrink-0" />
       }
-      <span className="font-mono text-[12px] text-white/50 flex-1">{label}</span>
+      <span className="font-mono text-[12px] text-[#6E6688] flex-1">{label}</span>
       {detail && (
-        <span className={`text-[11px] ${ok ? 'text-white/25' : 'text-red-400/50'}`}>{detail}</span>
+        <span className={`text-[11px] ${ok ? 'text-[#9E99B5]' : 'text-red-400'}`}>{detail}</span>
       )}
     </div>
   );
@@ -278,7 +278,7 @@ export default function ReceptionPage() {
     try {
       const saveRes = await saveReceptionistIdentity(identity);
       if (!saveRes.success) { setIdentityError(saveRes.error ?? 'Save failed'); return; }
-      const provRes = await fetch('/api/vapi/provision', { method: 'POST' });
+      const provRes  = await fetch('/api/vapi/provision', { method: 'POST' });
       const provData = await provRes.json() as { success: boolean; message?: string; error?: string };
       if (!provData.success) { setIdentityError(provData.error ?? 'Provision failed'); return; }
       setIdentitySaved(true);
@@ -322,8 +322,8 @@ export default function ReceptionPage() {
   };
 
   // ---------- KPIs from real data ----------
-  const today      = new Date().toDateString();
-  const todayCalls = calls.filter(c => c.startedAt && new Date(c.startedAt).toDateString() === today);
+  const today       = new Date().toDateString();
+  const todayCalls  = calls.filter(c => c.startedAt && new Date(c.startedAt).toDateString() === today);
   const missedToday = todayCalls.filter(c => callType(c) === 'missed').length;
   const durations   = todayCalls.filter(c => c.durationSeconds).map(c => c.durationSeconds!);
   const avgDuration = durations.length
@@ -332,66 +332,106 @@ export default function ReceptionPage() {
 
   const appUrl = typeof window !== 'undefined' ? window.location.origin : '';
 
+  // ---------- loading ----------
+  if (!profile) {
+    return (
+      <div className="min-h-screen pl-[240px] bg-[#FAF7F2] flex items-center justify-center">
+        <motion.div
+          animate={{ opacity: [0.2, 0.5, 0.2] }}
+          transition={{ duration: 1.8, repeat: Infinity }}
+          className="w-1.5 h-1.5 rounded-full bg-[#D5CCFF]"
+        />
+      </div>
+    );
+  }
+
   // ---------- render ----------
   return (
-    <div className="min-h-screen bg-black pl-[240px]">
-      {profile && <StaffNav profile={profile} userId={profile.userId ?? ''} brandColor={profile.brandColor ?? '#ffffff'} currentPath="Receptionist" />}
+    <div className="min-h-screen pl-[240px]">
+      <StaffNav
+        profile={profile}
+        userId={profile.userId ?? ''}
+        brandColor={profile.brandColor ?? '#8A6CFF'}
+        currentPath="Receptionist"
+      />
 
-      <div className="max-w-5xl mx-auto px-8 py-10">
+      <div className="min-h-screen px-8 py-10">
 
         {/* ── Header ─────────────────────────────────────────────────────── */}
-        <div className="flex items-start justify-between mb-8">
-          <div>
-            <div className="flex items-center gap-3 mb-1.5">
-              <h1 className="text-[22px] font-semibold text-white tracking-tight">Receptionist</h1>
-              {vapiConnected === true && komalStatus?.provisioned === true && (
-                <motion.span
-                  initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                  className="flex items-center gap-1.5 text-[11px] text-white/40 uppercase tracking-[0.15em]"
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-                  Active
-                </motion.span>
-              )}
-              {vapiConnected === true && komalStatus?.provisioned === false && (
-                <motion.span
-                  initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                  className="flex items-center gap-1.5 text-[11px] text-amber-400/60 uppercase tracking-[0.15em]"
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                  Not provisioned
-                </motion.span>
-              )}
-              {vapiConnected === false && (
-                <motion.span
-                  initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                  className="flex items-center gap-1.5 text-[11px] text-red-400/60 uppercase tracking-[0.15em]"
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
-                  Disconnected
-                </motion.span>
-              )}
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.18em] text-[#6E6688] mb-2">Voice Layer</p>
+              <div className="flex items-center gap-3 mb-1">
+                <h1 className="text-[26px] font-semibold tracking-tight text-[#1A1035]">Receptionist</h1>
+                {vapiConnected === true && komalStatus?.provisioned === true && (
+                  <motion.span
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                    className="flex items-center gap-1.5 text-[11px] text-[#6E6688] uppercase tracking-[0.15em]"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                    Active
+                  </motion.span>
+                )}
+                {vapiConnected === true && komalStatus?.provisioned === false && (
+                  <motion.span
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                    className="flex items-center gap-1.5 text-[11px] text-amber-500 uppercase tracking-[0.15em]"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                    Not provisioned
+                  </motion.span>
+                )}
+                {vapiConnected === false && (
+                  <motion.span
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                    className="flex items-center gap-1.5 text-[11px] text-red-400 uppercase tracking-[0.15em]"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                    Disconnected
+                  </motion.span>
+                )}
+              </div>
+              <p className="text-[13px] text-[#6E6688]">
+                AI voice receptionist — Komal · Haiku · Charlotte · 10 tools
+              </p>
             </div>
-            <p className="text-[13px] text-white/30">AI voice receptionist — Komal · Haiku · Charlotte · 10 tools</p>
+            <button
+              onClick={refreshCalls}
+              disabled={callsLoading}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] text-[#6E6688] bg-white border border-[#EBE5FF] hover:border-[#D5CCFF] transition-colors disabled:opacity-50"
+            >
+              <RefreshCw size={13} className={callsLoading ? 'animate-spin' : ''} />
+              Refresh
+            </button>
           </div>
-        </div>
+        </motion.div>
 
         {/* ── Tabs ───────────────────────────────────────────────────────── */}
-        <div className="flex gap-0 border-b border-white/[0.08] mb-8">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.08 }}
+          className="flex items-center gap-1 mb-6 border-b border-[#EBE5FF]"
+        >
           {(['overview', 'identity', 'intelligence', 'settings'] as Tab[]).map(t => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`px-5 py-3 text-[13px] font-medium transition-colors capitalize border-b-2 -mb-px ${
-                tab === t
-                  ? 'text-white border-white'
-                  : 'text-white/30 border-transparent hover:text-white/60'
+              className={`px-4 py-2.5 text-[12px] font-medium transition-all relative capitalize ${
+                tab === t ? 'text-[#1A1035]' : 'text-[#6E6688] hover:text-[#524D66]'
               }`}
             >
               {t}
+              {tab === t && (
+                <motion.div
+                  layoutId="receptionist-tab-underline"
+                  className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#1A1035] rounded-full"
+                />
+              )}
             </button>
           ))}
-        </div>
+        </motion.div>
 
         <AnimatePresence mode="wait">
 
@@ -399,42 +439,29 @@ export default function ReceptionPage() {
           {tab === 'overview' && (
             <motion.div
               key="overview"
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
+              initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.18 }}
             >
               {/* KPIs */}
-              <div className="grid grid-cols-4 gap-4 mb-8">
-                <KpiCard
-                  label="Calls today"
-                  value={callsLoading ? '—' : String(todayCalls.length)}
-                  delay={0}
-                />
-                <KpiCard
-                  label="Missed today"
-                  value={callsLoading ? '—' : String(missedToday)}
-                  delay={0.04}
-                />
+              <div className="grid grid-cols-4 gap-4 mb-6">
+                <KpiCard label="Calls today"  value={callsLoading ? '—' : String(todayCalls.length)} delay={0} />
+                <KpiCard label="Missed today" value={callsLoading ? '—' : String(missedToday)}       delay={0.04} />
                 <KpiCard
                   label="Avg duration"
                   value={callsLoading || !avgDuration ? '—' : formatDuration(avgDuration)}
                   delay={0.08}
                 />
-                <KpiCard
-                  label="Total calls"
-                  value={callsLoading ? '—' : String(calls.length)}
-                  sub="all time"
-                  delay={0.12}
-                />
+                <KpiCard label="Total calls" value={callsLoading ? '—' : String(calls.length)} sub="all time" delay={0.12} />
               </div>
 
               {/* Call feed */}
-              <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl overflow-hidden">
-                <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
+              <div className="bg-white border border-[#EBE5FF] rounded-xl overflow-hidden">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-[#EBE5FF]">
                   <SectionLabel>Recent calls</SectionLabel>
                   <button
                     onClick={refreshCalls}
                     disabled={callsLoading}
-                    className="flex items-center gap-1.5 text-[11px] text-white/30 hover:text-white/60 transition-colors disabled:opacity-40"
+                    className="flex items-center gap-1.5 text-[11px] text-[#8B84A0] hover:text-[#6E6688] transition-colors disabled:opacity-40"
                   >
                     <RefreshCw size={11} className={callsLoading ? 'animate-spin' : ''} />
                     {lastRefreshed ? `Updated ${lastRefreshed}` : 'Refresh'}
@@ -443,13 +470,13 @@ export default function ReceptionPage() {
                 <div className="px-5">
                   {callsLoading ? (
                     <div className="py-14 flex items-center justify-center">
-                      <Loader2 size={16} className="animate-spin text-white/20" />
+                      <Loader2 size={16} className="animate-spin text-[#D5CCFF]" />
                     </div>
                   ) : calls.length === 0 ? (
                     <div className="py-14 text-center">
-                      <Phone size={20} className="text-white/10 mx-auto mb-3" />
-                      <p className="text-[13px] text-white/25">No calls yet</p>
-                      <p className="text-[12px] text-white/15 mt-1">Calls handled by Komal will appear here</p>
+                      <Phone size={20} className="text-[#D5CCFF] mx-auto mb-3" />
+                      <p className="text-[13px] text-[#8B84A0]">No calls yet</p>
+                      <p className="text-[12px] text-[#9E99B5] mt-1">Calls handled by Komal will appear here</p>
                     </div>
                   ) : (
                     calls.map(c => <CallRow key={c.id} call={c} />)
@@ -463,14 +490,14 @@ export default function ReceptionPage() {
           {tab === 'identity' && (
             <motion.div
               key="identity"
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
+              initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.18 }}
               className="space-y-5"
             >
               {/* Info banner */}
-              <div className="flex items-start gap-3 px-5 py-4 bg-white/[0.02] border border-white/[0.06] rounded-xl">
-                <User size={14} className="text-white/25 flex-shrink-0 mt-0.5" />
-                <p className="text-[12px] text-white/35 leading-relaxed">
+              <div className="flex items-start gap-3 px-5 py-4 bg-[#FAF9F5] border border-[#EBE5FF] rounded-xl">
+                <User size={14} className="text-[#8B84A0] flex-shrink-0 mt-0.5" />
+                <p className="text-[12px] text-[#6E6688] leading-relaxed">
                   Customise how Komal presents herself on calls — name, voice, and phrases.
                   The intelligence layer (10 tools, specialist agents, system prompt) is unchanged.
                   Changes are applied instantly by re-provisioning.
@@ -479,14 +506,14 @@ export default function ReceptionPage() {
 
               {identityBusy && tab === 'identity' ? (
                 <div className="py-14 flex items-center justify-center">
-                  <Loader2 size={16} className="animate-spin text-white/20" />
+                  <Loader2 size={16} className="animate-spin text-[#D5CCFF]" />
                 </div>
               ) : (
                 <>
                   {/* Display name */}
-                  <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-5">
+                  <div className="bg-white border border-[#EBE5FF] rounded-xl p-5">
                     <SectionLabel>Display name</SectionLabel>
-                    <p className="text-[12px] text-white/30 mb-4">
+                    <p className="text-[12px] text-[#8B84A0] mb-4">
                       The name used to introduce the receptionist on calls.
                     </p>
                     <input
@@ -494,15 +521,15 @@ export default function ReceptionPage() {
                       value={identity.displayName}
                       onChange={e => setIdentity(p => ({ ...p, displayName: e.target.value }))}
                       maxLength={30}
-                      className="w-full max-w-xs bg-white/[0.04] border border-white/[0.12] rounded-lg px-4 py-2.5 text-[14px] text-white/80 outline-none focus:border-white/30 transition-colors placeholder:text-white/20"
+                      className="w-full max-w-xs bg-[#FAF9F5] border border-[#EBE5FF] focus:border-[#D5CCFF] rounded-lg px-4 py-2.5 text-[14px] text-[#1A1035] outline-none transition-colors placeholder:text-[#C5BFDC]"
                       placeholder="Komal"
                     />
                   </div>
 
                   {/* Voice */}
-                  <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-5">
+                  <div className="bg-white border border-[#EBE5FF] rounded-xl p-5">
                     <SectionLabel>Voice</SectionLabel>
-                    <p className="text-[12px] text-white/30 mb-4">
+                    <p className="text-[12px] text-[#8B84A0] mb-4">
                       ElevenLabs voice used for all calls. Charlotte is the default — warm, British female.
                     </p>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -514,16 +541,16 @@ export default function ReceptionPage() {
                             onClick={() => setIdentity(p => ({ ...p, voiceId: v.id }))}
                             className={`relative flex flex-col gap-1 p-4 rounded-xl border text-left transition-all ${
                               selected
-                                ? 'bg-white/[0.07] border-white/30'
-                                : 'bg-white/[0.02] border-white/[0.08] hover:border-white/20'
+                                ? 'bg-[#FAF9F5] border-[#8A6CFF]'
+                                : 'bg-[#FAF9F5] border-[#EBE5FF] hover:border-[#D5CCFF]'
                             }`}
                           >
-                            <span className={`text-[14px] font-medium ${selected ? 'text-white' : 'text-white/50'}`}>
+                            <span className={`text-[14px] font-medium ${selected ? 'text-[#1A1035]' : 'text-[#6E6688]'}`}>
                               {v.label}
                             </span>
-                            <span className="text-[11px] text-white/25">{v.desc}</span>
+                            <span className="text-[11px] text-[#9E99B5]">{v.desc}</span>
                             {v.isDefault && (
-                              <span className="absolute top-2.5 right-3 text-[9px] text-white/20 uppercase tracking-[0.1em]">
+                              <span className="absolute top-2.5 right-3 text-[9px] text-[#9E99B5] uppercase tracking-[0.1em]">
                                 default
                               </span>
                             )}
@@ -534,21 +561,21 @@ export default function ReceptionPage() {
                   </div>
 
                   {/* Opening greeting */}
-                  <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-5">
+                  <div className="bg-white border border-[#EBE5FF] rounded-xl p-5">
                     <SectionLabel>Opening greeting</SectionLabel>
-                    <p className="text-[12px] text-white/30 mb-4">
+                    <p className="text-[12px] text-[#8B84A0] mb-4">
                       First words spoken at the start of every call. Must include the recording consent disclosure.
                     </p>
                     <textarea
                       value={identity.firstMessage}
                       onChange={e => setIdentity(p => ({ ...p, firstMessage: e.target.value }))}
                       rows={4}
-                      className="w-full bg-white/[0.04] border border-white/[0.12] rounded-lg px-4 py-3 text-[13px] text-white/70 outline-none focus:border-white/30 transition-colors resize-none leading-relaxed placeholder:text-white/20"
+                      className="w-full bg-[#FAF9F5] border border-[#EBE5FF] focus:border-[#D5CCFF] rounded-lg px-4 py-3 text-[13px] text-[#1A1035] outline-none transition-colors resize-none leading-relaxed placeholder:text-[#C5BFDC]"
                     />
                     {!identity.firstMessage.toLowerCase().includes('recorded') && (
                       <div className="flex items-center gap-2 mt-2">
-                        <AlertCircle size={12} className="text-amber-400/60 flex-shrink-0" />
-                        <p className="text-[11px] text-amber-400/60">
+                        <AlertCircle size={12} className="text-amber-500 flex-shrink-0" />
+                        <p className="text-[11px] text-amber-500">
                           Greeting should include recording consent: &ldquo;This call may be recorded&hellip;&rdquo;
                         </p>
                       </div>
@@ -556,16 +583,16 @@ export default function ReceptionPage() {
                   </div>
 
                   {/* Closing phrase */}
-                  <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-5">
+                  <div className="bg-white border border-[#EBE5FF] rounded-xl p-5">
                     <SectionLabel>Closing phrase</SectionLabel>
-                    <p className="text-[12px] text-white/30 mb-4">
+                    <p className="text-[12px] text-[#8B84A0] mb-4">
                       Spoken when ending the call.
                     </p>
                     <textarea
                       value={identity.endCallMessage}
                       onChange={e => setIdentity(p => ({ ...p, endCallMessage: e.target.value }))}
                       rows={3}
-                      className="w-full bg-white/[0.04] border border-white/[0.12] rounded-lg px-4 py-3 text-[13px] text-white/70 outline-none focus:border-white/30 transition-colors resize-none leading-relaxed placeholder:text-white/20"
+                      className="w-full bg-[#FAF9F5] border border-[#EBE5FF] focus:border-[#D5CCFF] rounded-lg px-4 py-3 text-[13px] text-[#1A1035] outline-none transition-colors resize-none leading-relaxed placeholder:text-[#C5BFDC]"
                     />
                   </div>
 
@@ -574,7 +601,7 @@ export default function ReceptionPage() {
                     <button
                       onClick={handleSaveIdentity}
                       disabled={identityBusy}
-                      className="flex items-center gap-2 px-5 py-2.5 bg-white text-black text-[13px] font-medium rounded-lg hover:bg-white/90 transition-colors disabled:opacity-50"
+                      className="flex items-center gap-2 px-5 py-2.5 bg-[#1A1035] text-white text-[13px] font-medium rounded-lg hover:bg-[#2A2050] transition-colors disabled:opacity-50"
                     >
                       {identityBusy
                         ? <Loader2 size={14} className="animate-spin" />
@@ -586,7 +613,7 @@ export default function ReceptionPage() {
                       {identitySaved && (
                         <motion.span
                           initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
-                          className="flex items-center gap-1.5 text-[12px] text-green-400/80"
+                          className="flex items-center gap-1.5 text-[12px] text-green-600"
                         >
                           <CheckCircle2 size={13} />
                           Saved and applied to Komal
@@ -595,7 +622,7 @@ export default function ReceptionPage() {
                       {identityError && (
                         <motion.span
                           initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
-                          className="flex items-center gap-1.5 text-[12px] text-red-400/70"
+                          className="flex items-center gap-1.5 text-[12px] text-red-500"
                         >
                           <XCircle size={13} />
                           {identityError}
@@ -612,64 +639,64 @@ export default function ReceptionPage() {
           {tab === 'intelligence' && (
             <motion.div
               key="intelligence"
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
+              initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.18 }}
               className="space-y-5"
             >
               {/* Architecture flow */}
-              <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-6">
+              <div className="bg-white border border-[#EBE5FF] rounded-xl p-6">
                 <SectionLabel>Architecture</SectionLabel>
                 <div className="space-y-3">
                   {/* Caller → Komal */}
                   <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2.5 px-4 py-3 bg-white/[0.03] border border-white/[0.08] rounded-xl flex-1">
-                      <Phone size={13} className="text-white/30" />
-                      <span className="text-[13px] text-white/50">Caller</span>
+                    <div className="flex items-center gap-2.5 px-4 py-3 bg-[#FAF9F5] border border-[#EBE5FF] rounded-xl flex-1">
+                      <Phone size={13} className="text-[#8B84A0]" />
+                      <span className="text-[13px] text-[#6E6688]">Caller</span>
                     </div>
-                    <ChevronRight size={14} className="text-white/20 flex-shrink-0" />
-                    <div className="flex items-center justify-between gap-3 px-4 py-3 bg-white/[0.06] border border-white/20 rounded-xl flex-[2]">
+                    <ChevronRight size={14} className="text-[#C5BFDC] flex-shrink-0" />
+                    <div className="flex items-center justify-between gap-3 px-4 py-3 bg-[#F5F2EB] border border-[#D5CCFF] rounded-xl flex-[2]">
                       <div className="flex items-center gap-2.5">
                         <span className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0" />
-                        <span className="text-[14px] text-white font-medium">Komal</span>
+                        <span className="text-[14px] text-[#1A1035] font-medium">Komal</span>
                       </div>
-                      <div className="flex items-center gap-2 text-[11px] text-white/25">
+                      <div className="flex items-center gap-2 text-[11px] text-[#9E99B5]">
                         <span>Haiku</span>
-                        <span className="text-white/15">·</span>
+                        <span className="text-[#C5BFDC]">·</span>
                         <span>Charlotte</span>
-                        <span className="text-white/15">·</span>
+                        <span className="text-[#C5BFDC]">·</span>
                         <span>0.1s delay</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Three outputs */}
-                  <div className="ml-6 pl-4 border-l border-white/[0.07] grid grid-cols-3 gap-3">
-                    <div className="px-4 py-3.5 bg-white/[0.02] border border-white/[0.07] rounded-xl">
-                      <p className="text-[11px] text-white/30 uppercase tracking-[0.12em] mb-1.5">Tier 1</p>
-                      <p className="text-[13px] text-white/60 font-medium">9 direct tools</p>
-                      <p className="text-[11px] text-white/25 mt-0.5">3s timeout · &lt;300ms typical</p>
+                  {/* Three tiers */}
+                  <div className="ml-6 pl-4 border-l border-[#EBE5FF] grid grid-cols-3 gap-3">
+                    <div className="px-4 py-3.5 bg-[#FAF9F5] border border-[#EBE5FF] rounded-xl">
+                      <p className="text-[11px] text-[#8B84A0] uppercase tracking-[0.12em] mb-1.5">Tier 1</p>
+                      <p className="text-[13px] text-[#1A1035] font-medium">9 direct tools</p>
+                      <p className="text-[11px] text-[#9E99B5] mt-0.5">3s timeout · &lt;300ms typical</p>
                     </div>
-                    <div className="px-4 py-3.5 bg-white/[0.02] border border-white/[0.07] rounded-xl">
-                      <p className="text-[11px] text-white/30 uppercase tracking-[0.12em] mb-1.5">Tier 2</p>
-                      <p className="text-[13px] text-white/60 font-medium">ask_agent</p>
-                      <p className="text-[11px] text-white/25 mt-0.5">Sonnet · 8s timeout · 3 agents</p>
+                    <div className="px-4 py-3.5 bg-[#FAF9F5] border border-[#EBE5FF] rounded-xl">
+                      <p className="text-[11px] text-[#8B84A0] uppercase tracking-[0.12em] mb-1.5">Tier 2</p>
+                      <p className="text-[13px] text-[#1A1035] font-medium">ask_agent</p>
+                      <p className="text-[11px] text-[#9E99B5] mt-0.5">Sonnet · 8s timeout · 3 agents</p>
                     </div>
-                    <div className="px-4 py-3.5 bg-white/[0.02] border border-white/[0.07] rounded-xl">
-                      <p className="text-[11px] text-white/30 uppercase tracking-[0.12em] mb-1.5">Post-call</p>
-                      <p className="text-[13px] text-white/60 font-medium">Webhook</p>
-                      <p className="text-[11px] text-white/25 mt-0.5">Signal + 3 agent memories</p>
+                    <div className="px-4 py-3.5 bg-[#FAF9F5] border border-[#EBE5FF] rounded-xl">
+                      <p className="text-[11px] text-[#8B84A0] uppercase tracking-[0.12em] mb-1.5">Post-call</p>
+                      <p className="text-[13px] text-[#1A1035] font-medium">Webhook</p>
+                      <p className="text-[11px] text-[#9E99B5] mt-0.5">Signal + 3 agent memories</p>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Tier 1 tools */}
-              <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl overflow-hidden">
-                <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
+              <div className="bg-white border border-[#EBE5FF] rounded-xl overflow-hidden">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-[#EBE5FF]">
                   <SectionLabel>Tier 1 — Direct tools</SectionLabel>
-                  <span className="text-[11px] text-white/20">9 tools · Supabase · 3s timeout</span>
+                  <span className="text-[11px] text-[#9E99B5]">9 tools · Supabase · 3s timeout</span>
                 </div>
-                <div className="divide-y divide-white/[0.04]">
+                <div className="divide-y divide-[#EBE5FF]">
                   {TIER1_TOOLS.map((tool, i) => (
                     <motion.div
                       key={tool.name}
@@ -678,20 +705,20 @@ export default function ReceptionPage() {
                       transition={{ delay: i * 0.03 }}
                       className="flex items-start gap-4 px-5 py-3.5"
                     >
-                      <code className="font-mono text-[12px] text-white/45 w-56 flex-shrink-0 pt-0.5">
+                      <code className="font-mono text-[12px] text-[#6E6688] w-56 flex-shrink-0 pt-0.5">
                         {tool.name}
                       </code>
-                      <span className="text-[12px] text-white/30 leading-relaxed">{tool.desc}</span>
+                      <span className="text-[12px] text-[#8B84A0] leading-relaxed">{tool.desc}</span>
                     </motion.div>
                   ))}
                 </div>
               </div>
 
               {/* Tier 2 — agent consultation */}
-              <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl overflow-hidden">
-                <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
+              <div className="bg-white border border-[#EBE5FF] rounded-xl overflow-hidden">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-[#EBE5FF]">
                   <SectionLabel>Tier 2 — Specialist agent consultation</SectionLabel>
-                  <span className="text-[11px] text-white/20">ask_agent · Sonnet · 8s timeout</span>
+                  <span className="text-[11px] text-[#9E99B5]">ask_agent · Sonnet · 8s timeout</span>
                 </div>
                 <div className="p-5 grid grid-cols-3 gap-4">
                   {SPECIALIST_AGENTS.map((agent, i) => (
@@ -700,16 +727,16 @@ export default function ReceptionPage() {
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: i * 0.06 }}
-                      className="flex flex-col gap-3 p-5 bg-white/[0.02] border border-white/[0.07] rounded-xl"
+                      className="flex flex-col gap-3 p-5 bg-[#FAF9F5] border border-[#EBE5FF] rounded-xl"
                     >
                       <div>
-                        <p className="text-[14px] font-medium text-white/75 mb-0.5">{agent.label}</p>
-                        <p className="text-[11px] text-white/30 uppercase tracking-[0.1em]">{agent.role}</p>
+                        <p className="text-[14px] font-medium text-[#1A1035] mb-0.5">{agent.label}</p>
+                        <p className="text-[11px] text-[#8B84A0] uppercase tracking-[0.1em]">{agent.role}</p>
                       </div>
-                      <p className="text-[12px] text-white/40 leading-relaxed">{agent.desc}</p>
-                      <div className="border-t border-white/[0.06] pt-3">
-                        <p className="text-[10px] uppercase tracking-[0.12em] text-white/20 mb-1.5">Called when</p>
-                        <p className="text-[11px] text-white/30 leading-relaxed">{agent.trigger}</p>
+                      <p className="text-[12px] text-[#6E6688] leading-relaxed">{agent.desc}</p>
+                      <div className="border-t border-[#EBE5FF] pt-3">
+                        <p className="text-[10px] uppercase tracking-[0.12em] text-[#9E99B5] mb-1.5">Called when</p>
+                        <p className="text-[11px] text-[#8B84A0] leading-relaxed">{agent.trigger}</p>
                       </div>
                     </motion.div>
                   ))}
@@ -717,20 +744,20 @@ export default function ReceptionPage() {
               </div>
 
               {/* Post-call */}
-              <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-5">
+              <div className="bg-white border border-[#EBE5FF] rounded-xl p-5">
                 <SectionLabel>Post-call processing</SectionLabel>
                 <div className="grid grid-cols-2 gap-6">
                   <div>
-                    <p className="text-[12px] text-white/40 mb-2">Signal creation</p>
-                    <p className="text-[13px] text-white/50 leading-relaxed">
+                    <p className="text-[12px] text-[#8B84A0] mb-2">Signal creation</p>
+                    <p className="text-[13px] text-[#6E6688] leading-relaxed">
                       Every completed call creates a signal visible on the Signals page — classified by outcome
                       (booked, lead captured, concern logged, escalated, missed). Tools used and agent consulted
                       are stored in the signal data.
                     </p>
                   </div>
                   <div>
-                    <p className="text-[12px] text-white/40 mb-2">Agent memory</p>
-                    <p className="text-[13px] text-white/50 leading-relaxed">
+                    <p className="text-[12px] text-[#8B84A0] mb-2">Agent memory</p>
+                    <p className="text-[13px] text-[#6E6688] leading-relaxed">
                       Call transcript, summary, tools used and outcome are written to EWC, Orion, and Aria
                       memories. All three agents are aware of every call — enabling context-aware conversations
                       in the chat interface.
@@ -739,41 +766,26 @@ export default function ReceptionPage() {
                 </div>
               </div>
 
-              {/* Komal's three modes */}
-              <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-5">
+              {/* Call modes */}
+              <div className="bg-white border border-[#EBE5FF] rounded-xl p-5">
                 <SectionLabel>Call modes</SectionLabel>
-                <p className="text-[12px] text-white/30 mb-4">
+                <p className="text-[12px] text-[#8B84A0] mb-4">
                   Komal switches modes naturally based on the caller — she never names the mode to the caller.
                 </p>
                 <div className="grid grid-cols-3 gap-4">
                   {[
-                    {
-                      mode: 'Default',
-                      desc: 'Call starts. Warm greeting, open question. Identifies caller early.',
-                      agent: 'EWC',
-                    },
-                    {
-                      mode: 'New enquiry',
-                      desc: 'Caller interested in a treatment or new to the clinic. Consultative, guides to free consultation.',
-                      agent: 'Orion',
-                    },
-                    {
-                      mode: 'Existing patient',
-                      desc: 'Caller identified as an existing patient. Personal, caring, explores rebooking.',
-                      agent: 'Aria',
-                    },
+                    { mode: 'Default',          desc: 'Call starts. Warm greeting, open question. Identifies caller early.',                        agent: 'EWC'   },
+                    { mode: 'New enquiry',       desc: 'Caller interested in a treatment or new to the clinic. Consultative, guides to free consult.', agent: 'Orion' },
+                    { mode: 'Existing patient',  desc: 'Caller identified as an existing patient. Personal, caring, explores rebooking.',             agent: 'Aria'  },
                   ].map(m => (
-                    <div key={m.mode} className="p-4 bg-white/[0.02] border border-white/[0.07] rounded-xl">
-                      <p className="text-[13px] font-medium text-white/70 mb-0.5">{m.mode}</p>
-                      <p className="text-[10px] text-white/25 uppercase tracking-[0.1em] mb-2">
-                        Consults {m.agent}
-                      </p>
-                      <p className="text-[12px] text-white/35 leading-relaxed">{m.desc}</p>
+                    <div key={m.mode} className="p-4 bg-[#FAF9F5] border border-[#EBE5FF] rounded-xl">
+                      <p className="text-[13px] font-medium text-[#1A1035] mb-0.5">{m.mode}</p>
+                      <p className="text-[10px] text-[#9E99B5] uppercase tracking-[0.1em] mb-2">Consults {m.agent}</p>
+                      <p className="text-[12px] text-[#6E6688] leading-relaxed">{m.desc}</p>
                     </div>
                   ))}
                 </div>
               </div>
-
             </motion.div>
           )}
 
@@ -781,38 +793,38 @@ export default function ReceptionPage() {
           {tab === 'settings' && (
             <motion.div
               key="settings"
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
+              initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.18 }}
               className="space-y-5"
             >
               {/* Komal provision */}
-              <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-6">
+              <div className="bg-white border border-[#EBE5FF] rounded-xl p-6">
                 <div className="flex items-start justify-between mb-5">
                   <div>
-                    <p className="text-[14px] font-medium text-white/80 mb-1">Komal — EWC Receptionist</p>
-                    <p className="text-[12px] text-white/30">
-                      {komalStatus === null && 'Checking status…'}
-                      {komalStatus?.provisioned === true  && 'Provisioned on Vapi · Live'}
-                      {komalStatus?.provisioned === false && 'Not provisioned — run provisioning to activate'}
+                    <p className="text-[14px] font-medium text-[#1A1035] mb-1">Komal — EWC Receptionist</p>
+                    <p className="text-[12px] text-[#8B84A0]">
+                      {komalStatus === null                    && 'Checking status…'}
+                      {komalStatus?.provisioned === true       && 'Provisioned on Vapi · Live'}
+                      {komalStatus?.provisioned === false      && 'Not provisioned — run provisioning to activate'}
                     </p>
                   </div>
                   <div className={`w-2.5 h-2.5 rounded-full mt-1 flex-shrink-0 ${
                     komalStatus?.provisioned === true  ? 'bg-green-400' :
-                    komalStatus?.provisioned === false ? 'bg-amber-400' : 'bg-white/10'
+                    komalStatus?.provisioned === false ? 'bg-amber-400' : 'bg-[#D5CCFF]'
                   }`} />
                 </div>
 
                 {/* Config summary */}
                 <div className="grid grid-cols-4 gap-3 mb-5">
                   {[
-                    { label: 'Model',       value: 'claude-3-5-haiku' },
-                    { label: 'Voice',       value: 'Charlotte · 11Labs' },
-                    { label: 'Tools',       value: '10 (9 + ask_agent)' },
-                    { label: 'Response',    value: '0.1s delay' },
+                    { label: 'Model',    value: 'claude-3-5-haiku'   },
+                    { label: 'Voice',    value: 'Charlotte · 11Labs' },
+                    { label: 'Tools',    value: '10 (9 + ask_agent)' },
+                    { label: 'Response', value: '0.1s delay'         },
                   ].map(row => (
-                    <div key={row.label} className="px-3 py-2.5 bg-white/[0.02] border border-white/[0.06] rounded-lg">
-                      <p className="text-[10px] text-white/25 mb-0.5 uppercase tracking-[0.1em]">{row.label}</p>
-                      <p className="text-[12px] text-white/50">{row.value}</p>
+                    <div key={row.label} className="px-3 py-2.5 bg-[#FAF9F5] border border-[#EBE5FF] rounded-lg">
+                      <p className="text-[10px] text-[#9E99B5] mb-0.5 uppercase tracking-[0.1em]">{row.label}</p>
+                      <p className="text-[12px] text-[#6E6688]">{row.value}</p>
                     </div>
                   ))}
                 </div>
@@ -821,7 +833,7 @@ export default function ReceptionPage() {
                   <button
                     onClick={handleProvision}
                     disabled={provisioning}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-white text-black text-[13px] font-medium rounded-lg hover:bg-white/90 transition-colors disabled:opacity-50"
+                    className="flex items-center gap-2 px-5 py-2.5 bg-[#1A1035] text-white text-[13px] font-medium rounded-lg hover:bg-[#2A2050] transition-colors disabled:opacity-50"
                   >
                     {provisioning
                       ? <Loader2 size={14} className="animate-spin" />
@@ -839,7 +851,7 @@ export default function ReceptionPage() {
                       <motion.span
                         initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
                         className={`flex items-center gap-1.5 text-[12px] ${
-                          provisionResult.success ? 'text-green-400/80' : 'text-red-400/70'
+                          provisionResult.success ? 'text-green-600' : 'text-red-500'
                         }`}
                       >
                         {provisionResult.success
@@ -854,19 +866,19 @@ export default function ReceptionPage() {
                   </AnimatePresence>
                 </div>
 
-                <p className="text-[11px] text-white/15 mt-4">
+                <p className="text-[11px] text-[#9E99B5] mt-4">
                   Always PATCHes the existing assistant — no interruption to live calls. Safe to run at any time.
                 </p>
               </div>
 
               {/* Vapi connection check */}
-              <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-5">
+              <div className="bg-white border border-[#EBE5FF] rounded-xl p-5">
                 <div className="flex items-center justify-between mb-4">
                   <SectionLabel>Vapi connection</SectionLabel>
                   <button
                     onClick={handleDebug}
                     disabled={debugLoading}
-                    className="flex items-center gap-1.5 text-[11px] text-white/30 hover:text-white/60 transition-colors disabled:opacity-40"
+                    className="flex items-center gap-1.5 text-[11px] text-[#8B84A0] hover:text-[#6E6688] transition-colors disabled:opacity-40"
                   >
                     {debugLoading ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
                     Check now
@@ -874,52 +886,52 @@ export default function ReceptionPage() {
                 </div>
                 {debugResult ? (
                   <div>
-                    <EnvRow label="Vapi API"                        ok={!!debugResult.ok}                detail={debugResult.ok ? 'Connected' : 'Failed'} />
-                    <EnvRow label="VAPI_PRIVATE_KEY"                ok={!!debugResult.privateKeyPresent} detail={debugResult.privateKeyPresent ? 'Configured' : 'Not set'} />
-                    <EnvRow label="NEXT_PUBLIC_VAPI_PUBLIC_KEY"     ok={!!debugResult.publicKeyPresent}  detail={debugResult.publicKeyPresent ? 'Configured' : 'Not set (browser calls disabled)'} />
+                    <EnvRow label="Vapi API"                    ok={!!debugResult.ok}                detail={debugResult.ok ? 'Connected' : 'Failed'} />
+                    <EnvRow label="VAPI_PRIVATE_KEY"            ok={!!debugResult.privateKeyPresent} detail={debugResult.privateKeyPresent ? 'Configured' : 'Not set'} />
+                    <EnvRow label="NEXT_PUBLIC_VAPI_PUBLIC_KEY" ok={!!debugResult.publicKeyPresent}  detail={debugResult.publicKeyPresent ? 'Configured' : 'Not set (browser calls disabled)'} />
                   </div>
                 ) : (
-                  <p className="text-[12px] text-white/25">
+                  <p className="text-[12px] text-[#8B84A0]">
                     Click &ldquo;Check now&rdquo; to verify API connectivity and environment variable status.
                   </p>
                 )}
               </div>
 
               {/* Webhook endpoints */}
-              <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-5">
+              <div className="bg-white border border-[#EBE5FF] rounded-xl p-5">
                 <SectionLabel>Webhook endpoints</SectionLabel>
-                <p className="text-[12px] text-white/30 mb-4">
+                <p className="text-[12px] text-[#8B84A0] mb-4">
                   These are set automatically at provisioning. No manual Vapi dashboard configuration needed.
                 </p>
                 <div className="space-y-2">
                   {[
-                    { label: 'Tool calls',   path: '/api/vapi/tool',    note: 'Per-tool server URL · mid-call' },
-                    { label: 'End-of-call',  path: '/api/vapi/webhook', note: 'Assistant serverUrl · post-call' },
-                    { label: 'Provision',    path: '/api/vapi/provision', note: 'POST to re-provision Komal' },
+                    { label: 'Tool calls',  path: '/api/vapi/tool',     note: 'Per-tool server URL · mid-call'    },
+                    { label: 'End-of-call', path: '/api/vapi/webhook',  note: 'Assistant serverUrl · post-call'  },
+                    { label: 'Provision',   path: '/api/vapi/provision', note: 'POST to re-provision Komal'      },
                   ].map(row => (
                     <div
                       key={row.path}
-                      className="flex items-center gap-4 px-4 py-3 bg-white/[0.02] border border-white/[0.06] rounded-lg"
+                      className="flex items-center gap-4 px-4 py-3 bg-[#FAF9F5] border border-[#EBE5FF] rounded-lg"
                     >
-                      <span className="text-[10px] text-white/25 w-20 flex-shrink-0 uppercase tracking-[0.1em]">
+                      <span className="text-[10px] text-[#9E99B5] w-20 flex-shrink-0 uppercase tracking-[0.1em]">
                         {row.label}
                       </span>
-                      <code className="font-mono text-[12px] text-white/45 flex-1">
+                      <code className="font-mono text-[12px] text-[#6E6688] flex-1">
                         {appUrl}{row.path}
                       </code>
-                      <span className="text-[10px] text-white/20 hidden sm:block">{row.note}</span>
+                      <span className="text-[10px] text-[#9E99B5] hidden sm:block">{row.note}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Compliance notes */}
-              <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-5">
+              {/* Intelligence notes */}
+              <div className="bg-[#FAF9F5] border border-[#EBE5FF] rounded-xl p-5">
                 <div className="flex items-start gap-3">
-                  <Brain size={14} className="text-white/20 flex-shrink-0 mt-0.5" />
+                  <Brain size={14} className="text-[#8B84A0] flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-[12px] text-white/40 mb-1">Intelligence notes</p>
-                    <p className="text-[12px] text-white/25 leading-relaxed">
+                    <p className="text-[12px] text-[#6E6688] mb-1">Intelligence notes</p>
+                    <p className="text-[12px] text-[#8B84A0] leading-relaxed">
                       Komal is backed by the Haiku model for voice latency (~200ms). Specialist agents (Orion, Aria, EWC)
                       use Sonnet and are consulted mid-call via <code className="font-mono">ask_agent</code> with a bridge phrase.
                       Recording consent is spoken on every call. Clinical decisions are never made — the system is
