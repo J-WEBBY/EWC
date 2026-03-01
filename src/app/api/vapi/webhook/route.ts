@@ -1,6 +1,6 @@
 // =============================================================================
 // /api/vapi/webhook
-// Receives ALL call lifecycle events from Vapi.ai (Komal + legacy assistants)
+// Receives end-of-call events from Vapi.ai (Komal).
 //
 // ARCHITECTURAL ROLE:
 // This is the bridge between the voice layer (Komal) and the agent system
@@ -11,6 +11,7 @@
 //
 // Configure in Vapi dashboard:
 //   Assistant -> Server URL -> https://your-domain/api/vapi/webhook
+//   (Tool call events are handled separately at /api/vapi/tool)
 // =============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -38,16 +39,32 @@ interface VapiAnalysis {
   structuredData?: Record<string, unknown>;
 }
 
+interface VapiToolCall {
+  id: string;
+  type?: string;
+  function: { name: string; arguments: string };
+}
+
+interface VapiCallMessage {
+  role: 'system' | 'user' | 'assistant' | 'tool';
+  content?: string;
+  toolCalls?: VapiToolCall[];
+  toolCallId?: string;
+  toolName?: string;
+}
+
 interface VapiMessage {
   type: string;
   call?: VapiCall;
   analysis?: VapiAnalysis;
   transcript?: string;
   recordingUrl?: string;
+  messages?: VapiCallMessage[];
   artifact?: {
     transcript?: string;
     recordingUrl?: string;
     stereoRecordingUrl?: string;
+    messages?: VapiCallMessage[];
   };
 }
 
@@ -69,8 +86,67 @@ function callDirection(call: VapiCall): 'inbound' | 'outbound' | 'web' {
   return 'web';
 }
 
-// Infer which agent mode handled this call based on summary keywords
-function inferAgentMode(summary: string): 'orion' | 'aria' | 'ewc' {
+// Extract tool usage and agent consultations from the call message history
+function extractToolsUsed(messages: VapiCallMessage[]): {
+  toolsUsed: string[];
+  agentConsulted: string | null;
+} {
+  const toolsUsed: string[] = [];
+  let agentConsulted: string | null = null;
+
+  for (const msg of messages) {
+    if (msg.role === 'assistant' && msg.toolCalls) {
+      for (const tc of msg.toolCalls) {
+        const name = tc.function?.name;
+        if (name && !toolsUsed.includes(name)) {
+          toolsUsed.push(name);
+        }
+        if (name === 'ask_agent') {
+          try {
+            const args = JSON.parse(tc.function.arguments ?? '{}') as { agent?: string };
+            if (args.agent && !agentConsulted) {
+              agentConsulted = args.agent;
+            }
+          } catch { /* ignore */ }
+        }
+      }
+    }
+  }
+
+  return { toolsUsed, agentConsulted };
+}
+
+// Infer outcome from which tools were actually called during the call
+function inferOutcome(
+  toolsUsed: string[],
+  isMissed: boolean,
+  succeeded: boolean,
+): string {
+  if (isMissed) return 'missed';
+  if (toolsUsed.includes('escalate_to_human')) return 'escalated';
+  if (toolsUsed.includes('create_booking_request')) return 'booked';
+  if (toolsUsed.includes('capture_lead')) return 'lead_captured';
+  if (toolsUsed.includes('log_call_concern')) return 'concern_logged';
+  if (!succeeded) return 'unsuccessful';
+  if (toolsUsed.length === 0) return 'no_action';
+  return 'handled';
+}
+
+// Infer agent mode — tool data first, then summary keywords
+function inferAgentMode(
+  summary: string,
+  toolsUsed: string[],
+  agentConsulted: string | null,
+): 'orion' | 'aria' | 'ewc' {
+  // Trust ask_agent call over everything — it tells us which specialist was consulted
+  if (agentConsulted === 'orion') return 'orion';
+  if (agentConsulted === 'aria') return 'aria';
+
+  // Tool-based inference — acquisition tools → Orion, patient tools → Aria
+  if (toolsUsed.includes('capture_lead') || toolsUsed.includes('create_booking_request')) return 'orion';
+  if (toolsUsed.includes('get_patient_history')) return 'aria';
+
+  // Summary keyword fallback
   const s = summary.toLowerCase();
   if (s.includes('book') || s.includes('enquir') || s.includes('price') ||
       s.includes('consult') || s.includes('interested') || s.includes('new patient')) {
@@ -109,8 +185,15 @@ export async function POST(req: NextRequest) {
     const direction  = callDirection(call);
     const duration   = call.durationSeconds ?? 0;
     const isMissed   = ['no-answer', 'voicemail', 'failed', 'busy'].includes(call.endedReason ?? '');
-    const agentMode  = summary ? inferAgentMode(summary) : 'ewc';
     const now        = new Date().toISOString();
+
+    // Extract tool usage from the call message history (Vapi sends this in artifact.messages or message.messages)
+    const callMessages: VapiCallMessage[] =
+      message.artifact?.messages ?? message.messages ?? [];
+    const { toolsUsed, agentConsulted } = extractToolsUsed(callMessages);
+
+    const agentMode = inferAgentMode(summary, toolsUsed, agentConsulted);
+    const outcome   = inferOutcome(toolsUsed, isMissed, succeeded);
 
     const supabase = createSovereignClient();
 
@@ -130,11 +213,35 @@ export async function POST(req: NextRequest) {
       signalCategory = 'Voice';
       responseMode   = 'human_only';
       signalStatus   = 'new';
+    } else if (outcome === 'escalated') {
+      signalTitle    = `Call escalated to human - ${caller}`;
+      signalPriority = 'high';
+      signalCategory = 'Voice';
+      responseMode   = 'human_only';
+      signalStatus   = 'new';
     } else if (!succeeded) {
       signalTitle    = `Call needs follow-up - ${caller}`;
       signalPriority = 'medium';
       signalCategory = 'Voice';
       responseMode   = 'supervised';
+      signalStatus   = 'new';
+    } else if (outcome === 'booked') {
+      signalTitle    = `Booking requested - ${caller}`;
+      signalPriority = 'high';
+      signalCategory = 'Patient Acquisition';
+      responseMode   = 'supervised';
+      signalStatus   = 'new';
+    } else if (outcome === 'lead_captured') {
+      signalTitle    = `New lead captured - ${caller}`;
+      signalPriority = 'medium';
+      signalCategory = 'Patient Acquisition';
+      responseMode   = 'supervised';
+      signalStatus   = 'new';
+    } else if (outcome === 'concern_logged') {
+      signalTitle    = `Concern logged - ${caller}`;
+      signalPriority = 'high';
+      signalCategory = 'Patient Retention';
+      responseMode   = 'human_only';
       signalStatus   = 'new';
     } else if (agentMode === 'orion') {
       signalTitle    = `${direction === 'inbound' ? 'Inbound enquiry' : 'Outbound lead'} - ${caller}`;
@@ -160,7 +267,12 @@ export async function POST(req: NextRequest) {
       timestamp: now,
       actor:     'automation:komal',
       action:    isMissed ? 'missed_call' : (succeeded ? 'call_completed' : 'call_unsuccessful'),
-      note:      `${caller} - ${duration}s - ${direction} - ${call.endedReason ?? 'ended'} - mode: ${agentMode}`,
+      note:      [
+        `${caller} | ${duration}s | ${direction} | ${call.endedReason ?? 'ended'}`,
+        `Mode: ${agentMode.toUpperCase()} | Outcome: ${outcome}`,
+        toolsUsed.length > 0 ? `Tools: ${toolsUsed.join(', ')}` : '',
+        agentConsulted ? `Agent consulted: ${agentConsulted}` : '',
+      ].filter(Boolean).join(' | '),
     }] as Array<{ timestamp: string; actor: string; action: string; note: string }>;
 
     if (summary) {
@@ -174,7 +286,7 @@ export async function POST(req: NextRequest) {
 
     await supabase.from('signals').insert({
       title:         signalTitle,
-      description:   summary || `${direction} call with ${caller}. Duration: ${duration}s. Ended: ${call.endedReason ?? 'normal'}.`,
+      description:   summary || `${direction} call with ${caller}. Duration: ${duration}s. Ended: ${call.endedReason ?? 'normal'}. Outcome: ${outcome}.`,
       signal_type:   agentMode === 'orion' ? 'patient_acquisition' : agentMode === 'aria' ? 'patient_retention' : 'operational',
       priority:      signalPriority,
       category:      signalCategory,
@@ -189,9 +301,13 @@ export async function POST(req: NextRequest) {
         direction,
         duration_seconds: duration,
         ended_reason:     call.endedReason,
-        agent_mode:       agentMode,
         recording_url:    message.artifact?.recordingUrl,
         success:          succeeded,
+        // Tool intelligence
+        tools_used:       toolsUsed,
+        agent_consulted:  agentConsulted,
+        mode_detected:    agentMode,
+        outcome,
       },
     });
 
@@ -204,19 +320,21 @@ export async function POST(req: NextRequest) {
       const memoryContent = [
         `VOICE CALL - ${now}`,
         `Direction: ${direction} | Caller: ${caller} | Duration: ${duration}s`,
-        `Agent mode: ${agentMode.toUpperCase()} | Outcome: ${isMissed ? 'MISSED' : succeeded ? 'successful' : 'unsuccessful'}`,
+        `Mode: ${agentMode.toUpperCase()} | Outcome: ${outcome}`,
+        toolsUsed.length > 0 ? `Tools used: ${toolsUsed.join(', ')}` : '',
+        agentConsulted ? `Agent consulted: ${agentConsulted}` : '',
         summary    ? `\nSUMMARY:\n${summary}` : '',
         transcript ? `\nTRANSCRIPT:\n${transcript.slice(0, 2000)}` : '',
       ].filter(Boolean).join('\n');
 
-      // Write to all three agent keys so each is aware of every conversation
+      // Write to all three agent keys so each is aware of every call
       const agentKeys = ['primary_agent', 'sales_agent', 'crm_agent'];
       await Promise.all(agentKeys.map(agentKey =>
         supabase.from('agent_memories').insert({
           agent_key:   agentKey,
           memory_type: 'conversation',
           content:     memoryContent,
-          importance:  isMissed ? 0.9 : succeeded ? 0.6 : 0.75,
+          importance:  isMissed ? 0.9 : outcome === 'booked' ? 0.95 : outcome === 'lead_captured' ? 0.85 : succeeded ? 0.6 : 0.75,
           metadata: {
             source:           'komal_voice_call',
             vapi_call_id:     call.id,
@@ -224,6 +342,8 @@ export async function POST(req: NextRequest) {
             direction,
             agent_mode:       agentMode,
             duration_seconds: duration,
+            tools_used:       toolsUsed,
+            outcome,
           },
         })
       ));
