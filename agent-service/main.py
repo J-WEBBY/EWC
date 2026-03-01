@@ -7,23 +7,30 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+import os
 from config import AGENT_SERVICE_PORT, AGENT_SERVICE_SECRET
 from routes.chat import router as chat_router
 from routes.classify import router as classify_router
 from routes.health import router as health_router
 
 app = FastAPI(
-    title="JWEBLY Agent Service",
-    description="CrewAI-powered intelligence layer for the JWEBLY platform",
-    version="1.0.0",
+    title="EWC Agent Service",
+    description="CrewAI-powered intelligence layer for Edgbaston Wellness Clinic",
+    version="2.0.0",
 )
 
 # ---------------------------------------------------------------------------
-# CORS — allow Next.js frontend
+# CORS — allow Next.js frontend (localhost in dev, Vercel URL in prod)
+# Set ALLOWED_ORIGINS env var as comma-separated list for production.
+# e.g. ALLOWED_ORIGINS=https://ewc-three.vercel.app,https://ewc.vercel.app
 # ---------------------------------------------------------------------------
+_default_origins = "http://localhost:3000,http://127.0.0.1:3000"
+_origins_env = os.getenv("ALLOWED_ORIGINS", _default_origins)
+ALLOWED_ORIGINS = [o.strip() for o in _origins_env.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

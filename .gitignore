@@ -46,6 +46,12 @@ __pycache__/
 *.py[cod]
 *.pyo
 agent-service/.env
+agent-service/venv/
+agent-service/.venv/
+*.egg-info/
+dist/
+build/
+.Python
 
 # local utility scripts (not needed in production)
 check-*.mjs
