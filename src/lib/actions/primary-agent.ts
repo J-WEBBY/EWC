@@ -446,16 +446,124 @@ async function backgroundClassify(
 // loadAgentContext — Build system prompt + tool set for a specific agent
 //
 // Replaces buildAgentSystemPrompt. Uses:
-//   - Agent's system_prompt from DB (set by migration 022)
+//   - Agent's system_prompt from DB (set by migration 025)
 //   - clinic_config for clinic name (replaces broken tenants query)
 //   - users table by id only (no tenant_id filter — single-tenant)
 //   - agent_memories for live context injection
+//   - buildAgentLiveContext for real-time operational snapshot per agent
 //   - getToolsForAgent for per-agent tool subsets
 // =============================================================================
 
 interface AgentContext_ {
   systemPrompt: string;
   tools: ReturnType<typeof getToolsForAgent>;
+}
+
+// ---------------------------------------------------------------------------
+// PRIVATE — Build a real-time operational snapshot for each agent
+// Injected into the system prompt so agents are aware of current state
+// ---------------------------------------------------------------------------
+async function buildAgentLiveContext(
+  db: ReturnType<typeof createSovereignClient>,
+  agentKey: string,
+): Promise<string> {
+  try {
+    const lines: string[] = ['', '', '## LIVE OPERATIONAL SNAPSHOT'];
+
+    if (agentKey === 'primary_agent') {
+      const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const [activeRes, criticalRes, pendingRes, resolvedTodayRes] = await Promise.all([
+        db.from('signals').select('*', { count: 'exact', head: true })
+          .in('status', ['new', 'processing', 'pending_approval']),
+        db.from('signals').select('*', { count: 'exact', head: true })
+          .in('status', ['new', 'processing']).eq('priority', 'critical'),
+        db.from('signals').select('*', { count: 'exact', head: true })
+          .eq('status', 'pending_approval'),
+        db.from('signals').select('*', { count: 'exact', head: true })
+          .eq('status', 'resolved')
+          .gte('resolved_at', weekAgo),
+      ]);
+      const active        = activeRes.count ?? 0;
+      const critical      = criticalRes.count ?? 0;
+      const pending       = pendingRes.count ?? 0;
+      const resolvedWeek  = resolvedTodayRes.count ?? 0;
+
+      lines.push(`- Active signals (clinic-wide): **${active}**`);
+      lines.push(`- Critical signals: **${critical}**${critical > 0 ? ' ⚠️ review immediately' : ' ✓ none'}`);
+      lines.push(`- Pending approval: **${pending}**${pending > 0 ? ' — staff decision required' : ''}`);
+      lines.push(`- Resolved this week: **${resolvedWeek}**`);
+
+    } else if (agentKey === 'sales_agent') {
+      const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const [commercialRes, corpWeekRes, overdueRes] = await Promise.all([
+        db.from('signals')
+          .select('id, title, priority')
+          .in('status', ['new', 'processing', 'pending_approval'])
+          .overlaps('tags', ['corporate', 'invoice', 'overdue', 'new-account'])
+          .order('priority', { ascending: false })
+          .limit(5),
+        db.from('signals')
+          .select('*', { count: 'exact', head: true })
+          .overlaps('tags', ['corporate', 'new-account'])
+          .gte('created_at', weekAgo),
+        db.from('signals')
+          .select('*', { count: 'exact', head: true })
+          .in('status', ['new', 'processing', 'pending_approval'])
+          .overlaps('tags', ['invoice', 'overdue']),
+      ]);
+      const corpThisWeek    = corpWeekRes.count ?? 0;
+      const overdueInvoices = overdueRes.count ?? 0;
+      const topSignals      = (commercialRes.data || []) as Array<{ id: string; title: string; priority: string }>;
+
+      lines.push(`- Corporate / commercial enquiries this week: **${corpThisWeek}**`);
+      lines.push(`- Overdue invoice signals: **${overdueInvoices}**${overdueInvoices > 0 ? ' — chase required' : ''}`);
+      if (topSignals.length > 0) {
+        lines.push('- Open commercial signals:');
+        topSignals.forEach(s => {
+          lines.push(`  • [${s.priority.toUpperCase()}] ${s.title}`);
+        });
+      } else {
+        lines.push('- No open commercial signals — pipeline is clear');
+      }
+
+    } else if (agentKey === 'crm_agent') {
+      const [churnRes, followUpRes, dnaRes] = await Promise.all([
+        db.from('signals')
+          .select('id, title, priority')
+          .in('status', ['new', 'processing', 'pending_approval'])
+          .overlaps('tags', ['churn-risk'])
+          .order('priority', { ascending: false })
+          .limit(5),
+        db.from('signals')
+          .select('*', { count: 'exact', head: true })
+          .in('status', ['new', 'processing'])
+          .overlaps('tags', ['retention', 'follow-up', 'botox', 'coolsculpting', 'weight-management']),
+        db.from('signals')
+          .select('*', { count: 'exact', head: true })
+          .in('status', ['new', 'processing'])
+          .overlaps('tags', ['dna']),
+      ]);
+      const churnSignals = (churnRes.data || []) as Array<{ id: string; title: string; priority: string }>;
+      const followUps    = followUpRes.count ?? 0;
+      const dnas         = dnaRes.count ?? 0;
+
+      lines.push(`- Active churn risk signals: **${churnSignals.length}**${churnSignals.length > 0 ? ' — patients need attention' : ' ✓ none'}`);
+      lines.push(`- Active follow-up / retention tasks: **${followUps}**`);
+      lines.push(`- Open DNA signals: **${dnas}**${dnas > 0 ? ' — follow up within 24h' : ''}`);
+      if (churnSignals.length > 0) {
+        lines.push('- At-risk patients:');
+        churnSignals.forEach(s => {
+          lines.push(`  • [${s.priority.toUpperCase()}] ${s.title}`);
+        });
+      }
+    }
+
+    lines.push('(Use your tools to investigate any of the above in detail)');
+    return lines.join('\n');
+  } catch (err) {
+    console.error('[primary-agent] buildAgentLiveContext error:', err);
+    return '';
+  }
 }
 
 async function loadAgentContext(
@@ -465,7 +573,7 @@ async function loadAgentContext(
   const sovereign = createSovereignClient();
   const agentKey  = agentScope || 'primary_agent';
 
-  const [clinicResult, userResult, agentResult, memoriesResult] = await Promise.all([
+  const [clinicResult, userResult, agentResult, memoriesResult, liveSnapshot] = await Promise.all([
     sovereign
       .from('clinic_config')
       .select('clinic_name, ai_name')
@@ -487,6 +595,7 @@ async function loadAgentContext(
       .eq('agent_key', agentKey)
       .order('importance', { ascending: false })
       .limit(5),
+    buildAgentLiveContext(sovereign, agentKey),
   ]);
 
   const clinic    = clinicResult.data;
@@ -567,7 +676,7 @@ async function loadAgentContext(
     contextLines.push('--- END MEMORY ---');
   }
 
-  const systemPrompt = basePrompt + contextLines.join('\n');
+  const systemPrompt = basePrompt + (liveSnapshot || '') + contextLines.join('\n');
   const tools        = getToolsForAgent(agentKey);
 
   return { systemPrompt, tools };
