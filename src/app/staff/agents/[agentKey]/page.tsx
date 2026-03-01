@@ -263,7 +263,22 @@ export default function AgentChatPage() {
 
   const handleSend = useCallback(async (preset?: string) => {
     const text = (preset ?? input).trim();
-    if (!text || sending || !conversationId) return;
+    if (!text || sending) return;
+
+    // Ensure we have a conversationId — create one on-demand if page-load creation failed
+    let convId = conversationId;
+    if (!convId) {
+      const res = await createConversation('clinic', userId, agentKey);
+      if (!res.success || !res.conversationId) {
+        setMessages(prev => [...prev, {
+          id: `err-${Date.now()}`, role: 'assistant',
+          content: 'Could not start conversation — please refresh the page.',
+        }]);
+        return;
+      }
+      convId = res.conversationId;
+      setConversationId(convId);
+    }
 
     setMessages(prev => [...prev, { id: `u-${Date.now()}`, role: 'user', content: text }]);
     setInput('');
@@ -281,7 +296,7 @@ export default function AgentChatPage() {
         body: JSON.stringify({
           tenant_id: 'clinic',
           user_id: userId,
-          conversation_id: conversationId,
+          conversation_id: convId,
           message: text,
           agent_scope: agentKey,
         }),
@@ -345,7 +360,7 @@ export default function AgentChatPage() {
       setStreamingText('');
       setActiveToolCall(null);
     }
-  }, [input, sending, conversationId, userId, agentKey]);
+  }, [input, sending, conversationId, setConversationId, userId, agentKey]);
 
   if (loading || !profile) {
     return (
@@ -434,7 +449,7 @@ export default function AgentChatPage() {
                   <button
                     key={label}
                     onClick={() => handleSend(label)}
-                    disabled={sending || !conversationId}
+                    disabled={sending}
                     className="w-full flex items-start gap-2.5 px-3 py-2.5 rounded-xl text-left text-[12px] text-[#524D66] border border-transparent transition-all disabled:opacity-40 hover:bg-white hover:border-[#EBE5FF] hover:text-[#1A1035] hover:shadow-sm"
                   >
                     <Icon size={12} className="flex-shrink-0 mt-0.5" style={{ color }} />
@@ -686,7 +701,7 @@ export default function AgentChatPage() {
               />
               <button
                 onClick={() => handleSend()}
-                disabled={!input.trim() || sending || !conversationId}
+                disabled={!input.trim() || sending}
                 className="w-8 h-8 rounded-xl flex items-center justify-center transition-all disabled:opacity-30 flex-shrink-0"
                 style={{ backgroundColor: color }}
               >
