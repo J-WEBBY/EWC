@@ -58,7 +58,7 @@ export function StaffNav({
       title: 'Intelligence',
       items: [
         { label: 'Agents',       href: `/staff/agents?userId=${userId}`,      icon: Bot },
-        { label: 'Voice',        href: `/staff/voice?userId=${userId}`,       icon: Mic },
+        { label: 'Reception',    href: `/staff/voice?userId=${userId}`,       icon: Mic },
         { label: 'Automations',  href: `/staff/automations?userId=${userId}`, icon: Zap },
       ],
     },

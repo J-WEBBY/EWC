@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { KOMAL_SYSTEM_PROMPT }       from '@/lib/vapi/komal-prompt';
 import { buildKomalToolDefinitions } from '@/lib/vapi/tool-registry';
+import { createSovereignClient }     from '@/lib/supabase/service';
 
 const VAPI_BASE   = 'https://api.vapi.ai';
 const PRIVATE_KEY = process.env.VAPI_PRIVATE_KEY ?? '';
@@ -112,19 +113,26 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // 1. List existing assistants
+    // 1. Read identity overrides from clinic_config.settings.receptionist
+    const db = createSovereignClient();
+    const { data: configData } = await db.from('clinic_config').select('settings').single();
+    const savedIdentity = ((configData?.settings as Record<string, unknown>)?.receptionist ?? {}) as {
+      displayName?: string; voiceId?: string; firstMessage?: string; endCallMessage?: string;
+    };
+
+    // 2. List existing assistants
     const listData = await vapiGet('/assistant?limit=100');
     const list: { id: string; name: string }[] = Array.isArray(listData)
       ? listData
       : Array.isArray(listData.results) ? listData.results : [];
 
-    // 2. Build tool definitions with current APP_URL
+    // 3. Build tool definitions with current APP_URL
     const toolDefinitions = buildKomalToolDefinitions(APP_URL);
 
-    // 3. Build assistant payload
+    // 4. Build assistant payload — identity overrides take precedence
     const assistantPayload: Record<string, unknown> = {
       name:         'Komal — EWC Receptionist',
-      firstMessage: 'Hello, thank you for calling Edgbaston Wellness Clinic. This call may be recorded for quality and training purposes. My name is Komal — how can I help you today?',
+      firstMessage: savedIdentity.firstMessage ?? 'Hello, thank you for calling Edgbaston Wellness Clinic. This call may be recorded for quality and training purposes. My name is Komal — how can I help you today?',
       model: {
         provider:    'anthropic',
         model:       'claude-3-5-haiku-20241022', // Haiku — voice latency critical
@@ -145,8 +153,13 @@ export async function POST(req: NextRequest) {
       maxDurationSeconds:    600,
       startSpeakingPlan:     { waitSeconds: 0.3 },
       stopSpeakingPlan:      { numWords: 3, voiceSeconds: 0.3 },
-      endCallMessage:        'Thank you for calling Edgbaston Wellness Clinic. Have a wonderful day. Goodbye!',
+      endCallMessage:        savedIdentity.endCallMessage ?? 'Thank you for calling Edgbaston Wellness Clinic. Have a wonderful day. Goodbye!',
     };
+
+    // Apply voice ID override if set
+    if (savedIdentity.voiceId) {
+      (assistantPayload.voice as Record<string, unknown>).voiceId = savedIdentity.voiceId;
+    }
 
     // Wire webhook for end-of-call events
     if (WEBHOOK_URL) {
@@ -154,7 +167,7 @@ export async function POST(req: NextRequest) {
       assistantPayload.serverUrlSecret = process.env.VAPI_WEBHOOK_SECRET ?? '';
     }
 
-    // 4. PATCH existing or POST new
+    // 5. PATCH existing or POST new
     const existing = list.find(a => a.name === 'Komal — EWC Receptionist');
 
     if (existing) {

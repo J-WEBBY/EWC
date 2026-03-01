@@ -2,6 +2,7 @@
 
 // =============================================================================
 // Vapi Server Actions — EWC AI Voice System
+// Includes receptionist identity customisation (stored in clinic_config.settings)
 //
 // Four assistants:
 //   Komal    — unified receptionist (voice layer over all three agents) PRIMARY
@@ -9,6 +10,8 @@
 //   Orion    — outbound sales / missed call recovery (sales_agent persona)
 //   Aria     — outbound patient retention / CRM follow-up (crm_agent persona)
 // =============================================================================
+
+import { createSovereignClient } from '@/lib/supabase/service';
 
 const VAPI_BASE = 'https://api.vapi.ai';
 const PRIVATE_KEY = process.env.VAPI_PRIVATE_KEY ?? '';
@@ -391,6 +394,75 @@ export async function getVapiCalls(limit = 20): Promise<{
     return { success: true, calls: Array.isArray(data) ? data : [] };
   } catch (err) {
     return { success: false, calls: [], error: String(err) };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// RECEPTIONIST IDENTITY — surface customisation stored in clinic_config.settings
+// ---------------------------------------------------------------------------
+
+export interface ReceptionistIdentity {
+  displayName:    string;
+  voiceId:        string;
+  firstMessage:   string;
+  endCallMessage: string;
+}
+
+const DEFAULT_RECEPTIONIST_IDENTITY: ReceptionistIdentity = {
+  displayName:    'Komal',
+  voiceId:        'XB0fDUnXU5powFXDhCwa',
+  firstMessage:   'Hello, thank you for calling Edgbaston Wellness Clinic. This call may be recorded for quality and training purposes. My name is Komal — how can I help you today?',
+  endCallMessage: 'Thank you for calling Edgbaston Wellness Clinic. Have a wonderful day. Goodbye!',
+};
+
+export async function getReceptionistIdentity(): Promise<{
+  success: boolean;
+  identity: ReceptionistIdentity;
+  error?: string;
+}> {
+  try {
+    const sovereign = createSovereignClient();
+    const { data } = await sovereign
+      .from('clinic_config')
+      .select('settings')
+      .single();
+    const saved = ((data?.settings as Record<string, unknown>)?.receptionist ?? {}) as Partial<ReceptionistIdentity>;
+    return {
+      success: true,
+      identity: {
+        displayName:    saved.displayName    ?? DEFAULT_RECEPTIONIST_IDENTITY.displayName,
+        voiceId:        saved.voiceId        ?? DEFAULT_RECEPTIONIST_IDENTITY.voiceId,
+        firstMessage:   saved.firstMessage   ?? DEFAULT_RECEPTIONIST_IDENTITY.firstMessage,
+        endCallMessage: saved.endCallMessage ?? DEFAULT_RECEPTIONIST_IDENTITY.endCallMessage,
+      },
+    };
+  } catch (err) {
+    return { success: false, identity: DEFAULT_RECEPTIONIST_IDENTITY, error: String(err) };
+  }
+}
+
+export async function saveReceptionistIdentity(
+  identity: ReceptionistIdentity,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const sovereign = createSovereignClient();
+    // Read current settings first to merge
+    const { data } = await sovereign
+      .from('clinic_config')
+      .select('settings')
+      .single();
+    const currentSettings = (data?.settings as Record<string, unknown>) ?? {};
+    const { error } = await sovereign
+      .from('clinic_config')
+      .update({
+        settings:   { ...currentSettings, receptionist: identity },
+        updated_at: new Date().toISOString(),
+      })
+      .neq('id', '00000000-0000-0000-0000-000000000000');
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: String(err) };
   }
 }
 
