@@ -7,7 +7,7 @@
     },
     {
       "path": "/api/vapi/ping",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 * * * *"
     }
   ]
 }
