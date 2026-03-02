@@ -88,6 +88,8 @@ export async function disconnectCliniko(): Promise<{ success: boolean }> {
 
 export async function triggerFullSync(): Promise<{
   success: boolean;
+  patients: number;
+  appointments: number;
   results: SyncResult[];
   error?: string;
 }> {
@@ -99,18 +101,27 @@ export async function triggerFullSync(): Promise<{
       .single();
 
     if (!config?.api_key_encrypted || !config.is_connected) {
-      return { success: false, results: [], error: 'Cliniko not connected' };
+      return { success: false, patients: 0, appointments: 0, results: [], error: 'Cliniko not connected' };
     }
 
     const client = new ClinikoClient(config.api_key_encrypted, config.shard ?? 'uk1');
 
-    // Incremental sync: only pull records updated since last sync
-    const updatedSince = config.last_sync_at ?? undefined;
-    const { results, success } = await syncAll(client, updatedSince);
+    // Full refresh: no updatedSince — fetch all records, delete orphans
+    const { results, success } = await syncAll(client, undefined, true);
 
-    return { success, results };
+    const patientsResult     = results.find(r => r.type === 'patients');
+    const appointmentsResult = results.find(r => r.type === 'appointments');
+    const errorMsg           = results.find(r => r.error)?.error;
+
+    return {
+      success,
+      patients:     patientsResult?.records_synced     ?? 0,
+      appointments: appointmentsResult?.records_synced ?? 0,
+      results,
+      error: errorMsg,
+    };
   } catch (err) {
-    return { success: false, results: [], error: String(err) };
+    return { success: false, patients: 0, appointments: 0, results: [], error: String(err) };
   }
 }
 
@@ -241,3 +252,4 @@ export async function logCommunicationNote(
     return { success: false, error: String(err) };
   }
 }
+

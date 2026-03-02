@@ -116,6 +116,7 @@ export async function syncPractitioners(
 export async function syncPatients(
   client: ClinikoClient,
   updatedSince?: string,
+  cleanup = false,
 ): Promise<SyncResult> {
   const start = Date.now();
   await logSync('patients', 'started');
@@ -125,35 +126,43 @@ export async function syncPatients(
     const patients = await client.getPatients(updatedSince);
     let synced = 0, failed = 0;
 
+    // Collect every cliniko_id we see during this sync (for cleanup pass)
+    const syncedClinikoIds: string[] = [];
+
     // Batch upsert in chunks of 50
     const CHUNK = 50;
     for (let i = 0; i < patients.length; i += CHUNK) {
       const chunk = patients.slice(i, i + CHUNK);
 
-      const rows = chunk.map((p: ClinikoPatient) => ({
-        cliniko_id:            p.id,
-        first_name:            p.first_name,
-        last_name:             p.last_name,
-        email:                 p.email,
-        phone:                 p.phone_numbers?.[0]?.number ?? null,
-        date_of_birth:         p.date_of_birth,
-        gender:                p.gender_identity,
-        address: {
-          line1:    p.address_1,
-          line2:    p.address_2,
-          line3:    p.address_3,
-          city:     p.city,
-          state:    p.state,
-          postcode: p.post_code,
-          country:  p.country,
-        },
-        notes:                 p.notes,
-        referral_source:       p.referral_source,
-        created_in_cliniko_at: p.created_at,
-        updated_in_cliniko_at: p.updated_at,
-        last_synced_at:        new Date().toISOString(),
-        raw_data:              p,
-      }));
+      const rows = chunk.map((p: ClinikoPatient) => {
+        // Extract exact string ID from self-link to avoid float64 precision loss
+        const clinikoId = p.links?.self?.split('/').pop() ?? String(p.id);
+        syncedClinikoIds.push(clinikoId);
+        return {
+          cliniko_id:            clinikoId,
+          first_name:            p.first_name,
+          last_name:             p.last_name,
+          email:                 p.email,
+          phone:                 p.phone_numbers?.[0]?.number ?? null,
+          date_of_birth:         p.date_of_birth,
+          gender:                p.gender_identity,
+          address: {
+            line1:    p.address_1,
+            line2:    p.address_2,
+            line3:    p.address_3,
+            city:     p.city,
+            state:    p.state,
+            postcode: p.post_code,
+            country:  p.country,
+          },
+          notes:                 p.notes,
+          referral_source:       p.referral_source,
+          created_in_cliniko_at: p.created_at,
+          updated_in_cliniko_at: p.updated_at,
+          last_synced_at:        new Date().toISOString(),
+          raw_data:              p,
+        };
+      });
 
       const { error } = await supabase
         .from('cliniko_patients')
@@ -164,6 +173,23 @@ export async function syncPatients(
         failed += chunk.length;
       } else {
         synced += chunk.length;
+      }
+    }
+
+    // Cleanup: delete EWC patients whose cliniko_id is no longer in Cliniko
+    if (cleanup && syncedClinikoIds.length > 0) {
+      const { data: ewcRows } = await supabase
+        .from('cliniko_patients')
+        .select('cliniko_id');
+
+      const syncedSet = new Set(syncedClinikoIds);
+      const orphans   = (ewcRows ?? [])
+        .map(r => String(r.cliniko_id))
+        .filter(id => !syncedSet.has(id));
+
+      if (orphans.length > 0) {
+        await supabase.from('cliniko_patients').delete().in('cliniko_id', orphans);
+        console.log(`[sync/patients] Deleted ${orphans.length} orphaned patients`);
       }
     }
 
@@ -183,6 +209,7 @@ export async function syncPatients(
 export async function syncAppointments(
   client: ClinikoClient,
   updatedSince?: string,
+  cleanup = false,
 ): Promise<SyncResult> {
   const start = Date.now();
   await logSync('appointments', 'started');
@@ -192,19 +219,24 @@ export async function syncAppointments(
     const appointments = await client.getAppointments(updatedSince);
     let synced = 0, failed = 0;
 
+    const syncedClinikoIds: string[] = [];
+
     const CHUNK = 50;
     for (let i = 0; i < appointments.length; i += CHUNK) {
       const chunk = appointments.slice(i, i + CHUNK);
 
       const rows = chunk.map((a: ClinikoAppointment) => {
+        const clinikoId = a.links?.self?.split('/').pop() ?? String(a.id);
+        syncedClinikoIds.push(clinikoId);
+
         // Derive status string from boolean flags
         let status = 'booked';
-        if (a.cancelled_at)      status = 'cancelled';
-        else if (a.did_not_arrive) status = 'did_not_arrive';
+        if (a.cancelled_at)        status = 'cancelled';
+        else if (a.did_not_arrive)  status = 'did_not_arrive';
         else if (a.patient_arrived) status = 'arrived';
 
         return {
-          cliniko_id:              a.id,
+          cliniko_id:              clinikoId,
           cliniko_patient_id:      a.patient_id ?? null,
           appointment_type:        a.appointment_type_name ?? null,
           practitioner_name:       null, // enriched separately via practitioners sync
@@ -230,6 +262,23 @@ export async function syncAppointments(
         failed += chunk.length;
       } else {
         synced += chunk.length;
+      }
+    }
+
+    // Cleanup: delete EWC appointments whose cliniko_id is no longer in Cliniko
+    if (cleanup && syncedClinikoIds.length > 0) {
+      const { data: ewcRows } = await supabase
+        .from('cliniko_appointments')
+        .select('cliniko_id');
+
+      const syncedSet = new Set(syncedClinikoIds);
+      const orphans   = (ewcRows ?? [])
+        .map(r => String(r.cliniko_id))
+        .filter(id => !syncedSet.has(id));
+
+      if (orphans.length > 0) {
+        await supabase.from('cliniko_appointments').delete().in('cliniko_id', orphans);
+        console.log(`[sync/appointments] Deleted ${orphans.length} orphaned appointments`);
       }
     }
 
@@ -363,16 +412,17 @@ async function generateOverdueSignals(
 export async function syncAll(
   client: ClinikoClient,
   updatedSince?: string,
+  cleanup = false,
 ): Promise<{ results: SyncResult[]; success: boolean }> {
   const results: SyncResult[] = [];
 
   const practitioners = await syncPractitioners(client);
   results.push(practitioners);
 
-  const patients = await syncPatients(client, updatedSince);
+  const patients = await syncPatients(client, updatedSince, cleanup);
   results.push(patients);
 
-  const appointments = await syncAppointments(client, updatedSince);
+  const appointments = await syncAppointments(client, updatedSince, cleanup);
   results.push(appointments);
 
   const invoices = await syncInvoices(client, updatedSince);

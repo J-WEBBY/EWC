@@ -130,6 +130,29 @@ export interface ClinikoAppointmentType {
   category: string | null;
   created_at: string;
   updated_at: string;
+  links: { self: string };
+}
+
+export interface ClinikoAppointmentTypesResponse {
+  appointment_types: ClinikoAppointmentType[];
+  total_entries: number;
+  links: ClinikoLinks;
+}
+
+export interface ClinikoBusinessesResponse {
+  businesses: { id: number; business_name: string; links: { self: string } }[];
+  total_entries: number;
+  links: ClinikoLinks;
+}
+
+export interface ClinikoPatientCreate {
+  first_name: string;
+  last_name: string;
+  email?: string;
+  phone_numbers?: { number: string; phone_type: string }[];
+  referral_source?: string;
+  notes?: string;
+  country?: string;
 }
 
 // =============================================================================

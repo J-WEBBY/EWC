@@ -12,6 +12,8 @@ import type {
   ClinikoAppointmentsResponse, ClinikoAppointment,
   ClinikoInvoicesResponse, ClinikoInvoice,
   ClinikoCommunicationNoteCreate, ClinikoCommunicationNote,
+  ClinikoAppointmentType, ClinikoAppointmentTypesResponse,
+  ClinikoBusinessesResponse, ClinikoPatientCreate,
 } from './types';
 
 const USER_AGENT = 'EWC-Intelligence/1.0 (admin@edgbastonwellness.co.uk)';
@@ -163,6 +165,38 @@ export class ClinikoClient {
   }
 
   // ---------------------------------------------------------------------------
+  // READ — Appointment Types
+  // ---------------------------------------------------------------------------
+
+  async getAppointmentTypes(): Promise<ClinikoAppointmentType[]> {
+    return this.paginate<ClinikoAppointmentType>(
+      '/appointment_types', 'appointment_types',
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // READ — Businesses (to get the business_id for bookings)
+  // ---------------------------------------------------------------------------
+
+  async getBusinessId(): Promise<string | null> {
+    const res = await this.request<ClinikoBusinessesResponse>('/businesses?per_page=1');
+    const first = res.businesses?.[0];
+    if (!first) return null;
+    return idFromLink(first.links?.self ?? '') ?? null;
+  }
+
+  // ---------------------------------------------------------------------------
+  // WRITE — Patient (create new patient in Cliniko from EWC lead)
+  // ---------------------------------------------------------------------------
+
+  async createPatient(body: ClinikoPatientCreate): Promise<ClinikoPatient> {
+    return this.request<ClinikoPatient>('/patients', {
+      method: 'POST',
+      body:   JSON.stringify(body),
+    });
+  }
+
+  // ---------------------------------------------------------------------------
   // WRITE — Communication Note (log calls/SMS back to Cliniko patient record)
   // ---------------------------------------------------------------------------
 
@@ -176,20 +210,25 @@ export class ClinikoClient {
   }
 
   // ---------------------------------------------------------------------------
-  // WRITE — Appointment (book via EWC → writes to Cliniko)
+  // WRITE — Individual Appointment (book via EWC → writes to Cliniko)
+  // Cliniko v1 uses /individual_appointments for single bookings.
+  // IDs must be passed as strings in template literal to preserve float64 precision.
   // ---------------------------------------------------------------------------
 
   async createAppointment(body: {
-    patient_id: number;
-    practitioner_id: number;
-    appointment_type_id: number;
-    business_id: number;
-    starts_at: string;   // ISO8601
+    patient_id: string;
+    practitioner_id: string;
+    appointment_type_id: string;
+    business_id: string;
+    starts_at: string;   // ISO8601 with timezone e.g. 2026-03-15T10:00:00+00:00
+    ends_at: string;     // ISO8601 with timezone
     notes?: string;
   }): Promise<ClinikoAppointment> {
-    return this.request<ClinikoAppointment>('/appointments', {
+    // Use template string to preserve large integer IDs (avoid JSON.stringify float64 rounding)
+    const jsonBody = `{"starts_at":${JSON.stringify(body.starts_at)},"ends_at":${JSON.stringify(body.ends_at)},"practitioner_id":${body.practitioner_id},"appointment_type_id":${body.appointment_type_id},"patient_id":${body.patient_id},"business_id":${body.business_id}${body.notes ? `,"notes":${JSON.stringify(body.notes)}` : ''}}`;
+    return this.request<ClinikoAppointment>('/individual_appointments', {
       method: 'POST',
-      body:   JSON.stringify({ appointment: body }),
+      body:   jsonBody,
     });
   }
 

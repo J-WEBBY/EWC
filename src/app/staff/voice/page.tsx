@@ -22,6 +22,7 @@ import {
   getReceptionistIdentity, saveReceptionistIdentity,
   type VapiCall, type ReceptionistIdentity,
 } from '@/lib/actions/vapi';
+import { triggerFullSync } from '@/lib/actions/cliniko';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -40,39 +41,39 @@ const VOICE_OPTIONS = [
   { id: 'N2lVS1w4EtoT3dr4eOWO', label: 'Callum',    desc: 'Calm · male · British',    isDefault: false },
 ];
 
-const TIER1_TOOLS = [
-  { name: 'identify_caller',          desc: 'Patient lookup via phone or name. Checks Cliniko + call history.' },
-  { name: 'get_clinic_info',          desc: 'Opening hours, location, team, parking. No DB — instant.'         },
-  { name: 'search_knowledge_base',    desc: 'Treatment info, FAQs, pricing context, protocols.'               },
-  { name: 'get_patient_history',      desc: 'Appointment history, upcoming bookings, DNA flags.'               },
-  { name: 'check_appointment_slots',  desc: 'Availability for a treatment on a preferred date.'               },
-  { name: 'capture_lead',             desc: 'Creates acquisition signal + sales agent memory.'                 },
-  { name: 'create_booking_request',   desc: 'Booking signal with unique ref + memories for 2 agents.'         },
-  { name: 'log_call_concern',         desc: 'Clinical / complaint / adverse reaction — human_only signal.'    },
-  { name: 'escalate_to_human',        desc: 'Critical signal + graceful handoff phrase for Komal.'            },
+const CAPABILITIES = [
+  { title: 'Recognise returning patients',  desc: 'Identifies callers by phone number. Knows their name, treatment history, and last visit before saying a word.' },
+  { title: 'Answer clinic questions',       desc: 'Opening hours, location, parking, team information — answered instantly without putting the caller on hold.'    },
+  { title: 'Explain treatments',            desc: 'Describes treatments, what to expect, recovery, and pricing context. Leads with outcomes before price.'        },
+  { title: 'Recall appointment history',    desc: 'Sees a returning patient\'s previous and upcoming appointments so conversations feel personal, not generic.'    },
+  { title: 'Check availability',            desc: 'Looks up open slots for a treatment on a preferred date and suggests alternatives if the first choice is full.' },
+  { title: 'Capture new enquiries',         desc: 'Takes the caller\'s name, number, and interest. Creates a follow-up task for the team — nothing falls through.' },
+  { title: 'Take booking requests',         desc: 'Confirms treatment, preferred date, and contact number. Issues a booking reference instantly.'                 },
+  { title: 'Flag concerns to staff',        desc: 'Recognises clinical concerns, complaints, or adverse reactions and routes them directly to the team.'          },
+  { title: 'Hand off to a team member',     desc: 'Transfers gracefully when a call needs a human — with a full summary so the caller never has to repeat themselves.' },
 ];
 
 const SPECIALIST_AGENTS = [
   {
     key:     'orion',
     label:   'Orion',
-    role:    'Patient acquisition',
-    desc:    'Objection handling, upsell guidance, booking conversion, new enquiry strategy.',
-    trigger: 'New callers, treatment interest, booking hesitation, price objections.',
+    role:    'New patient specialist',
+    desc:    'Guides new callers from curiosity to a confirmed booking. Answers treatment questions, handles hesitation, and knows when to offer a free consultation.',
+    trigger: 'A new caller, someone asking about a treatment for the first time, or a caller who is unsure whether to book.',
   },
   {
     key:     'aria',
     label:   'Aria',
-    role:    'Patient retention',
-    desc:    'Rebooking guidance, follow-up strategy, concern handling, existing patient care.',
-    trigger: 'Returning patients, post-treatment calls, lapsed patient re-engagement.',
+    role:    'Existing patient specialist',
+    desc:    'Looks after returning patients — checking in after treatment, exploring rebooking, and making sure they feel valued and remembered.',
+    trigger: 'A recognised caller, someone post-treatment, or a patient who has not been in for a while.',
   },
   {
     key:     'ewc',
     label:   'EWC',
-    role:    'General operations',
-    desc:    'Clinical questions, operational matters, escalation guidance, catch-all intelligence.',
-    trigger: 'Complex queries, anything not handled by Orion or Aria.',
+    role:    'General clinic intelligence',
+    desc:    'The catch-all — handles clinical questions, operational matters, and anything outside the scope of the other two specialists.',
+    trigger: 'Complex or unusual queries that do not clearly belong to booking or retention.',
   },
 ];
 
@@ -229,6 +230,10 @@ export default function ReceptionPage() {
   const [debugLoading,    setDebugLoading]    = useState(false);
   const [debugResult,     setDebugResult]     = useState<Record<string, unknown> | null>(null);
 
+  // Cliniko sync
+  const [syncing,     setSyncing]     = useState(false);
+  const [syncResult,  setSyncResult]  = useState<{ success: boolean; patients: number; appointments: number; error?: string } | null>(null);
+
   // ---------- profile ----------
   useEffect(() => {
     getLatestTenantAndUser()
@@ -321,6 +326,22 @@ export default function ReceptionPage() {
     }
   };
 
+  // ---------- Cliniko sync ----------
+  const handleSyncCliniko = async () => {
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const result = await triggerFullSync();
+      setSyncResult(result);
+      if (result.success) refreshCalls();
+      setTimeout(() => setSyncResult(null), 6000);
+    } catch (err) {
+      setSyncResult({ success: false, patients: 0, appointments: 0, error: String(err) });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   // ---------- KPIs from real data ----------
   const today       = new Date().toDateString();
   const todayCalls  = calls.filter(c => c.startedAt && new Date(c.startedAt).toDateString() === today);
@@ -396,14 +417,38 @@ export default function ReceptionPage() {
                 AI voice receptionist — Komal · Haiku · Charlotte · 10 tools
               </p>
             </div>
-            <button
-              onClick={refreshCalls}
-              disabled={callsLoading}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] text-[#6E6688] bg-white border border-[#EBE5FF] hover:border-[#D5CCFF] transition-colors disabled:opacity-50"
-            >
-              <RefreshCw size={13} className={callsLoading ? 'animate-spin' : ''} />
-              Refresh
-            </button>
+            <div className="flex items-center gap-2">
+              <AnimatePresence>
+                {syncResult && (
+                  <motion.span
+                    initial={{ opacity: 0, x: 8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0 }}
+                    className={`text-[11px] ${syncResult.success ? 'text-green-600' : 'text-red-400'}`}
+                  >
+                    {syncResult.success
+                      ? `Synced — ${syncResult.patients} patients · ${syncResult.appointments} appointments`
+                      : syncResult.error ?? 'Sync failed'}
+                  </motion.span>
+                )}
+              </AnimatePresence>
+              <button
+                onClick={handleSyncCliniko}
+                disabled={syncing}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] text-[#6E6688] bg-white border border-[#EBE5FF] hover:border-[#D5CCFF] transition-colors disabled:opacity-50"
+              >
+                <Zap size={13} className={syncing ? 'animate-pulse' : ''} />
+                {syncing ? 'Syncing…' : 'Sync Cliniko'}
+              </button>
+              <button
+                onClick={refreshCalls}
+                disabled={callsLoading}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] text-[#6E6688] bg-white border border-[#EBE5FF] hover:border-[#D5CCFF] transition-colors disabled:opacity-50"
+              >
+                <RefreshCw size={13} className={callsLoading ? 'animate-spin' : ''} />
+                Refresh
+              </button>
+            </div>
           </div>
         </motion.div>
 
@@ -643,82 +688,40 @@ export default function ReceptionPage() {
               transition={{ duration: 0.18 }}
               className="space-y-5"
             >
-              {/* Architecture flow */}
-              <div className="bg-white border border-[#EBE5FF] rounded-xl p-6">
-                <SectionLabel>Architecture</SectionLabel>
-                <div className="space-y-3">
-                  {/* Caller → Komal */}
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2.5 px-4 py-3 bg-[#FAF9F5] border border-[#EBE5FF] rounded-xl flex-1">
-                      <Phone size={13} className="text-[#8B84A0]" />
-                      <span className="text-[13px] text-[#6E6688]">Caller</span>
-                    </div>
-                    <ChevronRight size={14} className="text-[#C5BFDC] flex-shrink-0" />
-                    <div className="flex items-center justify-between gap-3 px-4 py-3 bg-[#F5F2EB] border border-[#D5CCFF] rounded-xl flex-[2]">
-                      <div className="flex items-center gap-2.5">
-                        <span className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0" />
-                        <span className="text-[14px] text-[#1A1035] font-medium">Komal</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-[11px] text-[#9E99B5]">
-                        <span>Haiku</span>
-                        <span className="text-[#C5BFDC]">·</span>
-                        <span>Charlotte</span>
-                        <span className="text-[#C5BFDC]">·</span>
-                        <span>0.1s delay</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Three tiers */}
-                  <div className="ml-6 pl-4 border-l border-[#EBE5FF] grid grid-cols-3 gap-3">
-                    <div className="px-4 py-3.5 bg-[#FAF9F5] border border-[#EBE5FF] rounded-xl">
-                      <p className="text-[11px] text-[#8B84A0] uppercase tracking-[0.12em] mb-1.5">Tier 1</p>
-                      <p className="text-[13px] text-[#1A1035] font-medium">9 direct tools</p>
-                      <p className="text-[11px] text-[#9E99B5] mt-0.5">3s timeout · &lt;300ms typical</p>
-                    </div>
-                    <div className="px-4 py-3.5 bg-[#FAF9F5] border border-[#EBE5FF] rounded-xl">
-                      <p className="text-[11px] text-[#8B84A0] uppercase tracking-[0.12em] mb-1.5">Tier 2</p>
-                      <p className="text-[13px] text-[#1A1035] font-medium">ask_agent</p>
-                      <p className="text-[11px] text-[#9E99B5] mt-0.5">Sonnet · 8s timeout · 3 agents</p>
-                    </div>
-                    <div className="px-4 py-3.5 bg-[#FAF9F5] border border-[#EBE5FF] rounded-xl">
-                      <p className="text-[11px] text-[#8B84A0] uppercase tracking-[0.12em] mb-1.5">Post-call</p>
-                      <p className="text-[13px] text-[#1A1035] font-medium">Webhook</p>
-                      <p className="text-[11px] text-[#9E99B5] mt-0.5">Signal + 3 agent memories</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Tier 1 tools */}
+              {/* Capabilities */}
               <div className="bg-white border border-[#EBE5FF] rounded-xl overflow-hidden">
-                <div className="flex items-center justify-between px-5 py-4 border-b border-[#EBE5FF]">
-                  <SectionLabel>Tier 1 — Direct tools</SectionLabel>
-                  <span className="text-[11px] text-[#9E99B5]">9 tools · Supabase · 3s timeout</span>
+                <div className="px-5 py-4 border-b border-[#EBE5FF]">
+                  <SectionLabel>What the AI receptionist can do</SectionLabel>
+                  <p className="text-[12px] text-[#8B84A0] mt-1">
+                    During every call, the receptionist has access to live clinic data and can take action in real time.
+                  </p>
                 </div>
-                <div className="divide-y divide-[#EBE5FF]">
-                  {TIER1_TOOLS.map((tool, i) => (
+                <div className="grid grid-cols-3 divide-x divide-y divide-[#EBE5FF]">
+                  {CAPABILITIES.map((cap, i) => (
                     <motion.div
-                      key={tool.name}
-                      initial={{ opacity: 0, x: -8 }}
-                      animate={{ opacity: 1, x: 0 }}
+                      key={cap.title}
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: i * 0.03 }}
-                      className="flex items-start gap-4 px-5 py-3.5"
+                      className="px-5 py-4"
                     >
-                      <code className="font-mono text-[12px] text-[#6E6688] w-56 flex-shrink-0 pt-0.5">
-                        {tool.name}
-                      </code>
-                      <span className="text-[12px] text-[#8B84A0] leading-relaxed">{tool.desc}</span>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <CheckCircle2 size={12} className="text-green-500 flex-shrink-0" />
+                        <p className="text-[13px] font-medium text-[#1A1035]">{cap.title}</p>
+                      </div>
+                      <p className="text-[12px] text-[#8B84A0] leading-relaxed pl-5">{cap.desc}</p>
                     </motion.div>
                   ))}
                 </div>
               </div>
 
-              {/* Tier 2 — agent consultation */}
+              {/* Specialist support team */}
               <div className="bg-white border border-[#EBE5FF] rounded-xl overflow-hidden">
-                <div className="flex items-center justify-between px-5 py-4 border-b border-[#EBE5FF]">
-                  <SectionLabel>Tier 2 — Specialist agent consultation</SectionLabel>
-                  <span className="text-[11px] text-[#9E99B5]">ask_agent · Sonnet · 8s timeout</span>
+                <div className="px-5 py-4 border-b border-[#EBE5FF]">
+                  <SectionLabel>Specialist support team</SectionLabel>
+                  <p className="text-[12px] text-[#8B84A0] mt-1">
+                    During complex calls, the AI receptionist consults one of three specialist intelligences mid-conversation — the caller hears a brief pause while this happens.
+                  </p>
                 </div>
                 <div className="p-5 grid grid-cols-3 gap-4">
                   {SPECIALIST_AGENTS.map((agent, i) => (
@@ -735,7 +738,7 @@ export default function ReceptionPage() {
                       </div>
                       <p className="text-[12px] text-[#6E6688] leading-relaxed">{agent.desc}</p>
                       <div className="border-t border-[#EBE5FF] pt-3">
-                        <p className="text-[10px] uppercase tracking-[0.12em] text-[#9E99B5] mb-1.5">Called when</p>
+                        <p className="text-[10px] uppercase tracking-[0.12em] text-[#9E99B5] mb-1.5">Brought in when</p>
                         <p className="text-[11px] text-[#8B84A0] leading-relaxed">{agent.trigger}</p>
                       </div>
                     </motion.div>
@@ -743,47 +746,49 @@ export default function ReceptionPage() {
                 </div>
               </div>
 
-              {/* Post-call */}
+              {/* How calls are handled */}
               <div className="bg-white border border-[#EBE5FF] rounded-xl p-5">
-                <SectionLabel>Post-call processing</SectionLabel>
-                <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    <p className="text-[12px] text-[#8B84A0] mb-2">Signal creation</p>
-                    <p className="text-[13px] text-[#6E6688] leading-relaxed">
-                      Every completed call creates a signal visible on the Signals page — classified by outcome
-                      (booked, lead captured, concern logged, escalated, missed). Tools used and agent consulted
-                      are stored in the signal data.
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[12px] text-[#8B84A0] mb-2">Agent memory</p>
-                    <p className="text-[13px] text-[#6E6688] leading-relaxed">
-                      Call transcript, summary, tools used and outcome are written to EWC, Orion, and Aria
-                      memories. All three agents are aware of every call — enabling context-aware conversations
-                      in the chat interface.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Call modes */}
-              <div className="bg-white border border-[#EBE5FF] rounded-xl p-5">
-                <SectionLabel>Call modes</SectionLabel>
+                <SectionLabel>How calls are handled</SectionLabel>
                 <p className="text-[12px] text-[#8B84A0] mb-4">
-                  Komal switches modes naturally based on the caller — she never names the mode to the caller.
+                  The receptionist adapts automatically to each caller. The approach shifts naturally — callers are never aware of any mode switch.
                 </p>
                 <div className="grid grid-cols-3 gap-4">
                   {[
-                    { mode: 'Default',          desc: 'Call starts. Warm greeting, open question. Identifies caller early.',                        agent: 'EWC'   },
-                    { mode: 'New enquiry',       desc: 'Caller interested in a treatment or new to the clinic. Consultative, guides to free consult.', agent: 'Orion' },
-                    { mode: 'Existing patient',  desc: 'Caller identified as an existing patient. Personal, caring, explores rebooking.',             agent: 'Aria'  },
+                    { mode: 'Greeting',          icon: '👋', desc: 'Warm welcome, open question. Listens first, identifies the caller, then decides how best to help.',         consults: 'General intelligence' },
+                    { mode: 'New enquiry',        icon: '✨', desc: 'Consultative and informative. Guides curious or interested callers toward a free consultation or booking.', consults: 'Orion — new patient specialist' },
+                    { mode: 'Returning patient',  icon: '🤝', desc: 'Personal and caring. Uses the patient\'s history to make the conversation feel familiar and attentive.',    consults: 'Aria — existing patient specialist' },
                   ].map(m => (
                     <div key={m.mode} className="p-4 bg-[#FAF9F5] border border-[#EBE5FF] rounded-xl">
                       <p className="text-[13px] font-medium text-[#1A1035] mb-0.5">{m.mode}</p>
-                      <p className="text-[10px] text-[#9E99B5] uppercase tracking-[0.1em] mb-2">Consults {m.agent}</p>
+                      <p className="text-[10px] text-[#9E99B5] uppercase tracking-[0.1em] mb-2">Supported by {m.consults}</p>
                       <p className="text-[12px] text-[#6E6688] leading-relaxed">{m.desc}</p>
                     </div>
                   ))}
+                </div>
+              </div>
+
+              {/* After every call */}
+              <div className="bg-white border border-[#EBE5FF] rounded-xl p-5">
+                <SectionLabel>After every call</SectionLabel>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 size={13} className="text-green-500 flex-shrink-0" />
+                      <p className="text-[13px] font-medium text-[#1A1035]">Task created for the team</p>
+                    </div>
+                    <p className="text-[12px] text-[#8B84A0] leading-relaxed pl-5">
+                      Every call generates a task on the Signals page — categorised by outcome (booking request, new lead, concern raised, or escalated). Nothing is missed.
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 size={13} className="text-green-500 flex-shrink-0" />
+                      <p className="text-[13px] font-medium text-[#1A1035]">Context saved for next time</p>
+                    </div>
+                    <p className="text-[12px] text-[#8B84A0] leading-relaxed pl-5">
+                      A summary of the call is remembered across the whole system. The next time that patient calls or a staff member looks them up, the context is already there.
+                    </p>
+                  </div>
                 </div>
               </div>
             </motion.div>
@@ -797,30 +802,36 @@ export default function ReceptionPage() {
               transition={{ duration: 0.18 }}
               className="space-y-5"
             >
-              {/* Komal provision */}
+              {/* Activation */}
               <div className="bg-white border border-[#EBE5FF] rounded-xl p-6">
                 <div className="flex items-start justify-between mb-5">
                   <div>
-                    <p className="text-[14px] font-medium text-[#1A1035] mb-1">Komal — EWC Receptionist</p>
+                    <p className="text-[14px] font-medium text-[#1A1035] mb-1">AI Receptionist</p>
                     <p className="text-[12px] text-[#8B84A0]">
-                      {komalStatus === null                    && 'Checking status…'}
-                      {komalStatus?.provisioned === true       && 'Provisioned on Vapi · Live'}
-                      {komalStatus?.provisioned === false      && 'Not provisioned — run provisioning to activate'}
+                      {komalStatus === null               && 'Checking status…'}
+                      {komalStatus?.provisioned === true  && 'Active — ready to take calls'}
+                      {komalStatus?.provisioned === false && 'Not yet activated — click Activate below'}
                     </p>
                   </div>
-                  <div className={`w-2.5 h-2.5 rounded-full mt-1 flex-shrink-0 ${
-                    komalStatus?.provisioned === true  ? 'bg-green-400' :
-                    komalStatus?.provisioned === false ? 'bg-amber-400' : 'bg-[#D5CCFF]'
-                  }`} />
+                  <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium ${
+                    komalStatus?.provisioned === true
+                      ? 'bg-green-50 text-green-600 border border-green-200'
+                      : 'bg-amber-50 text-amber-600 border border-amber-200'
+                  }`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${
+                      komalStatus?.provisioned === true ? 'bg-green-400 animate-pulse' : 'bg-amber-400'
+                    }`} />
+                    {komalStatus?.provisioned === true ? 'Live' : 'Inactive'}
+                  </div>
                 </div>
 
                 {/* Config summary */}
                 <div className="grid grid-cols-4 gap-3 mb-5">
                   {[
-                    { label: 'Model',    value: 'claude-3-5-haiku'   },
-                    { label: 'Voice',    value: 'Charlotte · 11Labs' },
-                    { label: 'Tools',    value: '10 (9 + ask_agent)' },
-                    { label: 'Response', value: '0.1s delay'         },
+                    { label: 'Voice',     value: 'Charlotte · British female' },
+                    { label: 'Language',  value: 'English (UK)'               },
+                    { label: 'Max call',  value: '10 minutes'                 },
+                    { label: 'Recording', value: 'Enabled'                    },
                   ].map(row => (
                     <div key={row.label} className="px-3 py-2.5 bg-[#FAF9F5] border border-[#EBE5FF] rounded-lg">
                       <p className="text-[10px] text-[#9E99B5] mb-0.5 uppercase tracking-[0.1em]">{row.label}</p>
@@ -840,10 +851,10 @@ export default function ReceptionPage() {
                       : <Zap size={14} />
                     }
                     {provisioning
-                      ? 'Provisioning…'
+                      ? 'Activating…'
                       : komalStatus?.provisioned
-                        ? 'Re-provision Komal'
-                        : 'Provision Komal'
+                        ? 'Update AI Receptionist'
+                        : 'Activate AI Receptionist'
                     }
                   </button>
                   <AnimatePresence>
@@ -859,7 +870,7 @@ export default function ReceptionPage() {
                           : <XCircle size={13} />
                         }
                         <span className="max-w-xs truncate">
-                          {provisionResult.success ? provisionResult.message : provisionResult.error}
+                          {provisionResult.success ? 'AI receptionist updated successfully' : provisionResult.error}
                         </span>
                       </motion.span>
                     )}
@@ -867,14 +878,14 @@ export default function ReceptionPage() {
                 </div>
 
                 <p className="text-[11px] text-[#9E99B5] mt-4">
-                  Always PATCHes the existing assistant — no interruption to live calls. Safe to run at any time.
+                  Updates are applied instantly and do not interrupt any calls already in progress.
                 </p>
               </div>
 
-              {/* Vapi connection check */}
+              {/* Connection status */}
               <div className="bg-white border border-[#EBE5FF] rounded-xl p-5">
                 <div className="flex items-center justify-between mb-4">
-                  <SectionLabel>Vapi connection</SectionLabel>
+                  <SectionLabel>System connection</SectionLabel>
                   <button
                     onClick={handleDebug}
                     disabled={debugLoading}
@@ -886,56 +897,39 @@ export default function ReceptionPage() {
                 </div>
                 {debugResult ? (
                   <div>
-                    <EnvRow label="Vapi API"                    ok={!!debugResult.ok}                detail={debugResult.ok ? 'Connected' : 'Failed'} />
-                    <EnvRow label="VAPI_PRIVATE_KEY"            ok={!!debugResult.privateKeyPresent} detail={debugResult.privateKeyPresent ? 'Configured' : 'Not set'} />
-                    <EnvRow label="NEXT_PUBLIC_VAPI_PUBLIC_KEY" ok={!!debugResult.publicKeyPresent}  detail={debugResult.publicKeyPresent ? 'Configured' : 'Not set (browser calls disabled)'} />
+                    <EnvRow
+                      label="Voice service"
+                      ok={!!debugResult.ok}
+                      detail={debugResult.ok ? 'Connected' : 'Not connected — contact support'}
+                    />
+                    <EnvRow
+                      label="Phone integration"
+                      ok={!!debugResult.privateKeyPresent}
+                      detail={debugResult.privateKeyPresent ? 'Configured' : 'Setup required'}
+                    />
+                    <EnvRow
+                      label="Browser calling"
+                      ok={!!debugResult.publicKeyPresent}
+                      detail={debugResult.publicKeyPresent ? 'Enabled' : 'Not enabled'}
+                    />
                   </div>
                 ) : (
                   <p className="text-[12px] text-[#8B84A0]">
-                    Click &ldquo;Check now&rdquo; to verify API connectivity and environment variable status.
+                    Run a connection check to confirm the AI receptionist is properly set up and ready to take calls.
                   </p>
                 )}
               </div>
 
-              {/* Webhook endpoints */}
-              <div className="bg-white border border-[#EBE5FF] rounded-xl p-5">
-                <SectionLabel>Webhook endpoints</SectionLabel>
-                <p className="text-[12px] text-[#8B84A0] mb-4">
-                  These are set automatically at provisioning. No manual Vapi dashboard configuration needed.
-                </p>
-                <div className="space-y-2">
-                  {[
-                    { label: 'Tool calls',  path: '/api/vapi/tool',     note: 'Per-tool server URL · mid-call'    },
-                    { label: 'End-of-call', path: '/api/vapi/webhook',  note: 'Assistant serverUrl · post-call'  },
-                    { label: 'Provision',   path: '/api/vapi/provision', note: 'POST to re-provision Komal'      },
-                  ].map(row => (
-                    <div
-                      key={row.path}
-                      className="flex items-center gap-4 px-4 py-3 bg-[#FAF9F5] border border-[#EBE5FF] rounded-lg"
-                    >
-                      <span className="text-[10px] text-[#9E99B5] w-20 flex-shrink-0 uppercase tracking-[0.1em]">
-                        {row.label}
-                      </span>
-                      <code className="font-mono text-[12px] text-[#6E6688] flex-1">
-                        {appUrl}{row.path}
-                      </code>
-                      <span className="text-[10px] text-[#9E99B5] hidden sm:block">{row.note}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Intelligence notes */}
+              {/* Compliance note */}
               <div className="bg-[#FAF9F5] border border-[#EBE5FF] rounded-xl p-5">
                 <div className="flex items-start gap-3">
                   <Brain size={14} className="text-[#8B84A0] flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-[12px] text-[#6E6688] mb-1">Intelligence notes</p>
+                    <p className="text-[13px] font-medium text-[#6E6688] mb-1.5">Built-in compliance</p>
                     <p className="text-[12px] text-[#8B84A0] leading-relaxed">
-                      Komal is backed by the Haiku model for voice latency (~200ms). Specialist agents (Orion, Aria, EWC)
-                      use Sonnet and are consulted mid-call via <code className="font-mono">ask_agent</code> with a bridge phrase.
-                      Recording consent is spoken on every call. Clinical decisions are never made — the system is
-                      operational only.
+                      Every call opens with a recording consent disclosure. The AI receptionist never gives medical advice,
+                      never diagnoses symptoms, and immediately directs emergencies to 999. Clinical decisions always
+                      remain with your practitioners.
                     </p>
                   </div>
                 </div>
