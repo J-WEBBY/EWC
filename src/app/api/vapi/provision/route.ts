@@ -135,7 +135,7 @@ export async function POST(req: NextRequest) {
       firstMessage: savedIdentity.firstMessage ?? 'Hello, thank you for calling Edgbaston Wellness Clinic. This call may be recorded for quality and training purposes. My name is Komal — how can I help you today?',
       model: {
         provider:    'anthropic',
-        model:       'claude-3-5-haiku-20241022', // Haiku — voice latency critical
+        model:       'claude-haiku-4-5-20251001', // Haiku 4.5 — voice latency critical
         messages:    [{ role: 'system', content: KOMAL_SYSTEM_PROMPT }],
         temperature: 0.6,
         tools:       toolDefinitions,
