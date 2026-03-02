@@ -49,18 +49,21 @@ const OPUS_MODEL  = 'claude-opus-4-20250514';      // Specialists — best reaso
 // ---------------------------------------------------------------------------
 
 const CHARLOTTE_VOICE = {
-  provider:        '11labs',
-  voiceId:         'XB0fDUnXU5powFXDhCwa',
-  stability:       0.5,
-  similarityBoost: 0.8,
-  style:           0.3,
-  useSpeakerBoost: true,
+  provider:                 '11labs',
+  voiceId:                  'XB0fDUnXU5powFXDhCwa',
+  model:                    'eleven_flash_v2_5',  // Flash — ~75ms vs ~250ms standard
+  stability:                0.5,
+  similarityBoost:          0.8,
+  style:                    0.3,
+  useSpeakerBoost:          true,
+  optimizeStreamingLatency: 4,  // Maximum streaming speed (0–4 scale)
 };
 
 const DEEPGRAM_TRANSCRIBER = {
-  provider: 'deepgram',
-  language: 'en-GB',
-  model:    'nova-2',
+  provider:    'deepgram',
+  language:    'en-GB',
+  model:       'nova-2',
+  smartFormat: false,  // Disable formatting processing — LLM doesn't need punctuation
 };
 
 // ---------------------------------------------------------------------------
@@ -161,17 +164,31 @@ export async function POST(req: NextRequest) {
       ? listData
       : Array.isArray(listData.results) ? listData.results : [];
 
-    // 3. Shared assistant settings
+    // 3. Shared assistant settings — latency optimised
     const sharedSettings = {
-      voice:                 { ...CHARLOTTE_VOICE, ...(savedIdentity.voiceId ? { voiceId: savedIdentity.voiceId } : {}) },
-      transcriber:           DEEPGRAM_TRANSCRIBER,
-      recordingEnabled:      true,
-      backchannelingEnabled: true,
-      responseDelaySeconds:  0.1,
-      silenceTimeoutSeconds: 30,
-      maxDurationSeconds:    600,
-      startSpeakingPlan:     { waitSeconds: 0.1 },
-      stopSpeakingPlan:      { numWords: 3, voiceSeconds: 0.1 },
+      voice:                  { ...CHARLOTTE_VOICE, ...(savedIdentity.voiceId ? { voiceId: savedIdentity.voiceId } : {}) },
+      transcriber:            DEEPGRAM_TRANSCRIBER,
+      recordingEnabled:       true,
+      backchannelingEnabled:  true,
+      fillerInjectionEnabled: true,  // "um", "let me see" masks LLM think-time naturally
+      responseDelaySeconds:   0,     // No artificial delay
+      silenceTimeoutSeconds:  30,
+      maxDurationSeconds:     600,
+      startSpeakingPlan: {
+        waitSeconds: 0.1,
+        // Smart endpointing — LiveKit for English, tighter wait function
+        smartEndpointingPlan: {
+          provider:     'livekit',
+          waitFunction: '200 + 2000 * x',  // 200ms–2.2s vs default 200ms–8.2s
+        },
+        // Critical: onNoPunctuationSeconds defaults to 1.5s — cuts up to 1s per turn
+        transcriptionEndpointingPlan: {
+          onPunctuationSeconds:   0.1,
+          onNoPunctuationSeconds: 0.5,  // Was 1.5s default — saves ~1s per conversational turn
+          onNumberSeconds:        0.3,
+        },
+      },
+      stopSpeakingPlan: { numWords: 2, voiceSeconds: 0.1 },
       ...(WEBHOOK_URL ? { serverUrl: WEBHOOK_URL, serverUrlSecret: WEBHOOK_SECRET } : {}),
     };
 
@@ -186,6 +203,7 @@ export async function POST(req: NextRequest) {
         model:       HAIKU_MODEL,
         messages:    [{ role: 'system', content: KOMAL_SYSTEM_PROMPT }],
         temperature: 0.6,
+        maxTokens:   150,  // Cap voice responses — shorter = faster TTS
         tools:       komalTools,
       },
       ...sharedSettings,

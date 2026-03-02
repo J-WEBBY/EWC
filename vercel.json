@@ -4,6 +4,10 @@
     {
       "path": "/api/cliniko/sync",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/vapi/ping",
+      "schedule": "*/5 * * * *"
     }
   ]
 }
