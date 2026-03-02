@@ -170,7 +170,6 @@ export async function POST(req: NextRequest) {
       transcriber:            DEEPGRAM_TRANSCRIBER,
       recordingEnabled:       true,
       backchannelingEnabled:  true,
-      fillerInjectionEnabled: true,  // "um", "let me see" masks LLM think-time naturally
       responseDelaySeconds:   0,     // No artificial delay
       silenceTimeoutSeconds:  30,
       maxDurationSeconds:     600,
