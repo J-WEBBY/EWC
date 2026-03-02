@@ -119,15 +119,15 @@ export async function syncPatients(
   cleanup = false,
 ): Promise<SyncResult> {
   const start = Date.now();
+  // Timestamp recorded BEFORE upserts. After sync, any record with
+  // last_synced_at < syncStartedAt was not in Cliniko and is an orphan.
+  const syncStartedAt = new Date().toISOString();
   await logSync('patients', 'started');
   const supabase = createSovereignClient();
 
   try {
     const patients = await client.getPatients(updatedSince);
     let synced = 0, failed = 0;
-
-    // Collect every cliniko_id we see during this sync (for cleanup pass)
-    const syncedClinikoIds: string[] = [];
 
     // Batch upsert in chunks of 50
     const CHUNK = 50;
@@ -137,7 +137,6 @@ export async function syncPatients(
       const rows = chunk.map((p: ClinikoPatient) => {
         // Extract exact string ID from self-link to avoid float64 precision loss
         const clinikoId = p.links?.self?.split('/').pop() ?? String(p.id);
-        syncedClinikoIds.push(clinikoId);
         return {
           cliniko_id:            clinikoId,
           first_name:            p.first_name,
@@ -176,20 +175,15 @@ export async function syncPatients(
       }
     }
 
-    // Cleanup: delete EWC patients whose cliniko_id is no longer in Cliniko
-    if (cleanup && syncedClinikoIds.length > 0) {
-      const { data: ewcRows } = await supabase
+    // Cleanup: delete any EWC patient not touched by this sync (deleted from Cliniko).
+    // Uses last_synced_at timestamp — avoids float64 precision issues with BIGINT cliniko_ids.
+    if (cleanup && synced > 0) {
+      const { error: delErr, count } = await supabase
         .from('cliniko_patients')
-        .select('cliniko_id');
-
-      const syncedSet = new Set(syncedClinikoIds);
-      const orphans   = (ewcRows ?? [])
-        .map(r => String(r.cliniko_id))
-        .filter(id => !syncedSet.has(id));
-
-      if (orphans.length > 0) {
-        await supabase.from('cliniko_patients').delete().in('cliniko_id', orphans);
-        console.log(`[sync/patients] Deleted ${orphans.length} orphaned patients`);
+        .delete({ count: 'exact' })
+        .lt('last_synced_at', syncStartedAt);
+      if (!delErr && count && count > 0) {
+        console.log(`[sync/patients] Removed ${count} orphaned patient(s) no longer in Cliniko`);
       }
     }
 
@@ -212,6 +206,7 @@ export async function syncAppointments(
   cleanup = false,
 ): Promise<SyncResult> {
   const start = Date.now();
+  const syncStartedAt = new Date().toISOString();
   await logSync('appointments', 'started');
   const supabase = createSovereignClient();
 
@@ -219,15 +214,12 @@ export async function syncAppointments(
     const appointments = await client.getAppointments(updatedSince);
     let synced = 0, failed = 0;
 
-    const syncedClinikoIds: string[] = [];
-
     const CHUNK = 50;
     for (let i = 0; i < appointments.length; i += CHUNK) {
       const chunk = appointments.slice(i, i + CHUNK);
 
       const rows = chunk.map((a: ClinikoAppointment) => {
         const clinikoId = a.links?.self?.split('/').pop() ?? String(a.id);
-        syncedClinikoIds.push(clinikoId);
 
         // Derive status string from boolean flags
         let status = 'booked';
@@ -265,20 +257,14 @@ export async function syncAppointments(
       }
     }
 
-    // Cleanup: delete EWC appointments whose cliniko_id is no longer in Cliniko
-    if (cleanup && syncedClinikoIds.length > 0) {
-      const { data: ewcRows } = await supabase
+    // Cleanup: delete any EWC appointment not touched by this sync (deleted from Cliniko).
+    if (cleanup && synced > 0) {
+      const { error: delErr, count } = await supabase
         .from('cliniko_appointments')
-        .select('cliniko_id');
-
-      const syncedSet = new Set(syncedClinikoIds);
-      const orphans   = (ewcRows ?? [])
-        .map(r => String(r.cliniko_id))
-        .filter(id => !syncedSet.has(id));
-
-      if (orphans.length > 0) {
-        await supabase.from('cliniko_appointments').delete().in('cliniko_id', orphans);
-        console.log(`[sync/appointments] Deleted ${orphans.length} orphaned appointments`);
+        .delete({ count: 'exact' })
+        .lt('last_synced_at', syncStartedAt);
+      if (!delErr && count && count > 0) {
+        console.log(`[sync/appointments] Removed ${count} orphaned appointment(s) no longer in Cliniko`);
       }
     }
 

@@ -11,7 +11,7 @@ import {
   Phone, PhoneMissed, PhoneCall,
   Brain, CheckCircle2, XCircle,
   AlertCircle, Loader2, RefreshCw, Save,
-  Zap, User, ChevronRight,
+  Zap, User,
 } from 'lucide-react';
 import { StaffNav }                from '@/components/staff-nav';
 import {
@@ -22,7 +22,6 @@ import {
   getReceptionistIdentity, saveReceptionistIdentity,
   type VapiCall, type ReceptionistIdentity,
 } from '@/lib/actions/vapi';
-import { triggerFullSync } from '@/lib/actions/cliniko';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -230,9 +229,6 @@ export default function ReceptionPage() {
   const [debugLoading,    setDebugLoading]    = useState(false);
   const [debugResult,     setDebugResult]     = useState<Record<string, unknown> | null>(null);
 
-  // Cliniko sync
-  const [syncing,     setSyncing]     = useState(false);
-  const [syncResult,  setSyncResult]  = useState<{ success: boolean; patients: number; appointments: number; error?: string } | null>(null);
 
   // ---------- profile ----------
   useEffect(() => {
@@ -326,21 +322,6 @@ export default function ReceptionPage() {
     }
   };
 
-  // ---------- Cliniko sync ----------
-  const handleSyncCliniko = async () => {
-    setSyncing(true);
-    setSyncResult(null);
-    try {
-      const result = await triggerFullSync();
-      setSyncResult(result);
-      if (result.success) refreshCalls();
-      setTimeout(() => setSyncResult(null), 6000);
-    } catch (err) {
-      setSyncResult({ success: false, patients: 0, appointments: 0, error: String(err) });
-    } finally {
-      setSyncing(false);
-    }
-  };
 
   // ---------- KPIs from real data ----------
   const today       = new Date().toDateString();
@@ -417,38 +398,14 @@ export default function ReceptionPage() {
                 AI voice receptionist — Komal · Haiku · Charlotte · 10 tools
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <AnimatePresence>
-                {syncResult && (
-                  <motion.span
-                    initial={{ opacity: 0, x: 8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0 }}
-                    className={`text-[11px] ${syncResult.success ? 'text-green-600' : 'text-red-400'}`}
-                  >
-                    {syncResult.success
-                      ? `Synced — ${syncResult.patients} patients · ${syncResult.appointments} appointments`
-                      : syncResult.error ?? 'Sync failed'}
-                  </motion.span>
-                )}
-              </AnimatePresence>
-              <button
-                onClick={handleSyncCliniko}
-                disabled={syncing}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] text-[#6E6688] bg-white border border-[#EBE5FF] hover:border-[#D5CCFF] transition-colors disabled:opacity-50"
-              >
-                <Zap size={13} className={syncing ? 'animate-pulse' : ''} />
-                {syncing ? 'Syncing…' : 'Sync Cliniko'}
-              </button>
-              <button
-                onClick={refreshCalls}
-                disabled={callsLoading}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] text-[#6E6688] bg-white border border-[#EBE5FF] hover:border-[#D5CCFF] transition-colors disabled:opacity-50"
-              >
-                <RefreshCw size={13} className={callsLoading ? 'animate-spin' : ''} />
-                Refresh
-              </button>
-            </div>
+            <button
+              onClick={refreshCalls}
+              disabled={callsLoading}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] text-[#6E6688] bg-white border border-[#EBE5FF] hover:border-[#D5CCFF] transition-colors disabled:opacity-50"
+            >
+              <RefreshCw size={13} className={callsLoading ? 'animate-spin' : ''} />
+              Refresh
+            </button>
           </div>
         </motion.div>
 
