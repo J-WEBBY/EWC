@@ -151,8 +151,8 @@ export async function POST(req: NextRequest) {
       responseDelaySeconds:  0.1,
       silenceTimeoutSeconds: 30,
       maxDurationSeconds:    600,
-      startSpeakingPlan:     { waitSeconds: 0.3 },
-      stopSpeakingPlan:      { numWords: 3, voiceSeconds: 0.3 },
+      startSpeakingPlan:     { waitSeconds: 0.1 },
+      stopSpeakingPlan:      { numWords: 3, voiceSeconds: 0.1 },
       endCallMessage:        savedIdentity.endCallMessage ?? 'Thank you for calling Edgbaston Wellness Clinic. Have a wonderful day. Goodbye!',
     };
 
