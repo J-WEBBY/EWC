@@ -447,7 +447,7 @@ export async function getPatientIntelligenceList(search?: string): Promise<{
 
     // Fetch open signals counts by caller_number
     const phones = rows.map(r => r.phone).filter(Boolean) as string[];
-    let signalCounts = new Map<string, number>();
+    const signalCounts = new Map<string, number>();
     if (phones.length > 0) {
       const { data: sigs } = await db
         .from('signals')
