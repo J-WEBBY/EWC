@@ -42,7 +42,7 @@ import {
   type PendingSignal,
 } from '@/lib/actions/signals';
 import {
-  getStaffProfile, getLatestTenantAndUser, type StaffProfile, type AgentCard,
+  getStaffProfile, getCurrentUser, type StaffProfile, type AgentCard,
 } from '@/lib/actions/staff-onboarding';
 import { StaffNav } from '@/components/staff-nav';
 import ReactMarkdown from 'react-markdown';
@@ -436,7 +436,7 @@ export default function ChatPage() {
         let uid = searchParams.get('userId');
 
         if (!uid) {
-          const fallback = await getLatestTenantAndUser();
+          const fallback = await getCurrentUser();
           if (fallback.success) uid = fallback.userId || null;
         }
         if (!uid) { setLoading(false); return; }

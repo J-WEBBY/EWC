@@ -16,16 +16,10 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
 
-    // Extract required fields — flexible payload structure
-    const tenantId = body.tenant_id;
     const userId = body.user_id || body.created_by;
     const text = body.text || body.message || body.content || body.description || '';
     const source = body.source || 'webhook';
     const metadata = body.metadata || {};
-
-    if (!tenantId) {
-      return NextResponse.json({ error: 'Missing tenant_id' }, { status: 400 });
-    }
 
     if (!userId) {
       return NextResponse.json({ error: 'Missing user_id or created_by' }, { status: 400 });
@@ -44,7 +38,7 @@ export async function POST(req: NextRequest) {
           'x-service-secret': AGENT_SERVICE_SECRET,
         },
         body: JSON.stringify({
-          tenant_id: tenantId,
+          tenant_id: 'clinic',
           user_id: userId,
           text,
           source: 'api',
@@ -65,7 +59,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ─── Fallback: local classifier ──────────────────────────────────
-    const result = await classifyAndRoute(tenantId, userId, {
+    const result = await classifyAndRoute('clinic', userId, {
       text,
       source: 'api',
       metadata: {

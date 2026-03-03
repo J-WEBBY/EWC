@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { getAgentsForTenant, type DBAgent } from '@/lib/actions/agent-service';
 import {
-  getStaffProfile, getLatestTenantAndUser, type StaffProfile,
+  getStaffProfile, getCurrentUser, type StaffProfile,
 } from '@/lib/actions/staff-onboarding';
 import { StaffNav } from '@/components/staff-nav';
 import {
@@ -397,7 +397,7 @@ export default function AgentsPage() {
     (async () => {
       let uid = urlUserId;
       if (!uid) {
-        const fb = await getLatestTenantAndUser();
+        const fb = await getCurrentUser();
         if (fb.success && fb.userId) uid = fb.userId;
       }
       if (!uid) { router.push('/login'); return; }

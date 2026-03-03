@@ -8,7 +8,7 @@ import {
   CheckCircle2, Clock, MessageSquare,
 } from 'lucide-react';
 import {
-  getStaffProfile, getLatestTenantAndUser, type StaffProfile,
+  getStaffProfile, getCurrentUser, type StaffProfile,
 } from '@/lib/actions/staff-onboarding';
 import { StaffNav } from '@/components/staff-nav';
 
@@ -212,7 +212,7 @@ export default function CorporatePage() {
     (async () => {
       let uid = urlUserId;
       if (!uid) {
-        const fb = await getLatestTenantAndUser();
+        const fb = await getCurrentUser();
         if (fb.success && fb.userId) uid = fb.userId;
       }
       if (!uid) { router.push('/login'); return; }

@@ -9,7 +9,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import {
-  getStaffProfile, getLatestTenantAndUser,
+  getStaffProfile, getCurrentUser,
   type StaffProfile,
 } from '@/lib/actions/staff-onboarding';
 import { StaffNav } from '@/components/staff-nav';
@@ -653,7 +653,7 @@ type ModeTab = 'all' | ResponseMode | 'resolved';
 
 export default function SignalsPage() {
   const [profile, setProfile] = useState<StaffProfile | null>(null);
-  const [tenantId, setTenantId] = useState('');
+  const [tenantId, setTenantId] = useState('clinic');
   const [userId, setUserId] = useState('');
   const [brandColor, setBrandColor] = useState('#ffffff');
 
@@ -675,17 +675,16 @@ export default function SignalsPage() {
     else setRefreshing(true);
 
     try {
-      const { tenantId: tid, userId: uid } = await getLatestTenantAndUser();
-      const safeTid = tid || 'clinic';
+      const { userId: uid } = await getCurrentUser();
       const safeUid = uid || '';
-      setTenantId(safeTid);
+      setTenantId('clinic');
       setUserId(safeUid);
 
       const [profileRes, statsRes, feedRes, pendingRes] = await Promise.all([
-        getStaffProfile(safeTid, safeUid),
-        getSignalStats(safeTid),
-        getSignalFeed(safeTid),
-        getPendingSignals(safeTid),
+        getStaffProfile('clinic', safeUid),
+        getSignalStats('clinic'),
+        getSignalFeed('clinic'),
+        getPendingSignals('clinic'),
       ]);
 
       if (profileRes.success && profileRes.data?.profile) {

@@ -80,10 +80,8 @@ export type ClassifyOutcome = {
 // getWatchPatterns — backward compat, now loads from DB
 // =============================================================================
 
-export async function getWatchPatterns(tenantId?: string): Promise<AgentWatchPattern[]> {
-  if (!tenantId || !UUID_RE.test(tenantId)) return [];
-
-  const agents = await getAgentsForTenant(tenantId);
+export async function getWatchPatterns(): Promise<AgentWatchPattern[]> {
+  const agents = await getAgentsForTenant();
 
   return agents.map((a): AgentWatchPattern => ({
     agentId: a.agent_key,
@@ -102,30 +100,28 @@ export async function getWatchPatterns(tenantId?: string): Promise<AgentWatchPat
 // =============================================================================
 
 export async function classifyAndRoute(
-  tenantId: string,
+  _tenantId: string,
   userId: string,
   input: RouteInput,
 ): Promise<ClassifyOutcome> {
-  if (!tenantId || !UUID_RE.test(tenantId)) return { success: false, error: 'INVALID_TENANT' };
   if (!userId || !UUID_RE.test(userId)) return { success: false, error: 'INVALID_USER' };
   if (!input.text?.trim()) return { success: false, error: 'EMPTY_INPUT' };
 
   try {
     const sovereign = createSovereignClient();
 
-    // 1. Fetch tenant context + agents in parallel
-    const [tenantResult, agents] = await Promise.all([
+    // 1. Fetch clinic config + agents in parallel
+    const [configResult, agents] = await Promise.all([
       sovereign
-        .from('tenants')
-        .select('company_name, ai_name, industry')
-        .eq('id', tenantId)
+        .from('clinic_config')
+        .select('clinic_name, ai_name')
+        .limit(1)
         .single(),
-      getAgentsForTenant(tenantId),
+      getAgentsForTenant(),
     ]);
 
-    const tenant = tenantResult.data;
-    const companyName = tenant?.company_name || 'Organisation';
-    const aiName = tenant?.ai_name || 'Ilyas';
+    const companyName = configResult.data?.clinic_name || 'Edgbaston Wellness Clinic';
+    const aiName = configResult.data?.ai_name || 'Aria';
 
     if (agents.length === 0) {
       return { success: false, error: 'NO_AGENTS_CONFIGURED' };
@@ -215,7 +211,7 @@ export async function classifyAndRoute(
     const confidence = Math.min(1, Math.max(0, parsed.agent_confidence || 0.5));
 
     // 7. Create signal with new classification fields
-    const signalRes = await createSignal(tenantId, {
+    const signalRes = await createSignal(_tenantId, {
       signalType: parsed.category || 'general',
       title: parsed.intent || input.text.slice(0, 80),
       description: input.text,
@@ -255,7 +251,7 @@ export async function classifyAndRoute(
     // 8. Update/create category in signal_categories (fire and forget)
     if (parsed.category) {
       upsertCategory(
-        tenantId,
+        _tenantId,
         matchedAgent.id,
         parsed.category,
         parsed.subcategory || null,
@@ -302,12 +298,11 @@ export async function classifyAndRoute(
 // =============================================================================
 
 export async function sendDirectToAgent(
-  tenantId: string,
+  _tenantId: string,
   userId: string,
   agentId: string,
   text: string,
 ): Promise<{ success: boolean; signalId?: string; error?: string }> {
-  if (!tenantId || !UUID_RE.test(tenantId)) return { success: false, error: 'INVALID_TENANT' };
   if (!userId || !UUID_RE.test(userId)) return { success: false, error: 'INVALID_USER' };
   if (!text?.trim()) return { success: false, error: 'EMPTY_INPUT' };
 
@@ -317,13 +312,13 @@ export async function sendDirectToAgent(
     const { getAgentById } = await import('@/lib/actions/agent-service');
     agent = await getAgentById(agentId);
   } else {
-    agent = await getAgentByKey(tenantId, agentId);
+    agent = await getAgentByKey(agentId);
   }
 
   if (!agent) return { success: false, error: 'UNKNOWN_AGENT' };
 
   // Create signal for the direct agent
-  const signalRes = await createSignal(tenantId, {
+  const signalRes = await createSignal(_tenantId, {
     signalType: 'direct_message',
     title: text.slice(0, 80),
     description: text,
@@ -338,7 +333,7 @@ export async function sendDirectToAgent(
 
   // Background: run lightweight classification for category tracking
   if (signalRes.success) {
-    backgroundClassify(tenantId, agent, text).catch(() => {});
+    backgroundClassify('clinic', agent, text).catch(() => {});
   }
 
   return signalRes;
@@ -414,7 +409,7 @@ Respond with ONLY valid JSON (no markdown, no backticks):
 // =============================================================================
 
 async function backgroundClassify(
-  tenantId: string,
+  _tenantId: string,
   agent: DBAgent,
   text: string,
 ): Promise<void> {
@@ -433,7 +428,7 @@ async function backgroundClassify(
     const parsed = JSON.parse(raw.trim().replace(/^```json?\s*/, '').replace(/\s*```$/, ''));
 
     if (parsed.category) {
-      await upsertCategory(tenantId, agent.id, parsed.category, parsed.subcategory || null, text.slice(0, 80));
+      await upsertCategory(_tenantId, agent.id, parsed.category, parsed.subcategory || null, text.slice(0, 80));
     }
 
     await incrementAgentSignalCount(agent.id);

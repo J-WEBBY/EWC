@@ -10,7 +10,7 @@ import {
   ArrowUpRight,
 } from 'lucide-react';
 import {
-  getStaffProfile, getLatestTenantAndUser, type StaffProfile,
+  getStaffProfile, getCurrentUser, type StaffProfile,
 } from '@/lib/actions/staff-onboarding';
 import { StaffNav } from '@/components/staff-nav';
 import {
@@ -203,7 +203,7 @@ export default function PatientsPage() {
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    getLatestTenantAndUser().then(r => {
+    getCurrentUser().then(r => {
       const uid = r.userId ?? userId;
       if (!uid) return;
       getStaffProfile('clinic', uid).then(res => {

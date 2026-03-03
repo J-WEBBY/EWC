@@ -14,7 +14,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import {
-  getStaffProfile, getLatestTenantAndUser,
+  getStaffProfile, getCurrentUser,
   type StaffProfile,
 } from '@/lib/actions/staff-onboarding';
 import { StaffNav } from '@/components/staff-nav';
@@ -430,7 +430,7 @@ export default function AutomationsPage() {
     (async () => {
       let uid = urlUserId;
       if (!uid) {
-        const fallback = await getLatestTenantAndUser();
+        const fallback = await getCurrentUser();
         if (fallback.success && fallback.userId) uid = fallback.userId;
       }
       if (!uid) { router.push('/login'); return; }

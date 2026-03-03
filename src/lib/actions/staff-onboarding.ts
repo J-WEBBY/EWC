@@ -700,22 +700,20 @@ Onboarding: ${JSON.stringify(user.onboarding_responses || {})}`,
 }
 
 // =============================================================================
-// getLatestTenantAndUser — Auto-resolve tenant + admin user for direct access
+// getCurrentUser — resolve the active admin user (single-tenant)
 // =============================================================================
 
-export async function getLatestTenantAndUser(): Promise<{
+export async function getCurrentUser(): Promise<{
   success: boolean;
-  tenantId?: string;
   userId?: string;
   error?: string;
 }> {
   try {
     const sovereign = createSovereignClient();
 
-    // Single-tenant: just get the admin user (or first active user)
     const { data: user, error: userErr } = await sovereign
       .from('users')
-      .select('id, is_admin')
+      .select('id')
       .eq('status', 'active')
       .order('is_admin', { ascending: false })
       .order('created_at', { ascending: true })
@@ -726,8 +724,20 @@ export async function getLatestTenantAndUser(): Promise<{
       return { success: false, error: 'NO_USER_FOUND' };
     }
 
-    return { success: true, tenantId: 'clinic', userId: user.id };
+    return { success: true, userId: user.id };
   } catch {
     return { success: false, error: 'RESOLUTION_FAILED' };
   }
+}
+
+// getLatestTenantAndUser — kept for backward compat, use getCurrentUser instead
+/** @deprecated use getCurrentUser() */
+export async function getLatestTenantAndUser(): Promise<{
+  success: boolean;
+  tenantId?: string;
+  userId?: string;
+  error?: string;
+}> {
+  const res = await getCurrentUser();
+  return { ...res, tenantId: 'clinic' };
 }

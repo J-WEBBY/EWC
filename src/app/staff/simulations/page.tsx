@@ -18,7 +18,7 @@ import {
   type NeuralNode, type NeuralEdge,
 } from '@/lib/actions/simulations';
 import {
-  getStaffProfile, getLatestTenantAndUser, type StaffProfile,
+  getStaffProfile, getCurrentUser, type StaffProfile,
 } from '@/lib/actions/staff-onboarding';
 import { StaffNav } from '@/components/staff-nav';
 
@@ -640,9 +640,9 @@ export default function SimulationsPage() {
         let uid = searchParams.get('userId');
 
         if (!tid || !uid) {
-          const fallback = await getLatestTenantAndUser();
+          const fallback = await getCurrentUser();
           if (fallback.success) {
-            tid = tid || fallback.tenantId || null;
+            tid = tid || 'clinic';
             uid = uid || fallback.userId || null;
           }
         }

@@ -10,11 +10,11 @@ const AGENT_SERVICE_SECRET = process.env.AGENT_SERVICE_SECRET || '';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { tenant_id, user_id, conversation_id, message, agent_scope } = body;
+    const { user_id, conversation_id, message, agent_scope } = body;
 
-    if (!tenant_id || !user_id || !conversation_id) {
+    if (!user_id || !conversation_id) {
       return NextResponse.json(
-        { error: 'Missing tenant_id, user_id, or conversation_id' },
+        { error: 'Missing user_id or conversation_id' },
         { status: 400 },
       );
     }
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
           'x-service-secret': AGENT_SERVICE_SECRET,
         },
         body: JSON.stringify({
-          tenant_id,
+          tenant_id: 'clinic',
           user_id,
           conversation_id,
           message,
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
       async start(controller) {
         try {
           for await (const event of agentChatStream(
-            tenant_id,
+            'clinic',
             user_id,
             conversation_id,
             message,

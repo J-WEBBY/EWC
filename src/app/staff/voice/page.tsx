@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { StaffNav }                from '@/components/staff-nav';
 import {
-  getStaffProfile, getLatestTenantAndUser, type StaffProfile,
+  getStaffProfile, getCurrentUser, type StaffProfile,
 } from '@/lib/actions/staff-onboarding';
 import {
   getVapiCalls, getAllAssistantStatuses,
@@ -232,7 +232,7 @@ export default function ReceptionPage() {
 
   // ---------- profile ----------
   useEffect(() => {
-    getLatestTenantAndUser()
+    getCurrentUser()
       .then(({ userId }) => getStaffProfile('clinic', userId ?? ''))
       .then(res => { if (res.success && res.data) setProfile(res.data.profile); })
       .catch(console.error);

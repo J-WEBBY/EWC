@@ -20,7 +20,7 @@ import {
   type MessageStatus, type MessageCategory,
 } from '@/lib/actions/bridge';
 import {
-  getStaffProfile, getLatestTenantAndUser, type StaffProfile, type AgentCard,
+  getStaffProfile, getCurrentUser, type StaffProfile, type AgentCard,
 } from '@/lib/actions/staff-onboarding';
 import { classifyAndRoute, sendDirectToAgent } from '@/lib/actions/primary-agent';
 import type { ClassificationResult } from '@/lib/actions/primary-agent';
@@ -442,9 +442,9 @@ export default function BridgePage() {
       return;
     }
     (async () => {
-      const res = await getLatestTenantAndUser();
-      if (res.success && res.tenantId && res.userId) {
-        setResolvedTenantId(res.tenantId);
+      const res = await getCurrentUser();
+      if (res.success && res.userId) {
+        setResolvedTenantId('clinic');
         setResolvedUserId(res.userId);
       }
     })();

@@ -8,17 +8,17 @@ export async function PATCH(
   try {
     const { signalId } = await params;
     const body = await req.json();
-    const { tenant_id, user_id, corrected_agent_id, corrected_category, corrected_subcategory, correction_reason } = body;
+    const { user_id, corrected_agent_id, corrected_category, corrected_subcategory, correction_reason } = body;
 
-    if (!tenant_id || !user_id) {
-      return NextResponse.json({ error: 'Missing tenant_id or user_id' }, { status: 400 });
+    if (!user_id) {
+      return NextResponse.json({ error: 'Missing user_id' }, { status: 400 });
     }
 
     if (!signalId) {
       return NextResponse.json({ error: 'Missing signalId' }, { status: 400 });
     }
 
-    const result = await correctClassification(tenant_id, signalId, user_id, {
+    const result = await correctClassification('clinic', signalId, user_id, {
       corrected_agent_id,
       corrected_category,
       corrected_subcategory,

@@ -19,7 +19,7 @@ import {
   type TimeRange, type DeptSortKey,
 } from '@/lib/actions/analytics';
 import {
-  getStaffProfile, getLatestTenantAndUser, type StaffProfile,
+  getStaffProfile, getCurrentUser, type StaffProfile,
 } from '@/lib/actions/staff-onboarding';
 import { StaffNav } from '@/components/staff-nav';
 
@@ -582,9 +582,9 @@ export default function AnalyticsPage() {
       return;
     }
     (async () => {
-      const res = await getLatestTenantAndUser();
-      if (res.success && res.tenantId && res.userId) {
-        setResolvedTenantId(res.tenantId);
+      const res = await getCurrentUser();
+      if (res.success && res.userId) {
+        setResolvedTenantId('clinic');
         setResolvedUserId(res.userId);
       }
     })();

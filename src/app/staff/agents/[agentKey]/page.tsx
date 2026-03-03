@@ -54,7 +54,7 @@ import {
   type AgentSignalSummary, type AgentConversationSummary,
 } from '@/lib/actions/agent-service';
 import {
-  getStaffProfile, getLatestTenantAndUser,
+  getStaffProfile, getCurrentUser,
   type StaffProfile,
 } from '@/lib/actions/staff-onboarding';
 import {
@@ -408,8 +408,8 @@ export default function AgentChatPage() {
   useEffect(() => {
     if (!agentKey) return;
     (async () => {
-      const { tenantId, userId: uid } = await getLatestTenantAndUser();
-      const tid     = tenantId || 'clinic';
+      const { userId: uid } = await getCurrentUser();
+      const tid = 'clinic';
       const safeUid = uid || urlUserId || '';
       setUserId(safeUid);
 

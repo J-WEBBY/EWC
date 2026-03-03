@@ -16,7 +16,7 @@ import {
   getSyncLogs, disconnectCliniko,
 } from '@/lib/actions/cliniko';
 import {
-  getStaffProfile, getLatestTenantAndUser, type StaffProfile,
+  getStaffProfile, getCurrentUser, type StaffProfile,
 } from '@/lib/actions/staff-onboarding';
 import { StaffNav } from '@/components/staff-nav';
 
@@ -459,7 +459,7 @@ export default function IntegrationsPage() {
   useEffect(() => {
     if (paramUserId) { setResolvedUserId(paramUserId); return; }
     (async () => {
-      const res = await getLatestTenantAndUser();
+      const res = await getCurrentUser();
       if (res.success && res.userId) setResolvedUserId(res.userId);
     })();
   }, [paramUserId]);

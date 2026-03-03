@@ -11,7 +11,7 @@ import {
   TrendingUp, TrendingDown, Minus,
 } from 'lucide-react';
 import {
-  getStaffProfile, getLatestTenantAndUser, type StaffProfile,
+  getStaffProfile, getCurrentUser, type StaffProfile,
 } from '@/lib/actions/staff-onboarding';
 import { StaffNav } from '@/components/staff-nav';
 import {
@@ -607,7 +607,7 @@ export default function PatientHubPage() {
   const [activeTab, setActiveTab] = useState<Tab>(openTab);
 
   useEffect(() => {
-    getLatestTenantAndUser().then(r => {
+    getCurrentUser().then(r => {
       const uid = r.userId ?? userId;
       if (!uid) return;
       getStaffProfile('clinic', uid).then(res => {
