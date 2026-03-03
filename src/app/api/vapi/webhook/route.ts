@@ -137,8 +137,8 @@ function inferAgentMode(
   summary: string,
   toolsUsed: string[],
   agentConsulted: string | null,
-): 'orion' | 'aria' | 'ewc' {
-  // Trust ask_agent call over everything — it tells us which specialist was consulted
+): 'orion' | 'aria' | 'komal' {
+  // Trust ask_agent call over everything — it tells us which brain was consulted
   if (agentConsulted === 'orion') return 'orion';
   if (agentConsulted === 'aria') return 'aria';
 
@@ -157,7 +157,8 @@ function inferAgentMode(
       s.includes('concern') || s.includes('recovery')) {
     return 'aria';
   }
-  return 'ewc';
+  // Komal handled it directly with Tier 1 tools — no specialist brain needed
+  return 'komal';
 }
 
 // ---------------------------------------------------------------------------
@@ -256,6 +257,7 @@ export async function POST(req: NextRequest) {
       responseMode   = 'auto';
       signalStatus   = 'resolved';
     } else {
+      // agentMode === 'komal' — Komal handled it directly (no specialist brain used)
       signalTitle    = `${direction === 'inbound' ? 'Inbound' : 'Outbound'} call - ${caller}`;
       signalPriority = 'low';
       signalCategory = 'Voice';
@@ -287,7 +289,7 @@ export async function POST(req: NextRequest) {
     await supabase.from('signals').insert({
       title:         signalTitle,
       description:   summary || `${direction} call with ${caller}. Duration: ${duration}s. Ended: ${call.endedReason ?? 'normal'}. Outcome: ${outcome}.`,
-      signal_type:   agentMode === 'orion' ? 'patient_acquisition' : agentMode === 'aria' ? 'patient_retention' : 'operational',
+      signal_type:   agentMode === 'orion' ? 'patient_acquisition' : agentMode === 'aria' ? 'patient_retention' : 'voice',
       priority:      signalPriority,
       category:      signalCategory,
       status:        signalStatus,

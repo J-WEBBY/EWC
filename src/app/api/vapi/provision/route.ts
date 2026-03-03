@@ -30,8 +30,7 @@ const WEBHOOK_SECRET = process.env.VAPI_WEBHOOK_SECRET ?? '';
 const HAIKU_MODEL = 'claude-haiku-4-5-20251001';  // Komal — fast, voice latency critical
 
 // ---------------------------------------------------------------------------
-// Shared voice — Charlotte (11Labs). Same voice across all 4 assistants
-// so callers hear one seamless persona regardless of who is speaking.
+// Shared voice — Charlotte (11Labs).
 // ---------------------------------------------------------------------------
 
 const CHARLOTTE_VOICE = {
@@ -90,6 +89,34 @@ async function vapiPost(path: string, body: object) {
   return JSON.parse(text);
 }
 
+// Delete a Vapi assistant by ID — 404 is fine (already gone).
+async function vapiDelete(path: string): Promise<void> {
+  const res = await fetch(`${VAPI_BASE}${path}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${PRIVATE_KEY}` },
+    cache: 'no-store',
+  });
+  if (!res.ok && res.status !== 404) {
+    const text = await res.text();
+    console.warn(`[vapi/provision] DELETE ${path} ${res.status}: ${text.slice(0, 100)}`);
+  }
+}
+
+// Old Squad assistant names — deleted automatically on every provision run.
+const OLD_ASSISTANT_NAMES = [
+  'Orion — EWC Sales',
+  'Aria — EWC Retention',
+  'EWC — Operations',
+];
+
+// Remove old Squad assistants if they still exist in the account.
+async function cleanupOldAssistants(list: { id: string; name: string }[]): Promise<number> {
+  const stale = list.filter(a => OLD_ASSISTANT_NAMES.includes(a.name));
+  if (stale.length === 0) return 0;
+  await Promise.all(stale.map(a => vapiDelete(`/assistant/${a.id}`)));
+  return stale.length;
+}
+
 // Upsert assistant — PATCH if exists, POST if new. Returns assistant ID.
 async function upsertAssistant(
   name: string,
@@ -127,11 +154,14 @@ export async function POST(req: NextRequest) {
       voiceId?: string; firstMessage?: string; endCallMessage?: string;
     };
 
-    // 2. List existing assistants (for upsert logic)
+    // 2. List existing assistants
     const listData = await vapiGet('/assistant?limit=100');
     const assistantList: { id: string; name: string }[] = Array.isArray(listData)
       ? listData
       : Array.isArray(listData.results) ? listData.results : [];
+
+    // 2a. Delete old Squad assistants — keeps Vapi account clean
+    const cleaned = await cleanupOldAssistants(assistantList);
 
     // 3. Komal — single assistant, 8 tools (7 direct + ask_agent)
     const komalTools = buildKomalToolDefinitions(APP_URL);
@@ -173,14 +203,18 @@ export async function POST(req: NextRequest) {
     // 4. Upsert Komal
     const komalId = await upsertAssistant('Komal — EWC Receptionist', komalPayload, assistantList);
 
+    const action = assistantList.find(a => a.name === 'Komal — EWC Receptionist') ? 'updated' : 'created';
+
     return NextResponse.json({
-      success:     true,
-      assistantId: komalId,
-      toolCount:   komalTools.length,
-      model:       HAIKU_MODEL,
-      message:     `Komal ${assistantList.find(a => a.name === 'Komal — EWC Receptionist') ? 'updated' : 'created'} — ${komalTools.length} tools (7 direct + ask_agent). Assign phone number to assistant ID: ${komalId} in Vapi dashboard.`,
-      webhook:     WEBHOOK_URL ?? 'not set',
-      brains:      { orion: 'sales_agent (acquisition)', aria: 'crm_agent (retention)' },
+      success:       true,
+      assistantId:   komalId,
+      action,
+      toolCount:     komalTools.length,
+      model:         HAIKU_MODEL,
+      cleanedUp:     cleaned,
+      message:       `Komal ${action} — ${komalTools.length} tools. ${cleaned > 0 ? `${cleaned} old Squad assistant(s) removed. ` : ''}Assign phone number to assistant ID: ${komalId} in Vapi dashboard.`,
+      webhook:       WEBHOOK_URL ?? 'not set',
+      brains:        { orion: 'sales_agent (acquisition)', aria: 'crm_agent (retention)' },
     });
 
   } catch (err) {
