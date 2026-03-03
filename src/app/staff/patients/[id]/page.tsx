@@ -15,10 +15,11 @@ import {
 } from '@/lib/actions/staff-onboarding';
 import { StaffNav } from '@/components/staff-nav';
 import {
-  getPatientHub, askAboutPatient,
+  getPatientHub,
   type PatientHubData, type PatientIntelligenceRow,
   type TimelineEvent, type LifecycleStage, type PatientAppointment,
 } from '@/lib/actions/patients';
+import { askAboutPatient } from '@/lib/actions/patient-ai';
 
 // =============================================================================
 // TOKENS
