@@ -1,6 +1,10 @@
 'use server';
 
 import { createSovereignClient } from '@/lib/supabase/service';
+import { runAgentLoop } from '@/lib/ai/agent-executor';
+import { SPECIALIST_TOOLS } from '@/lib/ai/tools';
+import { getAgentByKey } from '@/lib/actions/agent-service';
+import { ANTHROPIC_MODELS } from '@/lib/ai/anthropic';
 
 // =============================================================================
 // TYPES
@@ -520,7 +524,12 @@ export async function getPatientIntelligenceList(search?: string): Promise<{
     return { success: true, patients, total: patients.length, isDemo: false };
   } catch (err) {
     console.error('[patients] getPatientIntelligenceList error:', err);
-    return { success: false, patients: [], total: 0, isDemo: true, error: String(err) };
+    const filtered = search
+      ? DEMO_PATIENTS.filter(p =>
+          `${p.first_name} ${p.last_name}`.toLowerCase().includes(search.toLowerCase()) ||
+          (p.phone ?? '').includes(search) || (p.email ?? '').toLowerCase().includes(search.toLowerCase()))
+      : DEMO_PATIENTS;
+    return { success: false, patients: filtered, total: filtered.length, isDemo: true, error: String(err) };
   }
 }
 
@@ -681,5 +690,73 @@ export async function getPatientStats() {
     return { success: true as const, stats: { total, active_this_month: new Set(appts.map(a => a.cliniko_patient_id)).size, no_show_count: appts.filter(a => a.status === 'Did Not Arrive').length, upcoming_today: appts.filter(a => { if (!a.starts_at) return false; const d = new Date(a.starts_at); return d >= todayStart && d <= todayEnd; }).length } };
   } catch (err) {
     return { success: false as const, error: String(err) };
+  }
+}
+
+// =============================================================================
+// askAboutPatient — AI agent analysis of a specific patient
+// Routes to Aria (crm_agent) for existing patients, Orion (sales_agent) for leads
+// =============================================================================
+
+export async function askAboutPatient(
+  patientId: string,
+  question: string,
+): Promise<{ success: boolean; response?: string; agentName?: string; error?: string }> {
+  try {
+    const hubResult = await getPatientHub(patientId);
+    if (!hubResult.success || !hubResult.data) {
+      return { success: false, error: 'Patient data not available.' };
+    }
+
+    const p = hubResult.data.patient;
+
+    const context = [
+      `Patient: ${p.first_name} ${p.last_name}`,
+      `Stage: ${p.lifecycle_stage} | Engagement: ${p.engagement_score}/100`,
+      `Visits: ${p.total_visits} | Last visit: ${p.days_since_last_visit !== null ? p.days_since_last_visit + ' days ago' : 'never'}`,
+      `Latest treatment: ${p.latest_treatment ?? 'none'}`,
+      `Treatments: ${p.treatment_tags.join(', ') || 'none'}`,
+      `Cancellation rate: ${Math.round(p.cancellation_rate * 100)}%`,
+      `Phone: ${p.phone ?? 'unknown'} | Email: ${p.email ?? 'unknown'}`,
+      `Referral: ${p.referral_source ?? 'unknown'}`,
+      p.notes ? `Notes: ${p.notes}` : null,
+      p.next_best_action ? `Recommended action: ${p.next_best_action.title} — ${p.next_best_action.description}` : null,
+    ].filter(Boolean).join('\n');
+
+    const agentKey = (p.lifecycle_stage === 'lead' || p.lifecycle_stage === 'new')
+      ? 'sales_agent'
+      : 'crm_agent';
+
+    const agent = await getAgentByKey(agentKey);
+    if (!agent) {
+      return { success: false, error: 'AI agent not available — check database.' };
+    }
+
+    const agentName = agentKey === 'sales_agent' ? 'Orion' : 'Aria';
+
+    const systemPrompt = `${agent.system_prompt}
+
+You are being asked to advise on a specific patient at Edgbaston Wellness Clinic.
+Be concise, warm, and clinically appropriate. Give actionable guidance in 2–4 short paragraphs.
+Do not repeat the patient data back — jump straight to your analysis and recommendation.`;
+
+    const result = await runAgentLoop(
+      {
+        tenantId: 'clinic',
+        userId: 'system',
+        systemPrompt,
+        tools: SPECIALIST_TOOLS,
+        model: ANTHROPIC_MODELS.HAIKU,
+        maxIterations: 2,
+        maxTokens: 600,
+        temperature: 0.5,
+      },
+      `Patient context:\n${context}\n\nQuestion: ${question}`,
+    );
+
+    return { success: true, response: result.text, agentName };
+  } catch (err) {
+    console.error('[patients] askAboutPatient error:', err);
+    return { success: false, error: 'AI agent unavailable right now. Please try again.' };
   }
 }
