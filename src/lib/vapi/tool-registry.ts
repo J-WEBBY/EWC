@@ -1,8 +1,9 @@
 // =============================================================================
-// Vapi Tool Registry
-// Maps Vapi tool call names → handler functions.
-// All tools remain registered — Komal and specialists each declare their own
-// subset in their Vapi config; the registry handles any that fire.
+// Vapi Tool Registry — Hybrid Architecture
+// Komal (Haiku, single assistant) routes via two paths:
+//   Tier 1: Direct tools (150-300ms) — DB queries, static facts, actions
+//   Tier 2: ask_agent (400-600ms) — Orion (acquisition) or Aria (retention)
+// All tools registered here; buildKomalToolDefinitions() injected at provision.
 // =============================================================================
 
 import { identifyCaller }        from '@/lib/vapi/tools/identify-caller';
@@ -33,19 +34,19 @@ export const VAPI_TOOL_REGISTRY: Record<string, ToolHandler> = {
 };
 
 // ---------------------------------------------------------------------------
-// Tool definition builders — injected into each assistant at provision.
+// Komal tool definitions — 8 tools injected into the single Vapi assistant.
 // Per-tool server.url routes all calls to /api/vapi/tool.
 // ---------------------------------------------------------------------------
 
-// Komal — 7 tools. Fast, focused. Transfers replace ask_agent for deep reasoning.
 export function buildKomalToolDefinitions(appUrl: string): object[] {
   const serverUrl = `${appUrl}/api/vapi/tool`;
   return [
+    // ── TIER 1: Direct tools (150–300ms) ─────────────────────────────────────
     {
       type: 'function',
       function: {
         name: 'identify_caller',
-        description: 'Check if this caller is an existing patient using their phone number or name. Call early in every inbound call to determine which mode to use.',
+        description: 'Check if this caller is an existing patient using their phone number or name. Call early in every inbound call to determine new enquiry or existing patient mode.',
         parameters: {
           type: 'object',
           properties: {
@@ -79,7 +80,7 @@ export function buildKomalToolDefinitions(appUrl: string): object[] {
       type: 'function',
       function: {
         name: 'search_knowledge_base',
-        description: 'Search for treatment information, FAQs, pricing context, or clinic protocols. Use to answer common questions before escalating to a specialist.',
+        description: 'Search for treatment information, FAQs, pricing context, or clinic protocols. Use for straightforward questions before escalating to a specialist brain.',
         parameters: {
           type: 'object',
           properties: {
@@ -167,212 +168,24 @@ export function buildKomalToolDefinitions(appUrl: string): object[] {
       },
       server: { url: serverUrl },
     },
-  ];
-}
-
-// Orion (Sales) — treatment knowledge + booking/lead actions
-export function buildOrionToolDefinitions(appUrl: string): object[] {
-  const serverUrl = `${appUrl}/api/vapi/tool`;
-  return [
+    // ── TIER 2: Specialist brain (400–600ms Haiku) ────────────────────────────
     {
       type: 'function',
       function: {
-        name: 'search_knowledge_base',
-        description: 'Search for treatment details, results, protocols, pricing context, and FAQs to answer patient questions with authority.',
+        name: 'ask_agent',
+        description: 'Consult a specialist brain for deeper knowledge. Use ask_agent("orion") for new patient objections, complex treatment questions, pricing guidance, or closing advice. Use ask_agent("aria") for existing patient care, rebooking guidance, or retention. Always say "Let me just check that for you" before calling this.',
         parameters: {
           type: 'object',
           properties: {
-            query: { type: 'string', description: 'Treatment question or keywords' },
-            limit: { type: 'number', description: 'Max results (1-5)' },
+            agent: {
+              type: 'string',
+              enum: ['orion', 'aria'],
+              description: 'orion = new patient acquisition specialist. aria = existing patient retention specialist.',
+            },
+            question: { type: 'string', description: 'The specific question or situation to get guidance on' },
+            context:  { type: 'string', description: 'Brief call context: caller name, what they said, any patient ID' },
           },
-          required: ['query'],
-        },
-      },
-      server: { url: serverUrl },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'create_booking_request',
-        description: 'Create a booking when the caller is ready to book an appointment.',
-        parameters: {
-          type: 'object',
-          properties: {
-            patient_name:   { type: 'string' },
-            phone:          { type: 'string' },
-            treatment:      { type: 'string' },
-            preferred_date: { type: 'string' },
-            notes:          { type: 'string' },
-          },
-          required: ['patient_name', 'phone', 'treatment', 'preferred_date'],
-        },
-      },
-      server: { url: serverUrl },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'capture_lead',
-        description: 'Capture a lead when the caller is interested but not ready to book yet.',
-        parameters: {
-          type: 'object',
-          properties: {
-            name:               { type: 'string' },
-            phone:              { type: 'string' },
-            email:              { type: 'string' },
-            treatment_interest: { type: 'string' },
-            source:             { type: 'string' },
-            notes:              { type: 'string' },
-          },
-          required: ['name', 'phone', 'treatment_interest'],
-        },
-      },
-      server: { url: serverUrl },
-    },
-  ];
-}
-
-// Aria (Retention) — patient history + care + rebooking
-export function buildAriaToolDefinitions(appUrl: string): object[] {
-  const serverUrl = `${appUrl}/api/vapi/tool`;
-  return [
-    {
-      type: 'function',
-      function: {
-        name: 'get_patient_history',
-        description: 'Get this patient\'s full appointment history, last treatment, and upcoming bookings to personalise your conversation.',
-        parameters: {
-          type: 'object',
-          properties: {
-            patient_id: { type: 'string', description: 'Cliniko patient ID from identify_caller' },
-          },
-          required: ['patient_id'],
-        },
-      },
-      server: { url: serverUrl },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'search_knowledge_base',
-        description: 'Search for aftercare guidance, treatment information, or FAQs to help the patient.',
-        parameters: {
-          type: 'object',
-          properties: {
-            query: { type: 'string' },
-            limit: { type: 'number' },
-          },
-          required: ['query'],
-        },
-      },
-      server: { url: serverUrl },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'create_booking_request',
-        description: 'Create a rebooking request when the patient is ready to book their next appointment.',
-        parameters: {
-          type: 'object',
-          properties: {
-            patient_name:   { type: 'string' },
-            phone:          { type: 'string' },
-            treatment:      { type: 'string' },
-            preferred_date: { type: 'string' },
-            notes:          { type: 'string' },
-          },
-          required: ['patient_name', 'phone', 'treatment', 'preferred_date'],
-        },
-      },
-      server: { url: serverUrl },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'log_call_concern',
-        description: 'Log a clinical concern, adverse reaction, complaint, or billing issue raised by the patient.',
-        parameters: {
-          type: 'object',
-          properties: {
-            concern_type: { type: 'string', enum: ['clinical', 'complaint', 'adverse_reaction', 'billing'] },
-            description:  { type: 'string' },
-            severity:     { type: 'string', enum: ['low', 'medium', 'high'] },
-            caller_name:  { type: 'string' },
-            caller_phone: { type: 'string' },
-          },
-          required: ['concern_type', 'description', 'severity'],
-        },
-      },
-      server: { url: serverUrl },
-    },
-  ];
-}
-
-// EWC (Operations) — full knowledge + availability + patient context
-export function buildEwcToolDefinitions(appUrl: string): object[] {
-  const serverUrl = `${appUrl}/api/vapi/tool`;
-  return [
-    {
-      type: 'function',
-      function: {
-        name: 'search_knowledge_base',
-        description: 'Search clinic protocols, treatments, compliance information, or any clinic-specific knowledge.',
-        parameters: {
-          type: 'object',
-          properties: {
-            query: { type: 'string' },
-            limit: { type: 'number' },
-          },
-          required: ['query'],
-        },
-      },
-      server: { url: serverUrl },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'get_patient_history',
-        description: 'Get a patient\'s appointment history and upcoming bookings when context is needed.',
-        parameters: {
-          type: 'object',
-          properties: {
-            patient_id: { type: 'string' },
-          },
-          required: ['patient_id'],
-        },
-      },
-      server: { url: serverUrl },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'check_appointment_slots',
-        description: 'Check available appointment slots for a treatment on or around a preferred date.',
-        parameters: {
-          type: 'object',
-          properties: {
-            treatment:      { type: 'string' },
-            preferred_date: { type: 'string' },
-          },
-        },
-      },
-      server: { url: serverUrl },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'create_booking_request',
-        description: 'Create a booking if the caller is ready to book during this conversation.',
-        parameters: {
-          type: 'object',
-          properties: {
-            patient_name:   { type: 'string' },
-            phone:          { type: 'string' },
-            treatment:      { type: 'string' },
-            preferred_date: { type: 'string' },
-            notes:          { type: 'string' },
-          },
-          required: ['patient_name', 'phone', 'treatment', 'preferred_date'],
+          required: ['agent', 'question'],
         },
       },
       server: { url: serverUrl },
