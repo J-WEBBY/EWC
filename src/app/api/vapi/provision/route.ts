@@ -30,18 +30,14 @@ const WEBHOOK_SECRET = process.env.VAPI_WEBHOOK_SECRET ?? '';
 const HAIKU_MODEL = 'claude-haiku-4-5-20251001';  // Komal — fast, voice latency critical
 
 // ---------------------------------------------------------------------------
-// Shared voice — Charlotte (11Labs).
+// Voice — Komal (Vapi native Clara).
+// Vapi-native voices are built directly into Vapi's pipeline with no external
+// TTS API hop — significantly lower latency than 11Labs (~30ms vs ~75ms).
 // ---------------------------------------------------------------------------
 
-const CHARLOTTE_VOICE = {
-  provider:                 '11labs',
-  voiceId:                  'XB0fDUnXU5powFXDhCwa',
-  model:                    'eleven_flash_v2_5',  // Flash — ~75ms vs ~250ms standard
-  stability:                0.5,
-  similarityBoost:          0.8,
-  style:                    0.3,
-  useSpeakerBoost:          true,
-  optimizeStreamingLatency: 4,  // Maximum streaming speed (0–4 scale)
+const KOMAL_VOICE = {
+  provider: 'vapi',
+  voiceId:  'Clara',
 };
 
 const DEEPGRAM_TRANSCRIBER = {
@@ -177,7 +173,7 @@ export async function POST(req: NextRequest) {
         maxTokens:   150,  // Cap Komal responses — shorter = faster TTS
         tools:       komalTools,
       },
-      voice:                 { ...CHARLOTTE_VOICE, ...(savedIdentity.voiceId ? { voiceId: savedIdentity.voiceId } : {}) },
+      voice:                 { ...KOMAL_VOICE, ...(savedIdentity.voiceId ? { voiceId: savedIdentity.voiceId } : {}) },
       transcriber:           DEEPGRAM_TRANSCRIBER,
       recordingEnabled:      true,
       backchannelingEnabled: true,
