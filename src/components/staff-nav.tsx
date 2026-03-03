@@ -15,6 +15,7 @@ import {
   BarChart2,
   Shield,
   FileText,
+  Settings,
 } from 'lucide-react';
 import type { StaffProfile } from '@/lib/actions/staff-onboarding';
 
@@ -72,7 +73,8 @@ export function StaffNav({
   ];
 
   const bottomItems: NavItem[] = [
-    { label: 'Account', href: `/staff/account?userId=${userId}`, icon: UserCircle },
+    { label: 'Account',  href: `/staff/account?userId=${userId}`,       icon: UserCircle },
+    { label: 'Settings', href: `/staff/settings/team?userId=${userId}`, icon: Settings },
   ];
 
   return (
