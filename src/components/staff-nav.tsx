@@ -18,6 +18,7 @@ import {
   FileText,
   Settings,
   ChevronLeft,
+  CalendarDays,
 } from 'lucide-react';
 import type { StaffProfile } from '@/lib/actions/staff-onboarding';
 
@@ -73,6 +74,7 @@ export function StaffNav({
         { label: 'Signals',   href: `/staff/signals?userId=${userId}`,   icon: Activity },
         { label: 'Patients',  href: `/staff/patients?userId=${userId}`,  icon: Users },
         { label: 'Bridge',    href: `/staff/bridge?userId=${userId}`,    icon: Link2 },
+        { label: 'Calendar',  href: `/staff/calendar?userId=${userId}`,  icon: CalendarDays },
       ],
     },
     {
