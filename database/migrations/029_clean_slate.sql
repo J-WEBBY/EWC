@@ -18,14 +18,9 @@ DELETE FROM agent_memories;
 DELETE FROM chat_messages;
 DELETE FROM chat_conversations;
 
--- Routing corrections (accumulated from demo usage)
-DELETE FROM routing_corrections WHERE true;
+-- (routing_corrections and signal_categories tables don't exist in this schema)
 
--- Signal categories (will be rebuilt by real traffic)
-DELETE FROM signal_categories WHERE true;
-
--- Reset agent signal counters
-UPDATE agents SET signal_count = 0, avg_confidence = 0 WHERE true;
+-- (agents table has no signal counters in this schema — nothing to reset)
 
 -- ============================================================
 -- KEEP (do not touch):

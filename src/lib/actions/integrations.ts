@@ -4,8 +4,6 @@
 // TYPES
 // =============================================================================
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 export type ConnectionStatus = 'connected' | 'pending' | 'error' | 'disconnected';
 export type IntegrationCategory = 'communication' | 'productivity' | 'documents' | 'project' | 'analytics' | 'finance' | 'industry' | 'automation';
 
@@ -114,29 +112,17 @@ const CATALOG: CatalogIntegration[] = [
 // =============================================================================
 
 export async function getConnectedIntegrations(
-  tenantId: string,
 ): Promise<{ success: boolean; integrations?: ConnectedIntegration[]; error?: string }> {
-  if (!tenantId || !UUID_RE.test(tenantId)) {
-    return { success: false, error: 'INVALID_TENANT' };
-  }
   return { success: true, integrations: [] };
 }
 
 export async function getIntegrationCatalog(
-  tenantId: string,
 ): Promise<{ success: boolean; catalog?: CatalogIntegration[]; error?: string }> {
-  if (!tenantId || !UUID_RE.test(tenantId)) {
-    return { success: false, error: 'INVALID_TENANT' };
-  }
   return { success: true, catalog: CATALOG };
 }
 
 export async function getIntegrationStats(
-  tenantId: string,
 ): Promise<{ success: boolean; stats?: IntegrationStats; error?: string }> {
-  if (!tenantId || !UUID_RE.test(tenantId)) {
-    return { success: false, error: 'INVALID_TENANT' };
-  }
   return {
     success: true,
     stats: {
@@ -151,32 +137,20 @@ export async function getIntegrationStats(
 }
 
 export async function getSyncLog(
-  tenantId: string,
 ): Promise<{ success: boolean; log?: SyncLogEntry[]; error?: string }> {
-  if (!tenantId || !UUID_RE.test(tenantId)) {
-    return { success: false, error: 'INVALID_TENANT' };
-  }
   return { success: true, log: [] };
 }
 
 export async function testConnection(
-  tenantId: string,
-  integrationId: string,
+  _integrationId: string,
 ): Promise<{ success: boolean; status?: 'ok' | 'failed'; latency_ms?: number; error?: string }> {
-  if (!tenantId || !UUID_RE.test(tenantId)) {
-    return { success: false, error: 'INVALID_TENANT' };
-  }
   // TODO: Real connection test against integration endpoint
   return { success: true, status: 'ok', latency_ms: 0 };
 }
 
 export async function disconnectIntegration(
-  tenantId: string,
-  integrationId: string,
+  _integrationId: string,
 ): Promise<{ success: boolean; error?: string }> {
-  if (!tenantId || !UUID_RE.test(tenantId)) {
-    return { success: false, error: 'INVALID_TENANT' };
-  }
-  // Mock — would update DB in production
+  // TODO: Remove from DB when integrations are live
   return { success: true };
 }

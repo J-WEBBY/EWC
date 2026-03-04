@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowRight, Check, Loader2,
@@ -13,7 +13,7 @@ import {
   ChevronDown, Bot,
 } from 'lucide-react';
 import {
-  getStaffProfile, generateRoleInsight,
+  getStaffProfile, getCurrentUser, generateRoleInsight,
   saveToolkitSelections, saveAgentPreferences, saveCalibration,
   completeStaffOnboarding,
   type StaffProfile, type IntelligenceMap, type ToolOption, type AgentCard,
@@ -197,9 +197,12 @@ function TierBadge({ tier, color }: { tier: string; color: string }) {
 
 export default function StaffOnboardingPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const tenantId = searchParams.get('tenantId');
-  const userId = searchParams.get('userId');
+  const [userId, setUserId] = useState<string | null>(null);
+
+  // ─── Resolve user on mount ───
+  useEffect(() => {
+    getCurrentUser().then(r => { if (r.success && r.userId) setUserId(r.userId); });
+  }, []);
 
   // Data
   const [profile, setProfile] = useState<StaffProfile | null>(null);
@@ -235,9 +238,9 @@ export default function StaffOnboardingPage() {
 
   // ─── Load profile on mount ───
   useEffect(() => {
-    if (!tenantId || !userId) return;
+    if (!userId) return;
     (async () => {
-      const result = await getStaffProfile(tenantId, userId);
+      const result = await getStaffProfile('clinic', userId);
       if (result.success && result.data) {
         setProfile(result.data.profile);
         setMaps(result.data.intelligenceMaps);
@@ -249,7 +252,7 @@ export default function StaffOnboardingPage() {
         setAgentPrefs(defaultPrefs);
       }
     })();
-  }, [tenantId, userId]);
+  }, [userId]);
 
   // ─── Typewriter effect for awakening ───
   useEffect(() => {
@@ -299,40 +302,40 @@ export default function StaffOnboardingPage() {
 
   // ─── Save toolkit and advance ───
   const handleToolkitContinue = useCallback(async () => {
-    if (!tenantId || !userId) return;
+    if (!userId) return;
     setLoading(true);
-    await saveToolkitSelections(tenantId, userId, Array.from(selectedTools));
+    await saveToolkitSelections('clinic', userId, Array.from(selectedTools));
     setLoading(false);
     setPhase('agents');
-  }, [tenantId, userId, selectedTools]);
+  }, [userId, selectedTools]);
 
   // ─── Save agents and advance ───
   const handleAgentsContinue = useCallback(async () => {
-    if (!tenantId || !userId) return;
+    if (!userId) return;
     setLoading(true);
-    await saveAgentPreferences(tenantId, userId, agentPrefs);
+    await saveAgentPreferences('clinic', userId, agentPrefs);
     setLoading(false);
     setPhase('calibration');
-  }, [tenantId, userId, agentPrefs]);
+  }, [userId, agentPrefs]);
 
   // ─── Complete onboarding ───
   const handleComplete = useCallback(async () => {
-    if (!tenantId || !userId) return;
+    if (!userId) return;
     setLoading(true);
 
-    await saveCalibration(tenantId, userId, {
+    await saveCalibration('clinic', userId, {
       communicationStyle: commStyle,
       proactivityLevel: proactivity,
     });
 
-    await completeStaffOnboarding(tenantId, userId);
+    await completeStaffOnboarding('clinic', userId);
     setPhase('complete');
     setLoading(false);
 
     setTimeout(() => {
-      router.push(`/staff/dashboard?tenantId=${tenantId}&userId=${userId}`);
+      router.push(`/staff/dashboard`);
     }, 4000);
-  }, [tenantId, userId, commStyle, proactivity, router]);
+  }, [userId, commStyle, proactivity, router]);
 
   // ─── Loading state ───
   if (!profile) {
