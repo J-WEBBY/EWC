@@ -6,8 +6,10 @@
 // Role-based: director | support_admin | practitioner | receptionist | view_only
 // =============================================================================
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Brain, MessageSquare, ExternalLink, TrendingUp, TrendingDown } from 'lucide-react';
 import { StaffNav } from '@/components/staff-nav';
 import {
   getStaffProfile,
@@ -39,7 +41,7 @@ import {
   type ComplianceStatus,
   type SparklinePoint,
 } from '@/lib/actions/kpi-goals';
-import { createConversation } from '@/lib/actions/chat';
+
 
 // =============================================================================
 // TYPES
@@ -497,311 +499,6 @@ function ComplianceModal({
   );
 }
 
-// =============================================================================
-// EWC COMPLIANCE AGENT PANEL
-// =============================================================================
-
-// =============================================================================
-// KPI AGENT DRAWER — right-side panel using the real EWC chat system
-// =============================================================================
-
-interface KPIAgentDrawerProps {
-  open: boolean;
-  onClose: () => void;
-  userId: string;
-  profile: StaffProfile;
-  goals: StaffGoal[];
-  complianceItems: ComplianceItem[];
-  metrics: PersonalKPIMetrics | null;
-  currentTab: Tab;
-}
-
-function KPIAgentDrawer({
-  open, onClose, userId, profile, goals, complianceItems, metrics, currentTab,
-}: KPIAgentDrawerProps) {
-  const [input, setInput]             = useState('');
-  const [messages, setMessages]       = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
-  const [streaming, setStreaming]      = useState(false);
-  const [conversationId, setConversationId] = useState<string | null>(null);
-  const [initialised, setInitialised]  = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const inputRef  = useRef<HTMLInputElement>(null);
-
-  // Build context string from live KPI data
-  function buildContext(): string {
-    const goalsTotal    = goals.length;
-    const onTrack       = goals.filter(g => g.status === 'on_track').length;
-    const atRisk        = goals.filter(g => g.status === 'at_risk').length;
-    const missed        = goals.filter(g => g.status === 'missed').length;
-    const compScore     = metrics?.compliance_score ?? 0;
-    const compOverdue   = metrics?.compliance_overdue ?? 0;
-    const cqcCritical   = metrics?.cqc_critical_overdue ?? 0;
-
-    return [
-      `[KPI PAGE CONTEXT]`,
-      `User: ${profile.firstName} ${profile.lastName} | Role: ${profile.roleName ?? 'Staff'}${profile.isAdmin ? ' (Admin)' : ''}`,
-      `Current tab: ${currentTab}`,
-      `Goals: ${goalsTotal} total — ${onTrack} on track, ${atRisk} at risk, ${missed} missed`,
-      `Compliance score: ${compScore}% | Overdue items: ${compOverdue}${cqcCritical > 0 ? ` | CQC critical overdue: ${cqcCritical}` : ''}`,
-    ].join('\n');
-  }
-
-  // Initialise conversation when drawer first opens
-  useEffect(() => {
-    if (!open || initialised || !userId) return;
-    (async () => {
-      const res = await createConversation('clinic', userId, 'primary_agent', 'KPI & Performance');
-      if (res.success && res.conversationId) {
-        setConversationId(res.conversationId);
-        setInitialised(true);
-      }
-    })();
-  }, [open, initialised, userId]);
-
-  // Scroll to bottom on new messages
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, streaming]);
-
-  // Focus input when opened
-  useEffect(() => {
-    if (open) setTimeout(() => inputRef.current?.focus(), 200);
-  }, [open]);
-
-  async function sendMsg(text: string) {
-    const trimmed = text.trim();
-    if (!trimmed || streaming || !conversationId) return;
-    setInput('');
-
-    // Inject context prefix on first message
-    const payload = messages.length === 0
-      ? `${buildContext()}\n\n${trimmed}`
-      : trimmed;
-
-    setMessages(m => [...m, { role: 'user', content: trimmed }]);
-    setStreaming(true);
-
-    // Add placeholder for streaming response
-    setMessages(m => [...m, { role: 'assistant', content: '' }]);
-
-    try {
-      const res = await fetch('/api/primary-agent/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id:         userId,
-          conversation_id: conversationId,
-          message:         payload,
-          agent_scope:     null,
-        }),
-      });
-
-      if (!res.body) throw new Error('No stream');
-
-      const reader  = res.body.getReader();
-      const decoder = new TextDecoder();
-      let fullText  = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        for (const line of chunk.split('\n')) {
-          if (!line.startsWith('data: ')) continue;
-          const raw = line.slice(6).trim();
-          if (raw === '[DONE]') break;
-          try {
-            const evt = JSON.parse(raw);
-            // Handle both { type:'text', text:'...' } and { type:'text', content:'...' }
-            const delta = evt.text ?? evt.content ?? '';
-            if (delta) {
-              fullText += delta;
-              setMessages(m => {
-                const updated = [...m];
-                updated[updated.length - 1] = { role: 'assistant', content: fullText };
-                return updated;
-              });
-            }
-          } catch { /* skip malformed */ }
-        }
-      }
-
-      if (!fullText) {
-        setMessages(m => {
-          const updated = [...m];
-          updated[updated.length - 1] = { role: 'assistant', content: 'No response received.' };
-          return updated;
-        });
-      }
-    } catch {
-      setMessages(m => {
-        const updated = [...m];
-        updated[updated.length - 1] = { role: 'assistant', content: 'EWC is temporarily unavailable.' };
-        return updated;
-      });
-    } finally {
-      setStreaming(false);
-    }
-  }
-
-  const STARTERS: { label: string; prompt: string }[] = [
-    { label: 'Review my goals',         prompt: 'Review my current goals and tell me what I should focus on.' },
-    { label: 'Compliance priorities',   prompt: 'Which compliance items should I prioritise right now?' },
-    { label: 'Set a monthly target',    prompt: 'Help me set a realistic monthly appointments target for my role.' },
-    { label: 'CQC inspection prep',     prompt: 'What are the most important CQC preparation steps for our clinic right now?' },
-  ];
-
-  return (
-    <AnimatePresence>
-      {open && (
-        <>
-          {/* Backdrop */}
-          <motion.div
-            className="fixed inset-0 z-40 bg-black/40"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-          />
-
-          {/* Drawer */}
-          <motion.div
-            className="fixed top-0 right-0 h-full w-[420px] z-50 flex flex-col bg-[#070707] border-l border-white/[0.08]"
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
-            transition={{ type: 'spring', stiffness: 320, damping: 32 }}
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.07] flex-shrink-0">
-              <div>
-                <div className="text-[13px] font-semibold text-white tracking-tight">EWC Intelligence</div>
-                <div className="text-[11px] text-white/30 mt-0.5">
-                  KPI · Goals · Compliance · CQC
-                </div>
-              </div>
-              <button
-                onClick={onClose}
-                className="w-7 h-7 rounded-lg bg-white/[0.05] hover:bg-white/[0.10] flex items-center justify-center transition-colors text-white/40 hover:text-white"
-              >
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                  <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Context pill */}
-            <div className="px-5 py-2.5 border-b border-white/[0.05] flex-shrink-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[10px] uppercase tracking-[0.14em] text-white/20">Context</span>
-                <span className="text-[10px] text-white/40 bg-white/[0.04] px-2 py-0.5 rounded-full">
-                  {goals.length} goals · {metrics?.compliance_score ?? 0}% compliant
-                </span>
-                {(metrics?.cqc_critical_overdue ?? 0) > 0 && (
-                  <span className="text-[10px] text-red-400 bg-red-400/10 px-2 py-0.5 rounded-full">
-                    {metrics!.cqc_critical_overdue} CQC critical
-                  </span>
-                )}
-                {(metrics?.goals_at_risk ?? 0) > 0 && (
-                  <span className="text-[10px] text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full">
-                    {metrics!.goals_at_risk} goals at risk
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 min-h-0">
-              {messages.length === 0 && !streaming && (
-                <div className="space-y-3 pt-2">
-                  <div className="text-[12px] text-white/25 text-center">
-                    EWC has context of your KPI and compliance data.<br />
-                    Ask anything about performance or regulations.
-                  </div>
-                  <div className="grid grid-cols-1 gap-2 pt-2">
-                    {STARTERS.map(s => (
-                      <button
-                        key={s.label}
-                        onClick={() => sendMsg(s.prompt)}
-                        disabled={!conversationId}
-                        className="text-left px-4 py-3 bg-white/[0.03] border border-white/[0.07] rounded-xl hover:bg-white/[0.06] hover:border-white/[0.12] transition-all disabled:opacity-40"
-                      >
-                        <div className="text-[12px] text-white/70 font-medium">{s.label}</div>
-                        <div className="text-[11px] text-white/30 mt-0.5 line-clamp-1">{s.prompt}</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {messages.map((m, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  {m.role === 'assistant' && (
-                    <div className="w-5 h-5 rounded-full bg-white/[0.08] flex items-center justify-center flex-shrink-0 mt-0.5 mr-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-white/50" />
-                    </div>
-                  )}
-                  <div className={`max-w-[88%] rounded-2xl px-4 py-2.5 text-[13px] leading-relaxed ${
-                    m.role === 'user'
-                      ? 'bg-white/[0.09] text-white rounded-tr-sm'
-                      : 'bg-transparent text-white/80 rounded-tl-sm px-0'
-                  }`}>
-                    {m.role === 'assistant' && streaming && i === messages.length - 1 && !m.content ? (
-                      <div className="flex gap-1 py-1">
-                        {[0,1,2].map(j => (
-                          <motion.div key={j} className="w-1 h-1 bg-white/30 rounded-full"
-                            animate={{ opacity: [0.2, 0.8, 0.2] }}
-                            transition={{ duration: 1.2, repeat: Infinity, delay: j * 0.18 }}
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="whitespace-pre-wrap">{m.content}</div>
-                    )}
-                  </div>
-                </motion.div>
-              ))}
-
-              <div ref={bottomRef} />
-            </div>
-
-            {/* Input */}
-            <div className="px-5 py-4 border-t border-white/[0.07] flex-shrink-0">
-              <div className="flex items-center gap-2 bg-white/[0.04] border border-white/[0.09] rounded-xl px-3 py-2 focus-within:border-white/[0.20] transition-colors">
-                <input
-                  ref={inputRef}
-                  className="flex-1 bg-transparent text-[13px] text-white placeholder-white/25 focus:outline-none"
-                  placeholder={conversationId ? 'Ask EWC anything…' : 'Connecting…'}
-                  value={input}
-                  disabled={!conversationId || streaming}
-                  onChange={e => setInput(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(input); } }}
-                />
-                <button
-                  onClick={() => sendMsg(input)}
-                  disabled={!input.trim() || !conversationId || streaming}
-                  className="w-7 h-7 rounded-lg bg-white/[0.08] hover:bg-white/[0.16] flex items-center justify-center transition-colors disabled:opacity-30"
-                >
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                    <path d="M11 6H1M7 2l4 4-4 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </button>
-              </div>
-              <div className="text-[10px] text-white/15 mt-2 text-center">
-                EWC · Powered by Aria Intelligence
-              </div>
-            </div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
-  );
-}
 
 // =============================================================================
 // TAB: DASHBOARD
@@ -811,10 +508,16 @@ function DashboardTab({
   profile,
   metrics,
   roleView,
+  goals,
+  complianceItems,
+  onChatWithEWC,
 }: {
   profile: StaffProfile;
   metrics: PersonalKPIMetrics | null;
   roleView: RoleView;
+  goals: StaffGoal[];
+  complianceItems: ComplianceItem[];
+  onChatWithEWC: () => void;
 }) {
   if (!metrics) return (
     <div className="flex items-center justify-center h-40">
@@ -824,118 +527,263 @@ function DashboardTab({
 
   const isPractitioner = roleView === 'practitioner';
   const isDirector     = roleView === 'director' || roleView === 'support_admin';
+  const apptDelta      = metrics.appointments_this_month - metrics.appointments_last_month;
+  const overdueItems   = complianceItems.filter(c => c.status === 'overdue' || c.status === 'expired');
+  const atRiskGoals    = goals.filter(g => g.status === 'at_risk');
+  const urgentActions  = [
+    ...overdueItems.slice(0, 2).map(c => ({ label: c.title, detail: 'Compliance overdue', color: '#DC2626' })),
+    ...atRiskGoals.slice(0, 2).map(g => ({ label: g.title, detail: 'Goal at risk', color: '#D97706' })),
+  ].slice(0, 4);
 
-  const apptDelta = metrics.appointments_this_month - metrics.appointments_last_month;
+  const apptPct  = metrics.appointments_target > 0 ? (metrics.appointments_this_month / metrics.appointments_target) * 100 : 0;
+  const goalsPct = metrics.completion_rate * 100;
+  const compPct  = metrics.compliance_score;
 
   return (
-    <div className="space-y-6">
-      {/* Welcome banner */}
-      <div className="bg-white border border-[#EBE5FF] rounded-xl p-5">
-        <div className="text-[11px] uppercase tracking-[0.18em] text-[#9CA3AF] mb-1">
-          {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
-        </div>
-        <div className="text-[22px] font-light text-[#1A1035]">
-          Good {new Date().getHours() < 12 ? 'morning' : 'afternoon'}, {profile.firstName}.
-        </div>
-        <div className="text-[13px] text-[#6B7280] mt-1">
-          {metrics.goals_total > 0
-            ? `You have ${metrics.goals_total} active goal${metrics.goals_total !== 1 ? 's' : ''} — ${metrics.goals_on_track} on track${metrics.goals_at_risk > 0 ? `, ${metrics.goals_at_risk} at risk` : ''}.`
-            : 'No goals set yet. Create your first goal below.'}
-        </div>
-      </div>
+    <div className="grid grid-cols-12 gap-5">
 
-      {/* Performance metrics */}
-      <div>
-        <div className="text-[11px] uppercase tracking-[0.18em] text-[#9CA3AF] mb-3">Performance</div>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {/* ── LEFT COLUMN ── */}
+      <div className="col-span-8 space-y-5">
 
-          {isPractitioner && (
-            <div className="bg-white border border-[#EBE5FF] rounded-xl p-4">
-              <div className="text-[11px] uppercase tracking-[0.16em] text-[#9CA3AF] mb-3">Appointments MTD</div>
-              <div className="text-[28px] font-light text-[#1A1035] mb-1">{metrics.appointments_this_month}</div>
-              <div className="text-[11px] text-[#6B7280] mb-3">Target: {metrics.appointments_target}</div>
-              <Bar pct={metrics.appointments_target > 0 ? (metrics.appointments_this_month / metrics.appointments_target) * 100 : 0} />
-              <div className={`text-[11px] mt-2 ${apptDelta >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                {apptDelta >= 0 ? '+' : ''}{apptDelta} vs last month
-              </div>
-            </div>
-          )}
-
-          <div className="bg-white border border-[#EBE5FF] rounded-xl p-4">
-            <div className="text-[11px] uppercase tracking-[0.16em] text-[#9CA3AF] mb-3">Goals Progress</div>
-            <div className="text-[28px] font-light text-[#1A1035] mb-1">{Math.round(metrics.completion_rate * 100)}%</div>
-            <div className="text-[11px] text-[#6B7280] mb-3">{metrics.goals_completed}/{metrics.goals_total} completed</div>
-            <Bar pct={metrics.completion_rate * 100} color={metrics.completion_rate >= 0.8 ? 'bg-emerald-500' : metrics.completion_rate >= 0.5 ? 'bg-[#8A6CFF]' : 'bg-amber-500'} />
-            {metrics.goals_at_risk > 0 && (
-              <div className="text-[11px] mt-2 text-amber-600">{metrics.goals_at_risk} at risk</div>
-            )}
+        {/* Welcome banner */}
+        <div className="bg-white border border-[#EBE5FF] rounded-2xl p-5">
+          <div className="text-[11px] uppercase tracking-[0.18em] text-[#9CA3AF] mb-1">
+            {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
           </div>
-
-          <div className="bg-white border border-[#EBE5FF] rounded-xl p-4">
-            <div className="text-[11px] uppercase tracking-[0.16em] text-[#9CA3AF] mb-3">Compliance Score</div>
-            <div className="flex items-center gap-3">
-              <ScoreRing score={metrics.compliance_score} size={56} />
-              <div>
-                <div className="text-[11px] text-[#6B7280]">{metrics.compliance_compliant}/{metrics.compliance_total} items</div>
-                {metrics.compliance_overdue > 0 && (
-                  <div className="text-[11px] text-red-500 mt-1">{metrics.compliance_overdue} overdue</div>
-                )}
-                {metrics.compliance_due_soon > 0 && (
-                  <div className="text-[11px] text-amber-600 mt-0.5">{metrics.compliance_due_soon} due soon</div>
-                )}
-                {metrics.cqc_critical_overdue > 0 && (
-                  <div className="text-[11px] text-red-500 font-medium mt-0.5">⚠ {metrics.cqc_critical_overdue} CQC critical</div>
-                )}
-              </div>
-            </div>
+          <div className="text-[22px] font-light text-[#1A1035]">
+            Good {new Date().getHours() < 12 ? 'morning' : 'afternoon'}, {profile.firstName}.
           </div>
-
-          {isPractitioner && (
-            <div className="bg-white border border-[#EBE5FF] rounded-xl p-4">
-              <div className="text-[11px] uppercase tracking-[0.16em] text-[#9CA3AF] mb-3">Patient Retention</div>
-              <div className="text-[28px] font-light text-[#1A1035] mb-1">{Math.round(metrics.returning_rate * 100)}%</div>
-              <div className="text-[11px] text-[#6B7280] mb-3">Return rate</div>
-              <Bar pct={metrics.returning_rate * 100} color="bg-emerald-500" />
+          <div className="text-[13px] text-[#6B7280] mt-1">
+            {metrics.goals_total > 0
+              ? `${metrics.goals_total} active goal${metrics.goals_total !== 1 ? 's' : ''} — ${metrics.goals_on_track} on track${metrics.goals_at_risk > 0 ? `, ${metrics.goals_at_risk} at risk` : ''}.`
+              : 'No goals set yet. Use the Goals tab to create your first goal.'}
+          </div>
+          {metrics.compliance_overdue > 0 && (
+            <div className="mt-3 flex items-center gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0" />
+              <span className="text-[12px] text-red-600 font-medium">
+                {metrics.compliance_overdue} compliance item{metrics.compliance_overdue !== 1 ? 's' : ''} overdue
+                {metrics.cqc_critical_overdue > 0 && ` · ${metrics.cqc_critical_overdue} CQC critical`}
+              </span>
             </div>
           )}
         </div>
-      </div>
 
-      {/* Goal status summary */}
-      {metrics.goals_total > 0 && (
+        {/* Performance Pulse */}
         <div>
-          <div className="text-[11px] uppercase tracking-[0.18em] text-[#9CA3AF] mb-3">Goal Status Breakdown</div>
-          <div className="bg-white border border-[#EBE5FF] rounded-xl p-4">
-            <div className="grid grid-cols-4 divide-x divide-[#EBE5FF]">
-              {[
-                { label: 'On Track',  val: metrics.goals_on_track,  color: 'text-emerald-600' },
-                { label: 'At Risk',   val: metrics.goals_at_risk,   color: 'text-amber-600' },
-                { label: 'Missed',    val: metrics.goals_missed,    color: 'text-red-500' },
-                { label: 'Completed', val: metrics.goals_completed, color: 'text-emerald-600' },
-              ].map(item => (
-                <div key={item.label} className="px-4 text-center first:pl-0 last:pr-0">
-                  <div className={`text-[24px] font-light ${item.color}`}>{item.val}</div>
-                  <div className="text-[10px] uppercase tracking-[0.14em] text-[#9CA3AF] mt-1">{item.label}</div>
+          <div className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-3">Performance Pulse</div>
+          <div className="grid grid-cols-2 gap-3">
+
+            {isPractitioner && (
+              <div className="bg-white border border-[#EBE5FF] rounded-2xl p-5">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0]">Appointments MTD</div>
+                  {apptDelta !== 0 && (
+                    <div className={`flex items-center gap-0.5 text-[10px] font-semibold ${apptDelta > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                      {apptDelta > 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+                      {apptDelta > 0 ? '+' : ''}{apptDelta}
+                    </div>
+                  )}
+                </div>
+                <div className="text-[32px] font-light text-[#1A1035] leading-none mb-1">{metrics.appointments_this_month}</div>
+                <div className="text-[11px] text-[#9CA3AF] mb-3">of {metrics.appointments_target} target</div>
+                <Bar pct={apptPct} color={apptPct >= 100 ? 'bg-emerald-500' : apptPct >= 60 ? 'bg-[#8A6CFF]' : 'bg-amber-500'} />
+              </div>
+            )}
+
+            <div className="bg-white border border-[#EBE5FF] rounded-2xl p-5">
+              <div className="flex items-start justify-between mb-3">
+                <div className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0]">Goal Completion</div>
+                <div className={`text-[10px] font-semibold ${goalsPct >= 80 ? 'text-emerald-600' : goalsPct >= 50 ? 'text-amber-600' : 'text-red-500'}`}>
+                  {metrics.goals_completed}/{metrics.goals_total}
+                </div>
+              </div>
+              <div className="text-[32px] font-light text-[#1A1035] leading-none mb-1">{Math.round(goalsPct)}%</div>
+              <div className="text-[11px] text-[#9CA3AF] mb-3">
+                {metrics.goals_at_risk > 0 ? `${metrics.goals_at_risk} at risk` : metrics.goals_total > 0 ? 'All goals on track' : 'No goals set'}
+              </div>
+              <Bar pct={goalsPct} color={goalsPct >= 80 ? 'bg-emerald-500' : goalsPct >= 50 ? 'bg-[#8A6CFF]' : 'bg-amber-500'} />
+            </div>
+
+            <div className="bg-white border border-[#EBE5FF] rounded-2xl p-5">
+              <div className="flex items-start justify-between mb-3">
+                <div className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0]">Compliance</div>
+                {metrics.compliance_overdue > 0 && (
+                  <span className="text-[10px] font-semibold text-red-500">{metrics.compliance_overdue} overdue</span>
+                )}
+              </div>
+              <div className="text-[32px] font-light text-[#1A1035] leading-none mb-1">{compPct}%</div>
+              <div className="text-[11px] text-[#9CA3AF] mb-3">{metrics.compliance_compliant}/{metrics.compliance_total} items</div>
+              <Bar pct={compPct} color={compPct >= 80 ? 'bg-emerald-500' : compPct >= 60 ? 'bg-amber-500' : 'bg-red-500'} />
+            </div>
+
+            {isPractitioner && (
+              <div className="bg-white border border-[#EBE5FF] rounded-2xl p-5">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0]">Patient Retention</div>
+                  <TrendingUp size={11} className="text-emerald-500 mt-0.5" />
+                </div>
+                <div className="text-[32px] font-light text-[#1A1035] leading-none mb-1">{Math.round(metrics.returning_rate * 100)}%</div>
+                <div className="text-[11px] text-[#9CA3AF] mb-3">Return rate</div>
+                <Bar pct={metrics.returning_rate * 100} color="bg-emerald-500" />
+              </div>
+            )}
+
+          </div>
+        </div>
+
+        {/* Goals Breakdown */}
+        {metrics.goals_total > 0 && (
+          <div>
+            <div className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-3">Goals Breakdown</div>
+            <div className="bg-white border border-[#EBE5FF] rounded-2xl p-5">
+              <div className="grid grid-cols-4 divide-x divide-[#EBE5FF] mb-5">
+                {[
+                  { label: 'On Track',  val: metrics.goals_on_track,  color: 'text-emerald-600' },
+                  { label: 'At Risk',   val: metrics.goals_at_risk,   color: 'text-amber-600' },
+                  { label: 'Missed',    val: metrics.goals_missed,    color: 'text-red-500' },
+                  { label: 'Complete',  val: metrics.goals_completed, color: 'text-emerald-600' },
+                ].map(item => (
+                  <div key={item.label} className="px-4 text-center first:pl-0 last:pr-0">
+                    <div className={`text-[28px] font-light ${item.color}`}>{item.val}</div>
+                    <div className="text-[9px] uppercase tracking-[0.16em] text-[#9CA3AF] mt-1">{item.label}</div>
+                  </div>
+                ))}
+              </div>
+              {atRiskGoals.length > 0 && (
+                <div className="pt-4 border-t border-[#EBE5FF]">
+                  <div className="text-[9px] uppercase tracking-[0.18em] text-[#9CA3AF] mb-2.5">Goals Requiring Attention</div>
+                  <div className="space-y-1.5">
+                    {atRiskGoals.slice(0, 3).map(g => (
+                      <div key={g.id} className="flex items-center justify-between py-1.5">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" />
+                          <span className="text-[12px] text-[#374151] truncate">{g.title}</span>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                          <span className="text-[10px] text-[#9CA3AF]">{progressPct(g)}%</span>
+                          <div className="w-16">
+                            <Bar pct={progressPct(g)} color="bg-amber-400" />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Director access level */}
+        {isDirector && (
+          <div>
+            <div className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-3">Your Access Level</div>
+            <div className="bg-white border border-[#EBE5FF] rounded-2xl p-5">
+              <div className="grid grid-cols-3 gap-3 text-[12px] text-[#6B7280]">
+                <div>Clinic metrics — <span className="text-[#1A1035] font-medium">Full access</span></div>
+                <div>Team goals — <span className="text-[#1A1035] font-medium">Full access</span></div>
+                <div>Compliance audit — <span className="text-[#1A1035] font-medium">Full access</span></div>
+              </div>
+            </div>
+          </div>
+        )}
+
+      </div>
+
+      {/* ── RIGHT COLUMN ── */}
+      <div className="col-span-4 space-y-4">
+
+        {/* EWC Intelligence Panel */}
+        <div className="bg-white border border-[#EBE5FF] rounded-2xl overflow-hidden">
+          <div className="p-5">
+            <div className="flex items-start gap-3 mb-4">
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: '#8A6CFF15' }}
+              >
+                <Brain size={18} style={{ color: '#8A6CFF' }} />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <motion.div
+                    animate={{ scale: [1, 1.15, 1] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                    className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: '#8A6CFF' }}
+                  />
+                  <p className="text-[8px] uppercase tracking-[0.22em] font-semibold" style={{ color: '#8A6CFF' }}>
+                    EWC — Intelligence
+                  </p>
+                </div>
+                <p className="text-[13px] font-bold text-[#1A1035]">Chat with EWC</p>
+                <p className="text-[11px] text-[#6E6688] mt-1 leading-relaxed">
+                  Get intelligent analysis of your goals, compliance priorities, and performance data.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={onChatWithEWC}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[12px] font-bold transition-all"
+              style={{ backgroundColor: '#8A6CFF', color: '#FFFFFF' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.opacity = '0.88'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = '1'; }}
+            >
+              <MessageSquare size={13} /> Open EWC Intelligence <ExternalLink size={11} />
+            </button>
+          </div>
+        </div>
+
+        {/* Compliance Score Ring */}
+        <div className="bg-white border border-[#EBE5FF] rounded-2xl p-5">
+          <div className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-4">Compliance Score</div>
+          <div className="flex flex-col items-center gap-3">
+            <ScoreRing score={metrics.compliance_score} size={88} />
+            <div className="text-center">
+              <div className="text-[12px] text-[#6B7280]">{metrics.compliance_compliant}/{metrics.compliance_total} items compliant</div>
+              {metrics.compliance_due_soon > 0 && (
+                <div className="text-[11px] text-amber-600 mt-1">{metrics.compliance_due_soon} due soon</div>
+              )}
+              {metrics.cqc_critical_overdue > 0 && (
+                <div className="flex items-center justify-center gap-1.5 mt-2 px-3 py-1.5 rounded-lg bg-red-50">
+                  <div className="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0" />
+                  <span className="text-[10px] text-red-600 font-semibold">{metrics.cqc_critical_overdue} CQC critical</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Requires Attention */}
+        {urgentActions.length > 0 && (
+          <div className="bg-white border border-[#EBE5FF] rounded-2xl p-5">
+            <div className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-3">Requires Attention</div>
+            <div className="space-y-2">
+              {urgentActions.map((a, i) => (
+                <div key={i} className="flex items-start gap-2.5 p-2.5 rounded-xl" style={{ backgroundColor: '#FAF7F2' }}>
+                  <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5" style={{ backgroundColor: a.color }} />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[12px] font-medium text-[#1A1035] leading-snug">{a.label}</div>
+                    <div className="text-[10px] text-[#9CA3AF] mt-0.5">{a.detail}</div>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Role-specific quick stats */}
-      {isDirector && (
-        <div>
-          <div className="text-[11px] uppercase tracking-[0.18em] text-[#9CA3AF] mb-3">Your Access Level</div>
-          <div className="bg-white border border-[#EBE5FF] rounded-xl p-4">
-            <div className="grid grid-cols-3 gap-3 text-[12px] text-[#6B7280]">
-              <div>Clinic metrics — <span className="text-[#1A1035] font-medium">Full access</span></div>
-              <div>Team goals — <span className="text-[#1A1035] font-medium">Full access</span></div>
-              <div>Compliance audit — <span className="text-[#1A1035] font-medium">Full access</span></div>
+        {/* All clear state */}
+        {urgentActions.length === 0 && metrics.goals_total > 0 && (
+          <div className="bg-white border border-[#EBE5FF] rounded-2xl p-5 text-center">
+            <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-3">
+              <div className="w-3 h-3 rounded-full bg-emerald-500" />
             </div>
+            <div className="text-[13px] font-medium text-[#1A1035]">All on track</div>
+            <div className="text-[11px] text-[#9CA3AF] mt-1">No urgent items require attention</div>
           </div>
-        </div>
-      )}
+        )}
+
+      </div>
     </div>
   );
 }
@@ -1550,13 +1398,13 @@ function TeamTab({ summaries }: { summaries: StaffGoalsSummary[] }) {
 // =============================================================================
 
 export default function KPIsPage() {
+  const router = useRouter();
   const [profile, setProfile]             = useState<StaffProfile | null>(null);
   const [userId, setUserId]               = useState('');
   const [brandColor, setBrandColor]       = useState('#8A6CFF');
   const [roleView, setRoleView]           = useState<RoleView>('practitioner');
   const [tab, setTab]                     = useState<Tab>('dashboard');
   const [loading, setLoading]             = useState(true);
-  const [agentOpen, setAgentOpen]         = useState(false);
 
   // Data
   const [goals, setGoals]                 = useState<StaffGoal[]>([]);
@@ -1610,6 +1458,18 @@ export default function KPIsPage() {
     if (profile) loadData(profile, roleView);
   }, [profile, roleView, loadData]);
 
+  const handleChatWithEWC = useCallback(() => {
+    const onTrack  = goals.filter(g => g.status === 'on_track').length;
+    const atRisk   = goals.filter(g => g.status === 'at_risk').length;
+    const goalsSummary = goals.length > 0
+      ? `${goals.length} goals (${onTrack} on track, ${atRisk} at risk)`
+      : 'no goals set';
+    const ctx = encodeURIComponent(
+      `KPI context | Goals: ${goalsSummary} | Compliance: ${personalMetrics?.compliance_score ?? 0}% (${personalMetrics?.compliance_overdue ?? 0} overdue) | CQC critical: ${personalMetrics?.cqc_critical_overdue ?? 0}`
+    );
+    router.push(`/staff/chat?agentKey=primary_agent&kpiContext=${ctx}`);
+  }, [router, goals, personalMetrics]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#FAF7F2] flex items-center justify-center">
@@ -1650,17 +1510,8 @@ export default function KPIsPage() {
                 ? 'Performance Intelligence'
                 : 'My Performance'}
             </h1>
-            <div className="flex items-center gap-3">
-              <div className="text-[11px] text-[#9CA3AF] uppercase tracking-[0.14em]">
-                {profile.roleName} {profile.isAdmin && '· Admin'}
-              </div>
-              <button
-                onClick={() => setAgentOpen(true)}
-                className="flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-[#F5F3FF] border border-[#EBE5FF] hover:border-[#C4B9FF] rounded-lg text-[11px] text-[#6B7280] hover:text-[#1A1035] transition-all shadow-sm"
-              >
-                <div className="w-1.5 h-1.5 rounded-full bg-[#8A6CFF]" />
-                Ask EWC
-              </button>
+            <div className="text-[11px] text-[#9CA3AF] uppercase tracking-[0.14em]">
+              {profile.roleName} {profile.isAdmin && '· Admin'}
             </div>
           </div>
         </div>
@@ -1696,7 +1547,14 @@ export default function KPIsPage() {
             transition={{ duration: 0.18 }}
           >
             {tab === 'dashboard' && (
-              <DashboardTab profile={profile} metrics={personalMetrics} roleView={roleView} />
+              <DashboardTab
+                profile={profile}
+                metrics={personalMetrics}
+                roleView={roleView}
+                goals={goals}
+                complianceItems={complianceItems}
+                onChatWithEWC={handleChatWithEWC}
+              />
             )}
             {tab === 'goals' && (
               <GoalsTab profile={profile} roleView={roleView} goals={goals} onRefresh={handleRefresh} />
@@ -1721,17 +1579,6 @@ export default function KPIsPage() {
 
       </div>
 
-      {/* EWC Agent Drawer */}
-      <KPIAgentDrawer
-        open={agentOpen}
-        onClose={() => setAgentOpen(false)}
-        userId={userId}
-        profile={profile}
-        goals={goals}
-        complianceItems={complianceItems}
-        metrics={personalMetrics}
-        currentTab={tab}
-      />
     </div>
   );
 }
