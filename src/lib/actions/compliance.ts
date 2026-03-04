@@ -8,8 +8,6 @@
 
 import { createSovereignClient } from '@/lib/supabase/service';
 import { TRAINING_MODULES, MODULE_FREQUENCY } from '@/lib/constants/compliance-constants';
-export { TRAINING_MODULES, MODULE_FREQUENCY } from '@/lib/constants/compliance-constants';
-export type { TrainingModule } from '@/lib/constants/compliance-constants';
 
 // =============================================================================
 // TYPES
