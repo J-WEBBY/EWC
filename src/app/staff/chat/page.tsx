@@ -459,6 +459,11 @@ export default function ChatPage() {
             const match = profileRes.data.agents?.find(a => a.id === agentKey);
             if (match) setSelectedAgent(match.id);
           }
+          // Pre-fill input with patient context from patient hub navigation
+          const patientContext = searchParams.get('patientContext');
+          if (patientContext) {
+            setInput(`I need your advice on a patient.\n\n${decodeURIComponent(patientContext)}\n\nWhat do you recommend?`);
+          }
         }
         if (convsRes.success && convsRes.conversations) {
           setConversations(convsRes.conversations);
