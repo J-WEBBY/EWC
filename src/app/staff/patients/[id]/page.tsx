@@ -1021,12 +1021,12 @@ function IntelligenceTab({ patient, onGenerateReport, onChatWithAgent }: {
       </Panel>
 
       {/* Signals linked */}
-      <_SignalsMini patient={patient} />
+      <SignalsMini patient={patient} />
     </div>
   );
 }
 
-function _SignalsMini({ patient }: { patient: PatientIntelligenceRow }) {
+function SignalsMini({ patient }: { patient: PatientIntelligenceRow }) {
   const [signals, setSignals] = useState<PatientSignal[]>([]);
   useEffect(() => {
     getPatientSignalList(patient.phone).then(setSignals);
