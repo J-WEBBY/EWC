@@ -24,11 +24,11 @@ import {
   getGovernanceLog, createGovernanceEntry, updateGovernanceEntry,
   getCalendarTasks, updateCalendarTask,
   getActiveUsers,
-  TRAINING_MODULES, MODULE_FREQUENCY,
   type ActiveUser, type HRRecord, type TrainingMatrixRow,
   type EquipmentItem, type CQCAnswer, type GovernanceEntry,
   type CalendarTask, type ComplianceDashboard,
 } from '@/lib/actions/compliance';
+import { TRAINING_MODULES, MODULE_FREQUENCY } from '@/lib/constants/compliance-constants';
 
 // =============================================================================
 // TYPES

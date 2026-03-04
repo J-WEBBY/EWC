@@ -7,6 +7,9 @@
 // =============================================================================
 
 import { createSovereignClient } from '@/lib/supabase/service';
+import { TRAINING_MODULES, MODULE_FREQUENCY } from '@/lib/constants/compliance-constants';
+export { TRAINING_MODULES, MODULE_FREQUENCY } from '@/lib/constants/compliance-constants';
+export type { TrainingModule } from '@/lib/constants/compliance-constants';
 
 // =============================================================================
 // TYPES
@@ -158,25 +161,6 @@ export interface ComplianceDashboard {
 // HELPERS
 // =============================================================================
 
-const TRAINING_MODULES = [
-  'fire_safety', 'manual_handling', 'safeguarding_adults', 'safeguarding_children',
-  'basic_life_support', 'infection_control', 'information_governance',
-  'conflict_resolution', 'equality_diversity', 'mental_capacity_act',
-  'medicines_management', 'food_hygiene', 'health_safety', 'coshh',
-  'lone_working', 'dementia_awareness', 'cqc_awareness',
-] as const;
-
-export type TrainingModule = typeof TRAINING_MODULES[number];
-
-// Default frequency per module (months)
-const MODULE_FREQUENCY: Record<string, number> = {
-  fire_safety: 12, manual_handling: 12, safeguarding_adults: 36, safeguarding_children: 36,
-  basic_life_support: 12, infection_control: 12, information_governance: 12,
-  conflict_resolution: 36, equality_diversity: 36, mental_capacity_act: 36,
-  medicines_management: 12, food_hygiene: 36, health_safety: 12, coshh: 12,
-  lone_working: 12, dementia_awareness: 36, cqc_awareness: 12,
-};
-
 function computeDbsStatus(expiryDate: string | null): HRRecord['dbs_status'] {
   if (!expiryDate) return 'no_dbs';
   const expiry = new Date(expiryDate);
@@ -256,27 +240,23 @@ function computeCalendarStatus(nextDue: string | null): CalendarTask['status'] {
 // =============================================================================
 
 export async function getActiveUsers(): Promise<ActiveUser[]> {
-  const db = createSovereignClient();
-  const { data, error } = await db
-    .from('users')
-    .select(`
-      id,
-      first_name,
-      last_name,
-      email,
-      roles!inner(name)
-    `)
-    .eq('status', 'active')
-    .order('first_name');
+  try {
+    const db = createSovereignClient();
+    const { data, error } = await db
+      .from('users')
+      .select(`id, first_name, last_name, email, roles!inner(name)`)
+      .eq('status', 'active')
+      .order('first_name');
 
-  if (error || !data) return [];
+    if (error || !data) return [];
 
-  return data.map((u: Record<string, unknown>) => ({
-    id:        u.id as string,
-    full_name: `${u.first_name} ${u.last_name}`.trim(),
-    role_name: (u.roles as Record<string, unknown>)?.name as string ?? '—',
-    email:     u.email as string,
-  }));
+    return data.map((u: Record<string, unknown>) => ({
+      id:        u.id as string,
+      full_name: `${u.first_name} ${u.last_name}`.trim(),
+      role_name: (u.roles as Record<string, unknown>)?.name as string ?? '—',
+      email:     u.email as string,
+    }));
+  } catch { return []; }
 }
 
 // =============================================================================
@@ -284,54 +264,56 @@ export async function getActiveUsers(): Promise<ActiveUser[]> {
 // =============================================================================
 
 export async function getHRRecords(): Promise<HRRecord[]> {
-  const db = createSovereignClient();
+  try {
+    const db = createSovereignClient();
 
-  // Get all active users
-  const { data: users, error: uErr } = await db
-    .from('users')
-    .select('id, first_name, last_name, roles!inner(name)')
-    .eq('status', 'active')
-    .order('first_name');
+    const { data: users, error: uErr } = await db
+      .from('users')
+      .select('id, first_name, last_name, roles!inner(name)')
+      .eq('status', 'active')
+      .order('first_name');
 
-  if (uErr || !users) return [];
+    if (uErr || !users) return [];
 
-  // Get all HR records
-  const { data: records } = await db
-    .from('compliance_hr_records')
-    .select('*');
+    const { data: records } = await db
+      .from('compliance_hr_records')
+      .select('*');
 
-  const recordMap: Record<string, Record<string, unknown>> = {};
-  for (const r of records ?? []) {
-    recordMap[(r as Record<string, unknown>).user_id as string] = r as Record<string, unknown>;
-  }
+    const recordMap: Record<string, Record<string, unknown>> = {};
+    for (const r of records ?? []) {
+      recordMap[(r as Record<string, unknown>).user_id as string] = r as Record<string, unknown>;
+    }
 
-  return users.map((u: Record<string, unknown>) => {
-    const r = recordMap[u.id as string] ?? {};
-    return {
-      id:                   (r.id as string) ?? '',
-      user_id:              u.id as string,
-      full_name:            `${u.first_name} ${u.last_name}`.trim(),
-      role_name:            (u.roles as Record<string, unknown>)?.name as string ?? '—',
-      dbs_number:           r.dbs_number as string | null ?? null,
-      dbs_issue_date:       r.dbs_issue_date as string | null ?? null,
-      dbs_expiry_date:      r.dbs_expiry_date as string | null ?? null,
-      dbs_status:           computeDbsStatus(r.dbs_expiry_date as string | null ?? null),
-      rtw_type:             r.rtw_type as string | null ?? null,
-      rtw_expiry_date:      r.rtw_expiry_date as string | null ?? null,
-      rtw_status:           computeRtwStatus(r.rtw_expiry_date as string | null ?? null, r.rtw_type as string | null ?? null),
-      registration_body:    r.registration_body as string | null ?? null,
-      registration_number:  r.registration_number as string | null ?? null,
-      registration_expiry:  r.registration_expiry as string | null ?? null,
-      registration_status:  computeRegistrationStatus(r.registration_expiry as string | null ?? null, r.registration_body as string | null ?? null),
-      last_appraisal_date:  r.last_appraisal_date as string | null ?? null,
-      next_appraisal_date:  r.next_appraisal_date as string | null ?? null,
-      appraisal_status:     computeAppraisalStatus(r.next_appraisal_date as string | null ?? null),
-      staff_signed:         r.staff_signed as boolean ?? false,
-      manager_signed:       r.manager_signed as boolean ?? false,
-      documents_uploaded:   r.documents_uploaded as boolean ?? false,
-      notes:                r.notes as string | null ?? null,
-    };
-  });
+    return users.map((u: Record<string, unknown>) => {
+      const r = recordMap[u.id as string] ?? {};
+      const getStr  = (k: string): string | null => (r[k] ?? null) as string | null;
+      const getBool = (k: string): boolean => (r[k] as boolean) ?? false;
+      return {
+        id:                   getStr('id') ?? '',
+        user_id:              u.id as string,
+        full_name:            `${u.first_name} ${u.last_name}`.trim(),
+        role_name:            (u.roles as Record<string, unknown>)?.name as string ?? '—',
+        dbs_number:           getStr('dbs_number'),
+        dbs_issue_date:       getStr('dbs_issue_date'),
+        dbs_expiry_date:      getStr('dbs_expiry_date'),
+        dbs_status:           computeDbsStatus(getStr('dbs_expiry_date')),
+        rtw_type:             getStr('rtw_type'),
+        rtw_expiry_date:      getStr('rtw_expiry_date'),
+        rtw_status:           computeRtwStatus(getStr('rtw_expiry_date'), getStr('rtw_type')),
+        registration_body:    getStr('registration_body'),
+        registration_number:  getStr('registration_number'),
+        registration_expiry:  getStr('registration_expiry'),
+        registration_status:  computeRegistrationStatus(getStr('registration_expiry'), getStr('registration_body')),
+        last_appraisal_date:  getStr('last_appraisal_date'),
+        next_appraisal_date:  getStr('next_appraisal_date'),
+        appraisal_status:     computeAppraisalStatus(getStr('next_appraisal_date')),
+        staff_signed:         getBool('staff_signed'),
+        manager_signed:       getBool('manager_signed'),
+        documents_uploaded:   getBool('documents_uploaded'),
+        notes:                getStr('notes'),
+      };
+    });
+  } catch { return []; }
 }
 
 export async function upsertHRRecord(
@@ -354,12 +336,14 @@ export async function upsertHRRecord(
     assigned_by?: string;
   }
 ): Promise<{ success: boolean; error?: string }> {
-  const db = createSovereignClient();
-  const { error } = await db
-    .from('compliance_hr_records')
-    .upsert({ user_id: userId, ...data }, { onConflict: 'user_id' });
-  if (error) return { success: false, error: error.message };
-  return { success: true };
+  try {
+    const db = createSovereignClient();
+    const { error } = await db
+      .from('compliance_hr_records')
+      .upsert({ user_id: userId, ...data }, { onConflict: 'user_id' });
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (e) { return { success: false, error: String(e) }; }
 }
 
 // =============================================================================
@@ -367,59 +351,60 @@ export async function upsertHRRecord(
 // =============================================================================
 
 export async function getTrainingMatrix(): Promise<TrainingMatrixRow[]> {
-  const db = createSovereignClient();
+  try {
+    const db = createSovereignClient();
 
-  const { data: users, error: uErr } = await db
-    .from('users')
-    .select('id, first_name, last_name, roles!inner(name)')
-    .eq('status', 'active')
-    .order('first_name');
+    const { data: users, error: uErr } = await db
+      .from('users')
+      .select('id, first_name, last_name, roles!inner(name)')
+      .eq('status', 'active')
+      .order('first_name');
 
-  if (uErr || !users) return [];
+    if (uErr || !users) return [];
 
-  const { data: entries } = await db
-    .from('compliance_training')
-    .select('*');
+    const { data: entries } = await db
+      .from('compliance_training')
+      .select('*');
 
-  // Build lookup: user_id → module → entry
-  const entryMap: Record<string, Record<string, Record<string, unknown>>> = {};
-  for (const e of entries ?? []) {
-    const entry = e as Record<string, unknown>;
-    const uid = entry.user_id as string;
-    const mod = entry.module as string;
-    if (!entryMap[uid]) entryMap[uid] = {};
-    entryMap[uid][mod] = entry;
-  }
-
-  return users.map((u: Record<string, unknown>) => {
-    const uid = u.id as string;
-    const modules: Record<string, TrainingEntry | null> = {};
-    for (const mod of TRAINING_MODULES) {
-      const e = entryMap[uid]?.[mod];
-      if (e) {
-        modules[mod] = {
-          user_id:          uid,
-          full_name:        `${u.first_name} ${u.last_name}`.trim(),
-          role_name:        (u.roles as Record<string, unknown>)?.name as string ?? '—',
-          module:           mod,
-          frequency_months: e.frequency_months as number,
-          completed_date:   e.completed_date as string | null,
-          expiry_date:      e.expiry_date as string | null,
-          status:           computeTrainingStatus(e.completed_date as string | null, e.expiry_date as string | null),
-          certificate_url:  e.certificate_url as string | null,
-          notes:            e.notes as string | null,
-        };
-      } else {
-        modules[mod] = null;
-      }
+    const entryMap: Record<string, Record<string, Record<string, unknown>>> = {};
+    for (const e of entries ?? []) {
+      const entry = e as Record<string, unknown>;
+      const uid = entry.user_id as string;
+      const mod = entry.module as string;
+      if (!entryMap[uid]) entryMap[uid] = {};
+      entryMap[uid][mod] = entry;
     }
-    return {
-      user_id:   uid,
+
+    return users.map((u: Record<string, unknown>) => {
+      const uid = u.id as string;
+      const modules: Record<string, TrainingEntry | null> = {};
+      for (const mod of TRAINING_MODULES) {
+        const e = entryMap[uid]?.[mod];
+        if (e) {
+          modules[mod] = {
+            user_id:          uid,
+            full_name:        `${u.first_name} ${u.last_name}`.trim(),
+            role_name:        (u.roles as Record<string, unknown>)?.name as string ?? '—',
+            module:           mod,
+            frequency_months: (e.frequency_months as number) ?? 12,
+            completed_date:   (e.completed_date as string | null) ?? null,
+            expiry_date:      (e.expiry_date as string | null) ?? null,
+            status:           computeTrainingStatus(e.completed_date as string | null, e.expiry_date as string | null),
+            certificate_url:  (e.certificate_url as string | null) ?? null,
+            notes:            (e.notes as string | null) ?? null,
+          };
+        } else {
+          modules[mod] = null;
+        }
+      }
+      return {
+        user_id:   uid,
       full_name: `${u.first_name} ${u.last_name}`.trim(),
-      role_name: (u.roles as Record<string, unknown>)?.name as string ?? '—',
-      modules,
-    };
-  });
+        role_name: (u.roles as Record<string, unknown>)?.name as string ?? '—',
+        modules,
+      };
+    });
+  } catch { return []; }
 }
 
 export async function upsertTrainingEntry(
@@ -432,32 +417,28 @@ export async function upsertTrainingEntry(
     assigned_by?: string;
   }
 ): Promise<{ success: boolean; error?: string }> {
-  const db = createSovereignClient();
-  const freq = MODULE_FREQUENCY[module] ?? 12;
-
-  // Compute expiry from completed_date
-  let expiryDate: string | undefined;
-  if (data.completed_date) {
-    const d = new Date(data.completed_date);
-    d.setMonth(d.getMonth() + freq);
-    expiryDate = d.toISOString().split('T')[0];
-  }
-
-  const { error } = await db
-    .from('compliance_training')
-    .upsert({
-      user_id: userId,
-      module,
-      frequency_months: freq,
-      completed_date: data.completed_date ?? null,
-      expiry_date: expiryDate ?? null,
-      certificate_url: data.certificate_url ?? null,
-      notes: data.notes ?? null,
-      assigned_by: data.assigned_by ?? null,
-    }, { onConflict: 'user_id,module' });
-
-  if (error) return { success: false, error: error.message };
-  return { success: true };
+  try {
+    const db = createSovereignClient();
+    const freq = MODULE_FREQUENCY[module] ?? 12;
+    let expiryDate: string | undefined;
+    if (data.completed_date) {
+      const d = new Date(data.completed_date);
+      d.setMonth(d.getMonth() + freq);
+      expiryDate = d.toISOString().split('T')[0];
+    }
+    const { error } = await db
+      .from('compliance_training')
+      .upsert({
+        user_id: userId, module, frequency_months: freq,
+        completed_date: data.completed_date ?? null,
+        expiry_date: expiryDate ?? null,
+        certificate_url: data.certificate_url ?? null,
+        notes: data.notes ?? null,
+        assigned_by: data.assigned_by ?? null,
+      }, { onConflict: 'user_id,module' });
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (e) { return { success: false, error: String(e) }; }
 }
 
 // =============================================================================
@@ -465,38 +446,40 @@ export async function upsertTrainingEntry(
 // =============================================================================
 
 export async function getEquipmentList(): Promise<EquipmentItem[]> {
-  const db = createSovereignClient();
-  const { data, error } = await db
-    .from('compliance_equipment')
-    .select(`
-      id, item_code, name, category, location, serial_number,
-      last_service_date, next_due_date, check_frequency,
-      responsible_user_id, action_required, notes,
-      users:responsible_user_id(first_name, last_name)
-    `)
-    .order('item_code');
+  try {
+    const db = createSovereignClient();
+    const { data, error } = await db
+      .from('compliance_equipment')
+      .select(`
+        id, item_code, name, category, location, serial_number,
+        last_service_date, next_due_date, check_frequency,
+        responsible_user_id, action_required, notes,
+        users:responsible_user_id(first_name, last_name)
+      `)
+      .order('item_code');
 
-  if (error || !data) return [];
+    if (error || !data) return [];
 
-  return data.map((e: Record<string, unknown>) => {
-    const ru = e.users as Record<string, string> | null;
-    return {
-      id:                  e.id as string,
-      item_code:           e.item_code as string,
-      name:                e.name as string,
-      category:            e.category as string,
-      location:            e.location as string | null,
-      serial_number:       e.serial_number as string | null,
-      last_service_date:   e.last_service_date as string | null,
-      next_due_date:       e.next_due_date as string | null,
-      check_frequency:     e.check_frequency as string | null,
-      status:              computeEquipmentStatus(e.next_due_date as string | null),
-      responsible_user_id: e.responsible_user_id as string | null,
-      responsible_name:    ru ? `${ru.first_name} ${ru.last_name}`.trim() : null,
-      action_required:     e.action_required as string | null,
-      notes:               e.notes as string | null,
-    };
-  });
+    return data.map((e: Record<string, unknown>) => {
+      const ru = e.users as Record<string, string> | null;
+      return {
+        id:                  e.id as string,
+        item_code:           e.item_code as string,
+        name:                e.name as string,
+        category:            e.category as string,
+        location:            (e.location as string | null) ?? null,
+        serial_number:       (e.serial_number as string | null) ?? null,
+        last_service_date:   (e.last_service_date as string | null) ?? null,
+        next_due_date:       (e.next_due_date as string | null) ?? null,
+        check_frequency:     (e.check_frequency as string | null) ?? null,
+        status:              computeEquipmentStatus(e.next_due_date as string | null),
+        responsible_user_id: (e.responsible_user_id as string | null) ?? null,
+        responsible_name:    ru ? `${ru.first_name} ${ru.last_name}`.trim() : null,
+        action_required:     (e.action_required as string | null) ?? null,
+        notes:               (e.notes as string | null) ?? null,
+      };
+    });
+  } catch { return []; }
 }
 
 export async function updateEquipmentItem(
@@ -512,13 +495,15 @@ export async function updateEquipmentItem(
     assigned_by?: string;
   }
 ): Promise<{ success: boolean; error?: string }> {
-  const db = createSovereignClient();
-  const { error } = await db
-    .from('compliance_equipment')
-    .update(data)
-    .eq('id', id);
-  if (error) return { success: false, error: error.message };
-  return { success: true };
+  try {
+    const db = createSovereignClient();
+    const { error } = await db
+      .from('compliance_equipment')
+      .update(data)
+      .eq('id', id);
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (e) { return { success: false, error: String(e) }; }
 }
 
 // =============================================================================
@@ -526,27 +511,29 @@ export async function updateEquipmentItem(
 // =============================================================================
 
 export async function getCQCAudit(): Promise<CQCAnswer[]> {
-  const db = createSovereignClient();
-  const { data, error } = await db
-    .from('compliance_cqc_answers')
-    .select('*')
-    .order('question_number');
+  try {
+    const db = createSovereignClient();
+    const { data, error } = await db
+      .from('compliance_cqc_answers')
+      .select('*')
+      .order('question_number');
 
-  if (error || !data) return [];
+    if (error || !data) return [];
 
-  return data.map((q: Record<string, unknown>) => ({
-    id:              q.id as string,
-    question_number: q.question_number as number,
-    domain:          q.domain as string,
-    audit_area:      q.audit_area as string,
-    question_text:   q.question_text as string,
-    answer:          q.answer as CQCAnswer['answer'],
-    evidence_notes:  q.evidence_notes as string | null,
-    action_required: q.action_required as string | null,
-    target_date:     q.target_date as string | null,
-    answered_by:     q.answered_by as string | null,
-    audit_date:      q.audit_date as string | null,
-  }));
+    return data.map((q: Record<string, unknown>) => ({
+      id:              q.id as string,
+      question_number: q.question_number as number,
+      domain:          q.domain as string,
+      audit_area:      q.audit_area as string,
+      question_text:   q.question_text as string,
+      answer:          (q.answer as CQCAnswer['answer']) ?? null,
+      evidence_notes:  (q.evidence_notes as string | null) ?? null,
+      action_required: (q.action_required as string | null) ?? null,
+      target_date:     (q.target_date as string | null) ?? null,
+      answered_by:     (q.answered_by as string | null) ?? null,
+      audit_date:      (q.audit_date as string | null) ?? null,
+    }));
+  } catch { return []; }
 }
 
 export async function saveCQCAnswer(
@@ -559,21 +546,22 @@ export async function saveCQCAnswer(
     answered_by?: string;
   }
 ): Promise<{ success: boolean; error?: string }> {
-  const db = createSovereignClient();
-  const { error } = await db
-    .from('compliance_cqc_answers')
-    .update({
-      answer:          data.answer,
-      evidence_notes:  data.evidence_notes ?? null,
-      action_required: data.action_required ?? null,
-      target_date:     data.target_date ?? null,
-      answered_by:     data.answered_by ?? null,
-      audit_date:      new Date().toISOString().split('T')[0],
-    })
-    .eq('question_number', questionNumber);
-
-  if (error) return { success: false, error: error.message };
-  return { success: true };
+  try {
+    const db = createSovereignClient();
+    const { error } = await db
+      .from('compliance_cqc_answers')
+      .update({
+        answer:          data.answer,
+        evidence_notes:  data.evidence_notes ?? null,
+        action_required: data.action_required ?? null,
+        target_date:     data.target_date ?? null,
+        answered_by:     data.answered_by ?? null,
+        audit_date:      new Date().toISOString().split('T')[0],
+      })
+      .eq('question_number', questionNumber);
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (e) { return { success: false, error: String(e) }; }
 }
 
 // =============================================================================
@@ -581,35 +569,37 @@ export async function saveCQCAnswer(
 // =============================================================================
 
 export async function getGovernanceLog(): Promise<GovernanceEntry[]> {
-  const db = createSovereignClient();
-  const { data, error } = await db
-    .from('compliance_governance_log')
-    .select(`
-      id, type, event_date, agenda_items, attendees, minutes_uploaded,
-      actions_arising, owner_id, due_date, status, created_at,
-      users:owner_id(first_name, last_name)
-    `)
-    .order('event_date', { ascending: false });
+  try {
+    const db = createSovereignClient();
+    const { data, error } = await db
+      .from('compliance_governance_log')
+      .select(`
+        id, type, event_date, agenda_items, attendees, minutes_uploaded,
+        actions_arising, owner_id, due_date, status, created_at,
+        users:owner_id(first_name, last_name)
+      `)
+      .order('event_date', { ascending: false });
 
-  if (error || !data) return [];
+    if (error || !data) return [];
 
-  return data.map((e: Record<string, unknown>) => {
-    const owner = e.users as Record<string, string> | null;
-    return {
-      id:               e.id as string,
-      type:             e.type as string,
-      event_date:       e.event_date as string,
-      agenda_items:     e.agenda_items as string | null,
-      attendees:        e.attendees as string | null,
-      minutes_uploaded: e.minutes_uploaded as boolean,
-      actions_arising:  e.actions_arising as string | null,
-      owner_id:         e.owner_id as string | null,
-      owner_name:       owner ? `${owner.first_name} ${owner.last_name}`.trim() : null,
-      due_date:         e.due_date as string | null,
-      status:           e.status as GovernanceEntry['status'],
-      created_at:       e.created_at as string,
-    };
-  });
+    return data.map((e: Record<string, unknown>) => {
+      const owner = e.users as Record<string, string> | null;
+      return {
+        id:               e.id as string,
+        type:             e.type as string,
+        event_date:       e.event_date as string,
+        agenda_items:     (e.agenda_items as string | null) ?? null,
+        attendees:        (e.attendees as string | null) ?? null,
+        minutes_uploaded: (e.minutes_uploaded as boolean) ?? false,
+        actions_arising:  (e.actions_arising as string | null) ?? null,
+        owner_id:         (e.owner_id as string | null) ?? null,
+        owner_name:       owner ? `${owner.first_name} ${owner.last_name}`.trim() : null,
+        due_date:         (e.due_date as string | null) ?? null,
+        status:           (e.status as GovernanceEntry['status']) ?? 'open',
+        created_at:       e.created_at as string,
+      };
+    });
+  } catch { return []; }
 }
 
 export async function createGovernanceEntry(data: {
@@ -624,14 +614,16 @@ export async function createGovernanceEntry(data: {
   status?: string;
   created_by?: string;
 }): Promise<{ success: boolean; id?: string; error?: string }> {
-  const db = createSovereignClient();
-  const { data: row, error } = await db
-    .from('compliance_governance_log')
-    .insert(data)
-    .select('id')
-    .single();
-  if (error) return { success: false, error: error.message };
-  return { success: true, id: (row as Record<string, string>)?.id };
+  try {
+    const db = createSovereignClient();
+    const { data: row, error } = await db
+      .from('compliance_governance_log')
+      .insert(data)
+      .select('id')
+      .single();
+    if (error) return { success: false, error: error.message };
+    return { success: true, id: (row as Record<string, string>)?.id };
+  } catch (e) { return { success: false, error: String(e) }; }
 }
 
 export async function updateGovernanceEntry(
@@ -648,13 +640,15 @@ export async function updateGovernanceEntry(
     status: string;
   }>
 ): Promise<{ success: boolean; error?: string }> {
-  const db = createSovereignClient();
-  const { error } = await db
-    .from('compliance_governance_log')
-    .update(data)
-    .eq('id', id);
-  if (error) return { success: false, error: error.message };
-  return { success: true };
+  try {
+    const db = createSovereignClient();
+    const { error } = await db
+      .from('compliance_governance_log')
+      .update(data)
+      .eq('id', id);
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (e) { return { success: false, error: String(e) }; }
 }
 
 // =============================================================================
@@ -662,34 +656,36 @@ export async function updateGovernanceEntry(
 // =============================================================================
 
 export async function getCalendarTasks(): Promise<CalendarTask[]> {
-  const db = createSovereignClient();
-  const { data, error } = await db
-    .from('compliance_calendar')
-    .select(`
-      id, task_order, task_name, frequency, month_due,
-      responsible_user_id, last_completed_date, next_due_date, notes,
-      users:responsible_user_id(first_name, last_name)
-    `)
-    .order('task_order');
+  try {
+    const db = createSovereignClient();
+    const { data, error } = await db
+      .from('compliance_calendar')
+      .select(`
+        id, task_order, task_name, frequency, month_due,
+        responsible_user_id, last_completed_date, next_due_date, notes,
+        users:responsible_user_id(first_name, last_name)
+      `)
+      .order('task_order');
 
-  if (error || !data) return [];
+    if (error || !data) return [];
 
-  return data.map((t: Record<string, unknown>) => {
-    const ru = t.users as Record<string, string> | null;
-    return {
-      id:                  t.id as string,
-      task_order:          t.task_order as number,
-      task_name:           t.task_name as string,
-      frequency:           t.frequency as string,
-      month_due:           t.month_due as string | null,
-      responsible_user_id: t.responsible_user_id as string | null,
-      responsible_name:    ru ? `${ru.first_name} ${ru.last_name}`.trim() : null,
-      last_completed_date: t.last_completed_date as string | null,
-      next_due_date:       t.next_due_date as string | null,
-      status:              computeCalendarStatus(t.next_due_date as string | null),
-      notes:               t.notes as string | null,
-    };
-  });
+    return data.map((t: Record<string, unknown>) => {
+      const ru = t.users as Record<string, string> | null;
+      return {
+        id:                  t.id as string,
+        task_order:          t.task_order as number,
+        task_name:           t.task_name as string,
+        frequency:           t.frequency as string,
+        month_due:           (t.month_due as string | null) ?? null,
+        responsible_user_id: (t.responsible_user_id as string | null) ?? null,
+        responsible_name:    ru ? `${ru.first_name} ${ru.last_name}`.trim() : null,
+        last_completed_date: (t.last_completed_date as string | null) ?? null,
+        next_due_date:       (t.next_due_date as string | null) ?? null,
+        status:              computeCalendarStatus(t.next_due_date as string | null),
+        notes:               (t.notes as string | null) ?? null,
+      };
+    });
+  } catch { return []; }
 }
 
 export async function updateCalendarTask(
@@ -702,37 +698,43 @@ export async function updateCalendarTask(
     assigned_by?: string;
   }
 ): Promise<{ success: boolean; error?: string }> {
-  const db = createSovereignClient();
-  const { error } = await db
-    .from('compliance_calendar')
-    .update(data)
-    .eq('id', id);
-  if (error) return { success: false, error: error.message };
-  return { success: true };
+  try {
+    const db = createSovereignClient();
+    const { error } = await db
+      .from('compliance_calendar')
+      .update(data)
+      .eq('id', id);
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (e) { return { success: false, error: String(e) }; }
 }
 
 // =============================================================================
 // DASHBOARD
 // =============================================================================
 
+const EMPTY_DASHBOARD: ComplianceDashboard = {
+  total_staff: 0, dbs_issues: 0, rtw_issues: 0, appraisals_overdue: 0,
+  training_gaps: 0, equipment_overdue: 0, equipment_due_soon: 0,
+  cqc_score_pct: 0, cqc_answered: 0, cqc_total: 0, cqc_no_count: 0, cqc_partial_count: 0,
+  governance_open: 0, governance_overdue: 0, calendar_overdue: 0, calendar_due_soon: 0,
+};
+
 export async function getComplianceDashboard(): Promise<ComplianceDashboard> {
-  const db = createSovereignClient();
+  try {
+    const db = createSovereignClient();
 
-  // Run all queries in parallel
-  const [users, hrRecords, training, equipment, cqcAnswers, govLog, calendar] = await Promise.all([
-    db.from('users').select('id').eq('status', 'active'),
-    db.from('compliance_hr_records').select('dbs_expiry_date, rtw_type, rtw_expiry_date, next_appraisal_date'),
-    db.from('compliance_training').select('completed_date, expiry_date'),
-    db.from('compliance_equipment').select('next_due_date'),
-    db.from('compliance_cqc_answers').select('answer'),
-    db.from('compliance_governance_log').select('status'),
-    db.from('compliance_calendar').select('next_due_date'),
-  ]);
+    const [users, hrRecords, training, equipment, cqcAnswers, govLog, calendar] = await Promise.all([
+      db.from('users').select('id').eq('status', 'active'),
+      db.from('compliance_hr_records').select('dbs_expiry_date, rtw_type, rtw_expiry_date, next_appraisal_date'),
+      db.from('compliance_training').select('completed_date, expiry_date'),
+      db.from('compliance_equipment').select('next_due_date'),
+      db.from('compliance_cqc_answers').select('answer'),
+      db.from('compliance_governance_log').select('status'),
+      db.from('compliance_calendar').select('next_due_date'),
+    ]);
 
-  const totalStaff = users.data?.length ?? 0;
-  const now = new Date();
-  const in30 = new Date(now); in30.setDate(now.getDate() + 30);
-  const in90 = new Date(now); in90.setDate(now.getDate() + 90);
+    const totalStaff = users.data?.length ?? 0;
 
   // HR issues
   let dbsIssues = 0; let rtwIssues = 0; let appraisalsOverdue = 0;
@@ -804,8 +806,8 @@ export async function getComplianceDashboard(): Promise<ComplianceDashboard> {
     governance_open:     govOpen,
     governance_overdue:  govOverdue,
     calendar_overdue:    calOverdue,
-    calendar_due_soon:   calDueSoon,
-  };
+      calendar_due_soon:   calDueSoon,
+    };
+  } catch { return EMPTY_DASHBOARD; }
 }
 
-export { TRAINING_MODULES, MODULE_FREQUENCY };
