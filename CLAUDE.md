@@ -68,12 +68,55 @@ src/
 
 ## Styling
 
-- Background: `#000000` (pure black)
-- Brand: white (`#ffffff`) on black, loaded from `clinic_config` via `getClinicInfo()`
-- Font sizes: `text-[11px]` labels, `text-[13px]` body, `text-[28px]` KPI values
-- Label style: `text-[11px] uppercase tracking-[0.18em] text-white/25 font-medium`
-- Cards: `bg-white/[0.03] border border-white/[0.08] rounded-xl`
-- No emojis. No gradients (except subtle brand accents). Clean monochrome B&W.
+All pages must match the dashboard design language exactly.
+
+### Color Palette
+- Background: `#FAF7F2` (cream/off-white) — use as page base
+- Primary text: `#1A1035` (deep navy-purple)
+- Secondary text: `#524D66`
+- Tertiary text: `#6E6688`
+- Label/muted text: `#8B84A0`
+- Divider/border: `#EBE5FF` (lavender-tinted)
+- Light border accent: `#D5CCFF`
+- Panel background: transparent with `border: '1px solid #EBE5FF'`
+- Hover tint: `${accentColor}0c` — per-component accent at ~5% opacity
+
+### Agent Accent Colors
+- EWC (primary_agent): `#6D28D9` (violet)
+- Orion (sales_agent): `#D97706` (amber)
+- Aria (crm_agent): `#0D9488` (teal)
+
+### Lifecycle Accent Colors (for patient pages)
+- Lead: `#7C3AED`, Active: `#059669`, Loyal: `#D97706`, At Risk: `#DC2626`, Lapsed: `#6B7280`, New: `#0284C7`
+
+### Typography
+- Section labels: `text-[8px] uppercase tracking-[0.28em] font-semibold text-[#8B84A0]`
+- Page headings: `text-[38px] font-black tracking-[-0.035em] text-[#1A1035]`
+- KPI values: `text-[40px] font-black tracking-[-0.045em] text-[#1A1035]`
+- Sub-KPI: `text-[24px] font-black tracking-[-0.03em] text-[#1A1035]`
+- Body text: `text-[11-13px] text-[#524D66]`
+- Meta text: `text-[10px] text-[#6E6688]`
+
+### Layout Patterns
+- Sections separated by `borderBottom: '1px solid #EBE5FF'` — NOT floating cards
+- Panels: `rounded-2xl overflow-hidden` with `border: '1px solid #EBE5FF'`
+- Grid layouts: `grid grid-cols-N` for metric strips
+- Main content: 8/4 or 9/3 column split
+- Left margin: `pl-[240px]` (matches StaffNav width)
+
+### Interactions
+- Hover backgrounds: `${accentColor}0d` tint (per-component color)
+- Left edge accents: `2px` colored strip on hover
+- Framer Motion: AnimatePresence + motion.div on all list items and transitions
+- Transitions: `duration-250` / `0.25s` / `transition-all`
+- Sparklines: SVG polyline + fill gradient per metric card
+
+### Rules
+- No emojis in UI
+- No black backgrounds
+- No pure white cards — panels are transparent on cream base
+- Dividers not shadows for separation
+- Micro-interactions (hover reveals, opacity transitions) on all interactive elements
 
 ## Agents
 
@@ -113,9 +156,9 @@ npx next dev            # Dev server on localhost:3000
 | Patients | ✅ Complete |
 | Automations | ✅ Complete |
 | Voice (AI Receptionist) | ✅ Complete |
-| Analytics | Needs B&W redesign |
-| Bridge | Needs B&W redesign |
-| Integrations | Needs B&W redesign |
+| Analytics | Needs redesign (match dashboard) |
+| Bridge | Needs redesign (match dashboard) |
+| Integrations | Needs redesign (match dashboard) |
 | Knowledge Base | Not built |
 | Compliance | Not built |
 | Agents | Not built |

@@ -636,6 +636,89 @@ export async function getPatientHub(id: string): Promise<{
 }
 
 // =============================================================================
+// PATIENT NOTES — stored in agent_memories (memory_type = 'patient_note')
+// =============================================================================
+
+export interface PatientNote {
+  id: string;
+  content: string;
+  created_at: string;
+}
+
+export async function addPatientNote(
+  clinikoPatientId: number,
+  content: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const db = createSovereignClient();
+    const { error } = await db.from('agent_memories').insert({
+      agent_key: 'crm_agent',
+      memory_type: 'patient_note',
+      content,
+      importance: 5,
+      metadata: { cliniko_patient_id: clinikoPatientId, source: 'staff_note' },
+    });
+    if (error) throw error;
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: String(err) };
+  }
+}
+
+export async function getPatientNotes(
+  clinikoPatientId: number,
+): Promise<PatientNote[]> {
+  const db = createSovereignClient();
+  const { data } = await db
+    .from('agent_memories')
+    .select('id, content, created_at')
+    .eq('agent_key', 'crm_agent')
+    .eq('memory_type', 'patient_note')
+    .filter('metadata->>cliniko_patient_id', 'eq', String(clinikoPatientId))
+    .order('created_at', { ascending: false })
+    .limit(50);
+  return (data ?? []) as PatientNote[];
+}
+
+// =============================================================================
+// PATIENT SIGNALS — linked by phone number match on signal data JSONB
+// =============================================================================
+
+export interface PatientSignal {
+  id: string;
+  title: string;
+  description: string | null;
+  priority: string;
+  status: string;
+  category: string | null;
+  created_at: string;
+  source_type: string | null;
+}
+
+export async function getPatientSignalList(
+  phone: string | null,
+): Promise<PatientSignal[]> {
+  if (!phone) return [];
+  const db = createSovereignClient();
+  const { data } = await db
+    .from('signals')
+    .select('id, title, description, priority, status, category, created_at, source_type, data')
+    .order('created_at', { ascending: false })
+    .limit(100);
+  // Filter by phone in JSONB data field
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const matched = (data ?? []).filter((s: any) => {
+    const d = s.data as Record<string, string> | null;
+    return d?.caller_number === phone || d?.patient_phone === phone;
+  });
+  return matched.map((s: PatientSignal & { data: unknown }) => ({
+    id: s.id, title: s.title, description: s.description,
+    priority: s.priority, status: s.status, category: s.category,
+    created_at: s.created_at, source_type: s.source_type,
+  })) as PatientSignal[];
+}
+
+// =============================================================================
 // Legacy actions — kept for compatibility
 // =============================================================================
 
