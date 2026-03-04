@@ -1,1102 +1,1505 @@
 'use client';
 
 // =============================================================================
-// Compliance Page — Edgbaston Wellness Clinic
-// CQC 5 domains | Equipment | Staff Certs | Incidents | GDPR | Evidence Pack
+// Compliance Management Page — Edgbaston Wellness Clinic
+// 7 tabs: Dashboard | HR Tracker | Training Matrix | Equipment |
+//         CQC Audit | Governance Log | Calendar
+// Role-based: Admin/Manager can assign, update, verify all records
 // =============================================================================
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { StaffNav } from '@/components/staff-nav';
 import {
-  getStaffProfile,
-  getCurrentUser,
-  type StaffProfile,
-} from '@/lib/actions/staff-onboarding';
-import { getAllStaffGoalsSummary, type StaffGoalsSummary } from '@/lib/actions/kpi-goals';
+  Shield, Users, ChevronRight, CheckCircle, AlertCircle, Clock,
+  Plus, X, Save, Edit3, ClipboardList, Settings, BarChart3,
+  CalendarDays, FileText, Building2, TrendingUp,
+} from 'lucide-react';
+import { StaffNav } from '@/components/staff-nav';
+import { getStaffProfile, getCurrentUser, type StaffProfile } from '@/lib/actions/staff-onboarding';
+import {
+  getComplianceDashboard, getHRRecords, upsertHRRecord,
+  getTrainingMatrix, upsertTrainingEntry,
+  getEquipmentList, updateEquipmentItem,
+  getCQCAudit, saveCQCAnswer,
+  getGovernanceLog, createGovernanceEntry, updateGovernanceEntry,
+  getCalendarTasks, updateCalendarTask,
+  getActiveUsers,
+  TRAINING_MODULES, MODULE_FREQUENCY,
+  type ActiveUser, type HRRecord, type TrainingMatrixRow,
+  type EquipmentItem, type CQCAnswer, type GovernanceEntry,
+  type CalendarTask, type ComplianceDashboard,
+} from '@/lib/actions/compliance';
 
 // =============================================================================
-// STATIC COMPLIANCE DATA
+// TYPES
 // =============================================================================
 
-interface CQCDomain {
-  id:           string;
-  key:          'safe' | 'effective' | 'caring' | 'responsive' | 'well_led';
-  label:        string;
-  description:  string;
-  rating:       'Outstanding' | 'Good' | 'Requires Improvement' | 'Inadequate' | 'Not Inspected';
-  last_reviewed: string | null;
-  action_items: string[];
-  evidence_items: { title: string; status: 'present' | 'missing' | 'partial' }[];
-  sub_criteria: { criterion: string; met: boolean | null }[];
+type Tab = 'dashboard' | 'hr' | 'training' | 'equipment' | 'cqc' | 'governance' | 'calendar';
+
+// =============================================================================
+// DESIGN TOKENS & PRIMITIVES
+// =============================================================================
+
+function Panel({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={`rounded-2xl overflow-hidden ${className}`}
+      style={{ backgroundColor: '#FFFFFF', border: '1px solid #EBE5FF' }}>
+      {children}
+    </div>
+  );
 }
 
-interface EquipmentItem {
-  id:             string;
-  name:           string;
-  category:       'medical_device' | 'electrical' | 'safety' | 'sterilisation' | 'emergency';
-  serial_number:  string | null;
-  location:       string;
-  last_pat_date:  string | null;
-  next_pat_date:  string | null;
-  last_service:   string | null;
-  next_service:   string | null;
-  status:         'compliant' | 'due_soon' | 'overdue' | 'out_of_service';
-  notes:          string | null;
+function PanelHeader({ title, badge, action, color }: {
+  title: string; badge?: number; action?: React.ReactNode; color?: string;
+}) {
+  return (
+    <div className="flex items-center justify-between px-5 py-3.5"
+      style={{ borderBottom: '1px solid #EBE5FF' }}>
+      <div className="flex items-center gap-2">
+        <p className="text-[8px] uppercase tracking-[0.28em] font-semibold"
+          style={{ color: color ?? '#8B84A0' }}>{title}</p>
+        {badge !== undefined && badge > 0 && (
+          <span className="inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold text-white"
+            style={{ backgroundColor: '#DC2626' }}>{badge}</span>
+        )}
+      </div>
+      {action}
+    </div>
+  );
 }
 
-interface IncidentRecord {
-  id:             string;
-  date:           string;
-  type:           'near_miss' | 'adverse_event' | 'complaint' | 'duty_of_candour' | 'safeguarding' | 'reportable';
-  severity:       'low' | 'medium' | 'high' | 'critical';
-  description:    string;
-  action_taken:   string;
-  reported_to:    string | null;
-  cqc_reportable: boolean;
-  doc_completed:  boolean;   // Duty of Candour
-  status:         'open' | 'under_review' | 'closed' | 'escalated';
+function StatTile({ label, value, sub, accent, warning }: {
+  label: string; value: string | number; sub?: string; accent?: string; warning?: boolean;
+}) {
+  return (
+    <div className="rounded-xl p-4" style={{
+      backgroundColor: warning && Number(value) > 0 ? '#FFF1F2' : '#FDFCFB',
+      border: `1px solid ${warning && Number(value) > 0 ? '#FCA5A5' : '#EBE5FF'}`,
+    }}>
+      <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-1.5">{label}</p>
+      <p className="text-[22px] font-black tracking-[-0.02em] leading-none"
+        style={{ color: accent ?? (warning && Number(value) > 0 ? '#DC2626' : '#1A1035') }}>{value}</p>
+      {sub && <p className="text-[10px] text-[#8B84A0] mt-1.5">{sub}</p>}
+    </div>
+  );
 }
 
-interface GDPRItem {
-  id:       string;
-  category: 'registration' | 'policy' | 'training' | 'breach' | 'dpia' | 'consent' | 'dsar';
-  title:    string;
-  status:   'compliant' | 'action_required' | 'not_applicable';
-  notes:    string | null;
-  due_date: string | null;
-  last_reviewed: string | null;
+function StatusBadge({ status }: { status: string }) {
+  const MAP: Record<string, [string, string]> = {
+    valid:          ['#059669', '#ECFDF5'],
+    permanent:      ['#059669', '#ECFDF5'],
+    on_track:       ['#059669', '#ECFDF5'],
+    ok:             ['#059669', '#ECFDF5'],
+    compliant:      ['#059669', '#ECFDF5'],
+    completed:      ['#059669', '#ECFDF5'],
+    not_scheduled:  ['#8B84A0', '#F5F4FA'],
+    not_set:        ['#8B84A0', '#F5F4FA'],
+    na:             ['#8B84A0', '#F5F4FA'],
+    not_recorded:   ['#8B84A0', '#F5F4FA'],
+    in_progress:    ['#0284C7', '#EFF6FF'],
+    open:           ['#0284C7', '#EFF6FF'],
+    due_soon:       ['#D97706', '#FFFBEB'],
+    due_this_month: ['#D97706', '#FFFBEB'],
+    no_dbs:         ['#D97706', '#FFFBEB'],
+    expired:        ['#DC2626', '#FFF1F2'],
+    overdue:        ['#DC2626', '#FFF1F2'],
+    due_soon_red:   ['#DC2626', '#FFF1F2'],
+  };
+  const [color, bg] = MAP[status] ?? ['#8B84A0', '#F5F4FA'];
+  return (
+    <span className="px-2 py-0.5 text-[8px] font-bold uppercase tracking-[0.1em] rounded-full whitespace-nowrap"
+      style={{ backgroundColor: bg, color }}>
+      {status.replace(/_/g, ' ')}
+    </span>
+  );
+}
+
+function UserSelect({ value, onChange, users, placeholder = 'Unassigned' }: {
+  value: string | null;
+  onChange: (v: string | null) => void;
+  users: ActiveUser[];
+  placeholder?: string;
+}) {
+  return (
+    <select
+      value={value ?? ''}
+      onChange={e => onChange(e.target.value || null)}
+      className="rounded-lg px-2 py-1 text-[11px] focus:outline-none cursor-pointer"
+      style={{ backgroundColor: '#FDFCFB', border: '1px solid #EBE5FF', color: '#1A1035', minWidth: 140 }}
+    >
+      <option value="">{placeholder}</option>
+      {users.map(u => (
+        <option key={u.id} value={u.id}>{u.full_name}</option>
+      ))}
+    </select>
+  );
 }
 
 // =============================================================================
-// SEED DATA
+// MODULE LABELS (Training Matrix)
 // =============================================================================
 
-const CQC_DOMAINS: CQCDomain[] = [
-  {
-    id: 'safe', key: 'safe', label: 'Safe',
-    description: 'People are protected from abuse and avoidable harm',
-    rating: 'Good',
-    last_reviewed: '2025-11-12',
-    action_items: [
-      'Complete annual IPC audit Q1 2026',
-      'Update sharps disposal policy to 2025 HTM 07-01',
-      'Review medical emergency equipment quarterly check schedule',
-    ],
-    evidence_items: [
-      { title: 'Infection Control Policy',        status: 'present' },
-      { title: 'Medical Emergency Protocol',       status: 'present' },
-      { title: 'Safeguarding Policy (Adults)',      status: 'present' },
-      { title: 'Sharps Disposal Log',              status: 'partial' },
-      { title: 'Staff DBS Register',               status: 'partial' },
-      { title: 'Risk Assessment — All Treatments', status: 'missing' },
-    ],
-    sub_criteria: [
-      { criterion: 'Medicines managed safely',                    met: true  },
-      { criterion: 'Infection prevention controls in place',      met: true  },
-      { criterion: 'Safeguarding processes followed',             met: true  },
-      { criterion: 'Recruitment checks completed for all staff',  met: null  },
-      { criterion: 'Risk assessments current and documented',     met: false },
-      { criterion: 'Medical emergency equipment checked monthly', met: true  },
-    ],
-  },
-  {
-    id: 'effective', key: 'effective', label: 'Effective',
-    description: 'People\'s care, treatment and support achieves good outcomes',
-    rating: 'Good',
-    last_reviewed: '2025-11-12',
-    action_items: [
-      'Implement consent re-capture for returning patients',
-      'Formalise aftercare protocol documentation',
-    ],
-    evidence_items: [
-      { title: 'Consent Forms (per treatment)',   status: 'partial' },
-      { title: 'Aftercare Protocols',             status: 'partial' },
-      { title: 'Clinical Outcomes Tracking',      status: 'missing' },
-      { title: 'Staff Training Matrix',           status: 'present' },
-      { title: 'NICE Guidelines Reference Log',   status: 'present' },
-    ],
-    sub_criteria: [
-      { criterion: 'Evidence-based guidance followed',       met: true  },
-      { criterion: 'Consent obtained and documented',        met: null  },
-      { criterion: 'Outcomes monitored and acted upon',      met: false },
-      { criterion: 'Staff competencies assessed regularly',  met: true  },
-      { criterion: 'Patient information provided in writing',met: true  },
-    ],
-  },
-  {
-    id: 'caring', key: 'caring', label: 'Caring',
-    description: 'Staff involve and treat people with compassion, kindness, dignity and respect',
-    rating: 'Outstanding',
-    last_reviewed: '2025-11-12',
-    action_items: [
-      'Document patient feedback collection process',
-    ],
-    evidence_items: [
-      { title: 'Patient Feedback Surveys',     status: 'present' },
-      { title: 'Complaints Policy',            status: 'present' },
-      { title: 'Dignity & Respect Policy',     status: 'present' },
-      { title: 'NPS Tracking',                 status: 'present' },
-    ],
-    sub_criteria: [
-      { criterion: 'Staff treat patients with dignity and respect', met: true },
-      { criterion: 'Patients involved in decisions',                met: true },
-      { criterion: 'Emotional support provided',                    met: true },
-      { criterion: 'Patient feedback collected and acted on',       met: true },
-    ],
-  },
-  {
-    id: 'responsive', key: 'responsive', label: 'Responsive',
-    description: 'Services are organised so that they meet people\'s needs',
-    rating: 'Good',
-    last_reviewed: '2025-11-12',
-    action_items: [
-      'Formalise waiting list management process',
-      'Document late cancellation and DNA procedure',
-      'Add language/accessibility provisions documentation',
-    ],
-    evidence_items: [
-      { title: 'Appointment & Waiting List Policy',     status: 'partial' },
-      { title: 'Complaints & Concerns Procedure',       status: 'present' },
-      { title: 'DNA / Late Cancellation Policy',        status: 'missing' },
-      { title: 'Accessibility Statement',               status: 'missing' },
-      { title: 'Individual Needs Assessment Process',   status: 'partial' },
-    ],
-    sub_criteria: [
-      { criterion: 'Services meet individual needs',              met: true  },
-      { criterion: 'Timely access to care provided',             met: true  },
-      { criterion: 'Complaints handled appropriately',           met: true  },
-      { criterion: 'Waiting times monitored',                    met: null  },
-      { criterion: 'Reasonable adjustments documented',          met: false },
-    ],
-  },
-  {
-    id: 'well_led', key: 'well_led', label: 'Well-led',
-    description: 'Leadership, management and governance assures high-quality and person-centred care',
-    rating: 'Good',
-    last_reviewed: '2025-11-12',
-    action_items: [
-      'Complete annual Statement of Purpose review',
-      'Formalise clinical governance meeting schedule',
-      'Implement staff appraisal process',
-    ],
-    evidence_items: [
-      { title: 'Statement of Purpose',              status: 'present' },
-      { title: 'Clinical Governance Framework',     status: 'partial' },
-      { title: 'Business Continuity Plan',          status: 'missing' },
-      { title: 'Staff Meeting Minutes',             status: 'present' },
-      { title: 'Annual Quality Report',             status: 'missing' },
-      { title: 'Whistleblowing Policy',             status: 'present' },
-    ],
-    sub_criteria: [
-      { criterion: 'Clear vision and strategy communicated to staff', met: true  },
-      { criterion: 'Clinical governance systems in place',            met: null  },
-      { criterion: 'Learning from incidents evidenced',               met: true  },
-      { criterion: 'Staff appraisals conducted annually',             met: false },
-      { criterion: 'CQC registration current and accurate',          met: true  },
-      { criterion: 'Business continuity plan documented',            met: false },
-    ],
-  },
-];
+const MODULE_LABEL: Record<string, string> = {
+  fire_safety:            'Fire Safety',
+  manual_handling:        'Manual Handling',
+  safeguarding_adults:    'Safeguarding Adults',
+  safeguarding_children:  'Safeguarding Children',
+  basic_life_support:     'BLS',
+  infection_control:      'Infection Control',
+  information_governance: 'Info Governance',
+  conflict_resolution:    'Conflict Resolution',
+  equality_diversity:     'Equality & Diversity',
+  mental_capacity_act:    'Mental Capacity',
+  medicines_management:   'Medicines Mgmt',
+  food_hygiene:           'Food Hygiene',
+  health_safety:          'Health & Safety',
+  coshh:                  'COSHH',
+  lone_working:           'Lone Working',
+  dementia_awareness:     'Dementia',
+  cqc_awareness:          'CQC Awareness',
+};
 
-const EQUIPMENT_REGISTER: EquipmentItem[] = [
-  { id: 'eq1', name: 'CoolSculpting Elite Machine', category: 'medical_device', serial_number: 'CS-2024-0042', location: 'Treatment Room 2', last_pat_date: '2025-09-01', next_pat_date: '2026-09-01', last_service: '2025-09-01', next_service: '2026-03-01', status: 'due_soon', notes: 'Annual service due March 2026' },
-  { id: 'eq2', name: 'Autoclave — Prestige', category: 'sterilisation', serial_number: 'AC-2023-0017', location: 'Prep Room', last_pat_date: '2025-09-01', next_pat_date: '2026-09-01', last_service: '2025-06-15', next_service: '2026-06-15', status: 'compliant', notes: null },
-  { id: 'eq3', name: 'Laser Hair Removal Unit', category: 'medical_device', serial_number: 'LHR-2022-0008', location: 'Treatment Room 3', last_pat_date: '2025-09-01', next_pat_date: '2026-09-01', last_service: '2025-04-20', next_service: '2026-04-20', status: 'compliant', notes: null },
-  { id: 'eq4', name: 'Defibrillator (AED)', category: 'emergency', serial_number: 'AED-2021-0003', location: 'Reception', last_pat_date: '2025-09-01', next_pat_date: '2026-09-01', last_service: '2025-01-10', next_service: '2026-01-10', status: 'overdue', notes: 'Annual battery/pad check overdue' },
-  { id: 'eq5', name: 'IV Infusion Pump x2', category: 'medical_device', serial_number: 'IV-2023-0025', location: 'Treatment Room 1', last_pat_date: '2025-09-01', next_pat_date: '2026-09-01', last_service: '2025-09-10', next_service: '2026-09-10', status: 'compliant', notes: null },
-  { id: 'eq6', name: 'Cryotherapy Unit', category: 'medical_device', serial_number: 'CRY-2024-0011', location: 'Treatment Room 1', last_pat_date: '2025-09-01', next_pat_date: '2026-09-01', last_service: '2025-11-01', next_service: '2026-11-01', status: 'compliant', notes: null },
-  { id: 'eq7', name: 'Emergency Drug Kit', category: 'emergency', serial_number: null, location: 'Treatment Room 1', last_pat_date: null, next_pat_date: null, last_service: '2026-01-05', next_service: '2026-04-05', status: 'due_soon', notes: 'Quarterly expiry check due April 2026' },
-];
+const EQUIPMENT_CATEGORY_LABEL: Record<string, string> = {
+  pat_testing:       'PAT Testing',
+  equipment_service: 'Equipment Service',
+  fire_safety:       'Fire Safety',
+  medicines:         'Medicines',
+  clinical_stock:    'Clinical Stock',
+  legionella:        'Legionella',
+  environmental:     'Environmental',
+};
 
-const INCIDENT_LOG: IncidentRecord[] = [
-  { id: 'inc1', date: '2026-01-14', type: 'adverse_event', severity: 'low', description: 'Patient reported localised bruising post-filler treatment beyond expected level', action_taken: 'Follow-up call arranged, reviewed consent form, documented in Cliniko', reported_to: 'Dr Suresh Ganta', cqc_reportable: false, doc_completed: true, status: 'closed' },
-  { id: 'inc2', date: '2026-02-03', type: 'near_miss', severity: 'medium', description: 'Adrenaline pen found past expiry date during emergency kit check', action_taken: 'Replaced immediately, supplier notified, check schedule updated to monthly', reported_to: 'Dr Suresh Ganta', cqc_reportable: false, doc_completed: true, status: 'closed' },
-  { id: 'inc3', date: '2026-02-20', type: 'complaint', severity: 'low', description: 'Patient dissatisfied with results — felt undertreated', action_taken: 'Meeting booked with Dr Ganta, complementary review offered', reported_to: null, cqc_reportable: false, doc_completed: false, status: 'under_review' },
-];
+const GOVERNANCE_TYPE_LABEL: Record<string, string> = {
+  clinical_governance_meeting:    'Clinical Governance Meeting',
+  significant_event_review:       'Significant Event Review',
+  staff_meeting:                  'Staff Meeting',
+  health_safety_meeting:          'Health & Safety Meeting',
+  learning_from_events:           'Learning from Events',
+  quality_improvement_meeting:    'Quality Improvement Meeting',
+  medicines_management_meeting:   'Medicines Management Meeting',
+  safeguarding_case_discussion:   'Safeguarding Case Discussion',
+  other:                          'Other',
+};
 
-const GDPR_ITEMS: GDPRItem[] = [
-  { id: 'g1',  category: 'registration', title: 'ICO Registration (Data Controller)', status: 'compliant',       notes: 'Reg No: ZB123456. Renews Jan 2027.',    due_date: '2027-01-01', last_reviewed: '2026-01-10' },
-  { id: 'g2',  category: 'policy',       title: 'Privacy Notice — Patient Facing',   status: 'compliant',       notes: 'Published on website + given at reception.', due_date: null, last_reviewed: '2025-11-01' },
-  { id: 'g3',  category: 'policy',       title: 'Staff Data Protection Policy',      status: 'action_required', notes: 'Requires 2026 update for AI systems (Aria, Komal).', due_date: '2026-04-01', last_reviewed: '2025-06-01' },
-  { id: 'g4',  category: 'training',     title: 'GDPR Awareness — All Staff',        status: 'action_required', notes: '3 staff members not yet completed annual training.', due_date: '2026-04-30', last_reviewed: null },
-  { id: 'g5',  category: 'dpia',         title: 'DPIA — AI Voice Receptionist (Komal)', status: 'action_required', notes: 'DPIA required before Komal goes live. Not yet completed.', due_date: '2026-03-31', last_reviewed: null },
-  { id: 'g6',  category: 'dpia',         title: 'DPIA — AI Agent System (Aria)',     status: 'action_required', notes: 'DPIA required for AI processing of patient data.', due_date: '2026-03-31', last_reviewed: null },
-  { id: 'g7',  category: 'consent',      title: 'Patient Consent for AI Data Processing', status: 'action_required', notes: 'Consent mechanism needed before AI goes live.', due_date: '2026-03-31', last_reviewed: null },
-  { id: 'g8',  category: 'breach',       title: 'Data Breach Register',              status: 'compliant',       notes: 'No breaches recorded to date.',        due_date: null, last_reviewed: '2026-01-01' },
-  { id: 'g9',  category: 'dsar',         title: 'DSAR Process Documented',           status: 'compliant',       notes: 'Process documented. Response time: 30 days.', due_date: null, last_reviewed: '2025-10-01' },
-  { id: 'g10', category: 'consent',      title: 'Cliniko Data Processor Agreement',  status: 'compliant',       notes: 'DPA in place with Cliniko (processor).',  due_date: null, last_reviewed: '2025-09-01' },
-];
+const CQC_DOMAIN_COLOR: Record<string, string> = {
+  safe:       '#DC2626',
+  effective:  '#059669',
+  caring:     '#EC4899',
+  responsive: '#0284C7',
+  well_led:   '#8A6CFF',
+};
 
-// =============================================================================
-// HELPERS
-// =============================================================================
-
-function ratingColor(rating: CQCDomain['rating']) {
-  if (rating === 'Outstanding')          return 'text-emerald-400';
-  if (rating === 'Good')                 return 'text-emerald-400';
-  if (rating === 'Requires Improvement') return 'text-amber-400';
-  if (rating === 'Inadequate')           return 'text-red-400';
-  return 'text-white/30';
-}
-
-function ratingBg(rating: CQCDomain['rating']) {
-  if (rating === 'Outstanding')          return 'bg-emerald-400/10 text-emerald-400';
-  if (rating === 'Good')                 return 'bg-emerald-400/10 text-emerald-400';
-  if (rating === 'Requires Improvement') return 'bg-amber-400/10 text-amber-400';
-  if (rating === 'Inadequate')           return 'bg-red-400/10 text-red-400';
-  return 'bg-white/5 text-white/30';
-}
-
-function eqStatusColor(status: EquipmentItem['status']) {
-  if (status === 'compliant')     return 'bg-emerald-400/10 text-emerald-400';
-  if (status === 'due_soon')      return 'bg-amber-400/10 text-amber-400';
-  if (status === 'overdue')       return 'bg-red-400/10 text-red-400';
-  if (status === 'out_of_service') return 'bg-white/5 text-white/30';
-  return 'bg-white/5 text-white/30';
-}
-
-function shortDate(d: string | null): string {
+function shortDate(d: string | null | undefined) {
   if (!d) return '—';
   return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' });
 }
 
-function daysUntil(d: string | null): number | null {
-  if (!d) return null;
-  return Math.ceil((new Date(d).getTime() - Date.now()) / 86_400_000);
-}
+// =============================================================================
+// TAB: DASHBOARD
+// =============================================================================
 
-function gdprStatusColor(s: GDPRItem['status']) {
-  if (s === 'compliant')       return 'bg-emerald-400/10 text-emerald-400';
-  if (s === 'action_required') return 'bg-amber-400/10 text-amber-400';
-  return 'bg-white/5 text-white/30';
-}
+function DashboardTab({ dashboard, brandColor }: { dashboard: ComplianceDashboard; brandColor: string }) {
+  const totalIssues = dashboard.dbs_issues + dashboard.rtw_issues + dashboard.appraisals_overdue
+    + dashboard.training_gaps + dashboard.equipment_overdue + dashboard.governance_overdue + dashboard.calendar_overdue;
 
-function incSeverityColor(s: IncidentRecord['severity']) {
-  if (s === 'critical') return 'text-red-400';
-  if (s === 'high')     return 'text-red-400';
-  if (s === 'medium')   return 'text-amber-400';
-  return 'text-white/40';
-}
-
-function incStatusBg(s: IncidentRecord['status']) {
-  if (s === 'open')          return 'bg-red-400/10 text-red-400';
-  if (s === 'under_review')  return 'bg-amber-400/10 text-amber-400';
-  if (s === 'closed')        return 'bg-emerald-400/10 text-emerald-400';
-  if (s === 'escalated')     return 'bg-red-400/10 text-red-400';
-  return 'bg-white/5 text-white/30';
-}
-
-// Compute readiness score from CQC domains
-function calcCQCReadiness(domains: CQCDomain[]): number {
-  let total = 0;
-  let score = 0;
-  domains.forEach(d => {
-    d.sub_criteria.forEach(sc => {
-      total++;
-      if (sc.met === true) score += 2;
-      else if (sc.met === null) score += 1;
-    });
-    d.evidence_items.forEach(e => {
-      total++;
-      if (e.status === 'present') score += 2;
-      else if (e.status === 'partial') score += 1;
-    });
-  });
-  return total > 0 ? Math.round((score / (total * 2)) * 100) : 0;
-}
-
-function ScoreRing({ score, size = 64 }: { score: number; size?: number }) {
-  const r = size / 2 - 6;
-  const circ = 2 * Math.PI * r;
-  const fill = (score / 100) * circ;
-  const color = score >= 80 ? '#34d399' : score >= 60 ? '#fbbf24' : '#f87171';
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="5" />
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth="5"
-        strokeDasharray={`${fill} ${circ}`} strokeLinecap="round"
-        transform={`rotate(-90 ${size / 2} ${size / 2})`}
-        style={{ transition: 'stroke-dasharray 0.8s ease' }}
-      />
-      <text x="50%" y="54%" textAnchor="middle" fill="white" fontSize={size * 0.22} fontWeight="600">{score}</text>
-    </svg>
+    <div className="space-y-5">
+      {/* Summary strip */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatTile label="CQC Audit Score" value={`${dashboard.cqc_score_pct}%`}
+          sub={`${dashboard.cqc_answered} / ${dashboard.cqc_total} answered`}
+          accent={dashboard.cqc_score_pct >= 80 ? '#059669' : dashboard.cqc_score_pct >= 60 ? '#D97706' : '#DC2626'} />
+        <StatTile label="Total Issues" value={totalIssues} sub="Requiring action" warning accent={totalIssues > 0 ? '#DC2626' : '#059669'} />
+        <StatTile label="Total Staff" value={dashboard.total_staff} sub="Active staff members" accent="#1A1035" />
+        <StatTile label="Equipment Overdue" value={dashboard.equipment_overdue}
+          sub={`${dashboard.equipment_due_soon} due this month`} warning />
+      </div>
+
+      {/* HR + Training */}
+      <div className="grid grid-cols-3 gap-4">
+        <Panel>
+          <PanelHeader title="HR Compliance" badge={dashboard.dbs_issues + dashboard.rtw_issues + dashboard.appraisals_overdue} />
+          <div className="divide-y" style={{ borderColor: '#EBE5FF' }}>
+            {[
+              { label: 'DBS Issues', val: dashboard.dbs_issues },
+              { label: 'Right to Work Issues', val: dashboard.rtw_issues },
+              { label: 'Appraisals Overdue', val: dashboard.appraisals_overdue },
+            ].map(r => (
+              <div key={r.label} className="flex justify-between items-center px-5 py-3">
+                <span className="text-[12px] text-[#6E6688]">{r.label}</span>
+                <span className="text-[13px] font-bold" style={{ color: r.val > 0 ? '#DC2626' : '#059669' }}>{r.val}</span>
+              </div>
+            ))}
+          </div>
+        </Panel>
+
+        <Panel>
+          <PanelHeader title="Training" badge={dashboard.training_gaps} />
+          <div className="p-5 flex flex-col items-center gap-3">
+            <div className="text-[42px] font-black tracking-[-0.03em]"
+              style={{ color: dashboard.training_gaps > 0 ? '#DC2626' : '#059669' }}>
+              {dashboard.training_gaps}
+            </div>
+            <p className="text-[11px] text-[#8B84A0] text-center">
+              {dashboard.training_gaps === 0
+                ? 'All training records compliant'
+                : `${dashboard.training_gaps} overdue training module${dashboard.training_gaps !== 1 ? 's' : ''} — immediate action required`}
+            </p>
+          </div>
+        </Panel>
+
+        <Panel>
+          <PanelHeader title="Governance & Calendar" badge={dashboard.governance_overdue + dashboard.calendar_overdue} />
+          <div className="divide-y" style={{ borderColor: '#EBE5FF' }}>
+            {[
+              { label: 'Governance Open', val: dashboard.governance_open },
+              { label: 'Governance Overdue', val: dashboard.governance_overdue },
+              { label: 'Calendar Overdue', val: dashboard.calendar_overdue },
+              { label: 'Calendar Due Soon', val: dashboard.calendar_due_soon },
+            ].map(r => (
+              <div key={r.label} className="flex justify-between items-center px-5 py-3">
+                <span className="text-[12px] text-[#6E6688]">{r.label}</span>
+                <span className="text-[13px] font-bold"
+                  style={{ color: r.val > 0 && (r.label.includes('Overdue')) ? '#DC2626' : '#1A1035' }}>
+                  {r.val}
+                </span>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      </div>
+
+      {/* CQC Score breakdown */}
+      <Panel>
+        <PanelHeader title="CQC Audit Summary" />
+        <div className="p-5 grid grid-cols-5 gap-4">
+          {[
+            { domain: 'safe',       label: 'Safe',        icon: '🛡' },
+            { domain: 'effective',  label: 'Effective',   icon: '✓' },
+            { domain: 'caring',     label: 'Caring',      icon: '♡' },
+            { domain: 'responsive', label: 'Responsive',  icon: '↗' },
+            { domain: 'well_led',   label: 'Well-Led',    icon: '★' },
+          ].map(d => {
+            const color = CQC_DOMAIN_COLOR[d.domain];
+            return (
+              <div key={d.domain} className="rounded-xl p-4 text-center"
+                style={{ backgroundColor: color + '0D', border: `1px solid ${color}22` }}>
+                <p className="text-[11px] font-black tracking-[0.06em] uppercase" style={{ color }}>{d.label}</p>
+                <p className="text-[9px] text-[#8B84A0] mt-1">Use CQC tab to answer</p>
+              </div>
+            );
+          })}
+        </div>
+        <div className="px-5 pb-5 grid grid-cols-3 gap-3">
+          <StatTile label="Answered Yes" value={dashboard.cqc_answered - dashboard.cqc_no_count - dashboard.cqc_partial_count}
+            sub="Fully compliant" accent="#059669" />
+          <StatTile label="Partial / In Progress" value={dashboard.cqc_partial_count} sub="Need improvement" accent="#D97706" />
+          <StatTile label="Not Compliant" value={dashboard.cqc_no_count} sub="Action required" accent="#DC2626" />
+        </div>
+      </Panel>
+    </div>
   );
 }
 
 // =============================================================================
-// OVERVIEW TAB
+// TAB: HR TRACKER
 // =============================================================================
 
-function OverviewTab({
-  domains,
-  equipment,
-  incidents,
-  gdprItems,
-  staffSummaries,
-  onGeneratePack,
+function HRTrackerTab({
+  records, users, isAdmin, currentUserId, onRefresh,
 }: {
-  domains: CQCDomain[];
-  equipment: EquipmentItem[];
-  incidents: IncidentRecord[];
-  gdprItems: GDPRItem[];
-  staffSummaries: StaffGoalsSummary[];
-  onGeneratePack: () => void;
+  records: HRRecord[]; users: ActiveUser[]; isAdmin: boolean;
+  currentUserId: string; onRefresh: () => void;
 }) {
-  const cqcScore     = calcCQCReadiness(domains);
-  const outstandingDomains = domains.filter(d => d.rating === 'Outstanding').length;
-  const requiresImprovement = domains.filter(d => d.rating === 'Requires Improvement' || d.rating === 'Inadequate').length;
+  const [editing, setEditing] = useState<HRRecord | null>(null);
+  const [form, setForm] = useState<Record<string, string | boolean>>({});
+  const [saving, setSaving] = useState(false);
+  const [filter, setFilter] = useState<'all' | 'issues'>('all');
 
-  const eqOverdue  = equipment.filter(e => e.status === 'overdue').length;
-  const eqDueSoon  = equipment.filter(e => e.status === 'due_soon').length;
+  function openEdit(r: HRRecord) {
+    setEditing(r);
+    setForm({
+      dbs_number:            r.dbs_number ?? '',
+      dbs_issue_date:        r.dbs_issue_date ?? '',
+      dbs_expiry_date:       r.dbs_expiry_date ?? '',
+      rtw_type:              r.rtw_type ?? '',
+      rtw_expiry_date:       r.rtw_expiry_date ?? '',
+      registration_body:     r.registration_body ?? '',
+      registration_number:   r.registration_number ?? '',
+      registration_expiry:   r.registration_expiry ?? '',
+      last_appraisal_date:   r.last_appraisal_date ?? '',
+      next_appraisal_date:   r.next_appraisal_date ?? '',
+      staff_signed:          r.staff_signed,
+      manager_signed:        r.manager_signed,
+      documents_uploaded:    r.documents_uploaded,
+      notes:                 r.notes ?? '',
+    });
+  }
 
-  const openIncidents = incidents.filter(i => i.status === 'open' || i.status === 'under_review').length;
+  async function handleSave() {
+    if (!editing) return;
+    setSaving(true);
+    await upsertHRRecord(editing.user_id, {
+      dbs_number:            (form.dbs_number as string) || undefined,
+      dbs_issue_date:        (form.dbs_issue_date as string) || undefined,
+      dbs_expiry_date:       (form.dbs_expiry_date as string) || undefined,
+      rtw_type:              (form.rtw_type as string) || undefined,
+      rtw_expiry_date:       (form.rtw_expiry_date as string) || undefined,
+      registration_body:     (form.registration_body as string) || undefined,
+      registration_number:   (form.registration_number as string) || undefined,
+      registration_expiry:   (form.registration_expiry as string) || undefined,
+      last_appraisal_date:   (form.last_appraisal_date as string) || undefined,
+      next_appraisal_date:   (form.next_appraisal_date as string) || undefined,
+      staff_signed:          form.staff_signed as boolean,
+      manager_signed:        form.manager_signed as boolean,
+      documents_uploaded:    form.documents_uploaded as boolean,
+      notes:                 (form.notes as string) || undefined,
+      assigned_by:           currentUserId,
+    });
+    setSaving(false);
+    setEditing(null);
+    onRefresh();
+  }
 
-  const gdprActionsRequired = gdprItems.filter(g => g.status === 'action_required').length;
+  const displayed = filter === 'issues'
+    ? records.filter(r => r.dbs_status === 'expired' || r.dbs_status === 'due_soon'
+        || r.rtw_status === 'expired' || r.rtw_status === 'due_soon'
+        || r.appraisal_status === 'overdue' || r.appraisal_status === 'due_soon')
+    : records;
 
-  // Staff cert compliance (from summaries)
-  const avgCompliance = staffSummaries.length > 0
-    ? Math.round(staffSummaries.reduce((a, s) => a + s.compliance_score, 0) / staffSummaries.length)
-    : 0;
+  const issueCount = records.filter(r => r.dbs_status === 'expired' || r.dbs_status === 'due_soon'
+    || r.appraisal_status === 'overdue').length;
 
-  const alerts: { label: string; detail: string; level: 'critical' | 'warning' | 'info' }[] = [];
-
-  if (eqOverdue > 0)           alerts.push({ label: `${eqOverdue} equipment items overdue service`, detail: 'Check equipment register', level: 'critical' });
-  if (gdprActionsRequired > 0) alerts.push({ label: `${gdprActionsRequired} GDPR actions required before AI goes live`, detail: 'Review GDPR tab', level: 'critical' });
-  if (openIncidents > 0)       alerts.push({ label: `${openIncidents} incident${openIncidents !== 1 ? 's' : ''} under review`, detail: 'Review incident log', level: 'warning' });
-  if (eqDueSoon > 0)           alerts.push({ label: `${eqDueSoon} equipment items due for service soon`, detail: 'Check equipment register', level: 'warning' });
-  if (requiresImprovement > 0) alerts.push({ label: `${requiresImprovement} CQC domain${requiresImprovement !== 1 ? 's' : ''} requiring improvement`, detail: 'Review CQC tab', level: 'warning' });
-  if (avgCompliance < 80 && staffSummaries.length > 0) alerts.push({ label: `Staff certification compliance at ${avgCompliance}%`, detail: 'Review individual KPI pages', level: 'warning' });
+  const inp = 'w-full rounded-lg px-3 py-1.5 text-[12px] focus:outline-none';
+  const inpStyle = { backgroundColor: '#FDFCFB', border: '1px solid #EBE5FF', color: '#1A1035' };
 
   return (
-    <div className="space-y-6">
-      {/* Score grid */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-4 col-span-1">
-          <div className="text-[11px] uppercase tracking-[0.16em] text-white/25 mb-3">CQC Readiness</div>
-          <div className="flex items-center gap-3">
-            <ScoreRing score={cqcScore} size={56} />
-            <div>
-              <div className="text-[12px] text-white/40">{outstandingDomains} Outstanding</div>
-              {requiresImprovement > 0 && (
-                <div className="text-[12px] text-amber-400 mt-0.5">{requiresImprovement} Need Work</div>
-              )}
-            </div>
-          </div>
+    <>
+      {/* Controls */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-1.5">
+          {(['all', 'issues'] as const).map(f => (
+            <button key={f} onClick={() => setFilter(f)}
+              className="px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-[0.14em] font-semibold"
+              style={{ backgroundColor: filter === f ? '#EBE5FF' : 'transparent', color: filter === f ? '#1A1035' : '#8B84A0' }}>
+              {f === 'all' ? `All Staff (${records.length})` : `Issues (${issueCount})`}
+            </button>
+          ))}
         </div>
-
-        <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-4">
-          <div className="text-[11px] uppercase tracking-[0.16em] text-white/25 mb-2">Equipment</div>
-          <div className="text-[24px] font-light text-white mb-1">{equipment.length}</div>
-          <div className="space-y-0.5">
-            <div className={`text-[11px] ${eqOverdue > 0 ? 'text-red-400' : 'text-white/30'}`}>{eqOverdue} overdue</div>
-            <div className={`text-[11px] ${eqDueSoon > 0 ? 'text-amber-400' : 'text-white/30'}`}>{eqDueSoon} due soon</div>
-          </div>
-        </div>
-
-        <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-4">
-          <div className="text-[11px] uppercase tracking-[0.16em] text-white/25 mb-2">Incidents</div>
-          <div className="text-[24px] font-light text-white mb-1">{incidents.length}</div>
-          <div className={`text-[11px] ${openIncidents > 0 ? 'text-amber-400' : 'text-white/30'}`}>{openIncidents} open</div>
-        </div>
-
-        <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-4">
-          <div className="text-[11px] uppercase tracking-[0.16em] text-white/25 mb-2">GDPR Actions</div>
-          <div className={`text-[24px] font-light mb-1 ${gdprActionsRequired > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
-            {gdprActionsRequired}
-          </div>
-          <div className="text-[11px] text-white/30">{gdprItems.filter(g => g.status === 'compliant').length} compliant</div>
-        </div>
+        <p className="text-[10px] text-[#8B84A0] uppercase tracking-[0.14em]">
+          {isAdmin ? 'Click row to edit' : 'Read-only view'}
+        </p>
       </div>
 
-      {/* CQC domain ratings */}
-      <div>
-        <div className="text-[11px] uppercase tracking-[0.18em] text-white/25 mb-3">CQC 5 Key Questions</div>
-        <div className="grid grid-cols-5 gap-2">
-          {domains.map(d => (
-            <div key={d.id} className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-3 text-center">
-              <div className="text-[11px] uppercase tracking-[0.14em] text-white/50 mb-2">{d.label}</div>
-              <span className={`text-[10px] px-2 py-0.5 rounded-full ${ratingBg(d.rating)}`}>{d.rating}</span>
-              <div className="text-[10px] text-white/25 mt-2">
-                {d.sub_criteria.filter(sc => sc.met === true).length}/{d.sub_criteria.length} criteria
+      <Panel>
+        <PanelHeader title="HR Compliance Tracker" />
+        {/* Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-[11px]">
+            <thead>
+              <tr style={{ borderBottom: '1px solid #EBE5FF', backgroundColor: '#FDFCFB' }}>
+                {['Staff Member', 'Role', 'DBS Expiry', 'DBS Status', 'RTW Status', 'Reg. Body', 'Reg. Expiry', 'Next Appraisal', 'Appraisal', 'Signed', 'Docs'].map(h => (
+                  <th key={h} className="px-4 py-3 text-left text-[8px] uppercase tracking-[0.18em] font-semibold text-[#8B84A0] whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {displayed.length === 0 ? (
+                <tr><td colSpan={11} className="px-4 py-10 text-center text-[12px] text-[#8B84A0]">No issues found.</td></tr>
+              ) : (
+                displayed.map((r, idx) => (
+                  <motion.tr
+                    key={r.user_id}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: idx * 0.02 }}
+                    className={`border-b cursor-pointer transition-colors ${isAdmin ? 'hover:bg-[#FAF7F2]' : ''}`}
+                    style={{ borderColor: '#EBE5FF' }}
+                    onClick={() => isAdmin && openEdit(r)}
+                  >
+                    <td className="px-4 py-3 font-semibold text-[#1A1035] whitespace-nowrap">{r.full_name}</td>
+                    <td className="px-4 py-3 text-[#6E6688]">{r.role_name}</td>
+                    <td className="px-4 py-3 text-[#6E6688]">{shortDate(r.dbs_expiry_date)}</td>
+                    <td className="px-4 py-3"><StatusBadge status={r.dbs_status} /></td>
+                    <td className="px-4 py-3"><StatusBadge status={r.rtw_status} /></td>
+                    <td className="px-4 py-3 text-[#6E6688]">{r.registration_body ?? '—'}</td>
+                    <td className="px-4 py-3 text-[#6E6688]">{shortDate(r.registration_expiry)}</td>
+                    <td className="px-4 py-3 text-[#6E6688]">{shortDate(r.next_appraisal_date)}</td>
+                    <td className="px-4 py-3"><StatusBadge status={r.appraisal_status} /></td>
+                    <td className="px-4 py-3 text-center">
+                      <span style={{ color: r.staff_signed && r.manager_signed ? '#059669' : '#D97706' }}>
+                        {r.staff_signed && r.manager_signed ? '✓' : '○'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span style={{ color: r.documents_uploaded ? '#059669' : '#D97706' }}>
+                        {r.documents_uploaded ? '✓' : '○'}
+                      </span>
+                    </td>
+                  </motion.tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
+
+      {/* Edit modal */}
+      <AnimatePresence>
+        {editing && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setEditing(null)} />
+            <motion.div
+              className="relative w-full max-w-2xl rounded-2xl z-10 overflow-y-auto max-h-[90vh]"
+              style={{ backgroundColor: '#FFFFFF', border: '1px solid #EBE5FF' }}
+              initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}
+            >
+              <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid #EBE5FF' }}>
+                <div>
+                  <p className="text-[8px] uppercase tracking-[0.22em] text-[#8B84A0]">HR Record</p>
+                  <p className="text-[16px] font-bold text-[#1A1035]">{editing.full_name}</p>
+                  <p className="text-[11px] text-[#8B84A0]">{editing.role_name}</p>
+                </div>
+                <button onClick={() => setEditing(null)} className="text-[#8B84A0] hover:text-[#1A1035]"><X size={18} /></button>
               </div>
+              <div className="p-6 space-y-5">
+                {/* DBS */}
+                <div>
+                  <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-3">DBS Check</p>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div><label className="block text-[9px] text-[#8B84A0] mb-1">DBS Number</label>
+                      <input className={inp} style={inpStyle} value={form.dbs_number as string}
+                        onChange={e => setForm(f => ({ ...f, dbs_number: e.target.value }))} /></div>
+                    <div><label className="block text-[9px] text-[#8B84A0] mb-1">Issue Date</label>
+                      <input type="date" className={inp} style={inpStyle} value={form.dbs_issue_date as string}
+                        onChange={e => setForm(f => ({ ...f, dbs_issue_date: e.target.value }))} /></div>
+                    <div><label className="block text-[9px] text-[#8B84A0] mb-1">Expiry Date</label>
+                      <input type="date" className={inp} style={inpStyle} value={form.dbs_expiry_date as string}
+                        onChange={e => setForm(f => ({ ...f, dbs_expiry_date: e.target.value }))} /></div>
+                  </div>
+                </div>
+                {/* RTW */}
+                <div>
+                  <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-3">Right to Work</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div><label className="block text-[9px] text-[#8B84A0] mb-1">RTW Type</label>
+                      <select className={inp} style={inpStyle} value={form.rtw_type as string}
+                        onChange={e => setForm(f => ({ ...f, rtw_type: e.target.value }))}>
+                        <option value="">—</option>
+                        <option value="uk_national">UK National (Permanent)</option>
+                        <option value="eu_settled">EU Settled Status</option>
+                        <option value="visa">Visa / Work Permit</option>
+                        <option value="na">N/A</option>
+                      </select></div>
+                    <div><label className="block text-[9px] text-[#8B84A0] mb-1">RTW Expiry (if applicable)</label>
+                      <input type="date" className={inp} style={inpStyle} value={form.rtw_expiry_date as string}
+                        onChange={e => setForm(f => ({ ...f, rtw_expiry_date: e.target.value }))} /></div>
+                  </div>
+                </div>
+                {/* Professional Registration */}
+                <div>
+                  <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-3">Professional Registration</p>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div><label className="block text-[9px] text-[#8B84A0] mb-1">Regulatory Body</label>
+                      <select className={inp} style={inpStyle} value={form.registration_body as string}
+                        onChange={e => setForm(f => ({ ...f, registration_body: e.target.value }))}>
+                        {['', 'NMC', 'GMC', 'HCPC', 'GDC', 'GPC', 'N/A'].map(b => <option key={b} value={b}>{b || '—'}</option>)}
+                      </select></div>
+                    <div><label className="block text-[9px] text-[#8B84A0] mb-1">Registration Number</label>
+                      <input className={inp} style={inpStyle} value={form.registration_number as string}
+                        onChange={e => setForm(f => ({ ...f, registration_number: e.target.value }))} /></div>
+                    <div><label className="block text-[9px] text-[#8B84A0] mb-1">Expiry / Review Date</label>
+                      <input type="date" className={inp} style={inpStyle} value={form.registration_expiry as string}
+                        onChange={e => setForm(f => ({ ...f, registration_expiry: e.target.value }))} /></div>
+                  </div>
+                </div>
+                {/* Appraisals */}
+                <div>
+                  <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-3">Appraisals</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div><label className="block text-[9px] text-[#8B84A0] mb-1">Last Appraisal</label>
+                      <input type="date" className={inp} style={inpStyle} value={form.last_appraisal_date as string}
+                        onChange={e => setForm(f => ({ ...f, last_appraisal_date: e.target.value }))} /></div>
+                    <div><label className="block text-[9px] text-[#8B84A0] mb-1">Next Appraisal Due</label>
+                      <input type="date" className={inp} style={inpStyle} value={form.next_appraisal_date as string}
+                        onChange={e => setForm(f => ({ ...f, next_appraisal_date: e.target.value }))} /></div>
+                  </div>
+                </div>
+                {/* Sign-off */}
+                <div>
+                  <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-3">Sign-off</p>
+                  <div className="flex gap-6">
+                    {([['staff_signed', 'Staff Signed'], ['manager_signed', 'Manager Signed'], ['documents_uploaded', 'Documents Uploaded']] as [string, string][]).map(([k, label]) => (
+                      <label key={k} className="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" checked={form[k] as boolean}
+                          onChange={e => setForm(f => ({ ...f, [k]: e.target.checked }))}
+                          className="w-4 h-4 rounded accent-[#8A6CFF]" />
+                        <span className="text-[12px] text-[#1A1035]">{label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                {/* Notes */}
+                <div><label className="block text-[9px] text-[#8B84A0] mb-1">Notes</label>
+                  <textarea className={inp + ' resize-none h-16'} style={inpStyle} value={form.notes as string}
+                    onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} /></div>
+              </div>
+              <div className="px-6 pb-6 flex gap-3">
+                <button onClick={() => setEditing(null)}
+                  className="flex-1 py-2.5 rounded-xl text-[12px] font-bold border"
+                  style={{ borderColor: '#EBE5FF', color: '#6E6688' }}>Cancel</button>
+                <button onClick={handleSave} disabled={saving}
+                  className="flex-1 py-2.5 rounded-xl text-[12px] font-bold text-white disabled:opacity-50"
+                  style={{ backgroundColor: '#8A6CFF' }}>
+                  <Save size={13} className="inline mr-1.5" />{saving ? 'Saving…' : 'Save Record'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+}
+
+// =============================================================================
+// TAB: TRAINING MATRIX
+// =============================================================================
+
+function TrainingMatrixTab({
+  matrix, users, isAdmin, currentUserId, onRefresh,
+}: {
+  matrix: TrainingMatrixRow[]; users: ActiveUser[]; isAdmin: boolean;
+  currentUserId: string; onRefresh: () => void;
+}) {
+  const [editCell, setEditCell] = useState<{ userId: string; module: string; entry: TrainingMatrixRow['modules'][string] } | null>(null);
+  const [form, setForm] = useState({ completed_date: '', notes: '' });
+  const [saving, setSaving] = useState(false);
+
+  function cellColor(status: string | undefined) {
+    if (!status || status === 'not_recorded') return '#F5F4FA';
+    if (status === 'compliant') return '#ECFDF5';
+    if (status === 'due_soon') return '#FFFBEB';
+    return '#FFF1F2'; // overdue
+  }
+  function cellTextColor(status: string | undefined) {
+    if (!status || status === 'not_recorded') return '#8B84A0';
+    if (status === 'compliant') return '#059669';
+    if (status === 'due_soon') return '#D97706';
+    return '#DC2626';
+  }
+
+  async function handleSaveCell() {
+    if (!editCell) return;
+    setSaving(true);
+    await upsertTrainingEntry(editCell.userId, editCell.module, {
+      completed_date: form.completed_date || undefined,
+      notes: form.notes || undefined,
+      assigned_by: currentUserId,
+    });
+    setSaving(false);
+    setEditCell(null);
+    onRefresh();
+  }
+
+  if (matrix.length === 0) return (
+    <Panel>
+      <div className="p-10 text-center text-[12px] text-[#8B84A0]">No active staff found.</div>
+    </Panel>
+  );
+
+  return (
+    <>
+      <div className="mb-4 flex items-center gap-4">
+        <div className="flex items-center gap-4 text-[10px]">
+          {[['#ECFDF5', '#059669', 'Compliant'], ['#FFFBEB', '#D97706', 'Due Soon'], ['#FFF1F2', '#DC2626', 'Overdue'], ['#F5F4FA', '#8B84A0', 'Not Recorded']].map(([bg, tc, label]) => (
+            <div key={label} className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded" style={{ backgroundColor: bg, border: `1px solid ${tc}33` }} />
+              <span style={{ color: tc, fontWeight: 600 }}>{label}</span>
             </div>
           ))}
         </div>
+        {isAdmin && <p className="text-[10px] text-[#8B84A0] ml-auto">Click any cell to update</p>}
       </div>
 
-      {/* Alerts */}
-      {alerts.length > 0 && (
-        <div>
-          <div className="text-[11px] uppercase tracking-[0.18em] text-white/25 mb-3">Action Required</div>
-          <div className="space-y-2">
-            {alerts.map((a, i) => (
-              <div key={i} className={`flex items-start gap-3 rounded-xl px-4 py-3 border ${
-                a.level === 'critical' ? 'bg-red-400/5 border-red-400/20' : 'bg-amber-400/5 border-amber-400/15'
-              }`}>
-                <div className={`w-1 h-1 rounded-full mt-1.5 flex-shrink-0 ${a.level === 'critical' ? 'bg-red-400' : 'bg-amber-400'}`} />
+      <Panel>
+        <div className="overflow-x-auto">
+          <table className="text-[10px]" style={{ minWidth: '1200px' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#FDFCFB', borderBottom: '1px solid #EBE5FF' }}>
+                <th className="sticky left-0 z-10 bg-[#FDFCFB] px-4 py-3 text-left text-[8px] uppercase tracking-[0.18em] font-semibold text-[#8B84A0] whitespace-nowrap min-w-[160px]">Staff Member</th>
+                {TRAINING_MODULES.map(mod => (
+                  <th key={mod} className="px-2 py-3 text-center text-[7px] uppercase tracking-[0.14em] font-semibold text-[#8B84A0] whitespace-nowrap min-w-[80px]">
+                    {MODULE_LABEL[mod]}
+                    <div className="text-[6px] text-[#C4B9FF] mt-0.5">{MODULE_FREQUENCY[mod] === 12 ? 'Annual' : '3yr'}</div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {matrix.map((row, ri) => (
+                <tr key={row.user_id} style={{ borderBottom: '1px solid #EBE5FF' }}
+                  className={ri % 2 === 0 ? 'bg-white' : 'bg-[#FDFCFB]'}>
+                  <td className="sticky left-0 z-10 px-4 py-3 whitespace-nowrap"
+                    style={{ backgroundColor: ri % 2 === 0 ? '#FFFFFF' : '#FDFCFB' }}>
+                    <p className="font-bold text-[#1A1035]">{row.full_name}</p>
+                    <p className="text-[9px] text-[#8B84A0]">{row.role_name}</p>
+                  </td>
+                  {TRAINING_MODULES.map(mod => {
+                    const entry = row.modules[mod];
+                    const status = entry?.status ?? 'not_recorded';
+                    return (
+                      <td key={mod}
+                        className={`px-1 py-2 text-center ${isAdmin ? 'cursor-pointer hover:opacity-80' : ''}`}
+                        onClick={() => isAdmin && setEditCell({ userId: row.user_id, module: mod, entry })}
+                      >
+                        <div className="mx-auto w-16 rounded px-1 py-1" style={{ backgroundColor: cellColor(status) }}>
+                          {entry?.completed_date ? (
+                            <p className="text-[8px] font-bold" style={{ color: cellTextColor(status) }}>
+                              {shortDate(entry.completed_date)}
+                            </p>
+                          ) : (
+                            <p className="text-[8px]" style={{ color: cellTextColor(status) }}>—</p>
+                          )}
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
+
+      {/* Cell edit modal */}
+      <AnimatePresence>
+        {editCell && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setEditCell(null)} />
+            <motion.div className="relative w-full max-w-md rounded-2xl z-10 p-6"
+              style={{ backgroundColor: '#FFFFFF', border: '1px solid #EBE5FF' }}
+              initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }}>
+              <div className="mb-5">
+                <p className="text-[8px] uppercase tracking-[0.22em] text-[#8B84A0]">Training Record</p>
+                <p className="text-[16px] font-bold text-[#1A1035]">{MODULE_LABEL[editCell.module]}</p>
+                <p className="text-[11px] text-[#8B84A0]">
+                  {matrix.find(r => r.user_id === editCell.userId)?.full_name} ·
+                  {MODULE_FREQUENCY[editCell.module] === 12 ? ' Annual' : ' 3-Yearly'}
+                </p>
+              </div>
+              <div className="space-y-4">
                 <div>
-                  <div className={`text-[12px] ${a.level === 'critical' ? 'text-red-400' : 'text-amber-400'}`}>{a.label}</div>
-                  <div className="text-[11px] text-white/30 mt-0.5">{a.detail}</div>
+                  <label className="block text-[9px] text-[#8B84A0] mb-1.5 uppercase tracking-[0.14em]">Completion Date</label>
+                  <input type="date" className="w-full rounded-lg px-3 py-2 text-[13px] focus:outline-none"
+                    style={{ backgroundColor: '#FDFCFB', border: '1px solid #EBE5FF', color: '#1A1035' }}
+                    defaultValue={editCell.entry?.completed_date ?? ''}
+                    onChange={e => setForm(f => ({ ...f, completed_date: e.target.value }))} />
                 </div>
+                <div>
+                  <label className="block text-[9px] text-[#8B84A0] mb-1.5 uppercase tracking-[0.14em]">Notes</label>
+                  <input className="w-full rounded-lg px-3 py-2 text-[13px] focus:outline-none"
+                    style={{ backgroundColor: '#FDFCFB', border: '1px solid #EBE5FF', color: '#1A1035' }}
+                    placeholder="Provider, certificate ref…"
+                    defaultValue={editCell.entry?.notes ?? ''}
+                    onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
+                </div>
+              </div>
+              <div className="flex gap-3 mt-6">
+                <button onClick={() => setEditCell(null)}
+                  className="flex-1 py-2.5 rounded-xl text-[12px] font-bold border"
+                  style={{ borderColor: '#EBE5FF', color: '#6E6688' }}>Cancel</button>
+                <button onClick={handleSaveCell} disabled={saving}
+                  className="flex-1 py-2.5 rounded-xl text-[12px] font-bold text-white disabled:opacity-50"
+                  style={{ backgroundColor: '#8A6CFF' }}>
+                  {saving ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+}
+
+// =============================================================================
+// TAB: EQUIPMENT
+// =============================================================================
+
+function EquipmentTab({
+  equipment, users, isAdmin, currentUserId, onRefresh,
+}: {
+  equipment: EquipmentItem[]; users: ActiveUser[]; isAdmin: boolean;
+  currentUserId: string; onRefresh: () => void;
+}) {
+  const [editing, setEditing] = useState<EquipmentItem | null>(null);
+  const [form, setForm] = useState<Record<string, string | null>>({});
+  const [saving, setSaving] = useState(false);
+  const [filter, setFilter] = useState<'all' | 'overdue' | 'due_this_month'>('all');
+
+  function openEdit(item: EquipmentItem) {
+    setEditing(item);
+    setForm({
+      serial_number:        item.serial_number ?? '',
+      location:             item.location ?? '',
+      last_service_date:    item.last_service_date ?? '',
+      next_due_date:        item.next_due_date ?? '',
+      responsible_user_id:  item.responsible_user_id ?? null,
+      action_required:      item.action_required ?? '',
+      notes:                item.notes ?? '',
+    });
+  }
+
+  async function handleSave() {
+    if (!editing) return;
+    setSaving(true);
+    await updateEquipmentItem(editing.id, {
+      serial_number:        form.serial_number ?? undefined,
+      location:             form.location ?? undefined,
+      last_service_date:    (form.last_service_date as string) || undefined,
+      next_due_date:        (form.next_due_date as string) || undefined,
+      responsible_user_id:  form.responsible_user_id ?? null,
+      action_required:      (form.action_required as string) || undefined,
+      notes:                (form.notes as string) || undefined,
+      assigned_by:          currentUserId,
+    });
+    setSaving(false);
+    setEditing(null);
+    onRefresh();
+  }
+
+  // Group by category
+  const grouped: Record<string, EquipmentItem[]> = {};
+  const filtered = filter === 'all' ? equipment : equipment.filter(e => e.status === filter);
+  for (const e of filtered) {
+    if (!grouped[e.category]) grouped[e.category] = [];
+    grouped[e.category].push(e);
+  }
+
+  const overdueCount = equipment.filter(e => e.status === 'overdue').length;
+  const dueSoonCount = equipment.filter(e => e.status === 'due_this_month').length;
+
+  const inp = 'w-full rounded-lg px-3 py-1.5 text-[12px] focus:outline-none';
+  const inpStyle = { backgroundColor: '#FDFCFB', border: '1px solid #EBE5FF', color: '#1A1035' };
+
+  return (
+    <>
+      <div className="flex items-center gap-4 mb-4">
+        <div className="flex items-center gap-1.5">
+          {([['all', `All (${equipment.length})`], ['overdue', `Overdue (${overdueCount})`], ['due_this_month', `Due Soon (${dueSoonCount})`]] as [string, string][]).map(([f, label]) => (
+            <button key={f} onClick={() => setFilter(f as typeof filter)}
+              className="px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-[0.14em] font-semibold"
+              style={{ backgroundColor: filter === f ? '#EBE5FF' : 'transparent', color: filter === f ? '#1A1035' : '#8B84A0' }}>
+              {label}
+            </button>
+          ))}
+        </div>
+        {isAdmin && <p className="text-[10px] text-[#8B84A0] ml-auto">Click row to update</p>}
+      </div>
+
+      <div className="space-y-4">
+        {Object.entries(grouped).map(([category, items]) => (
+          <Panel key={category}>
+            <PanelHeader
+              title={EQUIPMENT_CATEGORY_LABEL[category] ?? category}
+              badge={items.filter(i => i.status === 'overdue').length}
+              action={<span className="text-[9px] text-[#8B84A0]">{items.length} items</span>}
+            />
+            <div className="divide-y" style={{ borderColor: '#EBE5FF' }}>
+              {items.map((item, idx) => (
+                <motion.div
+                  key={item.id}
+                  className={`flex items-center gap-4 px-5 py-3.5 ${isAdmin ? 'cursor-pointer hover:bg-[#FAF7F2]' : ''}`}
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: idx * 0.02 }}
+                  onClick={() => isAdmin && openEdit(item)}
+                >
+                  <div className="w-12 text-center">
+                    <span className="text-[8px] font-bold text-[#8B84A0]">{item.item_code}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[12px] font-bold text-[#1A1035]">{item.name}</p>
+                    <p className="text-[10px] text-[#8B84A0]">{item.location ?? '—'} · {item.check_frequency ?? '—'}</p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-[10px] text-[#8B84A0]">Last: {shortDate(item.last_service_date)}</p>
+                    <p className="text-[10px] text-[#8B84A0]">Next: {shortDate(item.next_due_date)}</p>
+                  </div>
+                  <div className="flex-shrink-0 min-w-[120px] text-center">
+                    <p className="text-[10px] text-[#8B84A0] mb-1">{item.responsible_name ?? 'Unassigned'}</p>
+                    <StatusBadge status={item.status} />
+                  </div>
+                  {isAdmin && <ChevronRight size={12} style={{ color: '#C4B9FF' }} className="flex-shrink-0" />}
+                </motion.div>
+              ))}
+            </div>
+          </Panel>
+        ))}
+        {Object.keys(grouped).length === 0 && (
+          <Panel><div className="p-10 text-center text-[12px] text-[#8B84A0]">No items match this filter.</div></Panel>
+        )}
+      </div>
+
+      {/* Edit modal */}
+      <AnimatePresence>
+        {editing && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setEditing(null)} />
+            <motion.div className="relative w-full max-w-lg rounded-2xl z-10 p-6"
+              style={{ backgroundColor: '#FFFFFF', border: '1px solid #EBE5FF' }}
+              initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}>
+              <div className="mb-5 flex items-start justify-between">
+                <div>
+                  <p className="text-[8px] uppercase tracking-[0.22em] text-[#8B84A0]">{editing.item_code}</p>
+                  <p className="text-[16px] font-bold text-[#1A1035]">{editing.name}</p>
+                  <StatusBadge status={editing.status} />
+                </div>
+                <button onClick={() => setEditing(null)} className="text-[#8B84A0] hover:text-[#1A1035]"><X size={18} /></button>
+              </div>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className="block text-[9px] text-[#8B84A0] mb-1">Serial Number</label>
+                    <input className={inp} style={inpStyle} value={form.serial_number as string}
+                      onChange={e => setForm(f => ({ ...f, serial_number: e.target.value }))} /></div>
+                  <div><label className="block text-[9px] text-[#8B84A0] mb-1">Location</label>
+                    <input className={inp} style={inpStyle} value={form.location as string}
+                      onChange={e => setForm(f => ({ ...f, location: e.target.value }))} /></div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className="block text-[9px] text-[#8B84A0] mb-1">Last Service Date</label>
+                    <input type="date" className={inp} style={inpStyle} value={form.last_service_date as string}
+                      onChange={e => setForm(f => ({ ...f, last_service_date: e.target.value }))} /></div>
+                  <div><label className="block text-[9px] text-[#8B84A0] mb-1">Next Due Date</label>
+                    <input type="date" className={inp} style={inpStyle} value={form.next_due_date as string}
+                      onChange={e => setForm(f => ({ ...f, next_due_date: e.target.value }))} /></div>
+                </div>
+                <div><label className="block text-[9px] text-[#8B84A0] mb-1">Responsible Person</label>
+                  <UserSelect value={form.responsible_user_id as string | null} users={users}
+                    onChange={v => setForm(f => ({ ...f, responsible_user_id: v }))} /></div>
+                <div><label className="block text-[9px] text-[#8B84A0] mb-1">Action Required</label>
+                  <input className={inp} style={inpStyle} value={form.action_required as string}
+                    onChange={e => setForm(f => ({ ...f, action_required: e.target.value }))} /></div>
+                <div><label className="block text-[9px] text-[#8B84A0] mb-1">Notes</label>
+                  <textarea className={inp + ' resize-none h-14'} style={inpStyle} value={form.notes as string}
+                    onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} /></div>
+              </div>
+              <div className="flex gap-3 mt-5">
+                <button onClick={() => setEditing(null)}
+                  className="flex-1 py-2.5 rounded-xl text-[12px] font-bold border"
+                  style={{ borderColor: '#EBE5FF', color: '#6E6688' }}>Cancel</button>
+                <button onClick={handleSave} disabled={saving}
+                  className="flex-1 py-2.5 rounded-xl text-[12px] font-bold text-white disabled:opacity-50"
+                  style={{ backgroundColor: '#8A6CFF' }}>
+                  {saving ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+}
+
+// =============================================================================
+// TAB: CQC AUDIT
+// =============================================================================
+
+function CQCAuditTab({
+  answers, isAdmin, currentUserId, onRefresh,
+}: {
+  answers: CQCAnswer[]; isAdmin: boolean; currentUserId: string; onRefresh: () => void;
+}) {
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [editAnswer, setEditAnswer] = useState<CQCAnswer | null>(null);
+  const [form, setForm] = useState({ answer: '' as string, evidence_notes: '', action_required: '', target_date: '' });
+  const [saving, setSaving] = useState(false);
+
+  const answered = answers.filter(a => a.answer !== null).length;
+  const yesCount = answers.filter(a => a.answer === 'yes').length;
+  const score = answered > 0 ? Math.round((yesCount / answered) * 100) : 0;
+
+  const domains = ['safe', 'effective', 'caring', 'responsive', 'well_led'];
+  const grouped = domains.reduce((acc, d) => {
+    acc[d] = answers.filter(a => a.domain === d);
+    return acc;
+  }, {} as Record<string, CQCAnswer[]>);
+
+  const DOMAIN_LABEL: Record<string, string> = {
+    safe: 'Safe', effective: 'Effective', caring: 'Caring',
+    responsive: 'Responsive', well_led: 'Well-Led',
+  };
+
+  function openEdit(a: CQCAnswer) {
+    setEditAnswer(a);
+    setForm({
+      answer:          a.answer ?? '',
+      evidence_notes:  a.evidence_notes ?? '',
+      action_required: a.action_required ?? '',
+      target_date:     a.target_date ?? '',
+    });
+  }
+
+  async function handleSaveAnswer() {
+    if (!editAnswer) return;
+    setSaving(true);
+    await saveCQCAnswer(editAnswer.question_number, {
+      answer:          (form.answer as CQCAnswer['answer']) || null,
+      evidence_notes:  form.evidence_notes || undefined,
+      action_required: form.action_required || undefined,
+      target_date:     form.target_date || undefined,
+      answered_by:     currentUserId,
+    });
+    setSaving(false);
+    setEditAnswer(null);
+    onRefresh();
+  }
+
+  function answerColor(answer: string | null) {
+    if (answer === 'yes')     return '#059669';
+    if (answer === 'partial') return '#D97706';
+    if (answer === 'no')      return '#DC2626';
+    if (answer === 'na')      return '#8B84A0';
+    return '#C4B9FF';
+  }
+
+  const inp = 'w-full rounded-lg px-3 py-2 text-[12px] focus:outline-none';
+  const inpStyle = { backgroundColor: '#FDFCFB', border: '1px solid #EBE5FF', color: '#1A1035' };
+
+  return (
+    <>
+      {/* Score banner */}
+      <Panel className="mb-5">
+        <div className="p-5 flex items-center justify-between">
+          <div>
+            <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#8B84A0] mb-1">Overall Compliance Score</p>
+            <div className="flex items-end gap-3">
+              <p className="text-[48px] font-black tracking-[-0.03em] leading-none"
+                style={{ color: score >= 80 ? '#059669' : score >= 60 ? '#D97706' : '#DC2626' }}>{score}%</p>
+              <p className="text-[13px] text-[#6E6688] mb-2">{answered} / {answers.length} answered</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-6">
+            {[['yes', 'Yes', '#059669'], ['partial', 'Partial', '#D97706'], ['no', 'No', '#DC2626'], ['na', 'N/A', '#8B84A0']].map(([val, label, color]) => (
+              <div key={val} className="text-center">
+                <p className="text-[22px] font-black" style={{ color }}>{answers.filter(a => a.answer === val).length}</p>
+                <p className="text-[8px] uppercase tracking-[0.14em] font-semibold" style={{ color }}>{label}</p>
               </div>
             ))}
           </div>
         </div>
-      )}
+      </Panel>
 
-      {/* Evidence pack CTA */}
-      <div className="bg-white/[0.02] border border-white/[0.07] rounded-xl p-5 flex items-center justify-between">
-        <div>
-          <div className="text-[13px] font-medium text-white mb-1">Evidence Pack</div>
-          <div className="text-[12px] text-white/35">
-            Generate a compliance summary report for CQC inspection or internal audit.
-            Includes all 5 domains, evidence status, staff cert summary, and incident log.
-          </div>
-        </div>
-        <button
-          onClick={onGeneratePack}
-          className="flex-shrink-0 ml-6 px-5 py-2.5 bg-white text-black rounded-lg text-[12px] font-medium hover:bg-white/90 transition-colors"
-        >
-          Generate Pack
-        </button>
-      </div>
-    </div>
-  );
-}
+      {/* Domain panels */}
+      <div className="space-y-4">
+        {domains.map(domain => {
+          const items = grouped[domain];
+          const domainYes = items.filter(a => a.answer === 'yes').length;
+          const domainAnswered = items.filter(a => a.answer !== null).length;
+          const domainScore = domainAnswered > 0 ? Math.round((domainYes / domainAnswered) * 100) : null;
+          const domainColor = CQC_DOMAIN_COLOR[domain];
+          const isOpen = expanded === domain;
 
-// =============================================================================
-// CQC TAB
-// =============================================================================
-
-function CQCTab({ domains }: { domains: CQCDomain[] }) {
-  const [expanded, setExpanded] = useState<string | null>(null);
-
-  return (
-    <div className="space-y-3">
-      <div className="text-[12px] text-white/30 mb-4">
-        CQC 5 Key Questions framework. Click each domain to expand evidence items, sub-criteria, and action items.
-        Ratings reflect your current self-assessment — to be updated after formal CQC inspection.
-      </div>
-
-      {domains.map(d => {
-        const isOpen = expanded === d.id;
-        const metCount    = d.sub_criteria.filter(sc => sc.met === true).length;
-        const partialCount = d.sub_criteria.filter(sc => sc.met === null).length;
-        const missingEv   = d.evidence_items.filter(e => e.status === 'missing').length;
-
-        return (
-          <div key={d.id} className="bg-white/[0.03] border border-white/[0.08] rounded-xl overflow-hidden">
-            <button
-              className="w-full px-5 py-4 flex items-center gap-4 hover:bg-white/[0.02] transition-colors text-left"
-              onClick={() => setExpanded(isOpen ? null : d.id)}
-            >
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-0.5">
-                  <span className="text-[15px] font-medium text-white">{d.label}</span>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${ratingBg(d.rating)}`}>{d.rating}</span>
-                  {missingEv > 0 && (
-                    <span className="text-[10px] text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full">{missingEv} evidence missing</span>
-                  )}
-                </div>
-                <div className="text-[12px] text-white/35">{d.description}</div>
-              </div>
-              <div className="text-right flex-shrink-0">
-                <div className="text-[11px] text-white/30">{metCount}/{d.sub_criteria.length} criteria met</div>
-                {d.last_reviewed && <div className="text-[10px] text-white/20 mt-0.5">Last reviewed {shortDate(d.last_reviewed)}</div>}
-              </div>
-              <motion.div
-                animate={{ rotate: isOpen ? 90 : 0 }}
-                transition={{ duration: 0.15 }}
-                className="flex-shrink-0 text-white/25"
-              >
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                  <path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </motion.div>
-            </button>
-
-            <AnimatePresence>
-              {isOpen && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="border-t border-white/[0.06] overflow-hidden"
-                >
-                  <div className="px-5 py-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Sub criteria */}
-                    <div>
-                      <div className="text-[10px] uppercase tracking-[0.16em] text-white/25 mb-3">Criteria Assessment</div>
-                      <div className="space-y-2">
-                        {d.sub_criteria.map((sc, i) => (
-                          <div key={i} className="flex items-start gap-2">
-                            <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1 ${
-                              sc.met === true ? 'bg-emerald-400' : sc.met === null ? 'bg-amber-400' : 'bg-red-400'
-                            }`} />
-                            <div className={`text-[11px] leading-relaxed ${
-                              sc.met === true ? 'text-white/60' : sc.met === null ? 'text-amber-400/80' : 'text-red-400/80'
-                            }`}>{sc.criterion}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Evidence */}
-                    <div>
-                      <div className="text-[10px] uppercase tracking-[0.16em] text-white/25 mb-3">Evidence</div>
-                      <div className="space-y-2">
-                        {d.evidence_items.map((e, i) => (
-                          <div key={i} className="flex items-center gap-2">
-                            <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                              e.status === 'present' ? 'bg-emerald-400' : e.status === 'partial' ? 'bg-amber-400' : 'bg-red-400/70'
-                            }`} />
-                            <div className={`text-[11px] ${
-                              e.status === 'present' ? 'text-white/55' : e.status === 'partial' ? 'text-amber-400/80' : 'text-red-400/70'
-                            }`}>{e.title}</div>
-                            <div className="text-[10px] text-white/20 ml-auto">{e.status}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Action items */}
-                    <div>
-                      <div className="text-[10px] uppercase tracking-[0.16em] text-white/25 mb-3">Action Items</div>
-                      {d.action_items.length === 0 ? (
-                        <div className="text-[11px] text-emerald-400/70">No outstanding actions</div>
-                      ) : (
-                        <div className="space-y-2">
-                          {d.action_items.map((a, i) => (
-                            <div key={i} className="flex items-start gap-2">
-                              <div className="w-4 h-4 rounded border border-white/[0.15] flex-shrink-0 flex items-center justify-center mt-0.5">
-                                <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
-                              </div>
-                              <div className="text-[11px] text-white/50 leading-relaxed">{a}</div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// =============================================================================
-// EQUIPMENT TAB
-// =============================================================================
-
-function EquipmentTab({ items }: { items: EquipmentItem[] }) {
-  const [filter, setFilter] = useState<'all' | EquipmentItem['status']>('all');
-
-  const filtered = filter === 'all' ? items : items.filter(i => i.status === filter);
-
-  const overdue  = items.filter(i => i.status === 'overdue').length;
-  const dueSoon  = items.filter(i => i.status === 'due_soon').length;
-  const compliant = items.filter(i => i.status === 'compliant').length;
-
-  return (
-    <div className="space-y-5">
-      {/* Summary */}
-      <div className="grid grid-cols-3 gap-3">
-        {[
-          { label: 'Compliant',  val: compliant, color: 'text-emerald-400' },
-          { label: 'Due Soon',   val: dueSoon,   color: dueSoon > 0  ? 'text-amber-400' : 'text-white' },
-          { label: 'Overdue',    val: overdue,   color: overdue > 0  ? 'text-red-400'   : 'text-white' },
-        ].map(c => (
-          <div key={c.label} className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-4">
-            <div className="text-[11px] uppercase tracking-[0.16em] text-white/25 mb-1">{c.label}</div>
-            <div className={`text-[24px] font-light ${c.color}`}>{c.val}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Filter */}
-      <div className="flex gap-2">
-        {(['all','compliant','due_soon','overdue'] as const).map(f => (
-          <button key={f} onClick={() => setFilter(f)}
-            className={`px-3 py-1 rounded-lg text-[11px] uppercase tracking-[0.13em] transition-colors ${
-              filter === f ? 'bg-white/[0.10] text-white' : 'text-white/30 hover:text-white/55'
-            }`}>
-            {f.replace('_', ' ')}
-          </button>
-        ))}
-      </div>
-
-      {/* Table */}
-      <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl overflow-hidden">
-        <div className="grid px-5 py-3 border-b border-white/[0.06] text-[10px] uppercase tracking-[0.14em] text-white/25"
-             style={{ gridTemplateColumns: '1.5fr 80px 110px 110px 110px 80px' }}>
-          <span>Equipment</span>
-          <span>Category</span>
-          <span>PAT Test Due</span>
-          <span>Service Due</span>
-          <span>Location</span>
-          <span>Status</span>
-        </div>
-        <AnimatePresence initial={false}>
-          {filtered.map((item, i) => {
-            const serviceDays = daysUntil(item.next_service);
-            const patDays     = daysUntil(item.next_pat_date);
-            return (
-              <motion.div
-                key={item.id}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: i * 0.03 }}
-                className="grid px-5 py-4 border-b border-white/[0.04] last:border-0 items-center"
-                style={{ gridTemplateColumns: '1.5fr 80px 110px 110px 110px 80px' }}
-              >
-                <div>
-                  <div className="text-[13px] text-white font-medium">{item.name}</div>
-                  {item.serial_number && <div className="text-[10px] text-white/25 mt-0.5">S/N {item.serial_number}</div>}
-                  {item.notes && <div className="text-[11px] text-amber-400/70 mt-1">{item.notes}</div>}
-                </div>
-                <div className="text-[11px] text-white/35 capitalize">{item.category.replace(/_/g, ' ')}</div>
-                <div>
-                  <div className="text-[12px] text-white/60">{shortDate(item.next_pat_date)}</div>
-                  {patDays !== null && patDays <= 60 && patDays >= 0 && (
-                    <div className="text-[10px] text-amber-400 mt-0.5">{patDays}d</div>
-                  )}
-                </div>
-                <div>
-                  <div className="text-[12px] text-white/60">{shortDate(item.next_service)}</div>
-                  {serviceDays !== null && serviceDays <= 60 && serviceDays >= 0 && (
-                    <div className="text-[10px] text-amber-400 mt-0.5">{serviceDays}d</div>
-                  )}
-                  {serviceDays !== null && serviceDays < 0 && (
-                    <div className="text-[10px] text-red-400 mt-0.5">{Math.abs(serviceDays)}d overdue</div>
-                  )}
-                </div>
-                <div className="text-[11px] text-white/35">{item.location}</div>
-                <span className={`text-[10px] uppercase tracking-[0.12em] px-2 py-0.5 rounded-full w-fit ${eqStatusColor(item.status)}`}>
-                  {item.status.replace('_', ' ')}
-                </span>
-              </motion.div>
-            );
-          })}
-        </AnimatePresence>
-      </div>
-    </div>
-  );
-}
-
-// =============================================================================
-// INCIDENTS TAB
-// =============================================================================
-
-function IncidentsTab({
-  incidents,
-  onAddIncident,
-}: {
-  incidents: IncidentRecord[];
-  onAddIncident?: () => void;
-}) {
-  const [expanded, setExpanded] = useState<string | null>(null);
-
-  const open     = incidents.filter(i => i.status === 'open' || i.status === 'under_review').length;
-  const cqcRep   = incidents.filter(i => i.cqc_reportable).length;
-  const docNeeded = incidents.filter(i => !i.doc_completed && i.type !== 'near_miss').length;
-
-  return (
-    <div className="space-y-5">
-      {/* Summary */}
-      <div className="grid grid-cols-4 gap-3">
-        {[
-          { label: 'Total Recorded', val: incidents.length,  color: 'text-white' },
-          { label: 'Open',           val: open,              color: open > 0 ? 'text-amber-400' : 'text-white' },
-          { label: 'CQC Reportable', val: cqcRep,            color: cqcRep > 0 ? 'text-red-400' : 'text-white' },
-          { label: 'DoC Incomplete', val: docNeeded,         color: docNeeded > 0 ? 'text-amber-400' : 'text-emerald-400' },
-        ].map(c => (
-          <div key={c.label} className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-4">
-            <div className="text-[11px] uppercase tracking-[0.16em] text-white/25 mb-1">{c.label}</div>
-            <div className={`text-[24px] font-light ${c.color}`}>{c.val}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Duty of Candour note */}
-      <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl px-4 py-3">
-        <div className="text-[11px] uppercase tracking-[0.16em] text-white/25 mb-1">Duty of Candour</div>
-        <div className="text-[12px] text-white/40">
-          All adverse events and unexpected outcomes must be disclosed to the patient.
-          Regulation 20 (Health and Social Care Act 2008). Mark DoC as complete once patient notified and written apology sent.
-        </div>
-      </div>
-
-      {/* Log */}
-      <div className="space-y-2">
-        {incidents.map((inc, i) => (
-          <div key={inc.id} className={`bg-white/[0.03] border rounded-xl overflow-hidden ${
-            inc.cqc_reportable ? 'border-red-400/25' : 'border-white/[0.07]'
-          }`}>
-            <button
-              className="w-full px-5 py-4 flex items-center gap-4 text-left hover:bg-white/[0.02] transition-colors"
-              onClick={() => setExpanded(expanded === inc.id ? null : inc.id)}
-            >
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                  <span className={`text-[10px] uppercase tracking-[0.13em] px-2 py-0.5 rounded-full ${incStatusBg(inc.status)}`}>{inc.status.replace('_', ' ')}</span>
-                  <span className="text-[10px] uppercase tracking-[0.13em] text-white/30">{inc.type.replace(/_/g, ' ')}</span>
-                  <span className={`text-[10px] uppercase tracking-[0.13em] ${incSeverityColor(inc.severity)}`}>{inc.severity}</span>
-                  {inc.cqc_reportable && <span className="text-[9px] text-red-400 bg-red-400/10 px-2 py-0.5 rounded-full">CQC Reportable</span>}
-                  {!inc.doc_completed && inc.type !== 'near_miss' && <span className="text-[9px] text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full">DoC Pending</span>}
-                </div>
-                <div className="text-[12px] text-white/70 truncate">{inc.description}</div>
-              </div>
-              <div className="text-[11px] text-white/25 flex-shrink-0">{shortDate(inc.date)}</div>
-            </button>
-
-            <AnimatePresence>
-              {expanded === inc.id && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.18 }}
-                  className="border-t border-white/[0.06] px-5 py-4 space-y-3 overflow-hidden"
-                >
-                  <div>
-                    <div className="text-[10px] uppercase tracking-[0.14em] text-white/25 mb-1">Description</div>
-                    <div className="text-[12px] text-white/60 leading-relaxed">{inc.description}</div>
-                  </div>
-                  <div>
-                    <div className="text-[10px] uppercase tracking-[0.14em] text-white/25 mb-1">Action Taken</div>
-                    <div className="text-[12px] text-white/60 leading-relaxed">{inc.action_taken}</div>
-                  </div>
-                  {inc.reported_to && (
-                    <div className="text-[12px] text-white/40">Reported to: {inc.reported_to}</div>
-                  )}
-                  <div className="flex items-center gap-3">
-                    <div className={`flex items-center gap-1.5 text-[11px] ${inc.doc_completed ? 'text-emerald-400' : 'text-amber-400'}`}>
-                      <div className={`w-1.5 h-1.5 rounded-full ${inc.doc_completed ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-                      Duty of Candour {inc.doc_completed ? 'complete' : 'pending'}
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        ))}
-
-        <button
-          onClick={onAddIncident}
-          className="w-full py-3 border border-dashed border-white/[0.10] rounded-xl text-[12px] text-white/30 hover:text-white/50 hover:border-white/[0.18] transition-colors"
-        >
-          Log new incident
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// =============================================================================
-// GDPR TAB
-// =============================================================================
-
-function GDPRTab({ items }: { items: GDPRItem[] }) {
-  const categories = ['registration', 'policy', 'training', 'breach', 'dpia', 'consent', 'dsar'] as const;
-
-  const actionRequired = items.filter(i => i.status === 'action_required').length;
-  const compliant      = items.filter(i => i.status === 'compliant').length;
-
-  return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-4">
-          <div className="text-[11px] uppercase tracking-[0.16em] text-white/25 mb-1">Compliant</div>
-          <div className="text-[24px] font-light text-emerald-400">{compliant}</div>
-        </div>
-        <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-4">
-          <div className="text-[11px] uppercase tracking-[0.16em] text-white/25 mb-1">Action Required</div>
-          <div className={`text-[24px] font-light ${actionRequired > 0 ? 'text-amber-400' : 'text-white'}`}>{actionRequired}</div>
-        </div>
-        <div className="bg-amber-400/5 border border-amber-400/20 rounded-xl p-4">
-          <div className="text-[11px] uppercase tracking-[0.16em] text-amber-400/60 mb-1">Priority — AI Readiness</div>
-          <div className="text-[13px] text-amber-400/90">DPIAs + consent required before Komal goes live</div>
-        </div>
-      </div>
-
-      {/* Items by category */}
-      <div className="space-y-6">
-        {categories.map(cat => {
-          const catItems = items.filter(i => i.category === cat);
-          if (!catItems.length) return null;
           return (
-            <div key={cat}>
-              <div className="text-[10px] uppercase tracking-[0.18em] text-white/25 mb-2">{cat.replace(/_/g, ' ')}</div>
-              <div className="space-y-2">
-                {catItems.map(item => (
-                  <div key={item.id} className="bg-white/[0.03] border border-white/[0.07] rounded-xl px-4 py-3 flex items-start gap-3">
-                    <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5 ${
-                      item.status === 'compliant' ? 'bg-emerald-400'
-                      : item.status === 'action_required' ? 'bg-amber-400'
-                      : 'bg-white/20'
-                    }`} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 mb-0.5">
-                        <span className="text-[13px] text-white font-medium">{item.title}</span>
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${gdprStatusColor(item.status)}`}>
-                          {item.status === 'action_required' ? 'Action Required' : item.status === 'compliant' ? 'Compliant' : 'N/A'}
-                        </span>
-                      </div>
-                      {item.notes && <div className="text-[12px] text-white/40 leading-relaxed">{item.notes}</div>}
-                      <div className="flex items-center gap-3 mt-1">
-                        {item.last_reviewed && <span className="text-[10px] text-white/20">Reviewed {shortDate(item.last_reviewed)}</span>}
-                        {item.due_date && (
-                          <span className={`text-[10px] ${
-                            daysUntil(item.due_date) !== null && (daysUntil(item.due_date) ?? 999) <= 30
-                              ? 'text-amber-400' : 'text-white/20'
-                          }`}>
-                            Due {shortDate(item.due_date)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
+            <Panel key={domain}>
+              <button
+                className="w-full flex items-center justify-between px-5 py-4 text-left"
+                onClick={() => setExpanded(isOpen ? null : domain)}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: domainColor }} />
+                  <span className="text-[13px] font-bold text-[#1A1035]">{DOMAIN_LABEL[domain]}</span>
+                  <span className="text-[10px] text-[#8B84A0]">{items.length} questions</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  {domainScore !== null && (
+                    <span className="text-[12px] font-bold" style={{ color: domainScore >= 80 ? '#059669' : domainScore >= 60 ? '#D97706' : '#DC2626' }}>
+                      {domainScore}%
+                    </span>
+                  )}
+                  <div className="flex gap-1">
+                    {items.map(a => (
+                      <div key={a.question_number} className="w-1.5 h-4 rounded-full"
+                        style={{ backgroundColor: answerColor(a.answer) }} />
+                    ))}
                   </div>
-                ))}
-              </div>
-            </div>
+                  <ChevronRight size={14} className="transition-transform" style={{
+                    color: '#C4B9FF', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+                  }} />
+                </div>
+              </button>
+
+              <AnimatePresence initial={false}>
+                {isOpen && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    style={{ overflow: 'hidden', borderTop: '1px solid #EBE5FF' }}
+                  >
+                    <div className="divide-y" style={{ borderColor: '#EBE5FF' }}>
+                      {items.map((q, qi) => (
+                        <div key={q.question_number}
+                          className="px-5 py-4 flex items-start gap-4">
+                          <span className="text-[10px] font-bold text-[#C4B9FF] w-6 flex-shrink-0 mt-0.5">{q.question_number}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[11px] text-[#6E6688] mb-2 leading-relaxed">{q.audit_area} — {q.question_text}</p>
+                            {q.evidence_notes && (
+                              <p className="text-[10px] text-[#059669] mb-1">Evidence: {q.evidence_notes}</p>
+                            )}
+                            {q.action_required && (
+                              <p className="text-[10px] text-[#D97706]">Action: {q.action_required}
+                                {q.target_date && ` · Due ${shortDate(q.target_date)}`}
+                              </p>
+                            )}
+                          </div>
+                          {/* Answer buttons */}
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            {(['yes', 'partial', 'no', 'na'] as const).map(ans => (
+                              <button
+                                key={ans}
+                                onClick={() => isAdmin && openEdit(q)}
+                                className="px-2 py-1 rounded-lg text-[8px] font-bold uppercase tracking-[0.08em] transition-all"
+                                style={{
+                                  backgroundColor: q.answer === ans ? answerColor(ans) : '#F5F4FA',
+                                  color:           q.answer === ans ? '#FFFFFF' : '#8B84A0',
+                                  cursor:          isAdmin ? 'pointer' : 'default',
+                                }}
+                              >{ans}</button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </Panel>
           );
         })}
       </div>
-    </div>
-  );
-}
 
-// =============================================================================
-// EVIDENCE PACK MODAL
-// =============================================================================
-
-function EvidencePackModal({ onClose, domains, equipment, incidents, gdprItems }: {
-  onClose: () => void;
-  domains: CQCDomain[];
-  equipment: EquipmentItem[];
-  incidents: IncidentRecord[];
-  gdprItems: GDPRItem[];
-}) {
-  const [generating, setGenerating] = useState(false);
-  const [generated, setGenerated]   = useState(false);
-
-  const cqcScore = calcCQCReadiness(domains);
-  const eqOverdue = equipment.filter(e => e.status === 'overdue').length;
-  const gdprActions = gdprItems.filter(g => g.status === 'action_required').length;
-
-  async function handleGenerate() {
-    setGenerating(true);
-    await new Promise(r => setTimeout(r, 1800));
-    setGenerating(false);
-    setGenerated(true);
-  }
-
-  const lines = [
-    `EWC Compliance Evidence Pack`,
-    `Generated: ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`,
-    ``,
-    `CQC READINESS SCORE: ${cqcScore}/100`,
-    ``,
-    `CQC DOMAINS:`,
-    ...domains.map(d => `  ${d.label}: ${d.rating} (${d.sub_criteria.filter(s => s.met === true).length}/${d.sub_criteria.length} criteria met)`),
-    ``,
-    `EQUIPMENT REGISTER: ${equipment.length} items`,
-    `  Overdue: ${eqOverdue}`,
-    `  Due Soon: ${equipment.filter(e => e.status === 'due_soon').length}`,
-    ``,
-    `INCIDENT LOG: ${incidents.length} records`,
-    `  Open: ${incidents.filter(i => i.status === 'open' || i.status === 'under_review').length}`,
-    `  CQC Reportable: ${incidents.filter(i => i.cqc_reportable).length}`,
-    ``,
-    `GDPR STATUS: ${gdprItems.filter(g => g.status === 'compliant').length}/${gdprItems.length} compliant`,
-    `  Actions required: ${gdprActions}`,
-  ];
-
-  function downloadPack() {
-    const content = lines.join('\n');
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href = url;
-    a.download = `EWC-Compliance-Pack-${new Date().toISOString().split('T')[0]}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <motion.div
-        className="relative w-full max-w-lg bg-[#0a0a0a] border border-white/[0.10] rounded-2xl p-6 z-10"
-        initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}
-      >
-        <div className="mb-5">
-          <div className="text-[15px] font-semibold text-white">Evidence Pack</div>
-          <div className="text-[12px] text-white/35 mt-0.5">
-            CQC compliance summary for inspection, internal audit, or board reporting.
-          </div>
-        </div>
-
-        {!generated ? (
-          <>
-            <div className="space-y-2.5 mb-5">
-              {[
-                `CQC 5 Domains — ratings and criteria assessment`,
-                `Evidence inventory with status (present/partial/missing)`,
-                `Equipment register summary`,
-                `Incident log (${incidents.length} records)`,
-                `GDPR compliance status`,
-                `Staff certification overview (linked to KPI data)`,
-              ].map((item, i) => (
-                <div key={i} className="flex items-center gap-2.5">
-                  <div className="w-1.5 h-1.5 rounded-full bg-white/30" />
-                  <span className="text-[12px] text-white/55">{item}</span>
-                </div>
-              ))}
-            </div>
-
-            <button
-              onClick={handleGenerate}
-              disabled={generating}
-              className="w-full py-3 bg-white text-black rounded-lg text-[13px] font-medium hover:bg-white/90 transition-colors disabled:opacity-60"
-            >
-              {generating ? 'Generating…' : 'Generate Evidence Pack'}
-            </button>
-          </>
-        ) : (
-          <>
-            <div className="bg-white/[0.04] border border-white/[0.08] rounded-lg p-4 mb-5 font-mono text-[11px] text-white/50 h-48 overflow-y-auto">
-              {lines.map((l, i) => <div key={i}>{l || '\u00a0'}</div>)}
-            </div>
-            <div className="flex gap-3">
-              <button onClick={onClose} className="flex-1 py-2.5 rounded-lg border border-white/[0.10] text-[13px] text-white/50 hover:text-white/80 transition-colors">Close</button>
-              <button onClick={downloadPack} className="flex-1 py-2.5 rounded-lg bg-white text-black text-[13px] font-medium hover:bg-white/90 transition-colors">
-                Download (.txt)
-              </button>
-            </div>
-          </>
-        )}
-      </motion.div>
-    </div>
-  );
-}
-
-// =============================================================================
-// EWC AGENT PANEL (local — same pattern as KPI page)
-// =============================================================================
-
-function EWCAgentPanel({ brandColor }: { brandColor: string }) {
-  const [open, setOpen]   = useState(false);
-  const [input, setInput] = useState('');
-  const [messages, setMessages] = useState<{ role: 'user' | 'agent'; text: string }[]>([]);
-  const [loading, setLoading]   = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
-
-  const STARTERS = [
-    'How do we prepare for a CQC inspection?',
-    'What is Duty of Candour and when does it apply?',
-    'Which GDPR steps must we complete before Komal goes live?',
-  ];
-
-  async function sendMessage(text: string) {
-    if (!text.trim() || loading) return;
-    setMessages(m => [...m, { role: 'user', text: text.trim() }]);
-    setInput('');
-    setLoading(true);
-    try {
-      const res = await fetch('/api/primary-agent/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: `[COMPLIANCE] ${text.trim()}`, conversationId: 'ewc-compliance' }),
-      });
-      let fullText = '';
-      if (res.body) {
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = decoder.decode(value);
-          for (const line of chunk.split('\n')) {
-            if (line.startsWith('data: ')) {
-              try { const d = JSON.parse(line.slice(6)); if (d.type === 'text' && d.text) fullText += d.text; } catch { /* skip */ }
-            }
-          }
-        }
-      }
-      setMessages(m => [...m, { role: 'agent', text: fullText || 'No response.' }]);
-    } catch {
-      setMessages(m => [...m, { role: 'agent', text: 'EWC is temporarily unavailable.' }]);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading]);
-
-  return (
-    <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3">
+      {/* Answer edit modal */}
       <AnimatePresence>
-        {open && (
-          <motion.div
-            className="w-[360px] bg-[#080808] border border-white/[0.10] rounded-2xl overflow-hidden shadow-2xl"
-            initial={{ opacity: 0, y: 20, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 16, scale: 0.96 }}
-          >
-            <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
-              <div>
-                <div className="text-[13px] font-semibold text-white">EWC — Compliance Agent</div>
-                <div className="text-[11px] text-white/35">CQC · GDPR · Staff regulations</div>
+        {editAnswer && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setEditAnswer(null)} />
+            <motion.div className="relative w-full max-w-lg rounded-2xl z-10 p-6"
+              style={{ backgroundColor: '#FFFFFF', border: '1px solid #EBE5FF' }}
+              initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}>
+              <div className="mb-5">
+                <p className="text-[8px] uppercase tracking-[0.22em] text-[#8B84A0]">Question {editAnswer.question_number} — {editAnswer.audit_area}</p>
+                <p className="text-[13px] font-semibold text-[#1A1035] mt-1 leading-snug">{editAnswer.question_text}</p>
               </div>
-              <button onClick={() => setOpen(false)} className="text-white/30 hover:text-white/70 text-lg leading-none">×</button>
-            </div>
-            <div className="h-64 overflow-y-auto px-4 py-3 space-y-3">
-              {messages.length === 0 && STARTERS.map(s => (
-                <button key={s} onClick={() => sendMessage(s)}
-                  className="w-full text-left text-[11px] text-white/50 bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2 hover:bg-white/[0.06] transition-colors">{s}</button>
-              ))}
-              {messages.map((m, i) => (
-                <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[85%] rounded-xl px-3 py-2 text-[12px] leading-relaxed ${m.role === 'user' ? 'bg-white text-black' : 'bg-white/[0.05] text-white/80'}`}>{m.text}</div>
-                </div>
-              ))}
-              {loading && (
-                <div className="flex justify-start">
-                  <div className="bg-white/[0.05] rounded-xl px-3 py-2 flex gap-1">
-                    {[0,1,2].map(i => <motion.div key={i} className="w-1 h-1 bg-white/40 rounded-full" animate={{ opacity: [0.3,1,0.3] }} transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }} />)}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[9px] text-[#8B84A0] mb-2 uppercase tracking-[0.14em]">Answer</label>
+                  <div className="flex gap-2">
+                    {(['yes', 'partial', 'no', 'na'] as const).map(ans => (
+                      <button key={ans} onClick={() => setForm(f => ({ ...f, answer: ans }))}
+                        className="flex-1 py-2 rounded-lg text-[10px] font-bold uppercase tracking-[0.1em] transition-all"
+                        style={{
+                          backgroundColor: form.answer === ans ? answerColor(ans) : '#F5F4FA',
+                          color: form.answer === ans ? '#FFFFFF' : '#8B84A0',
+                        }}>{ans}</button>
+                    ))}
                   </div>
                 </div>
-              )}
-              <div ref={bottomRef} />
-            </div>
-            <div className="px-4 py-3 border-t border-white/[0.06] flex gap-2">
-              <input className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-[12px] text-white placeholder-white/25 focus:outline-none focus:border-white/25"
-                placeholder="Ask about compliance…" value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }}
-              />
-              <button onClick={() => sendMessage(input)} disabled={!input.trim() || loading}
-                className="px-3 py-2 bg-white/[0.08] hover:bg-white/[0.14] rounded-lg text-[11px] text-white/60 hover:text-white transition-colors disabled:opacity-30">Send</button>
-            </div>
-          </motion.div>
+                <div><label className="block text-[9px] text-[#8B84A0] mb-1.5 uppercase tracking-[0.14em]">Evidence / Notes</label>
+                  <textarea className={inp + ' resize-none h-14'} style={inpStyle} placeholder="Document reference, policy name, audit result…"
+                    value={form.evidence_notes} onChange={e => setForm(f => ({ ...f, evidence_notes: e.target.value }))} /></div>
+                <div><label className="block text-[9px] text-[#8B84A0] mb-1.5 uppercase tracking-[0.14em]">Action Required</label>
+                  <textarea className={inp + ' resize-none h-14'} style={inpStyle} placeholder="Steps needed to achieve compliance…"
+                    value={form.action_required} onChange={e => setForm(f => ({ ...f, action_required: e.target.value }))} /></div>
+                <div><label className="block text-[9px] text-[#8B84A0] mb-1.5 uppercase tracking-[0.14em]">Target Date</label>
+                  <input type="date" className={inp} style={inpStyle}
+                    value={form.target_date} onChange={e => setForm(f => ({ ...f, target_date: e.target.value }))} /></div>
+              </div>
+              <div className="flex gap-3 mt-5">
+                <button onClick={() => setEditAnswer(null)}
+                  className="flex-1 py-2.5 rounded-xl text-[12px] font-bold border"
+                  style={{ borderColor: '#EBE5FF', color: '#6E6688' }}>Cancel</button>
+                <button onClick={handleSaveAnswer} disabled={saving}
+                  className="flex-1 py-2.5 rounded-xl text-[12px] font-bold text-white disabled:opacity-50"
+                  style={{ backgroundColor: '#8A6CFF' }}>
+                  {saving ? 'Saving…' : 'Save Answer'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
-      <button onClick={() => setOpen(o => !o)}
-        className="w-12 h-12 rounded-full border border-white/[0.12] bg-[#0a0a0a] hover:bg-white/[0.06] transition-colors flex items-center justify-center"
-        style={{ boxShadow: `0 0 20px ${brandColor}22` }}
-        title="EWC Compliance Agent">
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <path d="M10 3a7 7 0 100 14A7 7 0 0010 3z" stroke="white" strokeWidth="1.5" opacity="0.5" />
-          <path d="M10 7v6M7 10h6" stroke="white" strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
-        </svg>
-      </button>
-    </div>
+    </>
+  );
+}
+
+// =============================================================================
+// TAB: GOVERNANCE LOG
+// =============================================================================
+
+function GovernanceTab({
+  entries, users, isAdmin, currentUserId, onRefresh,
+}: {
+  entries: GovernanceEntry[]; users: ActiveUser[]; isAdmin: boolean;
+  currentUserId: string; onRefresh: () => void;
+}) {
+  const [showNew, setShowNew] = useState(false);
+  const [editEntry, setEditEntry] = useState<GovernanceEntry | null>(null);
+  const [form, setForm] = useState<Record<string, string | boolean>>({
+    type: 'clinical_governance_meeting', event_date: '', agenda_items: '',
+    attendees: '', minutes_uploaded: false, actions_arising: '',
+    owner_id: '', due_date: '', status: 'open',
+  });
+  const [saving, setSaving] = useState(false);
+
+  function openNew() {
+    setForm({ type: 'clinical_governance_meeting', event_date: '', agenda_items: '', attendees: '', minutes_uploaded: false, actions_arising: '', owner_id: currentUserId, due_date: '', status: 'open' });
+    setShowNew(true);
+    setEditEntry(null);
+  }
+
+  function openEdit(e: GovernanceEntry) {
+    setForm({
+      type:             e.type,
+      event_date:       e.event_date,
+      agenda_items:     e.agenda_items ?? '',
+      attendees:        e.attendees ?? '',
+      minutes_uploaded: e.minutes_uploaded,
+      actions_arising:  e.actions_arising ?? '',
+      owner_id:         e.owner_id ?? '',
+      due_date:         e.due_date ?? '',
+      status:           e.status,
+    });
+    setEditEntry(e);
+    setShowNew(true);
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    if (editEntry) {
+      await updateGovernanceEntry(editEntry.id, {
+        type:             form.type as string,
+        event_date:       form.event_date as string,
+        agenda_items:     (form.agenda_items as string) || undefined,
+        attendees:        (form.attendees as string) || undefined,
+        minutes_uploaded: form.minutes_uploaded as boolean,
+        actions_arising:  (form.actions_arising as string) || undefined,
+        owner_id:         (form.owner_id as string) || null,
+        due_date:         (form.due_date as string) || undefined,
+        status:           form.status as string,
+      });
+    } else {
+      await createGovernanceEntry({
+        type:             form.type as string,
+        event_date:       form.event_date as string,
+        agenda_items:     (form.agenda_items as string) || undefined,
+        attendees:        (form.attendees as string) || undefined,
+        minutes_uploaded: form.minutes_uploaded as boolean,
+        actions_arising:  (form.actions_arising as string) || undefined,
+        owner_id:         (form.owner_id as string) || undefined,
+        due_date:         (form.due_date as string) || undefined,
+        status:           form.status as string || 'open',
+        created_by:       currentUserId,
+      });
+    }
+    setSaving(false);
+    setShowNew(false);
+    setEditEntry(null);
+    onRefresh();
+  }
+
+  const inp = 'w-full rounded-lg px-3 py-2 text-[12px] focus:outline-none';
+  const inpStyle = { backgroundColor: '#FDFCFB', border: '1px solid #EBE5FF', color: '#1A1035' };
+
+  return (
+    <>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-[10px] uppercase tracking-[0.18em] font-semibold text-[#8B84A0]">{entries.length} entries</p>
+        {isAdmin && (
+          <button onClick={openNew}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-bold text-white"
+            style={{ backgroundColor: '#8A6CFF' }}>
+            <Plus size={12} /> New Entry
+          </button>
+        )}
+      </div>
+
+      <Panel>
+        <PanelHeader title="Governance & Events Log" />
+        {entries.length === 0 ? (
+          <div className="p-10 text-center">
+            <FileText size={28} className="mx-auto mb-3" style={{ color: '#C4B9FF' }} />
+            <p className="text-[13px] font-semibold text-[#1A1035] mb-1">No entries yet</p>
+            <p className="text-[11px] text-[#8B84A0]">Record meetings, significant events, and learning from events here.</p>
+          </div>
+        ) : (
+          <div className="divide-y" style={{ borderColor: '#EBE5FF' }}>
+            {entries.map((e, idx) => (
+              <motion.div
+                key={e.id}
+                className={`px-5 py-4 ${isAdmin ? 'cursor-pointer hover:bg-[#FAF7F2]' : ''}`}
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: idx * 0.02 }}
+                onClick={() => isAdmin && openEdit(e)}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="text-[12px] font-bold text-[#1A1035]">{GOVERNANCE_TYPE_LABEL[e.type] ?? e.type}</p>
+                      <StatusBadge status={e.status} />
+                      {e.minutes_uploaded && (
+                        <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700">Minutes</span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-[#8B84A0]">
+                      {shortDate(e.event_date)}
+                      {e.owner_name ? ` · Owner: ${e.owner_name}` : ''}
+                      {e.due_date ? ` · Due: ${shortDate(e.due_date)}` : ''}
+                    </p>
+                    {e.actions_arising && (
+                      <p className="text-[11px] text-[#6E6688] mt-1.5 leading-relaxed">{e.actions_arising}</p>
+                    )}
+                  </div>
+                  {isAdmin && <ChevronRight size={12} style={{ color: '#C4B9FF' }} className="flex-shrink-0 mt-1" />}
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
+      </Panel>
+
+      {/* New/Edit modal */}
+      <AnimatePresence>
+        {showNew && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowNew(false)} />
+            <motion.div className="relative w-full max-w-lg rounded-2xl z-10 p-6 overflow-y-auto max-h-[90vh]"
+              style={{ backgroundColor: '#FFFFFF', border: '1px solid #EBE5FF' }}
+              initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}>
+              <div className="flex items-center justify-between mb-5">
+                <p className="text-[16px] font-bold text-[#1A1035]">{editEntry ? 'Edit Entry' : 'New Governance Entry'}</p>
+                <button onClick={() => setShowNew(false)} className="text-[#8B84A0] hover:text-[#1A1035]"><X size={18} /></button>
+              </div>
+              <div className="space-y-4">
+                <div><label className="block text-[9px] text-[#8B84A0] mb-1 uppercase tracking-[0.14em]">Type</label>
+                  <select className={inp} style={inpStyle} value={form.type as string}
+                    onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
+                    {Object.entries(GOVERNANCE_TYPE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                  </select></div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className="block text-[9px] text-[#8B84A0] mb-1 uppercase tracking-[0.14em]">Event Date</label>
+                    <input type="date" className={inp} style={inpStyle} value={form.event_date as string}
+                      onChange={e => setForm(f => ({ ...f, event_date: e.target.value }))} /></div>
+                  <div><label className="block text-[9px] text-[#8B84A0] mb-1 uppercase tracking-[0.14em]">Status</label>
+                    <select className={inp} style={inpStyle} value={form.status as string}
+                      onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
+                      {['open', 'in_progress', 'completed', 'overdue'].map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
+                    </select></div>
+                </div>
+                <div><label className="block text-[9px] text-[#8B84A0] mb-1 uppercase tracking-[0.14em]">Agenda Items</label>
+                  <textarea className={inp + ' resize-none h-16'} style={inpStyle}
+                    value={form.agenda_items as string} onChange={e => setForm(f => ({ ...f, agenda_items: e.target.value }))} /></div>
+                <div><label className="block text-[9px] text-[#8B84A0] mb-1 uppercase tracking-[0.14em]">Attendees</label>
+                  <input className={inp} style={inpStyle} placeholder="Name, Name, Name…"
+                    value={form.attendees as string} onChange={e => setForm(f => ({ ...f, attendees: e.target.value }))} /></div>
+                <div><label className="block text-[9px] text-[#8B84A0] mb-1 uppercase tracking-[0.14em]">Actions Arising</label>
+                  <textarea className={inp + ' resize-none h-16'} style={inpStyle}
+                    value={form.actions_arising as string} onChange={e => setForm(f => ({ ...f, actions_arising: e.target.value }))} /></div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className="block text-[9px] text-[#8B84A0] mb-1 uppercase tracking-[0.14em]">Owner</label>
+                    <UserSelect value={form.owner_id as string | null} users={users}
+                      onChange={v => setForm(f => ({ ...f, owner_id: v ?? '' }))} /></div>
+                  <div><label className="block text-[9px] text-[#8B84A0] mb-1 uppercase tracking-[0.14em]">Due Date</label>
+                    <input type="date" className={inp} style={inpStyle} value={form.due_date as string}
+                      onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))} /></div>
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={form.minutes_uploaded as boolean}
+                    onChange={e => setForm(f => ({ ...f, minutes_uploaded: e.target.checked }))}
+                    className="w-4 h-4 rounded accent-[#8A6CFF]" />
+                  <span className="text-[12px] text-[#1A1035]">Minutes uploaded</span>
+                </label>
+              </div>
+              <div className="flex gap-3 mt-5">
+                <button onClick={() => setShowNew(false)}
+                  className="flex-1 py-2.5 rounded-xl text-[12px] font-bold border"
+                  style={{ borderColor: '#EBE5FF', color: '#6E6688' }}>Cancel</button>
+                <button onClick={handleSave} disabled={saving || !form.event_date}
+                  className="flex-1 py-2.5 rounded-xl text-[12px] font-bold text-white disabled:opacity-50"
+                  style={{ backgroundColor: '#8A6CFF' }}>
+                  {saving ? 'Saving…' : editEntry ? 'Update' : 'Create Entry'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+}
+
+// =============================================================================
+// TAB: COMPLIANCE CALENDAR
+// =============================================================================
+
+function CalendarTab({
+  tasks, users, isAdmin, currentUserId, onRefresh,
+}: {
+  tasks: CalendarTask[]; users: ActiveUser[]; isAdmin: boolean;
+  currentUserId: string; onRefresh: () => void;
+}) {
+  const [editing, setEditing] = useState<CalendarTask | null>(null);
+  const [form, setForm] = useState<Record<string, string | null>>({});
+  const [saving, setSaving] = useState(false);
+  const [filter, setFilter] = useState<'all' | 'overdue' | 'due_soon'>('all');
+
+  function openEdit(t: CalendarTask) {
+    setEditing(t);
+    setForm({
+      last_completed_date:   t.last_completed_date ?? '',
+      next_due_date:         t.next_due_date ?? '',
+      responsible_user_id:   t.responsible_user_id ?? null,
+      notes:                 t.notes ?? '',
+    });
+  }
+
+  async function handleSave() {
+    if (!editing) return;
+    setSaving(true);
+    await updateCalendarTask(editing.id, {
+      last_completed_date:  (form.last_completed_date as string) || undefined,
+      next_due_date:        (form.next_due_date as string) || undefined,
+      responsible_user_id:  form.responsible_user_id ?? null,
+      notes:                (form.notes as string) || undefined,
+      assigned_by:          currentUserId,
+    });
+    setSaving(false);
+    setEditing(null);
+    onRefresh();
+  }
+
+  const displayed = filter === 'all' ? tasks : tasks.filter(t => t.status === filter);
+  const overdueCount  = tasks.filter(t => t.status === 'overdue').length;
+  const dueSoonCount  = tasks.filter(t => t.status === 'due_soon').length;
+
+  // Group by frequency
+  const freqGroups: Record<string, CalendarTask[]> = {};
+  const freqOrder = ['weekly', 'monthly', 'quarterly', 'biannual', 'annual', 'as_needed'];
+  const freqLabel: Record<string, string> = { weekly: 'Weekly', monthly: 'Monthly', quarterly: 'Quarterly', biannual: 'Biannual', annual: 'Annual', as_needed: 'As Needed' };
+  for (const t of displayed) {
+    if (!freqGroups[t.frequency]) freqGroups[t.frequency] = [];
+    freqGroups[t.frequency].push(t);
+  }
+
+  const inp = 'w-full rounded-lg px-3 py-1.5 text-[12px] focus:outline-none';
+  const inpStyle = { backgroundColor: '#FDFCFB', border: '1px solid #EBE5FF', color: '#1A1035' };
+
+  return (
+    <>
+      <div className="flex items-center gap-2 mb-4">
+        {([['all', `All (${tasks.length})`], ['overdue', `Overdue (${overdueCount})`], ['due_soon', `Due Soon (${dueSoonCount})`]] as [string, string][]).map(([f, label]) => (
+          <button key={f} onClick={() => setFilter(f as typeof filter)}
+            className="px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-[0.14em] font-semibold"
+            style={{ backgroundColor: filter === f ? '#EBE5FF' : 'transparent', color: filter === f ? '#1A1035' : '#8B84A0' }}>
+            {label}
+          </button>
+        ))}
+        {isAdmin && <p className="text-[10px] text-[#8B84A0] ml-auto">Click row to update</p>}
+      </div>
+
+      <div className="space-y-4">
+        {freqOrder.filter(f => freqGroups[f]).map(freq => {
+          const items = freqGroups[freq];
+          const overdueInGroup = items.filter(t => t.status === 'overdue').length;
+          return (
+            <Panel key={freq}>
+              <PanelHeader
+                title={freqLabel[freq]}
+                badge={overdueInGroup}
+                action={<span className="text-[9px] text-[#8B84A0]">{items.length} tasks</span>}
+              />
+              <div className="divide-y" style={{ borderColor: '#EBE5FF' }}>
+                {items.map((task, idx) => (
+                  <motion.div
+                    key={task.id}
+                    className={`flex items-center gap-4 px-5 py-3.5 ${isAdmin ? 'cursor-pointer hover:bg-[#FAF7F2]' : ''}`}
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: idx * 0.02 }}
+                    onClick={() => isAdmin && openEdit(task)}
+                  >
+                    <div className="w-6 text-center">
+                      <span className="text-[9px] font-bold text-[#C4B9FF]">{task.task_order}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[12px] font-bold text-[#1A1035]">{task.task_name}</p>
+                      <p className="text-[10px] text-[#8B84A0]">
+                        {task.month_due ? `Due: ${task.month_due}` : 'No schedule set'}
+                        {task.responsible_name ? ` · ${task.responsible_name}` : ' · Unassigned'}
+                      </p>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-[10px] text-[#8B84A0]">Last: {shortDate(task.last_completed_date)}</p>
+                      <p className="text-[10px] text-[#8B84A0]">Next: {shortDate(task.next_due_date)}</p>
+                    </div>
+                    <StatusBadge status={task.status} />
+                    {isAdmin && <ChevronRight size={12} style={{ color: '#C4B9FF' }} className="flex-shrink-0" />}
+                  </motion.div>
+                ))}
+              </div>
+            </Panel>
+          );
+        })}
+        {displayed.length === 0 && (
+          <Panel><div className="p-10 text-center text-[12px] text-[#8B84A0]">No tasks match this filter.</div></Panel>
+        )}
+      </div>
+
+      {/* Edit modal */}
+      <AnimatePresence>
+        {editing && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setEditing(null)} />
+            <motion.div className="relative w-full max-w-md rounded-2xl z-10 p-6"
+              style={{ backgroundColor: '#FFFFFF', border: '1px solid #EBE5FF' }}
+              initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}>
+              <div className="flex items-start justify-between mb-5">
+                <div>
+                  <p className="text-[8px] uppercase tracking-[0.22em] text-[#8B84A0]">{editing.frequency} · Task {editing.task_order}</p>
+                  <p className="text-[15px] font-bold text-[#1A1035] mt-0.5">{editing.task_name}</p>
+                  {editing.month_due && <p className="text-[10px] text-[#8B84A0] mt-0.5">{editing.month_due}</p>}
+                </div>
+                <button onClick={() => setEditing(null)} className="text-[#8B84A0] hover:text-[#1A1035]"><X size={18} /></button>
+              </div>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className="block text-[9px] text-[#8B84A0] mb-1">Last Completed</label>
+                    <input type="date" className={inp} style={inpStyle} value={form.last_completed_date as string}
+                      onChange={e => setForm(f => ({ ...f, last_completed_date: e.target.value }))} /></div>
+                  <div><label className="block text-[9px] text-[#8B84A0] mb-1">Next Due</label>
+                    <input type="date" className={inp} style={inpStyle} value={form.next_due_date as string}
+                      onChange={e => setForm(f => ({ ...f, next_due_date: e.target.value }))} /></div>
+                </div>
+                <div><label className="block text-[9px] text-[#8B84A0] mb-1">Responsible Person</label>
+                  <UserSelect value={form.responsible_user_id as string | null} users={users}
+                    onChange={v => setForm(f => ({ ...f, responsible_user_id: v }))} /></div>
+                <div><label className="block text-[9px] text-[#8B84A0] mb-1">Notes</label>
+                  <input className={inp} style={inpStyle} value={form.notes as string}
+                    onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} /></div>
+              </div>
+              <div className="flex gap-3 mt-5">
+                <button onClick={() => setEditing(null)}
+                  className="flex-1 py-2.5 rounded-xl text-[12px] font-bold border"
+                  style={{ borderColor: '#EBE5FF', color: '#6E6688' }}>Cancel</button>
+                <button onClick={handleSave} disabled={saving}
+                  className="flex-1 py-2.5 rounded-xl text-[12px] font-bold text-white disabled:opacity-50"
+                  style={{ backgroundColor: '#8A6CFF' }}>
+                  <CheckCircle size={12} className="inline mr-1.5" />{saving ? 'Saving…' : 'Mark & Save'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 
@@ -1104,149 +1507,225 @@ function EWCAgentPanel({ brandColor }: { brandColor: string }) {
 // MAIN PAGE
 // =============================================================================
 
-type Tab = 'overview' | 'cqc' | 'equipment' | 'incidents' | 'gdpr';
+const TABS: { id: Tab; label: string; icon: React.ElementType; adminOnly?: boolean }[] = [
+  { id: 'dashboard',  label: 'Dashboard',  icon: BarChart3 },
+  { id: 'hr',         label: 'HR Tracker', icon: Users },
+  { id: 'training',   label: 'Training',   icon: ClipboardList },
+  { id: 'equipment',  label: 'Equipment',  icon: Settings },
+  { id: 'cqc',        label: 'CQC Audit',  icon: Shield },
+  { id: 'governance', label: 'Governance', icon: Building2 },
+  { id: 'calendar',   label: 'Calendar',   icon: CalendarDays },
+];
 
 export default function CompliancePage() {
-  const [profile, setProfile]         = useState<StaffProfile | null>(null);
-  const [userId, setUserId]           = useState('');
-  const [brandColor, setBrandColor]   = useState('#8A6CFF');
-  const [loading, setLoading]         = useState(true);
-  const [tab, setTab]                 = useState<Tab>('overview');
-  const [showEvidencePack, setShowEvidencePack] = useState(false);
-  const [staffSummaries, setStaffSummaries] = useState<StaffGoalsSummary[]>([]);
+  const [profile, setProfile]       = useState<StaffProfile | null>(null);
+  const [userId, setUserId]         = useState('');
+  const [brandColor, setBrandColor] = useState('#8A6CFF');
+  const [isAdmin, setIsAdmin]       = useState(false);
+  const [tab, setTab]               = useState<Tab>('dashboard');
+  const [loading, setLoading]       = useState(true);
+
+  // Data
+  const [dashboard, setDashboard]   = useState<ComplianceDashboard | null>(null);
+  const [hrRecords, setHRRecords]   = useState<HRRecord[]>([]);
+  const [matrix, setMatrix]         = useState<TrainingMatrixRow[]>([]);
+  const [equipment, setEquipment]   = useState<EquipmentItem[]>([]);
+  const [cqcAnswers, setCQCAnswers] = useState<CQCAnswer[]>([]);
+  const [govLog, setGovLog]         = useState<GovernanceEntry[]>([]);
+  const [calTasks, setCalTasks]     = useState<CalendarTask[]>([]);
+  const [users, setUsers]           = useState<ActiveUser[]>([]);
+
+  const loadAll = useCallback(async () => {
+    const [dash, hr, mat, eq, cqc, gov, cal, activeUsers] = await Promise.all([
+      getComplianceDashboard(),
+      getHRRecords(),
+      getTrainingMatrix(),
+      getEquipmentList(),
+      getCQCAudit(),
+      getGovernanceLog(),
+      getCalendarTasks(),
+      getActiveUsers(),
+    ]);
+    setDashboard(dash);
+    setHRRecords(hr);
+    setMatrix(mat);
+    setEquipment(eq);
+    setCQCAnswers(cqc);
+    setGovLog(gov);
+    setCalTasks(cal);
+    setUsers(activeUsers);
+  }, []);
 
   useEffect(() => {
     (async () => {
       const user = await getCurrentUser();
       if (!user.userId) { setLoading(false); return; }
       setUserId(user.userId);
-      const profileRes = await getStaffProfile('clinic', user.userId);
-      if (!profileRes.success || !profileRes.data?.profile) { setLoading(false); return; }
-      const p = profileRes.data.profile;
+      const pRes = await getStaffProfile('clinic', user.userId);
+      if (!pRes.success || !pRes.data?.profile) { setLoading(false); return; }
+      const p = pRes.data.profile;
       setProfile(p);
       setBrandColor(p.brandColor || '#8A6CFF');
-      if (p.isAdmin) {
-        const summaries = await getAllStaffGoalsSummary();
-        setStaffSummaries(summaries);
-      }
+      setIsAdmin(p.isAdmin);
+      await loadAll();
       setLoading(false);
     })();
-  }, []);
+  }, [loadAll]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-[12px] text-white/25 uppercase tracking-[0.2em]">Loading…</div>
-      </div>
-    );
-  }
+  const handleRefresh = useCallback(() => { loadAll(); }, [loadAll]);
 
-  if (!profile) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-[12px] text-white/30">Unable to load profile.</div>
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="min-h-screen bg-[#FAF7F2] flex items-center justify-center">
+      <div className="text-[12px] text-[#9CA3AF] uppercase tracking-[0.2em]">Loading compliance data…</div>
+    </div>
+  );
 
-  const cqcScore    = calcCQCReadiness(CQC_DOMAINS);
-  const eqOverdue   = EQUIPMENT_REGISTER.filter(e => e.status === 'overdue').length;
-  const gdprActions = GDPR_ITEMS.filter(g => g.status === 'action_required').length;
-  const openInc     = INCIDENT_LOG.filter(i => i.status === 'open' || i.status === 'under_review').length;
+  if (!profile) return (
+    <div className="min-h-screen bg-[#FAF7F2] flex items-center justify-center">
+      <div className="text-[12px] text-[#6B7280]">Unable to load profile.</div>
+    </div>
+  );
 
-  const TABS: { id: Tab; label: string; alert?: number }[] = [
-    { id: 'overview',  label: 'Overview',   alert: (eqOverdue + gdprActions + openInc) || undefined },
-    { id: 'cqc',       label: 'CQC' },
-    { id: 'equipment', label: 'Equipment',  alert: eqOverdue || undefined },
-    { id: 'incidents', label: 'Incidents',  alert: openInc || undefined },
-    { id: 'gdpr',      label: 'GDPR',       alert: gdprActions || undefined },
-  ];
+  const totalIssues = dashboard
+    ? dashboard.dbs_issues + dashboard.rtw_issues + dashboard.appraisals_overdue
+      + dashboard.training_gaps + dashboard.equipment_overdue + dashboard.calendar_overdue
+    : 0;
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-[#FAF7F2] text-[#1A1035]">
       <StaffNav profile={profile} userId={userId} brandColor={brandColor} currentPath="Compliance" />
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="text-[11px] uppercase tracking-[0.2em] text-white/25 mb-2">Regulatory Compliance</div>
-          <div className="flex items-end justify-between">
-            <h1 className="text-[28px] font-light text-white leading-none">Compliance & CQC</h1>
-            <div className="flex items-center gap-4">
-              <div className="text-right">
-                <div className="text-[11px] text-white/25 uppercase tracking-[0.14em] mb-1">CQC Readiness</div>
-                <div className={`text-[22px] font-light ${cqcScore >= 80 ? 'text-emerald-400' : cqcScore >= 60 ? 'text-amber-400' : 'text-red-400'}`}>
-                  {cqcScore}%
+      <div style={{ paddingLeft: 'var(--nav-w, 240px)', transition: 'padding-left 0.32s ease' }}>
+        <div className="max-w-7xl mx-auto px-6 py-8">
+
+          {/* Header */}
+          <div className="flex items-start justify-between mb-8">
+            <div>
+              <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#8B84A0] mb-3">CQC Compliance</p>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                  style={{ backgroundColor: `${brandColor}18`, color: brandColor }}>
+                  <Shield size={18} />
+                </div>
+                <div>
+                  <h1 className="text-[24px] font-black tracking-[-0.02em] leading-none text-[#1A1035]">
+                    Compliance Management
+                  </h1>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <span className="text-[9px] font-bold uppercase tracking-[0.1em] px-2 py-0.5 rounded-full"
+                      style={{ backgroundColor: `${brandColor}18`, color: brandColor }}>
+                      {isAdmin ? 'Admin — Full Access' : 'View Only'}
+                    </span>
+                    {totalIssues > 0 && (
+                      <span className="text-[9px] font-bold uppercase tracking-[0.1em] px-2 py-0.5 rounded-full bg-red-50 text-red-600">
+                        {totalIssues} issues
+                      </span>
+                    )}
+                    {totalIssues === 0 && dashboard && (
+                      <span className="text-[9px] font-bold uppercase tracking-[0.1em] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">
+                        All clear
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
-              <button
-                onClick={() => setShowEvidencePack(true)}
-                className="px-4 py-2 bg-white/[0.06] hover:bg-white/[0.10] border border-white/[0.10] rounded-lg text-[12px] text-white/60 hover:text-white transition-colors"
-              >
-                Evidence Pack
-              </button>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] text-[#8B84A0] uppercase tracking-[0.14em]">
+                {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
+              </p>
+              {dashboard && (
+                <p className="text-[22px] font-black mt-1"
+                  style={{ color: dashboard.cqc_score_pct >= 80 ? '#059669' : dashboard.cqc_score_pct >= 60 ? '#D97706' : '#DC2626' }}>
+                  {dashboard.cqc_score_pct}% <span className="text-[11px] font-semibold text-[#8B84A0]">CQC</span>
+                </p>
+              )}
             </div>
           </div>
-        </div>
 
-        {/* Tabs */}
-        <div className="flex gap-1 mb-8 border-b border-white/[0.06]">
-          {TABS.map(t => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`px-4 py-2.5 text-[12px] uppercase tracking-[0.15em] transition-colors relative flex items-center gap-1.5 ${
-                tab === t.id ? 'text-white' : 'text-white/30 hover:text-white/55'
-              }`}
+          {/* Tabs */}
+          <div className="flex gap-0.5 mb-8 border-b overflow-x-auto" style={{ borderColor: '#EBE5FF' }}>
+            {TABS.map(t => {
+              const Icon = t.icon;
+              const isActive = tab === t.id;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setTab(t.id)}
+                  className="flex items-center gap-1.5 px-4 py-2.5 text-[11px] uppercase tracking-[0.14em] font-semibold transition-colors relative whitespace-nowrap"
+                  style={{ color: isActive ? '#1A1035' : '#8B84A0' }}
+                >
+                  <Icon size={12} />
+                  {t.label}
+                  {isActive && (
+                    <motion.div layoutId="compliance-tab-indicator"
+                      className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full"
+                      style={{ backgroundColor: brandColor }} />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Tab content */}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={tab}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.18 }}
             >
-              {t.label}
-              {(t.alert ?? 0) > 0 && (
-                <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${
-                  t.id === 'equipment' ? 'bg-red-400/20 text-red-400' : 'bg-amber-400/20 text-amber-400'
-                }`}>
-                  {t.alert}
-                </span>
+              {tab === 'dashboard' && dashboard && (
+                <DashboardTab dashboard={dashboard} brandColor={brandColor} />
               )}
-              {tab === t.id && (
-                <motion.div layoutId="compliance-tab-indicator" className="absolute bottom-0 left-0 right-0 h-[1px] bg-white" />
+              {tab === 'hr' && (
+                <HRTrackerTab
+                  records={hrRecords} users={users}
+                  isAdmin={isAdmin} currentUserId={userId}
+                  onRefresh={handleRefresh}
+                />
               )}
-            </button>
-          ))}
+              {tab === 'training' && (
+                <TrainingMatrixTab
+                  matrix={matrix} users={users}
+                  isAdmin={isAdmin} currentUserId={userId}
+                  onRefresh={handleRefresh}
+                />
+              )}
+              {tab === 'equipment' && (
+                <EquipmentTab
+                  equipment={equipment} users={users}
+                  isAdmin={isAdmin} currentUserId={userId}
+                  onRefresh={handleRefresh}
+                />
+              )}
+              {tab === 'cqc' && (
+                <CQCAuditTab
+                  answers={cqcAnswers}
+                  isAdmin={isAdmin} currentUserId={userId}
+                  onRefresh={handleRefresh}
+                />
+              )}
+              {tab === 'governance' && (
+                <GovernanceTab
+                  entries={govLog} users={users}
+                  isAdmin={isAdmin} currentUserId={userId}
+                  onRefresh={handleRefresh}
+                />
+              )}
+              {tab === 'calendar' && (
+                <CalendarTab
+                  tasks={calTasks} users={users}
+                  isAdmin={isAdmin} currentUserId={userId}
+                  onRefresh={handleRefresh}
+                />
+              )}
+            </motion.div>
+          </AnimatePresence>
+
         </div>
-
-        {/* Tab content */}
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={tab}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.18 }}
-          >
-            {tab === 'overview'  && <OverviewTab domains={CQC_DOMAINS} equipment={EQUIPMENT_REGISTER} incidents={INCIDENT_LOG} gdprItems={GDPR_ITEMS} staffSummaries={staffSummaries} onGeneratePack={() => setShowEvidencePack(true)} />}
-            {tab === 'cqc'       && <CQCTab domains={CQC_DOMAINS} />}
-            {tab === 'equipment' && <EquipmentTab items={EQUIPMENT_REGISTER} />}
-            {tab === 'incidents' && <IncidentsTab incidents={INCIDENT_LOG} />}
-            {tab === 'gdpr'      && <GDPRTab items={GDPR_ITEMS} />}
-          </motion.div>
-        </AnimatePresence>
       </div>
-
-      {/* Evidence pack modal */}
-      <AnimatePresence>
-        {showEvidencePack && (
-          <EvidencePackModal
-            onClose={() => setShowEvidencePack(false)}
-            domains={CQC_DOMAINS}
-            equipment={EQUIPMENT_REGISTER}
-            incidents={INCIDENT_LOG}
-            gdprItems={GDPR_ITEMS}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* EWC Compliance Agent */}
-      <EWCAgentPanel brandColor={profile.brandColor} />
     </div>
   );
 }
