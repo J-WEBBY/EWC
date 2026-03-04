@@ -2,14 +2,16 @@
 
 // =============================================================================
 // KPI & Performance Page — Edgbaston Wellness Clinic
-// 5 tabs: Dashboard | Goals | Responsibilities | Clinic | Team
-// Role-based: director | support_admin | practitioner | receptionist | view_only
+// Premium redesign — Panel-based, animated rings, area charts, category chips
 // =============================================================================
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Brain, MessageSquare, ExternalLink, TrendingUp, TrendingDown } from 'lucide-react';
+import {
+  Brain, MessageSquare, ExternalLink, TrendingUp, TrendingDown,
+  Plus, Target, Users, ChevronRight,
+} from 'lucide-react';
 import { StaffNav } from '@/components/staff-nav';
 import {
   getStaffProfile,
@@ -42,6 +44,8 @@ import {
   type SparklinePoint,
 } from '@/lib/actions/kpi-goals';
 
+// Keep unused import to satisfy existing callers
+void getGoalHistory;
 
 // =============================================================================
 // TYPES
@@ -85,23 +89,8 @@ function formatGoalValue(value: number, unit: GoalUnit): string {
   return String(Math.round(value));
 }
 
-function statusDot(status: GoalStatus): string {
-  if (status === 'completed' || status === 'on_track') return 'bg-emerald-500';
-  if (status === 'at_risk')  return 'bg-amber-500';
-  if (status === 'missed')   return 'bg-red-500';
-  return 'bg-[#C4B9FF]';
-}
-
 function statusLabel(status: GoalStatus): string {
   return status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-}
-
-function compDot(status: ComplianceStatus): string {
-  if (status === 'compliant') return 'bg-emerald-500';
-  if (status === 'due_soon')  return 'bg-amber-500';
-  if (status === 'overdue' || status === 'expired') return 'bg-red-500';
-  if (status === 'waived')    return 'bg-[#C4B9FF]';
-  return 'bg-[#C4B9FF]';
 }
 
 function compLabel(status: ComplianceStatus): string {
@@ -118,29 +107,198 @@ function shortDate(dateStr: string | null | undefined): string {
   return new Date(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' });
 }
 
-// Inline sparkline SVG
-function Sparkline({ points, color = '#8A6CFF', height = 28 }: {
-  points: SparklinePoint[];
-  color?: string;
-  height?: number;
-}) {
-  if (!points.length) return null;
-  const vals  = points.map(p => p.value);
-  const min   = Math.min(...vals);
-  const max   = Math.max(...vals);
-  const range = max - min || 1;
-  const w = 80;
-  const h = height;
-  const step = w / Math.max(1, vals.length - 1);
-  const pts = vals.map((v, i) => `${i * step},${h - ((v - min) / range) * (h - 4) - 2}`).join(' ');
+// =============================================================================
+// DESIGN TOKENS
+// =============================================================================
+
+const CATEGORY_COLOR: Record<string, string> = {
+  appointments: '#0284C7',
+  revenue:      '#059669',
+  patients:     '#7C3AED',
+  compliance:   '#D97706',
+  training:     '#8A6CFF',
+  operational:  '#6B7280',
+  personal:     '#EC4899',
+  retention:    '#059669',
+  acquisition:  '#DC2626',
+};
+
+const COMP_CATEGORY_LABEL: Record<string, string> = {
+  clinical_cert: 'Clinical Certifications',
+  training:      'Training & Qualifications',
+  dbs:           'DBS Checks',
+  registration:  'Professional Registration',
+  cqc:           'CQC Compliance',
+  gdpr:          'Data Protection (GDPR)',
+  health_safety: 'Health & Safety',
+  equipment:     'Equipment & Maintenance',
+  insurance:     'Insurance & Indemnity',
+};
+
+function statusColor(status: string): [string, string] {
+  const MAP: Record<string, [string, string]> = {
+    on_track:    ['#059669', '#ECFDF5'],
+    completed:   ['#059669', '#ECFDF5'],
+    at_risk:     ['#D97706', '#FFFBEB'],
+    missed:      ['#DC2626', '#FFF1F2'],
+    in_progress: ['#0284C7', '#EFF6FF'],
+    active:      ['#8A6CFF', '#F5F3FF'],
+    not_started: ['#8B84A0', '#F5F4FA'],
+    paused:      ['#8B84A0', '#F5F4FA'],
+    draft:       ['#8B84A0', '#F5F4FA'],
+  };
+  return MAP[status] ?? ['#8B84A0', '#F5F4FA'];
+}
+
+function compStatusColor(status: string): [string, string] {
+  const MAP: Record<string, [string, string]> = {
+    compliant:   ['#059669', '#ECFDF5'],
+    due_soon:    ['#D97706', '#FFFBEB'],
+    overdue:     ['#DC2626', '#FFF1F2'],
+    expired:     ['#DC2626', '#FFF1F2'],
+    in_progress: ['#0284C7', '#EFF6FF'],
+    not_started: ['#8B84A0', '#F5F4FA'],
+    waived:      ['#8B84A0', '#F5F3FF'],
+    draft:       ['#8B84A0', '#F5F4FA'],
+  };
+  return MAP[status] ?? ['#8B84A0', '#F5F4FA'];
+}
+
+// =============================================================================
+// PRIMITIVE COMPONENTS
+// =============================================================================
+
+function Panel({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} width={w} height={h} style={{ display: 'block' }}>
-      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" opacity="0.7" />
+    <div className={`rounded-2xl overflow-hidden ${className}`}
+      style={{ backgroundColor: '#FFFFFF', border: '1px solid #EBE5FF' }}>
+      {children}
+    </div>
+  );
+}
+
+function PanelHeader({ title, badge, action }: {
+  title: string; badge?: number; action?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between px-5 py-3.5"
+      style={{ borderBottom: '1px solid #EBE5FF' }}>
+      <div className="flex items-center gap-2">
+        <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#8B84A0]">{title}</p>
+        {badge !== undefined && badge > 0 && (
+          <span className="inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold text-white"
+            style={{ backgroundColor: '#DC2626' }}>{badge}</span>
+        )}
+      </div>
+      {action}
+    </div>
+  );
+}
+
+function StatTile({ label, value, sub, accent, delta }: {
+  label: string; value: string | number; sub?: string; accent?: string; delta?: number;
+}) {
+  return (
+    <div className="rounded-xl p-4" style={{ backgroundColor: '#FDFCFB', border: '1px solid #EBE5FF' }}>
+      <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-1.5">{label}</p>
+      <div className="flex items-end justify-between">
+        <p className="text-[22px] font-black tracking-[-0.02em] leading-none"
+          style={{ color: accent ?? '#1A1035' }}>{value}</p>
+        {delta !== undefined && delta !== 0 && (
+          <div className={`flex items-center gap-0.5 text-[10px] font-semibold mb-0.5 ${delta > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+            {delta > 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+            {delta > 0 ? '+' : ''}{delta}
+          </div>
+        )}
+      </div>
+      {sub && <p className="text-[10px] text-[#8B84A0] mt-1.5">{sub}</p>}
+    </div>
+  );
+}
+
+function PerformanceRing({ score, size = 88, color }: {
+  score: number; size?: number; color?: string;
+}) {
+  const r    = size / 2 - 7;
+  const circ = 2 * Math.PI * r;
+  const fill = (score / 100) * circ;
+  const c    = color ?? (score >= 80 ? '#059669' : score >= 60 ? '#D97706' : '#DC2626');
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="flex-shrink-0">
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#EBE5FF" strokeWidth="6" />
+      <motion.circle
+        cx={size / 2} cy={size / 2} r={r}
+        fill="none" stroke={c} strokeWidth="6"
+        strokeLinecap="round"
+        transform={`rotate(-90 ${size / 2} ${size / 2})`}
+        initial={{ strokeDasharray: `0 ${circ}` }}
+        animate={{ strokeDasharray: `${fill} ${circ - fill}` }}
+        transition={{ duration: 1, ease: 'easeOut', delay: 0.2 }}
+      />
+      <text x="50%" y="50%" textAnchor="middle" dy=".35em"
+        fill={c} fontSize={size * 0.24} fontWeight="700">{score}</text>
     </svg>
   );
 }
 
-// Compact bar
+function GoalProgressRing({ pct, size = 44, color = '#8A6CFF' }: {
+  pct: number; size?: number; color?: string;
+}) {
+  const r    = size / 2 - 3.5;
+  const circ = 2 * Math.PI * r;
+  const fill = (pct / 100) * circ;
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="flex-shrink-0">
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#EBE5FF" strokeWidth="3" />
+      <motion.circle
+        cx={size / 2} cy={size / 2} r={r}
+        fill="none" stroke={color} strokeWidth="3"
+        strokeLinecap="round"
+        transform={`rotate(-90 ${size / 2} ${size / 2})`}
+        initial={{ strokeDasharray: `0 ${circ}` }}
+        animate={{ strokeDasharray: `${fill} ${circ - fill}` }}
+        transition={{ duration: 0.8, ease: 'easeOut' }}
+      />
+      <text x="50%" y="50%" textAnchor="middle" dy=".35em"
+        fill={color} fontSize={size * 0.26} fontWeight="700">{pct}</text>
+    </svg>
+  );
+}
+
+function AreaChart({ points, color = '#8A6CFF', height = 56 }: {
+  points: SparklinePoint[]; color?: string; height?: number;
+}) {
+  if (!points || points.length < 2) return null;
+  const vals  = points.map(p => p.value);
+  const min   = Math.min(...vals);
+  const max   = Math.max(...vals);
+  const range = max - min || 1;
+  const W = 200; const H = height;
+  const step   = W / Math.max(1, vals.length - 1);
+  const yScale = (v: number) => H - 3 - ((v - min) / range) * (H - 6);
+  const linePoints = vals.map((v, i) => `${i * step},${yScale(v)}`).join(' ');
+  const areaPath = [
+    `M0,${yScale(vals[0])}`,
+    ...vals.map((v, i) => `L${i * step},${yScale(v)}`),
+    `L${(vals.length - 1) * step},${H}`, `L0,${H}`, 'Z',
+  ].join(' ');
+  const gradId = `ag${color.replace('#', '')}`;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: '100%', height }}>
+      <defs>
+        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.16" />
+          <stop offset="100%" stopColor={color} stopOpacity="0.01" />
+        </linearGradient>
+      </defs>
+      <path d={areaPath} fill={`url(#${gradId})`} />
+      <polyline points={linePoints} fill="none" stroke={color} strokeWidth="1.8"
+        strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// Kept for ProgressModal
 function Bar({ pct, color = 'bg-[#8A6CFF]' }: { pct: number; color?: string }) {
   return (
     <div className="h-[3px] w-full bg-[#EBE5FF] rounded-full overflow-hidden">
@@ -154,25 +312,52 @@ function Bar({ pct, color = 'bg-[#8A6CFF]' }: { pct: number; color?: string }) {
   );
 }
 
-// Radial score ring
-function ScoreRing({ score, size = 64 }: { score: number; size?: number }) {
-  const r = size / 2 - 6;
-  const circ = 2 * Math.PI * r;
-  const fill = (score / 100) * circ;
-  const color = score >= 80 ? '#34d399' : score >= 60 ? '#fbbf24' : '#f87171';
+function MiniBar({ pct, color = '#8A6CFF' }: { pct: number; color?: string }) {
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#EBE5FF" strokeWidth="5" />
-      <circle
-        cx={size / 2} cy={size / 2} r={r}
-        fill="none" stroke={color} strokeWidth="5"
-        strokeDasharray={`${fill} ${circ}`}
-        strokeLinecap="round"
-        transform={`rotate(-90 ${size / 2} ${size / 2})`}
-        style={{ transition: 'stroke-dasharray 0.8s ease' }}
+    <div className="h-[3px] w-full rounded-full overflow-hidden" style={{ backgroundColor: '#EBE5FF' }}>
+      <motion.div
+        className="h-full rounded-full"
+        style={{ backgroundColor: color }}
+        initial={{ width: 0 }}
+        animate={{ width: `${Math.min(100, pct)}%` }}
+        transition={{ duration: 0.7, ease: 'easeOut' }}
       />
-      <text x="50%" y="54%" textAnchor="middle" fill="#1A1035" fontSize={size * 0.22} fontWeight="600">{score}</text>
-    </svg>
+    </div>
+  );
+}
+
+function StatusPill({ status, size = 'md' }: { status: string; size?: 'sm' | 'md' }) {
+  const MAP: Record<string, [string, string]> = {
+    on_track:    ['#059669', '#ECFDF5'],
+    completed:   ['#059669', '#ECFDF5'],
+    compliant:   ['#059669', '#ECFDF5'],
+    at_risk:     ['#D97706', '#FFFBEB'],
+    due_soon:    ['#D97706', '#FFFBEB'],
+    missed:      ['#DC2626', '#FFF1F2'],
+    overdue:     ['#DC2626', '#FFF1F2'],
+    expired:     ['#DC2626', '#FFF1F2'],
+    in_progress: ['#0284C7', '#EFF6FF'],
+    active:      ['#8A6CFF', '#F5F3FF'],
+    not_started: ['#8B84A0', '#F5F4FA'],
+    paused:      ['#8B84A0', '#F5F4FA'],
+    draft:       ['#8B84A0', '#F5F4FA'],
+    waived:      ['#8B84A0', '#F5F3FF'],
+  };
+  const [color, bg] = MAP[status] ?? ['#8B84A0', '#F5F4FA'];
+  const cls = size === 'sm' ? 'px-1.5 py-0.5 text-[8px]' : 'px-2 py-0.5 text-[9px]';
+  return (
+    <span className={`${cls} font-bold uppercase tracking-[0.08em] rounded-full whitespace-nowrap flex-shrink-0`}
+      style={{ backgroundColor: bg, color }}>
+      {status.replace(/_/g, ' ')}
+    </span>
+  );
+}
+
+function CategoryChip({ category }: { category: string }) {
+  const color = CATEGORY_COLOR[category] ?? '#8B84A0';
+  return (
+    <span className="text-[8px] font-semibold uppercase tracking-[0.1em] px-1.5 py-0.5 rounded"
+      style={{ backgroundColor: color + '18', color }}>{category}</span>
   );
 }
 
@@ -329,10 +514,10 @@ function ProgressModal({
   onClose: () => void;
   onUpdated: () => void;
 }) {
-  const [value, setValue] = useState(String(goal.current_value));
-  const [note, setNote]   = useState('');
+  const [value, setValue]   = useState(String(goal.current_value));
+  const [note, setNote]     = useState('');
   const [saving, setSaving] = useState(false);
-  const [err, setErr]     = useState('');
+  const [err, setErr]       = useState('');
 
   async function handleUpdate() {
     const v = parseFloat(value);
@@ -419,7 +604,7 @@ function ComplianceModal({
   onClose: () => void;
   onUpdated: () => void;
 }) {
-  const [status, setStatus]   = useState<ComplianceStatus>(item.status);
+  const [status, setStatus]               = useState<ComplianceStatus>(item.status);
   const [completedDate, setCompletedDate] = useState(item.completed_date ?? '');
   const [expiryDate, setExpiryDate]       = useState(item.expiry_date ?? '');
   const [evidenceNote, setEvidenceNote]   = useState(item.evidence_note ?? '');
@@ -499,7 +684,6 @@ function ComplianceModal({
   );
 }
 
-
 // =============================================================================
 // TAB: DASHBOARD
 // =============================================================================
@@ -511,6 +695,7 @@ function DashboardTab({
   goals,
   complianceItems,
   onChatWithEWC,
+  brandColor,
 }: {
   profile: StaffProfile;
   metrics: PersonalKPIMetrics | null;
@@ -518,6 +703,7 @@ function DashboardTab({
   goals: StaffGoal[];
   complianceItems: ComplianceItem[];
   onChatWithEWC: () => void;
+  brandColor: string;
 }) {
   if (!metrics) return (
     <div className="flex items-center justify-center h-40">
@@ -529,6 +715,7 @@ function DashboardTab({
   const isDirector     = roleView === 'director' || roleView === 'support_admin';
   const apptDelta      = metrics.appointments_this_month - metrics.appointments_last_month;
   const overdueItems   = complianceItems.filter(c => c.status === 'overdue' || c.status === 'expired');
+  const dueSoonItems   = complianceItems.filter(c => c.status === 'due_soon');
   const atRiskGoals    = goals.filter(g => g.status === 'at_risk');
   const urgentActions  = [
     ...overdueItems.slice(0, 2).map(c => ({ label: c.title, detail: 'Compliance overdue', color: '#DC2626' })),
@@ -537,172 +724,179 @@ function DashboardTab({
 
   const apptPct  = metrics.appointments_target > 0 ? (metrics.appointments_this_month / metrics.appointments_target) * 100 : 0;
   const goalsPct = metrics.completion_rate * 100;
-  const compPct  = metrics.compliance_score;
+  const compScore = metrics.compliance_score;
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   return (
     <div className="grid grid-cols-12 gap-5">
 
-      {/* ── LEFT COLUMN ── */}
-      <div className="col-span-8 space-y-5">
+      {/* LEFT col-span-8 */}
+      <div className="col-span-8 space-y-4">
 
-        {/* Welcome banner */}
-        <div className="bg-white border border-[#EBE5FF] rounded-2xl p-5">
-          <div className="text-[11px] uppercase tracking-[0.18em] text-[#9CA3AF] mb-1">
-            {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
-          </div>
-          <div className="text-[22px] font-light text-[#1A1035]">
-            Good {new Date().getHours() < 12 ? 'morning' : 'afternoon'}, {profile.firstName}.
-          </div>
-          <div className="text-[13px] text-[#6B7280] mt-1">
-            {metrics.goals_total > 0
-              ? `${metrics.goals_total} active goal${metrics.goals_total !== 1 ? 's' : ''} — ${metrics.goals_on_track} on track${metrics.goals_at_risk > 0 ? `, ${metrics.goals_at_risk} at risk` : ''}.`
-              : 'No goals set yet. Use the Goals tab to create your first goal.'}
-          </div>
-          {metrics.compliance_overdue > 0 && (
-            <div className="mt-3 flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0" />
-              <span className="text-[12px] text-red-600 font-medium">
-                {metrics.compliance_overdue} compliance item{metrics.compliance_overdue !== 1 ? 's' : ''} overdue
-                {metrics.cqc_critical_overdue > 0 && ` · ${metrics.cqc_critical_overdue} CQC critical`}
-              </span>
+        {/* Performance Overview */}
+        <Panel>
+          <PanelHeader title="Performance Overview" />
+          <div className="p-5">
+            <div className="mb-5">
+              <p className="text-[8px] uppercase tracking-[0.22em] text-[#8B84A0] mb-0.5">
+                {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
+              </p>
+              <h2 className="text-[20px] font-bold text-[#1A1035] tracking-[-0.02em]">
+                {greeting}, {profile.firstName}.
+              </h2>
+              <p className="text-[12px] text-[#6E6688] mt-1">
+                {metrics.goals_total > 0
+                  ? `${metrics.goals_total} active goal${metrics.goals_total !== 1 ? 's' : ''} · ${metrics.goals_on_track} on track${metrics.goals_at_risk > 0 ? ` · ${metrics.goals_at_risk} at risk` : ''}`
+                  : 'No goals set yet. Use the Goals tab to create your first goal.'}
+              </p>
             </div>
-          )}
-        </div>
-
-        {/* Performance Pulse */}
-        <div>
-          <div className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-3">Performance Pulse</div>
-          <div className="grid grid-cols-2 gap-3">
-
-            {isPractitioner && (
-              <div className="bg-white border border-[#EBE5FF] rounded-2xl p-5">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0]">Appointments MTD</div>
-                  {apptDelta !== 0 && (
-                    <div className={`flex items-center gap-0.5 text-[10px] font-semibold ${apptDelta > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                      {apptDelta > 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-                      {apptDelta > 0 ? '+' : ''}{apptDelta}
-                    </div>
-                  )}
-                </div>
-                <div className="text-[32px] font-light text-[#1A1035] leading-none mb-1">{metrics.appointments_this_month}</div>
-                <div className="text-[11px] text-[#9CA3AF] mb-3">of {metrics.appointments_target} target</div>
-                <Bar pct={apptPct} color={apptPct >= 100 ? 'bg-emerald-500' : apptPct >= 60 ? 'bg-[#8A6CFF]' : 'bg-amber-500'} />
-              </div>
-            )}
-
-            <div className="bg-white border border-[#EBE5FF] rounded-2xl p-5">
-              <div className="flex items-start justify-between mb-3">
-                <div className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0]">Goal Completion</div>
-                <div className={`text-[10px] font-semibold ${goalsPct >= 80 ? 'text-emerald-600' : goalsPct >= 50 ? 'text-amber-600' : 'text-red-500'}`}>
-                  {metrics.goals_completed}/{metrics.goals_total}
-                </div>
-              </div>
-              <div className="text-[32px] font-light text-[#1A1035] leading-none mb-1">{Math.round(goalsPct)}%</div>
-              <div className="text-[11px] text-[#9CA3AF] mb-3">
-                {metrics.goals_at_risk > 0 ? `${metrics.goals_at_risk} at risk` : metrics.goals_total > 0 ? 'All goals on track' : 'No goals set'}
-              </div>
-              <Bar pct={goalsPct} color={goalsPct >= 80 ? 'bg-emerald-500' : goalsPct >= 50 ? 'bg-[#8A6CFF]' : 'bg-amber-500'} />
-            </div>
-
-            <div className="bg-white border border-[#EBE5FF] rounded-2xl p-5">
-              <div className="flex items-start justify-between mb-3">
-                <div className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0]">Compliance</div>
-                {metrics.compliance_overdue > 0 && (
-                  <span className="text-[10px] font-semibold text-red-500">{metrics.compliance_overdue} overdue</span>
-                )}
-              </div>
-              <div className="text-[32px] font-light text-[#1A1035] leading-none mb-1">{compPct}%</div>
-              <div className="text-[11px] text-[#9CA3AF] mb-3">{metrics.compliance_compliant}/{metrics.compliance_total} items</div>
-              <Bar pct={compPct} color={compPct >= 80 ? 'bg-emerald-500' : compPct >= 60 ? 'bg-amber-500' : 'bg-red-500'} />
-            </div>
-
-            {isPractitioner && (
-              <div className="bg-white border border-[#EBE5FF] rounded-2xl p-5">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0]">Patient Retention</div>
-                  <TrendingUp size={11} className="text-emerald-500 mt-0.5" />
-                </div>
-                <div className="text-[32px] font-light text-[#1A1035] leading-none mb-1">{Math.round(metrics.returning_rate * 100)}%</div>
-                <div className="text-[11px] text-[#9CA3AF] mb-3">Return rate</div>
-                <Bar pct={metrics.returning_rate * 100} color="bg-emerald-500" />
-              </div>
-            )}
-
-          </div>
-        </div>
-
-        {/* Goals Breakdown */}
-        {metrics.goals_total > 0 && (
-          <div>
-            <div className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-3">Goals Breakdown</div>
-            <div className="bg-white border border-[#EBE5FF] rounded-2xl p-5">
-              <div className="grid grid-cols-4 divide-x divide-[#EBE5FF] mb-5">
-                {[
-                  { label: 'On Track',  val: metrics.goals_on_track,  color: 'text-emerald-600' },
-                  { label: 'At Risk',   val: metrics.goals_at_risk,   color: 'text-amber-600' },
-                  { label: 'Missed',    val: metrics.goals_missed,    color: 'text-red-500' },
-                  { label: 'Complete',  val: metrics.goals_completed, color: 'text-emerald-600' },
-                ].map(item => (
-                  <div key={item.label} className="px-4 text-center first:pl-0 last:pr-0">
-                    <div className={`text-[28px] font-light ${item.color}`}>{item.val}</div>
-                    <div className="text-[9px] uppercase tracking-[0.16em] text-[#9CA3AF] mt-1">{item.label}</div>
-                  </div>
-                ))}
-              </div>
-              {atRiskGoals.length > 0 && (
-                <div className="pt-4 border-t border-[#EBE5FF]">
-                  <div className="text-[9px] uppercase tracking-[0.18em] text-[#9CA3AF] mb-2.5">Goals Requiring Attention</div>
-                  <div className="space-y-1.5">
-                    {atRiskGoals.slice(0, 3).map(g => (
-                      <div key={g.id} className="flex items-center justify-between py-1.5">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" />
-                          <span className="text-[12px] text-[#374151] truncate">{g.title}</span>
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0 ml-3">
-                          <span className="text-[10px] text-[#9CA3AF]">{progressPct(g)}%</span>
-                          <div className="w-16">
-                            <Bar pct={progressPct(g)} color="bg-amber-400" />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+            <div className={`grid gap-3 ${isPractitioner ? 'grid-cols-3' : isDirector ? 'grid-cols-3' : 'grid-cols-2'}`}>
+              {isPractitioner && (
+                <StatTile
+                  label="Appointments MTD"
+                  value={metrics.appointments_this_month}
+                  sub={`of ${metrics.appointments_target} target`}
+                  delta={apptDelta}
+                  accent={apptPct >= 100 ? '#059669' : apptPct >= 60 ? '#1A1035' : '#D97706'}
+                />
+              )}
+              <StatTile
+                label="Goals Completed"
+                value={`${metrics.goals_completed}/${metrics.goals_total}`}
+                sub={`${Math.round(goalsPct)}% completion rate`}
+                accent={goalsPct >= 80 ? '#059669' : goalsPct >= 50 ? '#D97706' : '#DC2626'}
+              />
+              <StatTile
+                label="Compliance Score"
+                value={`${compScore}%`}
+                sub={`${metrics.compliance_overdue} overdue · ${metrics.compliance_compliant}/${metrics.compliance_total} compliant`}
+                accent={compScore >= 80 ? '#059669' : compScore >= 60 ? '#D97706' : '#DC2626'}
+              />
+              {isDirector && (
+                <StatTile
+                  label="Return Rate"
+                  value={`${Math.round(metrics.returning_rate * 100)}%`}
+                  sub="Patient retention"
+                  accent="#059669"
+                />
               )}
             </div>
           </div>
-        )}
+        </Panel>
 
-        {/* Director access level */}
-        {isDirector && (
-          <div>
-            <div className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-3">Your Access Level</div>
-            <div className="bg-white border border-[#EBE5FF] rounded-2xl p-5">
-              <div className="grid grid-cols-3 gap-3 text-[12px] text-[#6B7280]">
-                <div>Clinic metrics — <span className="text-[#1A1035] font-medium">Full access</span></div>
-                <div>Team goals — <span className="text-[#1A1035] font-medium">Full access</span></div>
-                <div>Compliance audit — <span className="text-[#1A1035] font-medium">Full access</span></div>
-              </div>
+        {/* Goals at a Glance */}
+        {goals.length > 0 && (
+          <Panel>
+            <PanelHeader
+              title="Goals at a Glance"
+              action={
+                <div className="flex items-center gap-3 text-[9px] font-bold">
+                  <span className="text-emerald-600">{metrics.goals_on_track} on track</span>
+                  {metrics.goals_at_risk > 0 && <span className="text-amber-600">{metrics.goals_at_risk} at risk</span>}
+                  {metrics.goals_missed > 0 && <span className="text-red-500">{metrics.goals_missed} missed</span>}
+                </div>
+              }
+            />
+            <div className="divide-y" style={{ borderColor: '#EBE5FF' }}>
+              {goals.slice(0, 5).map((goal, idx) => {
+                const pct = progressPct(goal);
+                const [sc] = statusColor(goal.status);
+                return (
+                  <motion.div
+                    key={goal.id}
+                    className="flex items-center gap-4 px-5 py-3.5"
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: idx * 0.05 }}
+                  >
+                    <GoalProgressRing pct={pct} size={40} color={sc} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[12px] font-semibold text-[#1A1035] truncate">{goal.title}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <CategoryChip category={goal.category} />
+                        <span className="text-[10px] text-[#8B84A0]">
+                          {formatGoalValue(goal.current_value, goal.unit)} / {formatGoalValue(goal.target_value, goal.unit)}
+                        </span>
+                        <span className="text-[10px] text-[#8B84A0]">Due {shortDate(goal.due_date)}</span>
+                      </div>
+                    </div>
+                    <StatusPill status={goal.status} size="sm" />
+                  </motion.div>
+                );
+              })}
             </div>
-          </div>
+          </Panel>
         )}
 
+        {/* Compliance Brief */}
+        {complianceItems.length > 0 && (overdueItems.length > 0 || dueSoonItems.length > 0) && (
+          <Panel>
+            <PanelHeader
+              title="Compliance Brief"
+              badge={overdueItems.length}
+              action={
+                <span className="text-[9px] text-[#8B84A0]">
+                  {complianceItems.filter(c => c.status === 'compliant').length} / {complianceItems.length} compliant
+                </span>
+              }
+            />
+            <div className="divide-y" style={{ borderColor: '#EBE5FF' }}>
+              {[...overdueItems, ...dueSoonItems].slice(0, 5).map((item) => {
+                const [sc] = compStatusColor(item.status);
+                const days = daysUntil(item.expiry_date ?? item.due_date ?? null);
+                return (
+                  <div key={item.id} className="flex items-center gap-3 px-5 py-3">
+                    <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: sc }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[12px] text-[#1A1035] font-medium truncate">{item.title}</p>
+                      {item.is_cqc_critical && (
+                        <span className="text-[8px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-full">CQC Critical</span>
+                      )}
+                    </div>
+                    {days !== null && (
+                      <span className="text-[10px] font-semibold flex-shrink-0" style={{ color: sc }}>
+                        {days < 0 ? `${Math.abs(days)}d overdue` : days === 0 ? 'Today' : `${days}d left`}
+                      </span>
+                    )}
+                    <StatusPill status={item.status} size="sm" />
+                  </div>
+                );
+              })}
+            </div>
+          </Panel>
+        )}
+
+        {/* Director access panel */}
+        {isDirector && (
+          <Panel>
+            <PanelHeader title="Director Access" />
+            <div className="p-5 grid grid-cols-3 gap-3">
+              {[
+                { label: 'Clinic Metrics', desc: 'Full access', color: '#059669' },
+                { label: 'Team Goals', desc: 'Full access', color: '#059669' },
+                { label: 'Compliance Audit', desc: 'Full access', color: '#059669' },
+              ].map(item => (
+                <div key={item.label} className="rounded-xl p-3" style={{ backgroundColor: '#FDFCFB', border: '1px solid #EBE5FF' }}>
+                  <p className="text-[8px] uppercase tracking-[0.18em] font-semibold text-[#8B84A0] mb-1">{item.label}</p>
+                  <p className="text-[11px] font-bold" style={{ color: item.color }}>{item.desc}</p>
+                </div>
+              ))}
+            </div>
+          </Panel>
+        )}
       </div>
 
-      {/* ── RIGHT COLUMN ── */}
+      {/* RIGHT col-span-4 */}
       <div className="col-span-4 space-y-4">
 
-        {/* EWC Intelligence Panel */}
-        <div className="bg-white border border-[#EBE5FF] rounded-2xl overflow-hidden">
+        {/* EWC Intelligence */}
+        <Panel>
           <div className="p-5">
             <div className="flex items-start gap-3 mb-4">
-              <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ backgroundColor: '#8A6CFF15' }}
-              >
-                <Brain size={18} style={{ color: '#8A6CFF' }} />
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: `${brandColor}15` }}>
+                <Brain size={18} style={{ color: brandColor }} />
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
@@ -710,79 +904,88 @@ function DashboardTab({
                     animate={{ scale: [1, 1.15, 1] }}
                     transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
                     className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: '#8A6CFF' }}
+                    style={{ backgroundColor: brandColor }}
                   />
-                  <p className="text-[8px] uppercase tracking-[0.22em] font-semibold" style={{ color: '#8A6CFF' }}>
-                    EWC — Intelligence
-                  </p>
+                  <p className="text-[8px] uppercase tracking-[0.22em] font-semibold"
+                    style={{ color: brandColor }}>EWC — Intelligence</p>
                 </div>
                 <p className="text-[13px] font-bold text-[#1A1035]">Chat with EWC</p>
                 <p className="text-[11px] text-[#6E6688] mt-1 leading-relaxed">
-                  Get intelligent analysis of your goals, compliance priorities, and performance data.
+                  Intelligent analysis of your performance, goals, compliance, and clinic data.
                 </p>
               </div>
             </div>
             <button
               onClick={onChatWithEWC}
               className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[12px] font-bold transition-all"
-              style={{ backgroundColor: '#8A6CFF', color: '#FFFFFF' }}
+              style={{ backgroundColor: brandColor, color: '#FFFFFF' }}
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.opacity = '0.88'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = '1'; }}
             >
               <MessageSquare size={13} /> Open EWC Intelligence <ExternalLink size={11} />
             </button>
           </div>
-        </div>
+        </Panel>
 
-        {/* Compliance Score Ring */}
-        <div className="bg-white border border-[#EBE5FF] rounded-2xl p-5">
-          <div className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-4">Compliance Score</div>
-          <div className="flex flex-col items-center gap-3">
-            <ScoreRing score={metrics.compliance_score} size={88} />
+        {/* Compliance Ring */}
+        <Panel>
+          <PanelHeader
+            title="Compliance Score"
+            action={
+              metrics.compliance_due_soon > 0
+                ? <span className="text-[9px] text-amber-600 font-semibold">{metrics.compliance_due_soon} due soon</span>
+                : undefined
+            }
+          />
+          <div className="p-5 flex flex-col items-center gap-3">
+            <PerformanceRing score={compScore} size={88} />
             <div className="text-center">
-              <div className="text-[12px] text-[#6B7280]">{metrics.compliance_compliant}/{metrics.compliance_total} items compliant</div>
-              {metrics.compliance_due_soon > 0 && (
-                <div className="text-[11px] text-amber-600 mt-1">{metrics.compliance_due_soon} due soon</div>
-              )}
+              <p className="text-[11px] text-[#6E6688]">
+                {compScore >= 80 ? 'Strong compliance posture' : compScore >= 60 ? 'Some items need attention' : 'Immediate action required'}
+              </p>
               {metrics.cqc_critical_overdue > 0 && (
-                <div className="flex items-center justify-center gap-1.5 mt-2 px-3 py-1.5 rounded-lg bg-red-50">
-                  <div className="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0" />
-                  <span className="text-[10px] text-red-600 font-semibold">{metrics.cqc_critical_overdue} CQC critical</span>
-                </div>
+                <p className="text-[10px] font-bold text-red-600 mt-1.5">
+                  {metrics.cqc_critical_overdue} CQC critical overdue
+                </p>
               )}
             </div>
           </div>
-        </div>
+        </Panel>
 
         {/* Requires Attention */}
         {urgentActions.length > 0 && (
-          <div className="bg-white border border-[#EBE5FF] rounded-2xl p-5">
-            <div className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-3">Requires Attention</div>
-            <div className="space-y-2">
-              {urgentActions.map((a, i) => (
-                <div key={i} className="flex items-start gap-2.5 p-2.5 rounded-xl" style={{ backgroundColor: '#FAF7F2' }}>
-                  <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5" style={{ backgroundColor: a.color }} />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[12px] font-medium text-[#1A1035] leading-snug">{a.label}</div>
-                    <div className="text-[10px] text-[#9CA3AF] mt-0.5">{a.detail}</div>
+          <Panel>
+            <PanelHeader title="Requires Attention" badge={urgentActions.length} />
+            <div className="divide-y" style={{ borderColor: '#EBE5FF' }}>
+              {urgentActions.map((item, i) => (
+                <div key={i} className="px-5 py-3.5">
+                  <div className="flex items-start gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5"
+                      style={{ backgroundColor: item.color }} />
+                    <div>
+                      <p className="text-[11px] font-semibold text-[#1A1035] leading-snug">{item.label}</p>
+                      <p className="text-[9px] uppercase tracking-[0.1em] font-bold mt-0.5"
+                        style={{ color: item.color }}>{item.detail}</p>
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
-          </div>
+          </Panel>
         )}
 
-        {/* All clear state */}
+        {/* All clear */}
         {urgentActions.length === 0 && metrics.goals_total > 0 && (
-          <div className="bg-white border border-[#EBE5FF] rounded-2xl p-5 text-center">
-            <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-3">
-              <div className="w-3 h-3 rounded-full bg-emerald-500" />
+          <Panel>
+            <div className="p-5 text-center">
+              <div className="w-9 h-9 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-3">
+                <div className="w-3.5 h-3.5 rounded-full bg-emerald-500" />
+              </div>
+              <p className="text-[13px] font-bold text-[#1A1035]">All on track</p>
+              <p className="text-[11px] text-[#8B84A0] mt-1">No urgent items require attention</p>
             </div>
-            <div className="text-[13px] font-medium text-[#1A1035]">All on track</div>
-            <div className="text-[11px] text-[#9CA3AF] mt-1">No urgent items require attention</div>
-          </div>
+          </Panel>
         )}
-
       </div>
     </div>
   );
@@ -803,17 +1006,26 @@ function GoalsTab({
   goals: StaffGoal[];
   onRefresh: () => void;
 }) {
-  const [showCreate, setShowCreate]   = useState(false);
-  const [progressGoal, setProgressGoal] = useState<StaffGoal | null>(null);
-  const [filterScope, setFilterScope] = useState<'all' | GoalScope>('all');
-  const [filterStatus, setFilterStatus] = useState<'all' | GoalStatus>('all');
-  const [deleting, setDeleting]       = useState<string | null>(null);
+  const [showCreate, setShowCreate]       = useState(false);
+  const [progressGoal, setProgressGoal]   = useState<StaffGoal | null>(null);
+  const [filterScope, setFilterScope]     = useState<'all' | GoalScope>('all');
+  const [filterStatus, setFilterStatus]   = useState<'all' | GoalStatus>('all');
+  const [deleting, setDeleting]           = useState<string | null>(null);
+
+  const canEdit = canEditGoals(roleView);
 
   const filtered = goals.filter(g => {
     if (filterScope  !== 'all' && g.scope  !== filterScope)  return false;
     if (filterStatus !== 'all' && g.status !== filterStatus) return false;
     return true;
   });
+
+  // Group by category
+  const grouped: Record<string, StaffGoal[]> = {};
+  for (const g of filtered) {
+    if (!grouped[g.category]) grouped[g.category] = [];
+    grouped[g.category].push(g);
+  }
 
   async function handleDelete(id: string) {
     setDeleting(id);
@@ -822,28 +1034,27 @@ function GoalsTab({
     onRefresh();
   }
 
-  const canEdit = canEditGoals(roleView);
-
   return (
-    <div className="space-y-5">
+    <>
       {/* Controls */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-4 mb-5">
+        <div className="flex items-center gap-1.5">
           {(['all','personal','department','clinic'] as const).map(s => (
             <button
               key={s}
               onClick={() => setFilterScope(s)}
-              className={`px-3 py-1.5 rounded-lg text-[11px] uppercase tracking-[0.14em] transition-colors ${
-                filterScope === s ? 'bg-[#EBE5FF] text-[#1A1035]' : 'text-[#9CA3AF] hover:text-[#6B7280]'
-              }`}
-            >
-              {s}
-            </button>
+              className="px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-[0.14em] font-semibold transition-colors"
+              style={{
+                backgroundColor: filterScope === s ? '#EBE5FF' : 'transparent',
+                color: filterScope === s ? '#1A1035' : '#8B84A0',
+              }}
+            >{s}</button>
           ))}
         </div>
         <div className="flex items-center gap-2">
           <select
-            className="bg-white border border-[#EBE5FF] rounded-lg px-3 py-1.5 text-[11px] text-[#6B7280] focus:outline-none cursor-pointer"
+            className="rounded-lg px-3 py-1.5 text-[11px] focus:outline-none cursor-pointer"
+            style={{ backgroundColor: '#FFFFFF', border: '1px solid #EBE5FF', color: '#6E6688' }}
             value={filterStatus}
             onChange={e => setFilterStatus(e.target.value as 'all' | GoalStatus)}
           >
@@ -855,138 +1066,158 @@ function GoalsTab({
           {canEdit && (
             <button
               onClick={() => setShowCreate(true)}
-              className="px-4 py-1.5 bg-[#1A1035] text-white rounded-lg text-[12px] font-medium hover:bg-[#2D1B69] transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-white"
+              style={{ backgroundColor: '#8A6CFF' }}
             >
-              New Goal
+              <Plus size={12} /> New Goal
             </button>
           )}
         </div>
       </div>
 
-      {/* Goals list */}
       {filtered.length === 0 ? (
-        <div className="bg-white border border-[#EBE5FF] rounded-xl p-10 text-center">
-          <div className="text-[13px] text-[#6B7280]">No goals match your filter.</div>
+        <Panel>
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <Target size={32} className="mb-3" style={{ color: '#C4B9FF' }} />
+            <p className="text-[14px] font-semibold text-[#1A1035] mb-1">No goals match your filter</p>
+            <p className="text-[12px] text-[#8B84A0] mb-4">
+              {goals.length === 0 ? 'Set your first performance goal to start tracking progress.' : 'Try adjusting the filters above.'}
+            </p>
+            {canEdit && goals.length === 0 && (
+              <button onClick={() => setShowCreate(true)}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-[12px] font-bold text-white"
+                style={{ backgroundColor: '#8A6CFF' }}>
+                <Plus size={13} /> Create First Goal
+              </button>
+            )}
+          </div>
+        </Panel>
+      ) : (
+        <div className="space-y-4">
+          {Object.entries(grouped).map(([category, catGoals]) => {
+            const atRiskCount = catGoals.filter(g => g.status === 'at_risk' || g.status === 'missed').length;
+            return (
+              <Panel key={category}>
+                <PanelHeader
+                  title={category.charAt(0).toUpperCase() + category.slice(1)}
+                  badge={atRiskCount}
+                  action={
+                    canEdit ? (
+                      <button onClick={() => setShowCreate(true)}
+                        className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-bold text-white"
+                        style={{ backgroundColor: '#8A6CFF' }}>
+                        <Plus size={9} /> Add
+                      </button>
+                    ) : undefined
+                  }
+                />
+                <div className="divide-y" style={{ borderColor: '#EBE5FF' }}>
+                  {catGoals.map((goal, idx) => {
+                    const pct = progressPct(goal);
+                    const [sc] = statusColor(goal.status);
+                    const isDeleting = deleting === goal.id;
+                    return (
+                      <motion.div
+                        key={goal.id}
+                        className="px-5 py-4"
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: idx * 0.04 }}
+                      >
+                        <div className="flex items-start gap-4">
+                          <GoalProgressRing pct={pct} size={48} color={sc} />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                              <p className="text-[13px] font-bold text-[#1A1035] leading-snug">{goal.title}</p>
+                              <StatusPill status={goal.status} />
+                            </div>
+                            <div className="flex items-center gap-2 mb-2.5 flex-wrap">
+                              <CategoryChip category={goal.category} />
+                              <span className="text-[10px] text-[#8B84A0] capitalize">{goal.period}</span>
+                              <span className="text-[10px] text-[#8B84A0]">Due {shortDate(goal.due_date)}</span>
+                              {goal.scope !== 'personal' && (
+                                <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-[#F5F3FF] text-[#8A6CFF] uppercase tracking-[0.08em]">{goal.scope}</span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3 mb-2">
+                              <div className="flex-1">
+                                <MiniBar pct={pct} color={sc} />
+                              </div>
+                              <span className="text-[10px] font-semibold text-[#8B84A0] flex-shrink-0">
+                                {formatGoalValue(goal.current_value, goal.unit)} / {formatGoalValue(goal.target_value, goal.unit)}
+                              </span>
+                            </div>
+                            {goal.description && (
+                              <p className="text-[11px] text-[#8B84A0] leading-relaxed mb-3">{goal.description}</p>
+                            )}
+                            {canEdit && (
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => setProgressGoal(goal)}
+                                  className="px-3 py-1 rounded-lg text-[10px] font-bold border transition-colors"
+                                  style={{ borderColor: '#EBE5FF', color: '#6E6688' }}
+                                >
+                                  Update Progress
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(goal.id)}
+                                  disabled={isDeleting}
+                                  className="px-3 py-1 rounded-lg text-[10px] font-bold border transition-colors text-red-500 disabled:opacity-40"
+                                  style={{ borderColor: '#FEE2E2' }}
+                                >
+                                  {isDeleting ? 'Deleting…' : 'Delete'}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              </Panel>
+            );
+          })}
+
           {canEdit && (
-            <button onClick={() => setShowCreate(true)} className="mt-3 text-[12px] text-[#8A6CFF] hover:text-[#6B4FE8] underline">
-              Create your first goal
+            <button
+              onClick={() => setShowCreate(true)}
+              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border-2 border-dashed text-[12px] font-bold transition-colors"
+              style={{ borderColor: '#EBE5FF', color: '#8B84A0' }}
+            >
+              <Plus size={14} /> Add New Goal
             </button>
           )}
         </div>
-      ) : (
-        <div className="space-y-2">
-          <AnimatePresence initial={false}>
-            {filtered.map((goal, i) => {
-              const pct = progressPct(goal);
-              const days = daysUntil(goal.due_date);
-              return (
-                <motion.div
-                  key={goal.id}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ delay: i * 0.03 }}
-                  className="bg-white border border-[#EBE5FF] rounded-xl p-4 hover:border-[#C4B9FF] hover:shadow-sm transition-all"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${statusDot(goal.status)}`} />
-                        <div className="text-[13px] font-medium text-[#1A1035] truncate">{goal.title}</div>
-                      </div>
-                      {goal.description && (
-                        <div className="text-[11px] text-[#6B7280] ml-3.5 mb-2 truncate">{goal.description}</div>
-                      )}
-                      <div className="flex items-center gap-3 ml-3.5 mb-3 flex-wrap">
-                        <span className="text-[10px] uppercase tracking-[0.14em] text-[#9CA3AF]">{goal.category}</span>
-                        <span className="text-[#C4B9FF]">·</span>
-                        <span className="text-[10px] uppercase tracking-[0.14em] text-[#9CA3AF]">{goal.scope}</span>
-                        <span className="text-[#C4B9FF]">·</span>
-                        <span className="text-[10px] uppercase tracking-[0.14em] text-[#9CA3AF]">{goal.period}</span>
-                        {goal.is_cascaded && (
-                          <>
-                            <span className="text-[#C4B9FF]">·</span>
-                            <span className="text-[10px] text-[#8A6CFF]">Cascaded</span>
-                          </>
-                        )}
-                      </div>
-
-                      {/* Progress bar */}
-                      <div className="ml-3.5 space-y-1.5">
-                        <div className="flex justify-between text-[10px]">
-                          <span className="text-[#9CA3AF]">
-                            {formatGoalValue(goal.current_value, goal.unit)} / {formatGoalValue(goal.target_value, goal.unit)} {goal.unit !== 'gbp' && goal.unit !== 'percent' ? goal.unit : ''}
-                          </span>
-                          <span className={`font-medium ${pct >= 100 ? 'text-emerald-600' : pct >= 60 ? 'text-[#8A6CFF]' : 'text-amber-600'}`}>{pct}%</span>
-                        </div>
-                        <Bar
-                          pct={pct}
-                          color={pct >= 100 ? 'bg-emerald-500' : pct >= 60 ? 'bg-[#8A6CFF]' : pct >= 30 ? 'bg-amber-500' : 'bg-red-500'}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                      <span className={`text-[10px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full ${
-                        goal.status === 'completed' || goal.status === 'on_track' ? 'bg-emerald-50 text-emerald-700'
-                        : goal.status === 'at_risk'  ? 'bg-amber-50 text-amber-700'
-                        : goal.status === 'missed'   ? 'bg-red-50 text-red-600'
-                        : 'bg-[#F5F3FF] text-[#9CA3AF]'
-                      }`}>
-                        {statusLabel(goal.status)}
-                      </span>
-                      <span className="text-[10px] text-[#9CA3AF]">Due {shortDate(goal.due_date)}</span>
-                      {days !== null && days >= 0 && days <= 7 && goal.status !== 'completed' && (
-                        <span className="text-[10px] text-amber-600 font-medium">{days}d left</span>
-                      )}
-                    </div>
-                  </div>
-
-                  {canEdit && (
-                    <div className="flex gap-2 mt-3 pt-3 border-t border-[#F3F0FF]">
-                      <button
-                        onClick={() => setProgressGoal(goal)}
-                        className="text-[11px] text-[#8A6CFF] hover:text-[#6B4FE8] transition-colors"
-                      >
-                        Update Progress
-                      </button>
-                      <span className="text-[#C4B9FF]">·</span>
-                      <button
-                        onClick={() => handleDelete(goal.id)}
-                        disabled={deleting === goal.id}
-                        className="text-[11px] text-[#9CA3AF] hover:text-red-500 transition-colors disabled:opacity-40"
-                      >
-                        {deleting === goal.id ? 'Deleting…' : 'Delete'}
-                      </button>
-                    </div>
-                  )}
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
-        </div>
       )}
 
-      {/* Modals */}
       <AnimatePresence>
         {showCreate && (
-          <GoalModal profile={profile} onClose={() => setShowCreate(false)} onCreated={onRefresh} />
+          <GoalModal
+            profile={profile}
+            onClose={() => setShowCreate(false)}
+            onCreated={() => { setShowCreate(false); onRefresh(); }}
+          />
         )}
         {progressGoal && (
-          <ProgressModal goal={progressGoal} userId={profile.userId} onClose={() => setProgressGoal(null)} onUpdated={onRefresh} />
+          <ProgressModal
+            goal={progressGoal}
+            userId={profile.userId}
+            onClose={() => setProgressGoal(null)}
+            onUpdated={() => { setProgressGoal(null); onRefresh(); }}
+          />
         )}
       </AnimatePresence>
-    </div>
+    </>
   );
 }
 
 // =============================================================================
-// TAB: RESPONSIBILITIES (Compliance items)
+// TAB: RESPONSIBILITIES
 // =============================================================================
 
 function ResponsibilitiesTab({
   profile,
-  roleView,
   complianceItems,
   onRefresh,
 }: {
@@ -995,299 +1226,308 @@ function ResponsibilitiesTab({
   complianceItems: ComplianceItem[];
   onRefresh: () => void;
 }) {
-  const [selectedItem, setSelectedItem] = useState<ComplianceItem | null>(null);
-  const [filterCat, setFilterCat]       = useState<'all' | string>('all');
+  const [selected, setSelected] = useState<ComplianceItem | null>(null);
 
-  const categories = Array.from(new Set(complianceItems.map(i => i.category)));
+  if (complianceItems.length === 0) return (
+    <Panel>
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center mx-auto mb-3">
+          <div className="w-5 h-5 rounded-full bg-emerald-500" />
+        </div>
+        <p className="text-[14px] font-semibold text-[#1A1035] mb-1">No compliance items</p>
+        <p className="text-[12px] text-[#8B84A0]">Your compliance items will appear here once seeded.</p>
+      </div>
+    </Panel>
+  );
 
-  const filtered = filterCat === 'all'
-    ? complianceItems
-    : complianceItems.filter(i => i.category === filterCat);
+  // Group by category
+  const grouped: Record<string, ComplianceItem[]> = {};
+  for (const item of complianceItems) {
+    const cat = item.category as string;
+    if (!grouped[cat]) grouped[cat] = [];
+    grouped[cat].push(item);
+  }
 
-  const cqcCritical = complianceItems.filter(i => i.is_cqc_critical);
-  const overdue     = complianceItems.filter(i => i.status === 'overdue' || i.status === 'expired');
-  const dueSoon     = complianceItems.filter(i => i.status === 'due_soon');
-  const compliant   = complianceItems.filter(i => i.status === 'compliant');
+  const categoryOrder = ['training','clinical_cert','dbs','registration','cqc','gdpr','health_safety','equipment','insurance'];
+  const sortedKeys = [
+    ...categoryOrder.filter(k => grouped[k]),
+    ...Object.keys(grouped).filter(k => !categoryOrder.includes(k)),
+  ];
 
-  const score = complianceItems.length > 0
-    ? Math.round((compliant.length / complianceItems.filter(i => i.is_mandatory).length) * 100)
-    : 100;
-
-  const canEdit = canEditGoals(roleView);
+  const totalCompliant = complianceItems.filter(i => i.status === 'compliant').length;
+  const totalOverdue   = complianceItems.filter(i => i.status === 'overdue' || i.status === 'expired').length;
 
   return (
-    <div className="space-y-5">
-      {/* Score summary */}
-      <div className="grid grid-cols-4 gap-3">
-        {[
-          { label: 'Compliance Score',  val: `${score}%`,       color: score >= 80 ? 'text-emerald-600' : score >= 60 ? 'text-amber-600' : 'text-red-500' },
-          { label: 'CQC Critical Items', val: cqcCritical.length, color: 'text-[#1A1035]' },
-          { label: 'Overdue',           val: overdue.length,    color: overdue.length > 0 ? 'text-red-500' : 'text-[#1A1035]' },
-          { label: 'Due Soon',          val: dueSoon.length,    color: dueSoon.length > 0 ? 'text-amber-600' : 'text-[#1A1035]' },
-        ].map(card => (
-          <div key={card.label} className="bg-white border border-[#EBE5FF] rounded-xl p-4">
-            <div className="text-[11px] uppercase tracking-[0.16em] text-[#9CA3AF] mb-2">{card.label}</div>
-            <div className={`text-[24px] font-light ${card.color}`}>{card.val}</div>
-          </div>
-        ))}
+    <>
+      {/* Summary strip */}
+      <div className="grid grid-cols-4 gap-3 mb-5">
+        <StatTile label="Total Items" value={complianceItems.length} sub="All compliance" />
+        <StatTile label="Compliant" value={totalCompliant} sub="Up to date" accent="#059669" />
+        <StatTile
+          label="Overdue"
+          value={totalOverdue}
+          sub="Need action"
+          accent={totalOverdue > 0 ? '#DC2626' : '#059669'}
+        />
+        <StatTile
+          label="CQC Critical"
+          value={complianceItems.filter(i => i.is_cqc_critical && (i.status === 'overdue' || i.status === 'expired')).length}
+          sub="Overdue CQC items"
+          accent={complianceItems.filter(i => i.is_cqc_critical && (i.status === 'overdue' || i.status === 'expired')).length > 0 ? '#DC2626' : '#059669'}
+        />
       </div>
 
-      {/* Category filter */}
-      {categories.length > 1 && (
-        <div className="flex flex-wrap gap-2">
-          {(['all', ...categories] as string[]).map(cat => (
-            <button
-              key={cat}
-              onClick={() => setFilterCat(cat)}
-              className={`px-3 py-1 rounded-lg text-[11px] uppercase tracking-[0.13em] transition-colors ${
-                filterCat === cat ? 'bg-[#EBE5FF] text-[#1A1035]' : 'text-[#9CA3AF] hover:text-[#6B7280]'
-              }`}
-            >
-              {cat === 'all' ? 'All' : cat.replace(/_/g, ' ')}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Items */}
-      {complianceItems.length === 0 ? (
-        <div className="bg-white border border-[#EBE5FF] rounded-xl p-10 text-center">
-          <div className="text-[13px] text-[#6B7280]">No compliance items loaded.</div>
-          <div className="text-[11px] text-[#9CA3AF] mt-1">Items are seeded automatically based on your role.</div>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          <AnimatePresence initial={false}>
-            {filtered.map((item, i) => {
-              const days = daysUntil(item.expiry_date ?? item.due_date);
-              return (
-                <motion.div
-                  key={item.id}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.025 }}
-                  className={`bg-white border rounded-xl p-4 transition-all cursor-pointer hover:shadow-sm ${
-                    item.is_cqc_critical && (item.status === 'overdue' || item.status === 'expired')
-                      ? 'border-red-300'
-                      : 'border-[#EBE5FF] hover:border-[#C4B9FF]'
-                  }`}
-                  onClick={() => canEdit && setSelectedItem(item)}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                        <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${compDot(item.status)}`} />
-                        <div className="text-[13px] font-medium text-[#1A1035]">{item.title}</div>
-                        {item.is_cqc_critical && (
-                          <span className="text-[9px] uppercase tracking-[0.14em] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">CQC</span>
-                        )}
-                        {!item.is_mandatory && (
-                          <span className="text-[9px] uppercase tracking-[0.12em] text-[#9CA3AF] bg-[#F9FAFB] border border-[#E5E7EB] px-1.5 py-0.5 rounded-full">Optional</span>
+      <div className="space-y-4">
+        {sortedKeys.map(cat => {
+          const items        = grouped[cat];
+          const overdueCount = items.filter(i => i.status === 'overdue' || i.status === 'expired').length;
+          const compliant    = items.filter(i => i.status === 'compliant').length;
+          return (
+            <Panel key={cat}>
+              <PanelHeader
+                title={COMP_CATEGORY_LABEL[cat] ?? cat.replace(/_/g, ' ')}
+                badge={overdueCount}
+                action={
+                  <span className="text-[9px] font-semibold"
+                    style={{ color: compliant === items.length ? '#059669' : '#8B84A0' }}>
+                    {compliant}/{items.length} compliant
+                  </span>
+                }
+              />
+              <div className="divide-y" style={{ borderColor: '#EBE5FF' }}>
+                {items.map((item, idx) => {
+                  const [sc] = compStatusColor(item.status);
+                  const days = daysUntil(item.expiry_date ?? item.due_date ?? null);
+                  return (
+                    <motion.div
+                      key={item.id}
+                      className="flex items-center gap-4 px-5 py-3.5 cursor-pointer group"
+                      onClick={() => setSelected(item)}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: idx * 0.03 }}
+                      whileHover={{ backgroundColor: '#FDFCFB' } as Record<string, string>}
+                    >
+                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: sc }} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-[12px] font-semibold text-[#1A1035] truncate">{item.title}</p>
+                          {item.is_cqc_critical && (
+                            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 flex-shrink-0">CQC</span>
+                          )}
+                          {item.is_mandatory && (
+                            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-[#EFF6FF] text-[#0284C7] flex-shrink-0">Mandatory</span>
+                          )}
+                        </div>
+                        {item.description && (
+                          <p className="text-[10px] text-[#8B84A0] mt-0.5 truncate">{item.description}</p>
                         )}
                       </div>
-                      {item.description && (
-                        <div className="text-[11px] text-[#6B7280] ml-3.5 truncate">{item.description}</div>
-                      )}
-                      <div className="flex items-center gap-2 ml-3.5 mt-1.5 flex-wrap">
-                        <span className="text-[10px] text-[#9CA3AF] uppercase tracking-[0.12em]">{item.category.replace(/_/g, ' ')}</span>
-                        {item.completed_date && (
-                          <>
-                            <span className="text-[#C4B9FF]">·</span>
-                            <span className="text-[10px] text-[#9CA3AF]">Completed {shortDate(item.completed_date)}</span>
-                          </>
-                        )}
-                        {item.evidence_note && (
-                          <>
-                            <span className="text-[#C4B9FF]">·</span>
-                            <span className="text-[10px] text-emerald-600">Evidence recorded</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                      <span className={`text-[10px] uppercase tracking-[0.13em] px-2 py-0.5 rounded-full ${
-                        item.status === 'compliant'  ? 'bg-emerald-50 text-emerald-700'
-                        : item.status === 'due_soon' ? 'bg-amber-50 text-amber-700'
-                        : item.status === 'overdue' || item.status === 'expired'  ? 'bg-red-50 text-red-600'
-                        : item.status === 'waived'   ? 'bg-[#F5F3FF] text-[#9CA3AF]'
-                        : 'bg-[#F5F3FF] text-[#6B7280]'
-                      }`}>
-                        {compLabel(item.status)}
-                      </span>
-                      {(item.expiry_date || item.due_date) && (
-                        <span className="text-[10px] text-[#9CA3AF]">
-                          {item.expiry_date ? 'Expires' : 'Due'} {shortDate(item.expiry_date ?? item.due_date)}
+                      {days !== null && (
+                        <span className="text-[10px] font-semibold flex-shrink-0" style={{ color: sc }}>
+                          {days < 0 ? `${Math.abs(days)}d overdue` : days === 0 ? 'Today' : `${days}d`}
                         </span>
                       )}
-                      {days !== null && days >= 0 && days <= item.notify_days_before && item.status !== 'compliant' && (
-                        <span className="text-[10px] text-amber-600 font-medium">{days}d left</span>
-                      )}
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
-        </div>
-      )}
+                      <StatusPill status={item.status} size="sm" />
+                      <ChevronRight size={12} className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                        style={{ color: '#C4B9FF' }} />
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </Panel>
+          );
+        })}
+      </div>
 
       <AnimatePresence>
-        {selectedItem && (
+        {selected && (
           <ComplianceModal
-            item={selectedItem}
+            item={selected}
             userId={profile.userId}
-            onClose={() => setSelectedItem(null)}
-            onUpdated={onRefresh}
+            onClose={() => setSelected(null)}
+            onUpdated={() => { setSelected(null); onRefresh(); }}
           />
         )}
       </AnimatePresence>
-    </div>
+    </>
   );
 }
 
 // =============================================================================
-// TAB: CLINIC (Director / Support Admin / View Only)
+// TAB: CLINIC KPIs
 // =============================================================================
 
 function ClinicTab({ metrics }: { metrics: ClinicKPIMetrics | null }) {
   if (!metrics) return (
     <div className="flex items-center justify-center h-40">
-      <div className="text-[12px] text-[#9CA3AF]">Loading clinic metrics…</div>
+      <div className="text-[12px] text-[#9CA3AF]">Loading clinic data…</div>
     </div>
   );
 
-  const mrrDelta = metrics.mrr - metrics.mrr_last_month;
-  const mrrDeltaPct = metrics.mrr_last_month > 0
-    ? Math.round((mrrDelta / metrics.mrr_last_month) * 100)
-    : 0;
+  const revDelta = Math.round(metrics.mtd_revenue - metrics.mrr_last_month);
 
   return (
-    <div className="space-y-6">
-      {/* Revenue block */}
-      <div>
-        <div className="text-[11px] uppercase tracking-[0.18em] text-[#9CA3AF] mb-3">Revenue</div>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {[
-            { label: 'MTD Revenue',         val: fmtGBP(metrics.mtd_revenue),       sub: `Target ${fmtGBP(metrics.mtd_target)}`, spark: metrics.sparkline_mrr },
-            { label: 'MRR Projected',        val: fmtGBP(metrics.mtd_projected),     sub: `${mrrDeltaPct >= 0 ? '+' : ''}${mrrDeltaPct}% vs last month`, spark: metrics.sparkline_mrr },
-            { label: 'Outstanding Invoices', val: fmtGBP(metrics.outstanding_invoices), sub: `Collection: ${Math.round(metrics.collection_rate * 100)}%`, spark: null },
-            { label: 'ARR Projected',        val: fmtGBP(metrics.arr_projected),     sub: 'Annualised',     spark: null },
-          ].map(card => (
-            <div key={card.label} className="bg-white border border-[#EBE5FF] rounded-xl p-4">
-              <div className="text-[11px] uppercase tracking-[0.16em] text-[#9CA3AF] mb-2">{card.label}</div>
-              <div className="text-[24px] font-light text-[#1A1035] mb-1">{card.val}</div>
-              <div className="flex items-end justify-between">
-                <div className="text-[11px] text-[#6B7280]">{card.sub}</div>
-                {card.spark && <Sparkline points={card.spark} />}
-              </div>
-            </div>
-          ))}
-        </div>
+    <div className="space-y-5">
 
-        {/* Revenue by treatment */}
-        <div className="mt-3 bg-white border border-[#EBE5FF] rounded-xl p-4">
-          <div className="text-[11px] uppercase tracking-[0.16em] text-[#9CA3AF] mb-4">Revenue by Treatment</div>
-          <div className="space-y-2.5">
+      {/* Revenue */}
+      <Panel>
+        <PanelHeader
+          title="Revenue Intelligence"
+          action={
+            <div className="flex items-center gap-1.5">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span className="text-[9px] text-[#8B84A0] font-medium">Live</span>
+            </div>
+          }
+        />
+        <div className="p-5">
+          <div className="grid grid-cols-3 gap-3 mb-5">
+            <StatTile
+              label="Revenue MTD"
+              value={fmtGBP(metrics.mtd_revenue)}
+              sub={`Target: ${fmtGBP(metrics.mtd_target)}`}
+              accent="#059669"
+              delta={revDelta}
+            />
+            <StatTile
+              label="MRR"
+              value={fmtGBP(metrics.mrr)}
+              sub={`Last month: ${fmtGBP(metrics.mrr_last_month)}`}
+              accent="#1A1035"
+            />
+            <StatTile
+              label="Collection Rate"
+              value={fmtPct(metrics.collection_rate)}
+              sub={`${metrics.outstanding_invoices} outstanding`}
+              accent={metrics.collection_rate >= 0.9 ? '#059669' : '#D97706'}
+            />
+          </div>
+          {metrics.sparkline_mrr && metrics.sparkline_mrr.length >= 2 && (
+            <div>
+              <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-2">MRR Trend — Last 6 Months</p>
+              <AreaChart points={metrics.sparkline_mrr} color="#059669" height={60} />
+            </div>
+          )}
+        </div>
+      </Panel>
+
+      {/* Revenue by Treatment */}
+      {metrics.revenue_by_treatment.length > 0 && (
+        <Panel>
+          <PanelHeader title="Revenue by Treatment" />
+          <div className="p-5 space-y-3">
             {metrics.revenue_by_treatment.map(t => (
               <div key={t.name}>
-                <div className="flex justify-between text-[12px] mb-1">
-                  <span className="text-[#374151]">{t.name}</span>
-                  <span className="text-[#6B7280]">{fmtGBP(t.value)} <span className="text-[#9CA3AF]">({t.pct}%)</span></span>
+                <div className="flex justify-between mb-1.5">
+                  <span className="text-[12px] font-medium text-[#1A1035]">{t.name}</span>
+                  <span className="text-[11px] text-[#8B84A0]">{fmtGBP(t.value)} · {t.pct}%</span>
                 </div>
-                <Bar pct={t.pct} />
+                <MiniBar pct={t.pct} color="#059669" />
               </div>
             ))}
           </div>
-        </div>
-      </div>
+        </Panel>
+      )}
 
-      {/* Patients + Appointments */}
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-        <div className="bg-white border border-[#EBE5FF] rounded-xl p-4">
-          <div className="text-[11px] uppercase tracking-[0.16em] text-[#9CA3AF] mb-4">Patients</div>
-          <div className="space-y-3">
-            {[
-              { label: 'Total Registered',  val: metrics.total_patients },
-              { label: 'Active (30d)',       val: metrics.active_patients_30d },
-              { label: 'New MTD',           val: `${metrics.new_patients_mtd} / ${metrics.new_patients_target}` },
-              { label: 'Avg LTV',           val: fmtGBP(metrics.avg_ltv) },
-              { label: 'Churn Rate',        val: fmtPct(metrics.churn_rate) },
-              { label: 'NPS Score',         val: String(metrics.nps_score) },
-            ].map(r => (
-              <div key={r.label} className="flex justify-between items-center">
-                <span className="text-[12px] text-[#6B7280]">{r.label}</span>
-                <span className="text-[13px] text-[#1A1035] font-medium">{String(r.val)}</span>
+      <div className="grid grid-cols-12 gap-5">
+
+        {/* Patients + Appointments */}
+        <div className="col-span-8 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <Panel>
+              <PanelHeader title="Patients" />
+              <div className="p-4 space-y-3">
+                <StatTile label="Total Registered" value={metrics.total_patients} sub="In system" />
+                <StatTile label="Active (30d)" value={metrics.active_patients_30d} sub="Last 30 days" />
+                <StatTile label="New MTD" value={`${metrics.new_patients_mtd} / ${metrics.new_patients_target}`} sub="vs target" />
               </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="bg-white border border-[#EBE5FF] rounded-xl p-4">
-          <div className="text-[11px] uppercase tracking-[0.16em] text-[#9CA3AF] mb-4">Appointments</div>
-          <div className="space-y-3">
-            {[
-              { label: 'Booked MTD',        val: `${metrics.appointments_mtd} / ${metrics.appointments_target}` },
-              { label: 'Utilisation',       val: fmtPct(metrics.utilisation_rate) },
-              { label: 'Show Rate',         val: fmtPct(metrics.show_rate) },
-              { label: 'DNA Rate',          val: fmtPct(metrics.dna_rate) },
-              { label: 'Late Cancel Rate',  val: fmtPct(metrics.late_cancel_rate) },
-              { label: 'Avg Wait',          val: `${metrics.avg_wait_days}d` },
-              { label: 'Rebooking Rate',    val: fmtPct(metrics.rebooking_rate) },
-            ].map(r => (
-              <div key={r.label} className="flex justify-between items-center">
-                <span className="text-[12px] text-[#6B7280]">{r.label}</span>
-                <span className="text-[13px] text-[#1A1035] font-medium">{r.val}</span>
+            </Panel>
+            <Panel>
+              <PanelHeader title="Appointments" />
+              <div className="p-4 space-y-3">
+                <StatTile label="Booked MTD" value={metrics.appointments_mtd} sub={`of ${metrics.appointments_target} target`} />
+                <StatTile label="Show Rate" value={fmtPct(metrics.show_rate)} sub="Attendance" accent={metrics.show_rate >= 0.85 ? '#059669' : '#D97706'} />
+                <StatTile label="Utilisation" value={fmtPct(metrics.utilisation_rate)} sub="Capacity used" accent={metrics.utilisation_rate >= 0.8 ? '#059669' : '#D97706'} />
               </div>
-            ))}
+            </Panel>
           </div>
-        </div>
-      </div>
 
-      {/* Operational + Compliance */}
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-        <div className="bg-white border border-[#EBE5FF] rounded-xl p-4">
-          <div className="text-[11px] uppercase tracking-[0.16em] text-[#9CA3AF] mb-4">Operational Intelligence</div>
-          <div className="space-y-3">
-            {[
-              { label: 'Open Signals',       val: String(metrics.signals_open) },
-              { label: 'Resolved MTD',       val: String(metrics.signals_resolved_mtd) },
-              { label: 'Avg Resolution',     val: `${metrics.avg_resolution_hours}h` },
-              { label: 'Komal Calls MTD',    val: String(metrics.komal_calls_mtd) },
-              { label: 'Booking Conversions',val: String(metrics.booking_conversions) },
-              { label: 'Missed Call Rate',   val: `${metrics.missed_calls_pct}%` },
-            ].map(r => (
-              <div key={r.label} className="flex justify-between items-center">
-                <span className="text-[12px] text-[#6B7280]">{r.label}</span>
-                <span className="text-[13px] text-[#1A1035] font-medium">{r.val}</span>
-              </div>
-            ))}
-          </div>
+          {/* Operational */}
+          <Panel>
+            <PanelHeader title="Operational Intelligence" />
+            <div className="p-5 grid grid-cols-3 gap-3">
+              <StatTile label="Open Signals" value={metrics.signals_open} sub="Active" accent={metrics.signals_open > 5 ? '#D97706' : '#1A1035'} />
+              <StatTile label="Komal Calls MTD" value={metrics.komal_calls_mtd} sub="Voice calls" accent="#8A6CFF" />
+              <StatTile label="Booking Conversions" value={metrics.booking_conversions} sub="From calls" accent="#059669" />
+            </div>
+            <div className="px-5 pb-5 grid grid-cols-3 gap-3">
+              <StatTile label="Resolved MTD" value={metrics.signals_resolved_mtd} sub="Signals closed" />
+              <StatTile label="Avg Resolution" value={`${metrics.avg_resolution_hours}h`} sub="Time to close" />
+              <StatTile label="Missed Call Rate" value={`${metrics.missed_calls_pct}%`} sub="Unans. calls" accent={metrics.missed_calls_pct > 10 ? '#DC2626' : '#1A1035'} />
+            </div>
+          </Panel>
         </div>
 
-        <div className="bg-white border border-[#EBE5FF] rounded-xl p-4">
-          <div className="text-[11px] uppercase tracking-[0.16em] text-[#9CA3AF] mb-4">Compliance Overview</div>
-          <div className="flex items-center gap-4 mb-4">
-            <ScoreRing score={metrics.cqc_readiness_score} size={64} />
-            <div>
-              <div className="text-[13px] text-[#6B7280]">CQC Readiness</div>
-              <div className="text-[11px] text-[#9CA3AF] mt-0.5">Based on registered items</div>
+        {/* CQC + Compliance */}
+        <div className="col-span-4 space-y-4">
+          <Panel>
+            <PanelHeader title="CQC Readiness" />
+            <div className="p-5 flex flex-col items-center gap-3">
+              <PerformanceRing score={metrics.cqc_readiness_score} size={88} />
+              <p className="text-[11px] text-[#6E6688] text-center">
+                {metrics.cqc_readiness_score >= 90 ? 'Inspection ready' : metrics.cqc_readiness_score >= 70 ? 'Minor gaps remain' : 'Preparation required'}
+              </p>
               {metrics.cqc_critical_overdue > 0 && (
-                <div className="text-[11px] text-red-500 mt-1">{metrics.cqc_critical_overdue} critical overdue</div>
+                <p className="text-[10px] font-bold text-red-600">
+                  {metrics.cqc_critical_overdue} critical overdue
+                </p>
               )}
             </div>
-          </div>
-          <div className="space-y-2.5">
-            {[
-              { label: 'Staff Cert Compliance', val: `${metrics.staff_cert_compliance_pct}%` },
-              { label: 'Equipment Compliance',  val: `${metrics.equipment_compliance_pct}%` },
-            ].map(r => (
-              <div key={r.label} className="flex justify-between items-center">
-                <span className="text-[12px] text-[#6B7280]">{r.label}</span>
-                <span className="text-[13px] text-[#1A1035] font-medium">{r.val}</span>
+          </Panel>
+
+          <Panel>
+            <PanelHeader title="Compliance Breakdown" />
+            <div className="p-4 space-y-3">
+              <div>
+                <div className="flex justify-between mb-1.5">
+                  <span className="text-[11px] text-[#6E6688]">Staff Certifications</span>
+                  <span className="text-[11px] font-bold" style={{ color: metrics.staff_cert_compliance_pct >= 80 ? '#059669' : '#D97706' }}>
+                    {metrics.staff_cert_compliance_pct}%
+                  </span>
+                </div>
+                <MiniBar pct={metrics.staff_cert_compliance_pct} color={metrics.staff_cert_compliance_pct >= 80 ? '#059669' : '#D97706'} />
               </div>
-            ))}
-          </div>
+              <div>
+                <div className="flex justify-between mb-1.5">
+                  <span className="text-[11px] text-[#6E6688]">Equipment</span>
+                  <span className="text-[11px] font-bold" style={{ color: metrics.equipment_compliance_pct >= 80 ? '#059669' : '#D97706' }}>
+                    {metrics.equipment_compliance_pct}%
+                  </span>
+                </div>
+                <MiniBar pct={metrics.equipment_compliance_pct} color={metrics.equipment_compliance_pct >= 80 ? '#059669' : '#D97706'} />
+              </div>
+            </div>
+          </Panel>
+
+          {/* Appointment detail */}
+          <Panel>
+            <PanelHeader title="Appointment Detail" />
+            <div className="divide-y p-1" style={{ borderColor: '#EBE5FF' }}>
+              {[
+                { label: 'DNA Rate',       val: fmtPct(metrics.dna_rate),         color: metrics.dna_rate > 0.1 ? '#DC2626' : '#1A1035' },
+                { label: 'Late Cancel',    val: fmtPct(metrics.late_cancel_rate), color: '#1A1035' },
+                { label: 'Avg Wait',       val: `${metrics.avg_wait_days}d`,       color: '#1A1035' },
+                { label: 'Rebooking Rate', val: fmtPct(metrics.rebooking_rate),   color: metrics.rebooking_rate >= 0.6 ? '#059669' : '#D97706' },
+                { label: 'NPS Score',      val: String(metrics.nps_score),         color: metrics.nps_score >= 8 ? '#059669' : '#D97706' },
+              ].map(r => (
+                <div key={r.label} className="flex justify-between items-center px-4 py-2.5">
+                  <span className="text-[11px] text-[#6E6688]">{r.label}</span>
+                  <span className="text-[12px] font-bold" style={{ color: r.color }}>{r.val}</span>
+                </div>
+              ))}
+            </div>
+          </Panel>
         </div>
       </div>
     </div>
@@ -1295,100 +1535,130 @@ function ClinicTab({ metrics }: { metrics: ClinicKPIMetrics | null }) {
 }
 
 // =============================================================================
-// TAB: TEAM (Director / Support Admin only)
+// TAB: TEAM
 // =============================================================================
 
 function TeamTab({ summaries }: { summaries: StaffGoalsSummary[] }) {
   const [sortBy, setSortBy] = useState<'name' | 'compliance' | 'completion' | 'at_risk'>('compliance');
 
   const sorted = [...summaries].sort((a, b) => {
-    if (sortBy === 'name')        return a.displayName.localeCompare(b.displayName);
-    if (sortBy === 'compliance')  return b.compliance_score - a.compliance_score;
-    if (sortBy === 'completion')  return b.completion_rate - a.completion_rate;
-    if (sortBy === 'at_risk')     return b.goals_at_risk - a.goals_at_risk;
+    if (sortBy === 'name')       return a.displayName.localeCompare(b.displayName);
+    if (sortBy === 'compliance') return b.compliance_score - a.compliance_score;
+    if (sortBy === 'completion') return b.completion_rate - a.completion_rate;
+    if (sortBy === 'at_risk')    return b.goals_at_risk - a.goals_at_risk;
     return 0;
   });
 
+  if (summaries.length === 0) return (
+    <Panel>
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <Users size={32} className="mb-3" style={{ color: '#C4B9FF' }} />
+        <p className="text-[14px] font-semibold text-[#1A1035] mb-1">No team data</p>
+        <p className="text-[12px] text-[#8B84A0]">Team performance will appear here once staff have goals set.</p>
+      </div>
+    </Panel>
+  );
+
+  // Aggregate summary stats
+  const avgCompliance = Math.round(summaries.reduce((s, m) => s + m.compliance_score, 0) / summaries.length);
+  const totalAtRisk   = summaries.reduce((s, m) => s + m.goals_at_risk, 0);
+  const totalGoals    = summaries.reduce((s, m) => s + m.goals_total, 0);
+
   return (
-    <div className="space-y-4">
-      {/* Controls */}
+    <div className="space-y-5">
+      {/* Team summary tiles */}
+      <div className="grid grid-cols-4 gap-3">
+        <StatTile label="Staff Members" value={summaries.length} sub="All roles" />
+        <StatTile label="Avg Compliance" value={`${avgCompliance}%`} sub="Team score" accent={avgCompliance >= 80 ? '#059669' : '#D97706'} />
+        <StatTile label="Total Goals" value={totalGoals} sub="Across team" />
+        <StatTile label="At Risk" value={totalAtRisk} sub="Need support" accent={totalAtRisk > 0 ? '#D97706' : '#059669'} />
+      </div>
+
+      {/* Sort controls */}
       <div className="flex items-center justify-between">
-        <div className="text-[11px] text-[#9CA3AF]">{summaries.length} staff members</div>
+        <p className="text-[10px] uppercase tracking-[0.18em] font-semibold text-[#8B84A0]">
+          {summaries.length} staff members
+        </p>
         <div className="flex items-center gap-1.5">
-          <span className="text-[11px] text-[#9CA3AF]">Sort:</span>
+          <span className="text-[10px] text-[#8B84A0]">Sort:</span>
           {(['name','compliance','completion','at_risk'] as const).map(s => (
             <button
               key={s}
               onClick={() => setSortBy(s)}
-              className={`px-2.5 py-1 rounded text-[10px] uppercase tracking-[0.13em] transition-colors ${
-                sortBy === s ? 'bg-[#EBE5FF] text-[#1A1035]' : 'text-[#9CA3AF] hover:text-[#6B7280]'
-              }`}
-            >
-              {s.replace('_', ' ')}
-            </button>
+              className="px-2.5 py-1 rounded text-[9px] uppercase tracking-[0.12em] font-bold transition-colors"
+              style={{
+                backgroundColor: sortBy === s ? '#EBE5FF' : 'transparent',
+                color: sortBy === s ? '#1A1035' : '#8B84A0',
+              }}
+            >{s.replace('_', ' ')}</button>
           ))}
         </div>
       </div>
 
-      {summaries.length === 0 ? (
-        <div className="bg-white border border-[#EBE5FF] rounded-xl p-10 text-center">
-          <div className="text-[13px] text-[#6B7280]">No staff data available.</div>
-        </div>
-      ) : (
-        <div className="bg-white border border-[#EBE5FF] rounded-xl overflow-hidden">
-          {/* Table header */}
-          <div className="grid gap-3 px-5 py-3 border-b border-[#EBE5FF] text-[10px] uppercase tracking-[0.14em] text-[#9CA3AF]"
-               style={{ gridTemplateColumns: '1fr 100px 80px 80px 80px 80px 80px' }}>
-            <span>Staff Member</span>
-            <span>Compliance</span>
-            <span>Goals</span>
-            <span>On Track</span>
-            <span>At Risk</span>
-            <span>Missed</span>
-            <span>Appts MTD</span>
-          </div>
-
+      <Panel>
+        <PanelHeader title="Team Performance" />
+        <div className="divide-y" style={{ borderColor: '#EBE5FF' }}>
           <AnimatePresence initial={false}>
-            {sorted.map((s, i) => (
-              <motion.div
-                key={s.userId}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: i * 0.02 }}
-                className="grid gap-3 px-5 py-4 border-b border-[#F3F0FF] last:border-0 hover:bg-[#FAF7F2] transition-colors"
-                style={{ gridTemplateColumns: '1fr 100px 80px 80px 80px 80px 80px' }}
-              >
-                <div>
-                  <div className="text-[13px] text-[#1A1035] font-medium">{s.displayName}</div>
-                  <div className="text-[11px] text-[#9CA3AF] mt-0.5">
-                    {s.roleName}{s.departmentName ? ` · ${s.departmentName}` : ''}
+            {sorted.map((s, idx) => {
+              const compScore = s.compliance_score;
+              const compColor = compScore >= 80 ? '#059669' : compScore >= 60 ? '#D97706' : '#DC2626';
+              const initials  = s.displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+              return (
+                <motion.div
+                  key={s.userId}
+                  className="flex items-center gap-4 px-5 py-4"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: idx * 0.03 }}
+                >
+                  {/* Avatar */}
+                  <div className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0"
+                    style={{ backgroundColor: '#EBE5FF', color: '#8A6CFF' }}>
+                    {initials}
                   </div>
-                </div>
 
-                <div className="flex items-center gap-2">
-                  <div className={`text-[13px] font-medium ${
-                    s.compliance_score >= 80 ? 'text-emerald-600'
-                    : s.compliance_score >= 60 ? 'text-amber-600'
-                    : 'text-red-500'
-                  }`}>
-                    {s.compliance_score}%
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-[12px] font-bold text-[#1A1035]">{s.displayName}</p>
+                      <div className="flex items-center gap-2 text-[9px] text-[#8B84A0] font-medium">
+                        <span className="text-emerald-600">{s.goals_on_track} on track</span>
+                        {s.goals_at_risk > 0 && <span className="text-amber-600">{s.goals_at_risk} at risk</span>}
+                        {s.goals_missed > 0 && <span className="text-red-500">{s.goals_missed} missed</span>}
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-[#8B84A0] mb-2">
+                      {s.roleName}{s.departmentName ? ` · ${s.departmentName}` : ''}{s.appointments_mtd > 0 ? ` · ${s.appointments_mtd} appts MTD` : ''}
+                    </p>
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1">
+                        <div className="flex justify-between mb-1">
+                          <span className="text-[8px] uppercase tracking-[0.14em] text-[#8B84A0]">Goals</span>
+                          <span className="text-[8px] text-[#8B84A0]">{s.goals_completed}/{s.goals_total}</span>
+                        </div>
+                        <MiniBar
+                          pct={s.goals_total > 0 ? (s.completion_rate * 100) : 0}
+                          color={s.completion_rate >= 0.8 ? '#059669' : s.completion_rate >= 0.5 ? '#D97706' : '#DC2626'}
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex justify-between mb-1">
+                          <span className="text-[8px] uppercase tracking-[0.14em] text-[#8B84A0]">Compliance</span>
+                          <span className="text-[8px] font-bold" style={{ color: compColor }}>{compScore}%</span>
+                        </div>
+                        <MiniBar pct={compScore} color={compColor} />
+                      </div>
+                    </div>
                   </div>
-                </div>
 
-                <div className="text-[13px] text-[#6B7280]">{s.goals_total}</div>
-                <div className="text-[13px] text-emerald-600">{s.goals_on_track}</div>
-                <div className={`text-[13px] ${s.goals_at_risk > 0 ? 'text-amber-600' : 'text-[#9CA3AF]'}`}>
-                  {s.goals_at_risk}
-                </div>
-                <div className={`text-[13px] ${s.goals_missed > 0 ? 'text-red-500' : 'text-[#9CA3AF]'}`}>
-                  {s.goals_missed}
-                </div>
-                <div className="text-[13px] text-[#6B7280]">{s.appointments_mtd}</div>
-              </motion.div>
-            ))}
+                  {/* Compliance ring */}
+                  <GoalProgressRing pct={compScore} size={44} color={compColor} />
+                </motion.div>
+              );
+            })}
           </AnimatePresence>
         </div>
-      )}
+      </Panel>
     </div>
   );
 }
@@ -1399,15 +1669,14 @@ function TeamTab({ summaries }: { summaries: StaffGoalsSummary[] }) {
 
 export default function KPIsPage() {
   const router = useRouter();
-  const [profile, setProfile]             = useState<StaffProfile | null>(null);
-  const [userId, setUserId]               = useState('');
-  const [brandColor, setBrandColor]       = useState('#8A6CFF');
-  const [roleView, setRoleView]           = useState<RoleView>('practitioner');
-  const [tab, setTab]                     = useState<Tab>('dashboard');
-  const [loading, setLoading]             = useState(true);
+  const [profile, setProfile]                 = useState<StaffProfile | null>(null);
+  const [userId, setUserId]                   = useState('');
+  const [brandColor, setBrandColor]           = useState('#8A6CFF');
+  const [roleView, setRoleView]               = useState<RoleView>('practitioner');
+  const [tab, setTab]                         = useState<Tab>('dashboard');
+  const [loading, setLoading]                 = useState(true);
 
-  // Data
-  const [goals, setGoals]                 = useState<StaffGoal[]>([]);
+  const [goals, setGoals]                     = useState<StaffGoal[]>([]);
   const [complianceItems, setComplianceItems] = useState<ComplianceItem[]>([]);
   const [personalMetrics, setPersonalMetrics] = useState<PersonalKPIMetrics | null>(null);
   const [clinicMetrics, setClinicMetrics]     = useState<ClinicKPIMetrics | null>(null);
@@ -1445,10 +1714,7 @@ export default function KPIsPage() {
       setBrandColor(p.brandColor || '#8A6CFF');
       const rv = getRoleView(p);
       setRoleView(rv);
-
-      // Seed compliance items if none exist
       await seedComplianceItemsForUser(p.userId, p.roleName ?? 'practitioner');
-
       await loadData(p, rv);
       setLoading(false);
     })();
@@ -1459,8 +1725,8 @@ export default function KPIsPage() {
   }, [profile, roleView, loadData]);
 
   const handleChatWithEWC = useCallback(() => {
-    const onTrack  = goals.filter(g => g.status === 'on_track').length;
-    const atRisk   = goals.filter(g => g.status === 'at_risk').length;
+    const onTrack      = goals.filter(g => g.status === 'on_track').length;
+    const atRisk       = goals.filter(g => g.status === 'at_risk').length;
     const goalsSummary = goals.length > 0
       ? `${goals.length} goals (${onTrack} on track, ${atRisk} at risk)`
       : 'no goals set';
@@ -1470,21 +1736,17 @@ export default function KPIsPage() {
     router.push(`/staff/chat?agentKey=primary_agent&kpiContext=${ctx}`);
   }, [router, goals, personalMetrics]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#FAF7F2] flex items-center justify-center">
-        <div className="text-[12px] text-[#9CA3AF] uppercase tracking-[0.2em]">Loading…</div>
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="min-h-screen bg-[#FAF7F2] flex items-center justify-center">
+      <div className="text-[12px] text-[#9CA3AF] uppercase tracking-[0.2em]">Loading…</div>
+    </div>
+  );
 
-  if (!profile) {
-    return (
-      <div className="min-h-screen bg-[#FAF7F2] flex items-center justify-center">
-        <div className="text-[12px] text-[#6B7280]">Unable to load profile.</div>
-      </div>
-    );
-  }
+  if (!profile) return (
+    <div className="min-h-screen bg-[#FAF7F2] flex items-center justify-center">
+      <div className="text-[12px] text-[#6B7280]">Unable to load profile.</div>
+    </div>
+  );
 
   const ALL_TABS: { id: Tab; label: string; show: boolean }[] = [
     { id: 'dashboard',        label: 'Dashboard',        show: true },
@@ -1493,92 +1755,117 @@ export default function KPIsPage() {
     { id: 'clinic',           label: 'Clinic KPIs',      show: canViewClinic(roleView) },
     { id: 'team',             label: 'Team',             show: canViewTeam(roleView) },
   ];
-  const TABS = ALL_TABS.filter(t => t.show) as { id: Tab; label: string; show: boolean }[];
+  const TABS = ALL_TABS.filter(t => t.show);
 
   return (
     <div className="min-h-screen bg-[#FAF7F2] text-[#1A1035]">
       <StaffNav profile={profile} userId={userId} brandColor={brandColor} currentPath="KPIs" />
 
       <div style={{ paddingLeft: 'var(--nav-w, 240px)', transition: 'padding-left 0.32s ease' }}>
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="text-[11px] uppercase tracking-[0.2em] text-[#9CA3AF] mb-2">Performance & KPIs</div>
-          <div className="flex items-end justify-between">
-            <h1 className="text-[28px] font-light text-[#1A1035] leading-none">
-              {roleView === 'director' || roleView === 'support_admin'
-                ? 'Performance Intelligence'
-                : 'My Performance'}
-            </h1>
-            <div className="text-[11px] text-[#9CA3AF] uppercase tracking-[0.14em]">
-              {profile.roleName} {profile.isAdmin && '· Admin'}
-            </div>
-          </div>
-        </div>
+        <div className="max-w-7xl mx-auto px-6 py-8">
 
-        {/* Tabs */}
-        <div className="flex gap-1 mb-8 border-b border-[#EBE5FF] pb-0">
-          {TABS.map(t => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`px-4 py-2.5 text-[12px] uppercase tracking-[0.15em] transition-colors relative ${
-                tab === t.id ? 'text-[#1A1035]' : 'text-[#9CA3AF] hover:text-[#6B7280]'
-              }`}
+          {/* Page header */}
+          <div className="flex items-start justify-between mb-8">
+            <div>
+              <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#8B84A0] mb-3">Performance & KPIs</p>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-[13px] font-bold flex-shrink-0"
+                  style={{ backgroundColor: `${brandColor}18`, color: brandColor }}>
+                  {profile.firstName.charAt(0)}{profile.lastName.charAt(0)}
+                </div>
+                <div>
+                  <h1 className="text-[24px] font-black tracking-[-0.02em] leading-none text-[#1A1035]">
+                    {roleView === 'director' || roleView === 'support_admin'
+                      ? 'Performance Intelligence'
+                      : 'My Performance'}
+                  </h1>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <span className="text-[9px] font-bold uppercase tracking-[0.1em] px-2 py-0.5 rounded-full"
+                      style={{ backgroundColor: `${brandColor}18`, color: brandColor }}>
+                      {profile.roleName}
+                    </span>
+                    {profile.isAdmin && (
+                      <span className="text-[9px] font-bold uppercase tracking-[0.1em] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">
+                        Admin
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p className="text-[10px] text-[#8B84A0] uppercase tracking-[0.14em] mt-1">
+              {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </p>
+          </div>
+
+          {/* Tabs */}
+          <div className="flex gap-0.5 mb-8 border-b" style={{ borderColor: '#EBE5FF' }}>
+            {TABS.map(t => (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className="px-4 py-2.5 text-[11px] uppercase tracking-[0.16em] font-semibold transition-colors relative"
+                style={{ color: tab === t.id ? '#1A1035' : '#8B84A0' }}
+              >
+                {t.label}
+                {tab === t.id && (
+                  <motion.div
+                    layoutId="kpi-tab-indicator"
+                    className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full"
+                    style={{ backgroundColor: brandColor }}
+                  />
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* Tab content */}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={tab}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.18 }}
             >
-              {t.label}
-              {tab === t.id && (
-                <motion.div
-                  layoutId="kpi-tab-indicator"
-                  className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#8A6CFF] rounded-full"
+              {tab === 'dashboard' && (
+                <DashboardTab
+                  profile={profile}
+                  metrics={personalMetrics}
+                  roleView={roleView}
+                  goals={goals}
+                  complianceItems={complianceItems}
+                  onChatWithEWC={handleChatWithEWC}
+                  brandColor={brandColor}
                 />
               )}
-            </button>
-          ))}
+              {tab === 'goals' && (
+                <GoalsTab
+                  profile={profile}
+                  roleView={roleView}
+                  goals={goals}
+                  onRefresh={handleRefresh}
+                />
+              )}
+              {tab === 'responsibilities' && (
+                <ResponsibilitiesTab
+                  profile={profile}
+                  roleView={roleView}
+                  complianceItems={complianceItems}
+                  onRefresh={handleRefresh}
+                />
+              )}
+              {tab === 'clinic' && canViewClinic(roleView) && (
+                <ClinicTab metrics={clinicMetrics} />
+              )}
+              {tab === 'team' && canViewTeam(roleView) && (
+                <TeamTab summaries={teamSummaries} />
+              )}
+            </motion.div>
+          </AnimatePresence>
+
         </div>
-
-        {/* Tab content */}
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={tab}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.18 }}
-          >
-            {tab === 'dashboard' && (
-              <DashboardTab
-                profile={profile}
-                metrics={personalMetrics}
-                roleView={roleView}
-                goals={goals}
-                complianceItems={complianceItems}
-                onChatWithEWC={handleChatWithEWC}
-              />
-            )}
-            {tab === 'goals' && (
-              <GoalsTab profile={profile} roleView={roleView} goals={goals} onRefresh={handleRefresh} />
-            )}
-            {tab === 'responsibilities' && (
-              <ResponsibilitiesTab
-                profile={profile}
-                roleView={roleView}
-                complianceItems={complianceItems}
-                onRefresh={handleRefresh}
-              />
-            )}
-            {tab === 'clinic' && canViewClinic(roleView) && (
-              <ClinicTab metrics={clinicMetrics} />
-            )}
-            {tab === 'team' && canViewTeam(roleView) && (
-              <TeamTab summaries={teamSummaries} />
-            )}
-          </motion.div>
-        </AnimatePresence>
       </div>
-
-      </div>
-
     </div>
   );
 }
