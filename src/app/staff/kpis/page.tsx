@@ -39,6 +39,7 @@ import {
   type ComplianceStatus,
   type SparklinePoint,
 } from '@/lib/actions/kpi-goals';
+import { createConversation } from '@/lib/actions/chat';
 
 // =============================================================================
 // TYPES
@@ -500,163 +501,305 @@ function ComplianceModal({
 // EWC COMPLIANCE AGENT PANEL
 // =============================================================================
 
-function EWCAgentPanel({ brandColor }: { brandColor: string }) {
-  const [open, setOpen]         = useState(false);
-  const [input, setInput]       = useState('');
-  const [messages, setMessages] = useState<{ role: 'user' | 'agent'; text: string; ts: string }[]>([]);
-  const [loading, setLoading]   = useState(false);
+// =============================================================================
+// KPI AGENT DRAWER — right-side panel using the real EWC chat system
+// =============================================================================
+
+interface KPIAgentDrawerProps {
+  open: boolean;
+  onClose: () => void;
+  userId: string;
+  profile: StaffProfile;
+  goals: StaffGoal[];
+  complianceItems: ComplianceItem[];
+  metrics: PersonalKPIMetrics | null;
+  currentTab: Tab;
+}
+
+function KPIAgentDrawer({
+  open, onClose, userId, profile, goals, complianceItems, metrics, currentTab,
+}: KPIAgentDrawerProps) {
+  const [input, setInput]             = useState('');
+  const [messages, setMessages]       = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
+  const [streaming, setStreaming]      = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [initialised, setInitialised]  = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef  = useRef<HTMLInputElement>(null);
 
-  const STARTERS = [
-    'What CQC regulations apply to an aesthetics clinic?',
-    'What compliance items are most critical for practitioners?',
-    'How do we prepare for a CQC inspection?',
-    'What must we include in our Statement of Purpose?',
-  ];
+  // Build context string from live KPI data
+  function buildContext(): string {
+    const goalsTotal    = goals.length;
+    const onTrack       = goals.filter(g => g.status === 'on_track').length;
+    const atRisk        = goals.filter(g => g.status === 'at_risk').length;
+    const missed        = goals.filter(g => g.status === 'missed').length;
+    const compScore     = metrics?.compliance_score ?? 0;
+    const compOverdue   = metrics?.compliance_overdue ?? 0;
+    const cqcCritical   = metrics?.cqc_critical_overdue ?? 0;
 
-  async function sendMessage(text: string) {
-    if (!text.trim() || loading) return;
-    const userMsg = { role: 'user' as const, text: text.trim(), ts: new Date().toISOString() };
-    setMessages(m => [...m, userMsg]);
+    return [
+      `[KPI PAGE CONTEXT]`,
+      `User: ${profile.firstName} ${profile.lastName} | Role: ${profile.roleName ?? 'Staff'}${profile.isAdmin ? ' (Admin)' : ''}`,
+      `Current tab: ${currentTab}`,
+      `Goals: ${goalsTotal} total — ${onTrack} on track, ${atRisk} at risk, ${missed} missed`,
+      `Compliance score: ${compScore}% | Overdue items: ${compOverdue}${cqcCritical > 0 ? ` | CQC critical overdue: ${cqcCritical}` : ''}`,
+    ].join('\n');
+  }
+
+  // Initialise conversation when drawer first opens
+  useEffect(() => {
+    if (!open || initialised || !userId) return;
+    (async () => {
+      const res = await createConversation('clinic', userId, 'primary_agent', 'KPI & Performance');
+      if (res.success && res.conversationId) {
+        setConversationId(res.conversationId);
+        setInitialised(true);
+      }
+    })();
+  }, [open, initialised, userId]);
+
+  // Scroll to bottom on new messages
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, streaming]);
+
+  // Focus input when opened
+  useEffect(() => {
+    if (open) setTimeout(() => inputRef.current?.focus(), 200);
+  }, [open]);
+
+  async function sendMsg(text: string) {
+    const trimmed = text.trim();
+    if (!trimmed || streaming || !conversationId) return;
     setInput('');
-    setLoading(true);
+
+    // Inject context prefix on first message
+    const payload = messages.length === 0
+      ? `${buildContext()}\n\n${trimmed}`
+      : trimmed;
+
+    setMessages(m => [...m, { role: 'user', content: trimmed }]);
+    setStreaming(true);
+
+    // Add placeholder for streaming response
+    setMessages(m => [...m, { role: 'assistant', content: '' }]);
 
     try {
       const res = await fetch('/api/primary-agent/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: `[COMPLIANCE QUERY — KPI PAGE] ${text.trim()}`,
-          conversationId: `ewc-compliance-kpi`,
+          user_id:         userId,
+          conversation_id: conversationId,
+          message:         payload,
+          agent_scope:     null,
         }),
       });
 
-      let fullText = '';
-      if (res.body) {
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = decoder.decode(value);
-          for (const line of chunk.split('\n')) {
-            if (line.startsWith('data: ')) {
-              try {
-                const d = JSON.parse(line.slice(6));
-                if (d.type === 'text' && d.text) fullText += d.text;
-              } catch { /* skip */ }
+      if (!res.body) throw new Error('No stream');
+
+      const reader  = res.body.getReader();
+      const decoder = new TextDecoder();
+      let fullText  = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        for (const line of chunk.split('\n')) {
+          if (!line.startsWith('data: ')) continue;
+          const raw = line.slice(6).trim();
+          if (raw === '[DONE]') break;
+          try {
+            const evt = JSON.parse(raw);
+            // Handle both { type:'text', text:'...' } and { type:'text', content:'...' }
+            const delta = evt.text ?? evt.content ?? '';
+            if (delta) {
+              fullText += delta;
+              setMessages(m => {
+                const updated = [...m];
+                updated[updated.length - 1] = { role: 'assistant', content: fullText };
+                return updated;
+              });
             }
-          }
+          } catch { /* skip malformed */ }
         }
       }
-      setMessages(m => [...m, { role: 'agent', text: fullText || 'No response.', ts: new Date().toISOString() }]);
+
+      if (!fullText) {
+        setMessages(m => {
+          const updated = [...m];
+          updated[updated.length - 1] = { role: 'assistant', content: 'No response received.' };
+          return updated;
+        });
+      }
     } catch {
-      setMessages(m => [...m, { role: 'agent', text: 'EWC is temporarily unavailable.', ts: new Date().toISOString() }]);
+      setMessages(m => {
+        const updated = [...m];
+        updated[updated.length - 1] = { role: 'assistant', content: 'EWC is temporarily unavailable.' };
+        return updated;
+      });
     } finally {
-      setLoading(false);
+      setStreaming(false);
     }
   }
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, loading]);
+  const STARTERS: { label: string; prompt: string }[] = [
+    { label: 'Review my goals',         prompt: 'Review my current goals and tell me what I should focus on.' },
+    { label: 'Compliance priorities',   prompt: 'Which compliance items should I prioritise right now?' },
+    { label: 'Set a monthly target',    prompt: 'Help me set a realistic monthly appointments target for my role.' },
+    { label: 'CQC inspection prep',     prompt: 'What are the most important CQC preparation steps for our clinic right now?' },
+  ];
 
   return (
-    <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3">
-      <AnimatePresence>
-        {open && (
+    <AnimatePresence>
+      {open && (
+        <>
+          {/* Backdrop */}
           <motion.div
-            className="w-[360px] bg-[#080808] border border-white/[0.10] rounded-2xl overflow-hidden shadow-2xl"
-            initial={{ opacity: 0, y: 20, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 16, scale: 0.96 }}
+            className="fixed inset-0 z-40 bg-black/40"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+          />
+
+          {/* Drawer */}
+          <motion.div
+            className="fixed top-0 right-0 h-full w-[420px] z-50 flex flex-col bg-[#070707] border-l border-white/[0.08]"
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'spring', stiffness: 320, damping: 32 }}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.07] flex-shrink-0">
               <div>
-                <div className="text-[13px] font-semibold text-white">EWC — Compliance Intelligence</div>
-                <div className="text-[11px] text-white/35">Ask about CQC, regulations, staff requirements</div>
+                <div className="text-[13px] font-semibold text-white tracking-tight">EWC Intelligence</div>
+                <div className="text-[11px] text-white/30 mt-0.5">
+                  KPI · Goals · Compliance · CQC
+                </div>
               </div>
-              <button onClick={() => setOpen(false)} className="text-white/30 hover:text-white/70 transition-colors text-lg leading-none">×</button>
+              <button
+                onClick={onClose}
+                className="w-7 h-7 rounded-lg bg-white/[0.05] hover:bg-white/[0.10] flex items-center justify-center transition-colors text-white/40 hover:text-white"
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                  <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Context pill */}
+            <div className="px-5 py-2.5 border-b border-white/[0.05] flex-shrink-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] uppercase tracking-[0.14em] text-white/20">Context</span>
+                <span className="text-[10px] text-white/40 bg-white/[0.04] px-2 py-0.5 rounded-full">
+                  {goals.length} goals · {metrics?.compliance_score ?? 0}% compliant
+                </span>
+                {(metrics?.cqc_critical_overdue ?? 0) > 0 && (
+                  <span className="text-[10px] text-red-400 bg-red-400/10 px-2 py-0.5 rounded-full">
+                    {metrics!.cqc_critical_overdue} CQC critical
+                  </span>
+                )}
+                {(metrics?.goals_at_risk ?? 0) > 0 && (
+                  <span className="text-[10px] text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full">
+                    {metrics!.goals_at_risk} goals at risk
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Messages */}
-            <div className="h-72 overflow-y-auto px-4 py-3 space-y-3">
-              {messages.length === 0 && (
-                <div className="space-y-2">
-                  <div className="text-[11px] text-white/25 text-center py-2">Ask EWC about compliance</div>
-                  {STARTERS.map(s => (
-                    <button
-                      key={s}
-                      onClick={() => sendMessage(s)}
-                      className="w-full text-left text-[11px] text-white/50 bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2 hover:bg-white/[0.06] transition-colors"
-                    >
-                      {s}
-                    </button>
-                  ))}
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 min-h-0">
+              {messages.length === 0 && !streaming && (
+                <div className="space-y-3 pt-2">
+                  <div className="text-[12px] text-white/25 text-center">
+                    EWC has context of your KPI and compliance data.<br />
+                    Ask anything about performance or regulations.
+                  </div>
+                  <div className="grid grid-cols-1 gap-2 pt-2">
+                    {STARTERS.map(s => (
+                      <button
+                        key={s.label}
+                        onClick={() => sendMsg(s.prompt)}
+                        disabled={!conversationId}
+                        className="text-left px-4 py-3 bg-white/[0.03] border border-white/[0.07] rounded-xl hover:bg-white/[0.06] hover:border-white/[0.12] transition-all disabled:opacity-40"
+                      >
+                        <div className="text-[12px] text-white/70 font-medium">{s.label}</div>
+                        <div className="text-[11px] text-white/30 mt-0.5 line-clamp-1">{s.prompt}</div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
+
               {messages.map((m, i) => (
-                <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[85%] rounded-xl px-3 py-2 text-[12px] leading-relaxed ${
-                    m.role === 'user'
-                      ? 'bg-white text-black'
-                      : 'bg-white/[0.05] text-white/80'
-                  }`}>
-                    {m.text}
-                  </div>
-                </div>
-              ))}
-              {loading && (
-                <div className="flex justify-start">
-                  <div className="bg-white/[0.05] rounded-xl px-3 py-2">
-                    <div className="flex gap-1">
-                      {[0,1,2].map(i => (
-                        <motion.div key={i} className="w-1 h-1 bg-white/40 rounded-full"
-                          animate={{ opacity: [0.3, 1, 0.3] }}
-                          transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }}
-                        />
-                      ))}
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  {m.role === 'assistant' && (
+                    <div className="w-5 h-5 rounded-full bg-white/[0.08] flex items-center justify-center flex-shrink-0 mt-0.5 mr-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-white/50" />
                     </div>
+                  )}
+                  <div className={`max-w-[88%] rounded-2xl px-4 py-2.5 text-[13px] leading-relaxed ${
+                    m.role === 'user'
+                      ? 'bg-white/[0.09] text-white rounded-tr-sm'
+                      : 'bg-transparent text-white/80 rounded-tl-sm px-0'
+                  }`}>
+                    {m.role === 'assistant' && streaming && i === messages.length - 1 && !m.content ? (
+                      <div className="flex gap-1 py-1">
+                        {[0,1,2].map(j => (
+                          <motion.div key={j} className="w-1 h-1 bg-white/30 rounded-full"
+                            animate={{ opacity: [0.2, 0.8, 0.2] }}
+                            transition={{ duration: 1.2, repeat: Infinity, delay: j * 0.18 }}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="whitespace-pre-wrap">{m.content}</div>
+                    )}
                   </div>
-                </div>
-              )}
+                </motion.div>
+              ))}
+
               <div ref={bottomRef} />
             </div>
 
             {/* Input */}
-            <div className="px-4 py-3 border-t border-white/[0.06] flex gap-2">
-              <input
-                className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-[12px] text-white placeholder-white/25 focus:outline-none focus:border-white/25"
-                placeholder="Ask about compliance…"
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }}
-              />
-              <button
-                onClick={() => sendMessage(input)}
-                disabled={!input.trim() || loading}
-                className="px-3 py-2 bg-white/[0.08] hover:bg-white/[0.14] rounded-lg text-[11px] text-white/60 hover:text-white transition-colors disabled:opacity-30"
-              >
-                Send
-              </button>
+            <div className="px-5 py-4 border-t border-white/[0.07] flex-shrink-0">
+              <div className="flex items-center gap-2 bg-white/[0.04] border border-white/[0.09] rounded-xl px-3 py-2 focus-within:border-white/[0.20] transition-colors">
+                <input
+                  ref={inputRef}
+                  className="flex-1 bg-transparent text-[13px] text-white placeholder-white/25 focus:outline-none"
+                  placeholder={conversationId ? 'Ask EWC anything…' : 'Connecting…'}
+                  value={input}
+                  disabled={!conversationId || streaming}
+                  onChange={e => setInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(input); } }}
+                />
+                <button
+                  onClick={() => sendMsg(input)}
+                  disabled={!input.trim() || !conversationId || streaming}
+                  className="w-7 h-7 rounded-lg bg-white/[0.08] hover:bg-white/[0.16] flex items-center justify-center transition-colors disabled:opacity-30"
+                >
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <path d="M11 6H1M7 2l4 4-4 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              </div>
+              <div className="text-[10px] text-white/15 mt-2 text-center">
+                EWC · Powered by Aria Intelligence
+              </div>
             </div>
           </motion.div>
-        )}
-      </AnimatePresence>
-
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="w-12 h-12 rounded-full border border-white/[0.12] bg-[#0a0a0a] hover:bg-white/[0.06] transition-colors flex items-center justify-center"
-        style={{ boxShadow: `0 0 20px ${brandColor}22` }}
-        title="EWC Compliance Agent"
-      >
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <circle cx="10" cy="10" r="8" stroke="white" strokeWidth="1.5" opacity="0.5" />
-          <path d="M7 10h6M10 7v6" stroke="white" strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
-        </svg>
-      </button>
-    </div>
+        </>
+      )}
+    </AnimatePresence>
   );
 }
 
@@ -1413,6 +1556,7 @@ export default function KPIsPage() {
   const [roleView, setRoleView]           = useState<RoleView>('practitioner');
   const [tab, setTab]                     = useState<Tab>('dashboard');
   const [loading, setLoading]             = useState(true);
+  const [agentOpen, setAgentOpen]         = useState(false);
 
   // Data
   const [goals, setGoals]                 = useState<StaffGoal[]>([]);
@@ -1505,8 +1649,17 @@ export default function KPIsPage() {
                 ? 'Performance Intelligence'
                 : 'My Performance'}
             </h1>
-            <div className="text-[11px] text-white/25 uppercase tracking-[0.14em]">
-              {profile.roleName} {profile.isAdmin && '· Admin'}
+            <div className="flex items-center gap-3">
+              <div className="text-[11px] text-white/25 uppercase tracking-[0.14em]">
+                {profile.roleName} {profile.isAdmin && '· Admin'}
+              </div>
+              <button
+                onClick={() => setAgentOpen(true)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.05] hover:bg-white/[0.09] border border-white/[0.09] hover:border-white/[0.16] rounded-lg text-[11px] text-white/50 hover:text-white transition-all"
+              >
+                <div className="w-1.5 h-1.5 rounded-full bg-white/40" />
+                Ask EWC
+              </button>
             </div>
           </div>
         </div>
@@ -1565,8 +1718,17 @@ export default function KPIsPage() {
         </AnimatePresence>
       </div>
 
-      {/* EWC Compliance Agent — floating */}
-      <EWCAgentPanel brandColor={profile.brandColor} />
+      {/* EWC Agent Drawer */}
+      <KPIAgentDrawer
+        open={agentOpen}
+        onClose={() => setAgentOpen(false)}
+        userId={userId}
+        profile={profile}
+        goals={goals}
+        complianceItems={complianceItems}
+        metrics={personalMetrics}
+        currentTab={tab}
+      />
     </div>
   );
 }
