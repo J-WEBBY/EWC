@@ -11,6 +11,9 @@ import { createSovereignClient } from '@/lib/supabase/service';
 import { ClinikoClient } from '@/lib/cliniko/client';
 import { syncAll, syncPatients, syncAppointments, syncInvoices } from '@/lib/cliniko/sync';
 
+// Allow up to 5 minutes for full syncs (Vercel Pro)
+export const maxDuration = 300;
+
 const SYNC_SECRET = process.env.SYNC_SECRET ?? 'ewc-sync-secret-change-me';
 const CRON_SECRET = process.env.CRON_SECRET ?? '';
 

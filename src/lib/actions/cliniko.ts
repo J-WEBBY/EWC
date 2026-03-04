@@ -221,6 +221,41 @@ export async function mapUserToPractitioner(
 }
 
 // =============================================================================
+// GET LIVE RECORD COUNTS (from local cache — used by integrations page)
+// =============================================================================
+
+export async function getClinikoStats(): Promise<{
+  patients: number;
+  appointments: number;
+  appointments_upcoming: number;
+  invoices: number;
+  revenue_outstanding: number;
+  practitioners: number;
+}> {
+  const supabase = createSovereignClient();
+  const now = new Date().toISOString();
+
+  const [p, a, aUp, inv, pr] = await Promise.all([
+    supabase.from('cliniko_patients').select('id', { count: 'exact', head: true }),
+    supabase.from('cliniko_appointments').select('id', { count: 'exact', head: true }),
+    supabase.from('cliniko_appointments').select('id', { count: 'exact', head: true }).gte('starts_at', now),
+    supabase.from('cliniko_invoices').select('amount_outstanding').gt('amount_outstanding', 0).neq('status', 'cancelled'),
+    supabase.from('cliniko_practitioners').select('id', { count: 'exact', head: true }).eq('is_active', true),
+  ]);
+
+  const outstanding = (inv.data ?? []).reduce((s, r) => s + (Number(r.amount_outstanding) || 0), 0);
+
+  return {
+    patients:              p.count  ?? 0,
+    appointments:          a.count  ?? 0,
+    appointments_upcoming: aUp.count ?? 0,
+    invoices:              inv.data?.length ?? 0,
+    revenue_outstanding:   outstanding,
+    practitioners:         pr.count ?? 0,
+  };
+}
+
+// =============================================================================
 // WRITE-BACK: Log a call/action to Cliniko patient record
 // =============================================================================
 

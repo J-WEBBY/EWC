@@ -53,6 +53,9 @@ dist/
 build/
 .Python
 
+# one-time setup files (contain secrets — never commit)
+database/migrations/030_activate_cliniko.sql
+
 # local utility scripts (not needed in production)
 check-*.mjs
 fix-*.mjs
