@@ -219,7 +219,7 @@ const _now = Date.now();
 const _daysAgo = (d: number) => new Date(_now - d * 86400000).toISOString();
 const _daysAhead = (d: number) => new Date(_now + d * 86400000).toISOString();
 
-export const DEMO_PATIENTS: PatientIntelligenceRow[] = [
+const DEMO_PATIENTS: PatientIntelligenceRow[] = [
   {
     id: 'demo-001', cliniko_id: null,
     first_name: 'Sarah', last_name: 'Mitchell',
@@ -372,9 +372,9 @@ export const DEMO_PATIENTS: PatientIntelligenceRow[] = [
   },
 ];
 
-export const DEMO_PATIENT_MAP = new Map(DEMO_PATIENTS.map(p => [p.id, p]));
+const DEMO_PATIENT_MAP = new Map(DEMO_PATIENTS.map(p => [p.id, p]));
 
-export const DEMO_TIMELINES: Record<string, TimelineEvent[]> = {
+const DEMO_TIMELINES: Record<string, TimelineEvent[]> = {
   'demo-001': [
     { id: 't1', type: 'appointment', date: _daysAgo(21), title: 'Botox — Anti-Wrinkle', description: 'Upper face treatment. Full forehead and crow\'s feet. Very happy with results.', status: 'Attended', practitioner: 'Dr Suresh Ganta' },
     { id: 't2', type: 'komal_call', date: _daysAgo(28), title: 'Inbound call — Booking enquiry', description: 'Called to book top-up appointment. Komal confirmed availability and booked.', outcome: 'booked', duration_seconds: 184 },

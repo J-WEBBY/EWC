@@ -273,7 +273,7 @@ export async function getSignalStats(
 
     const { data: allSignals, error } = await sovereign
       .from('signals')
-      .select('id, priority, status, source_type, category, created_at, response_mode')
+      .select('id, priority, status, source_type, category, created_at')
       .limit(500);
 
     if (error) {
@@ -298,13 +298,9 @@ export async function getSignalStats(
       if (cat in byCategory) byCategory[cat]++;
       const pri = r.priority as SignalPriority;
       if (pri in byPriority) byPriority[pri]++;
-      const mode = (r.response_mode || 'supervised') as ResponseMode;
-      if (mode in byMode) byMode[mode]++;
     }
 
-    const agenticRunning = active.filter(r =>
-      r.response_mode === 'agentic' && r.status === 'processing'
-    ).length;
+    const agenticRunning = 0; // requires migration 020 (response_mode column)
 
     return {
       success: true,
