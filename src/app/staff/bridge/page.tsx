@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Inbox, Search, X, Loader2,
@@ -396,12 +396,8 @@ function MessageDetail({
 
 export default function BridgePage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const paramTenantId = searchParams.get('tenantId');
-  const paramUserId = searchParams.get('userId');
 
-  const [resolvedTenantId, setResolvedTenantId] = useState<string | null>(paramTenantId);
-  const [resolvedUserId, setResolvedUserId] = useState<string | null>(paramUserId);
+  const [resolvedUserId, setResolvedUserId] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<StaffProfile | null>(null);
@@ -434,31 +430,23 @@ export default function BridgePage() {
   const c = profile?.brandColor || '#10b981';
   const aiName = profile?.aiName || 'Ilyas';
 
-  // ── Resolve tenant ──
+  // ── Resolve user ──
   useEffect(() => {
-    if (paramTenantId && paramUserId) {
-      setResolvedTenantId(paramTenantId);
-      setResolvedUserId(paramUserId);
-      return;
-    }
     (async () => {
       const res = await getCurrentUser();
-      if (res.success && res.userId) {
-        setResolvedTenantId('clinic');
-        setResolvedUserId(res.userId);
-      }
+      if (res.success && res.userId) setResolvedUserId(res.userId);
     })();
-  }, [paramTenantId, paramUserId]);
+  }, []);
 
   // ── Load data ──
   useEffect(() => {
-    if (!resolvedTenantId || !resolvedUserId) return;
+    if (!resolvedUserId) return;
     (async () => {
       setLoading(true);
       const [profileRes, msgsRes, statsRes] = await Promise.all([
-        getStaffProfile(resolvedTenantId, resolvedUserId),
-        getMessages(resolvedTenantId),
-        getBridgeStats(resolvedTenantId),
+        getStaffProfile('clinic', resolvedUserId),
+        getMessages('clinic'),
+        getBridgeStats('clinic'),
       ]);
       if (profileRes.success && profileRes.data) {
         setProfile(profileRes.data.profile);
@@ -468,62 +456,60 @@ export default function BridgePage() {
       if (statsRes.success && statsRes.stats) setStats(statsRes.stats);
       setLoading(false);
     })();
-  }, [resolvedTenantId, resolvedUserId]);
+  }, [resolvedUserId]);
 
   // ── Select message → load thread + mark read ──
   const selectMessage = useCallback(async (id: string) => {
-    if (!resolvedTenantId) return;
     setSelectedId(id);
     setSmartReplies([]);
     setLoadingThread(true);
 
     // Mark as read
     setMessages(prev => prev.map(m => m.id === id && m.status === 'unread' ? { ...m, status: 'read' as MessageStatus } : m));
-    await markMessageStatus(resolvedTenantId, id, 'read');
+    await markMessageStatus('clinic', id, 'read');
 
     // Load thread
-    const res = await getThread(resolvedTenantId, id);
+    const res = await getThread('clinic', id);
     setThread(res.success && res.replies ? res.replies : []);
     setLoadingThread(false);
-  }, [resolvedTenantId]);
+  }, []);
 
   // ── Star toggle ──
   const handleToggleStar = useCallback(async (id: string) => {
-    if (!resolvedTenantId) return;
     setMessages(prev => prev.map(m => m.id === id ? { ...m, is_starred: !m.is_starred } : m));
-    await toggleStar(resolvedTenantId, id);
-  }, [resolvedTenantId]);
+    await toggleStar('clinic', id);
+  }, []);
 
   // ── Archive ──
   const handleArchive = useCallback(async () => {
-    if (!resolvedTenantId || !selectedId) return;
+    if (!selectedId) return;
     setMessages(prev => prev.map(m => m.id === selectedId ? { ...m, status: 'archived' as MessageStatus } : m));
-    await markMessageStatus(resolvedTenantId, selectedId, 'archived');
+    await markMessageStatus('clinic', selectedId, 'archived');
     setSelectedId(null);
-  }, [resolvedTenantId, selectedId]);
+  }, [selectedId]);
 
   // ── Snooze ──
   const handleSnooze = useCallback(async () => {
-    if (!resolvedTenantId || !selectedId) return;
+    if (!selectedId) return;
     setMessages(prev => prev.map(m => m.id === selectedId ? { ...m, status: 'snoozed' as MessageStatus } : m));
-    await markMessageStatus(resolvedTenantId, selectedId, 'snoozed');
+    await markMessageStatus('clinic', selectedId, 'snoozed');
     setSelectedId(null);
-  }, [resolvedTenantId, selectedId]);
+  }, [selectedId]);
 
   // ── Smart replies ──
   const handleGenerateReplies = useCallback(async () => {
-    if (!resolvedTenantId || !resolvedUserId || !selectedId) return;
+    if (!resolvedUserId || !selectedId) return;
     const msg = messages.find(m => m.id === selectedId);
     if (!msg) return;
     setLoadingReplies(true);
-    const res = await generateSmartReplies(resolvedTenantId, resolvedUserId, msg.body, aiName);
+    const res = await generateSmartReplies('clinic', resolvedUserId, msg.body, aiName);
     if (res.success && res.replies) setSmartReplies(res.replies);
     setLoadingReplies(false);
-  }, [resolvedTenantId, resolvedUserId, selectedId, messages, aiName]);
+  }, [resolvedUserId, selectedId, messages, aiName]);
 
   // ── Agent chat send ──
   const handleAgentSend = useCallback(async () => {
-    if (!agentInput.trim() || !resolvedTenantId || !resolvedUserId || isRouting) return;
+    if (!agentInput.trim() || !resolvedUserId || isRouting) return;
     const text = agentInput.trim();
     setAgentInput('');
     setAgentMessages(prev => [...prev, { role: 'user', content: text }]);
@@ -531,7 +517,7 @@ export default function BridgePage() {
 
     try {
       if (agentTarget === 'primary') {
-        const res = await classifyAndRoute(resolvedTenantId, resolvedUserId, { text, source: 'bridge' });
+        const res = await classifyAndRoute('clinic', resolvedUserId, { text, source: 'bridge' });
         if (res.success && res.result) {
           setAgentMessages(prev => [...prev, {
             role: 'assistant',
@@ -542,7 +528,7 @@ export default function BridgePage() {
           setAgentMessages(prev => [...prev, { role: 'assistant', content: `Routing failed: ${res.error || 'Unknown error'}` }]);
         }
       } else {
-        const res = await sendDirectToAgent(resolvedTenantId, resolvedUserId, agentTarget, text);
+        const res = await sendDirectToAgent('clinic', resolvedUserId, agentTarget, text);
         const agentName = agents.find(a => a.id === agentTarget)?.name || agentTarget;
         if (res.success) {
           setAgentMessages(prev => [...prev, { role: 'assistant', content: `Signal created and sent to **${agentName}**.\nSignal ID: \`${res.signalId}\`` }]);
@@ -556,7 +542,7 @@ export default function BridgePage() {
 
     setIsRouting(false);
     setTimeout(() => agentChatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-  }, [agentInput, resolvedTenantId, resolvedUserId, agentTarget, isRouting, agents]);
+  }, [agentInput, resolvedUserId, agentTarget, isRouting, agents]);
 
   // ── Filtered messages ──
   const filteredMessages = useMemo(() => {
@@ -914,7 +900,7 @@ export default function BridgePage() {
                       </p>
                       {msg.meta && (
                         <button
-                          onClick={() => router.push(`/staff/agents/${msg.meta!.agentId}?tenantId=${resolvedTenantId}&userId=${resolvedUserId}`)}
+                          onClick={() => router.push(`/staff/agents/${msg.meta!.agentId}`)}
                           className="mt-2 flex items-center gap-1.5 text-[10px] transition-colors hover:underline"
                           style={{ color: c }}>
                           <Eye size={10} /> View in Agent Feed
@@ -1049,7 +1035,7 @@ export default function BridgePage() {
                           </div>
                         </div>
                         <button
-                          onClick={() => router.push(`/staff/agents/${r.agentId}?tenantId=${resolvedTenantId}&userId=${resolvedUserId}`)}
+                          onClick={() => router.push(`/staff/agents/${r.agentId}`)}
                           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-[11px] font-medium transition-all"
                           style={{ backgroundColor: `${c}15`, color: c, border: `1px solid ${c}25` }}>
                           <Eye size={12} /> View in {r.agentName} Feed

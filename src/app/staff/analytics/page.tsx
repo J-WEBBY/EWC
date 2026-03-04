@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, BarChart3, Loader2, X,
@@ -540,12 +540,8 @@ function ReportModal({
 
 export default function AnalyticsPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const paramTenantId = searchParams.get('tenantId');
-  const paramUserId = searchParams.get('userId');
 
-  const [resolvedTenantId, setResolvedTenantId] = useState<string | null>(paramTenantId);
-  const [resolvedUserId, setResolvedUserId] = useState<string | null>(paramUserId);
+  const [resolvedUserId, setResolvedUserId] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<StaffProfile | null>(null);
@@ -574,30 +570,22 @@ export default function AnalyticsPage() {
   const c = profile?.brandColor || '#10b981';
   const aiName = profile?.aiName || 'Ilyas';
 
-  // ── Resolve tenant ──
+  // ── Resolve user ──
   useEffect(() => {
-    if (paramTenantId && paramUserId) {
-      setResolvedTenantId(paramTenantId);
-      setResolvedUserId(paramUserId);
-      return;
-    }
     (async () => {
       const res = await getCurrentUser();
-      if (res.success && res.userId) {
-        setResolvedTenantId('clinic');
-        setResolvedUserId(res.userId);
-      }
+      if (res.success && res.userId) setResolvedUserId(res.userId);
     })();
-  }, [paramTenantId, paramUserId]);
+  }, []);
 
   // ── Load data ──
   useEffect(() => {
-    if (!resolvedTenantId || !resolvedUserId) return;
+    if (!resolvedUserId) return;
     (async () => {
       setLoading(true);
       const [profileRes, overviewRes] = await Promise.all([
-        getStaffProfile(resolvedTenantId, resolvedUserId),
-        getAnalyticsOverview(resolvedTenantId),
+        getStaffProfile('clinic', resolvedUserId),
+        getAnalyticsOverview('clinic'),
       ]);
       if (profileRes.success && profileRes.data) setProfile(profileRes.data.profile);
       if (overviewRes.success && overviewRes.data) {
@@ -607,7 +595,7 @@ export default function AnalyticsPage() {
       }
       setLoading(false);
     })();
-  }, [resolvedTenantId, resolvedUserId]);
+  }, [resolvedUserId]);
 
   // ── Sorted departments ──
   const sortedDepts = useMemo(() => {
@@ -631,26 +619,26 @@ export default function AnalyticsPage() {
 
   // ── AI Analysis ──
   const handleAskAI = useCallback(async (question: string) => {
-    if (!resolvedTenantId || !resolvedUserId || !overview) return;
+    if (!resolvedUserId || !overview) return;
     setLoadingAI(true);
     setAiResponse(null);
 
     const kpiSummary = overview.kpis.map(k => `${k.label}: ${k.value}${k.unit} (${k.change > 0 ? '+' : ''}${k.change}%)`).join(', ');
     const deptSummary = overview.departments.map(d => `${d.name}: ${d.signal_count} signals, ${d.resolution_rate}% resolution, ${d.avg_response_hours}h avg`).join('; ');
 
-    const res = await generateAnalysisInsight(resolvedTenantId, resolvedUserId, question, { kpiSummary, departmentSummary: deptSummary });
+    const res = await generateAnalysisInsight('clinic', resolvedUserId, question, { kpiSummary, departmentSummary: deptSummary });
     if (res.success && res.response) setAiResponse(res.response);
     setLoadingAI(false);
-  }, [resolvedTenantId, resolvedUserId, overview]);
+  }, [resolvedUserId, overview]);
 
   // ── Generate Report ──
   const handleGenerateReport = useCallback(async (config: ReportConfig) => {
-    if (!resolvedTenantId || !resolvedUserId) return;
+    if (!resolvedUserId) return;
     setGeneratingReport(true);
-    const res = await generateReport(resolvedTenantId, resolvedUserId, config);
+    const res = await generateReport('clinic', resolvedUserId, config);
     if (res.success && res.report) setReportPreview(res.report);
     setGeneratingReport(false);
-  }, [resolvedTenantId, resolvedUserId]);
+  }, [resolvedUserId]);
 
   // ── Loading ──
   if (loading && !profile) {
@@ -685,7 +673,7 @@ export default function AnalyticsPage() {
         <motion.header initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
           className="flex items-center justify-between px-5 py-3 border-b border-[#EBE5FF] flex-shrink-0">
           <div className="flex items-center gap-4">
-            <button onClick={() => router.push(`/staff/dashboard?tenantId=${resolvedTenantId}&userId=${resolvedUserId}`)}
+            <button onClick={() => router.push('/staff/dashboard')}
               className="w-8 h-8 rounded-lg flex items-center justify-center bg-[#FAF9F5] hover:bg-white transition-colors">
               <ArrowLeft size={14} className="text-[#6E6688]" />
             </button>

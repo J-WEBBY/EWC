@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, FlaskConical, Loader2, Play,
@@ -598,11 +598,9 @@ function ParamSlider({
 
 export default function SimulationsPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   // Profile & branding
   const [profile, setProfile] = useState<StaffProfile | null>(null);
-  const [tenantId, setTenantId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -636,32 +634,20 @@ export default function SimulationsPage() {
     let cancelled = false;
     (async () => {
       try {
-        let tid = searchParams.get('tenantId');
-        let uid = searchParams.get('userId');
-
-        if (!tid || !uid) {
-          const fallback = await getCurrentUser();
-          if (fallback.success) {
-            tid = tid || 'clinic';
-            uid = uid || fallback.userId || null;
-          }
-        }
-        if (!tid || !uid) { setLoading(false); return; }
+        const userRes = await getCurrentUser();
+        if (!userRes.success || !userRes.userId) { setLoading(false); return; }
         if (cancelled) return;
 
-        setTenantId(tid);
-        setUserId(uid);
+        setUserId(userRes.userId);
 
         const [profileRes, overviewRes] = await Promise.all([
-          getStaffProfile(tid, uid),
-          getSimulationOverview(tid),
+          getStaffProfile('clinic', userRes.userId),
+          getSimulationOverview('clinic'),
         ]);
 
         if (cancelled) return;
         if (profileRes.success && profileRes.data) setProfile(profileRes.data.profile);
-        if (overviewRes.success && overviewRes.data) {
-          setOverview(overviewRes.data);
-        }
+        if (overviewRes.success && overviewRes.data) setOverview(overviewRes.data);
       } catch (err) {
         console.error('[simulations] load error:', err);
       } finally {
@@ -669,7 +655,7 @@ export default function SimulationsPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [searchParams]);
+  }, []);
 
   // ── Selected scenario details ──────────────────────────────────────────
   const selectedTemplate = useMemo(() => {
@@ -692,7 +678,7 @@ export default function SimulationsPage() {
 
   // ── Run Simulation ─────────────────────────────────────────────────────
   const handleRunSimulation = useCallback(async () => {
-    if (!tenantId || !userId || !selectedScenario || running) return;
+    if (!userId || !selectedScenario || running) return;
 
     setRunning(true);
     setResult(null);
@@ -713,7 +699,7 @@ export default function SimulationsPage() {
         unit: p.unit,
       }));
 
-      const res = await runSimulation(tenantId, userId, selectedScenario, simParams);
+      const res = await runSimulation('clinic', userId, selectedScenario, simParams);
 
       if (res.success && res.result) {
         setResult(res.result);
@@ -730,7 +716,7 @@ export default function SimulationsPage() {
       setNeuralPulseActive(false);
       setRunning(false);
     }, 500);
-  }, [tenantId, userId, selectedScenario, params, running]);
+  }, [userId, selectedScenario, params, running]);
 
   // ── Loading state ──────────────────────────────────────────────────────
   if (loading) {
@@ -756,7 +742,7 @@ export default function SimulationsPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
-              onClick={() => router.push(`/staff/dashboard?tenantId=${tenantId}&userId=${userId}`)}
+              onClick={() => router.push('/staff/dashboard')}
               className="p-2 rounded-lg bg-white border border-[#EBE5FF] hover:bg-[#FAF9F5] transition-colors"
             >
               <ArrowLeft className="w-4 h-4 text-[#524D66]" />
