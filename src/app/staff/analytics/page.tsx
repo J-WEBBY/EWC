@@ -14,15 +14,19 @@ import {
 } from '@/lib/actions/analytics';
 import { getStaffProfile, type StaffProfile } from '@/lib/actions/staff-onboarding';
 
+const FALLBACK: StaffProfile = {
+  userId: '', firstName: '—', lastName: '', email: '', jobTitle: null,
+  departmentName: null, departmentId: null, roleName: null, isAdmin: false,
+  isOwner: false, companyName: '', aiName: 'Aria', brandColor: '#8A6CFF',
+  logoUrl: null, industry: null, reportsTo: null, teamSize: 0,
+};
+
 // =============================================================================
 // SVG HELPERS
 // =============================================================================
 
 function Sparkline({ data, color, width = 80, height = 28 }: {
-  data:   number[];
-  color:  string;
-  width?: number;
-  height?: number;
+  data: number[]; color: string; width?: number; height?: number;
 }) {
   if (!data.length) return null;
   const max = Math.max(...data);
@@ -32,12 +36,12 @@ function Sparkline({ data, color, width = 80, height = 28 }: {
     `${(i / (data.length - 1)) * width},${height - ((v - min) / rng) * (height - 2) - 1}`
   ).join(' ');
   const fill = pts + ` ${width},${height} 0,${height}`;
-  const uid  = color.replace('#', 'sg');
+  const uid  = `sp${color.replace('#', '')}`;
   return (
     <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="overflow-visible">
       <defs>
         <linearGradient id={uid} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%"   stopColor={color} stopOpacity="0.25" />
+          <stop offset="0%"   stopColor={color} stopOpacity="0.18" />
           <stop offset="100%" stopColor={color} stopOpacity="0" />
         </linearGradient>
       </defs>
@@ -50,57 +54,32 @@ function Sparkline({ data, color, width = 80, height = 28 }: {
 function MiniBar({ value, max, color }: { value: number; max: number; color: string }) {
   const pct = max > 0 ? (value / max) * 100 : 0;
   return (
-    <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}>
+    <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(138,108,255,0.08)' }}>
       <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, backgroundColor: color }} />
     </div>
   );
 }
 
-// =============================================================================
-// HELPERS
-// =============================================================================
-
 function fmt(n: number): string {
   if (n >= 1000) return `£${(n / 1000).toFixed(1)}k`;
   return `£${n.toLocaleString()}`;
 }
-
 function fmtSec(s: number): string {
-  const m = Math.floor(s / 60);
-  const r = s % 60;
-  return `${m}m ${r}s`;
+  const m = Math.floor(s / 60); return `${m}m ${s % 60}s`;
 }
 
 // =============================================================================
-// SUB-COMPONENTS
+// KPI STRIP
 // =============================================================================
 
 function KPIStrip({ analytics }: { analytics: ClinicAnalytics }) {
   const { revenue, patients, komal } = analytics;
-  const pct   = revenue.change_pct;
+  const pct = revenue.change_pct;
   const cards = [
-    {
-      label: 'Revenue', value: fmt(revenue.current),
-      sub: `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}% vs prior`,
-      trend: pct > 0 ? 'up' : pct < 0 ? 'down' : 'flat',
-      sparkline: revenue.daily, color: '#6D28D9', icon: Target,
-    },
-    {
-      label: 'Active Patients', value: patients.total.toLocaleString(),
-      sub: `${patients.new_period} new · ${patients.at_risk} at risk`,
-      trend: 'up' as const, sparkline: [], color: '#3B82F6', icon: Users,
-    },
-    {
-      label: 'Booking Rate', value: `${komal.booking_rate}%`,
-      sub: `${komal.calls_total} calls · ${komal.calls_missed} missed`,
-      trend: komal.booking_rate > 30 ? 'up' : 'down',
-      sparkline: [], color: '#0D9488', icon: Phone,
-    },
-    {
-      label: 'YTD Revenue', value: fmt(revenue.ytd),
-      sub: `${Math.round((revenue.ytd / (revenue.target * 3)) * 100)}% of Q1 target`,
-      trend: 'up' as const, sparkline: [], color: '#D97706', icon: Activity,
-    },
+    { label: 'Revenue',        value: fmt(revenue.current), sub: `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}% vs prior`, trend: pct > 0 ? 'up' : pct < 0 ? 'down' : 'flat', sparkline: revenue.daily, color: '#6D28D9', icon: Target },
+    { label: 'Active Patients',value: patients.total.toLocaleString(), sub: `${patients.new_period} new · ${patients.at_risk} at risk`, trend: 'up' as const, sparkline: [], color: '#3B82F6', icon: Users },
+    { label: 'Booking Rate',   value: `${komal.booking_rate}%`, sub: `${komal.calls_total} calls · ${komal.calls_missed} missed`, trend: komal.booking_rate > 30 ? 'up' : 'down', sparkline: [], color: '#0D9488', icon: Phone },
+    { label: 'YTD Revenue',    value: fmt(revenue.ytd), sub: `${Math.round((revenue.ytd / (revenue.target * 3)) * 100)}% of Q1 target`, trend: 'up' as const, sparkline: [], color: '#D97706', icon: Activity },
   ];
 
   return (
@@ -108,25 +87,21 @@ function KPIStrip({ analytics }: { analytics: ClinicAnalytics }) {
       {cards.map(c => {
         const Icon = c.icon;
         return (
-          <div
-            key={c.label}
-            className="px-5 py-4 rounded-2xl"
-            style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}
-          >
+          <div key={c.label} className="px-5 py-4 rounded-2xl" style={{ border: '1px solid #EBE5FF', backgroundColor: 'transparent' }}>
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${c.color}15` }}>
+                <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${c.color}12` }}>
                   <Icon className="w-3 h-3" style={{ color: c.color }} />
                 </div>
-                <p className="text-[9px] uppercase tracking-[0.16em] font-medium" style={{ color: 'rgba(255,255,255,0.30)' }}>{c.label}</p>
+                <p className="text-[9px] uppercase tracking-[0.16em] font-semibold" style={{ color: '#8B84A0' }}>{c.label}</p>
               </div>
-              {c.trend === 'up'   && <TrendingUp   className="w-3 h-3" style={{ color: '#22c55e' }} />}
-              {c.trend === 'down' && <TrendingDown  className="w-3 h-3" style={{ color: '#ef4444' }} />}
-              {c.trend === 'flat' && <Minus         className="w-3 h-3" style={{ color: '#6b7280' }} />}
+              {c.trend === 'up'   && <TrendingUp   className="w-3 h-3 text-emerald-500" />}
+              {c.trend === 'down' && <TrendingDown  className="w-3 h-3 text-red-400" />}
+              {c.trend === 'flat' && <Minus         className="w-3 h-3" style={{ color: '#8B84A0' }} />}
             </div>
-            <p className="text-[28px] font-black tracking-tight mb-1" style={{ color: 'rgba(255,255,255,0.92)' }}>{c.value}</p>
+            <p className="text-[28px] font-black tracking-tight mb-1" style={{ color: '#1A1035' }}>{c.value}</p>
             <div className="flex items-end justify-between gap-3">
-              <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.28)' }}>{c.sub}</p>
+              <p className="text-[10px]" style={{ color: '#6E6688' }}>{c.sub}</p>
               {c.sparkline.length > 0 && <Sparkline data={c.sparkline.slice(-14)} color={c.color} width={60} height={22} />}
             </div>
           </div>
@@ -136,16 +111,17 @@ function KPIStrip({ analytics }: { analytics: ClinicAnalytics }) {
   );
 }
 
+// =============================================================================
+// TREATMENT PANEL
+// =============================================================================
+
 function TreatmentPanel({ treatments }: { treatments: TreatmentStat[] }) {
   const maxRev = Math.max(...treatments.map(t => t.revenue));
   return (
-    <div
-      className="rounded-2xl overflow-hidden"
-      style={{ border: '1px solid rgba(255,255,255,0.07)', backgroundColor: 'rgba(255,255,255,0.02)' }}
-    >
-      <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <p className="text-[9px] uppercase tracking-[0.18em] font-medium" style={{ color: 'rgba(255,255,255,0.22)' }}>Treatment Performance</p>
-        <p className="text-[15px] font-bold mt-0.5" style={{ color: 'rgba(255,255,255,0.80)' }}>Revenue by Treatment</p>
+    <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #EBE5FF' }}>
+      <div className="px-5 py-4" style={{ borderBottom: '1px solid #EBE5FF' }}>
+        <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-0.5" style={{ color: '#8B84A0' }}>Treatment Performance</p>
+        <p className="text-[15px] font-bold" style={{ color: '#1A1035' }}>Revenue by Treatment</p>
       </div>
       <div className="p-5 space-y-4">
         {treatments.map(t => (
@@ -153,26 +129,21 @@ function TreatmentPanel({ treatments }: { treatments: TreatmentStat[] }) {
             <div className="flex items-center justify-between mb-1.5">
               <div className="flex items-center gap-2">
                 <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: t.color }} />
-                <p className="text-[11px] font-medium" style={{ color: 'rgba(255,255,255,0.72)' }}>{t.name}</p>
+                <p className="text-[11px] font-medium" style={{ color: '#1A1035' }}>{t.name}</p>
               </div>
               <div className="flex items-center gap-3">
-                <span
-                  className="text-[9px] font-semibold px-1.5 py-0.5 rounded"
-                  style={{
-                    backgroundColor: t.trend > 0 ? 'rgba(34,197,94,0.10)' : 'rgba(239,68,68,0.10)',
-                    color:           t.trend > 0 ? '#22c55e' : '#ef4444',
-                  }}
-                >
+                <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded" style={{
+                  backgroundColor: t.trend > 0 ? 'rgba(16,185,129,0.10)' : 'rgba(239,68,68,0.10)',
+                  color:           t.trend > 0 ? '#059669' : '#dc2626',
+                }}>
                   {t.trend > 0 ? '+' : ''}{t.trend.toFixed(1)}%
                 </span>
-                <p className="text-[11px] font-semibold w-16 text-right" style={{ color: 'rgba(255,255,255,0.80)' }}>
-                  {fmt(t.revenue)}
-                </p>
+                <p className="text-[11px] font-semibold w-16 text-right" style={{ color: '#1A1035' }}>{fmt(t.revenue)}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <MiniBar value={t.revenue} max={maxRev} color={t.color} />
-              <p className="text-[9px] w-8 text-right" style={{ color: 'rgba(255,255,255,0.20)' }}>{t.pct}%</p>
+              <p className="text-[9px] w-8 text-right" style={{ color: '#8B84A0' }}>{t.pct}%</p>
             </div>
           </div>
         ))}
@@ -181,57 +152,47 @@ function TreatmentPanel({ treatments }: { treatments: TreatmentStat[] }) {
   );
 }
 
+// =============================================================================
+// PATIENT PANEL
+// =============================================================================
+
 function PatientPanel({ patients }: { analytics: ClinicAnalytics; patients: ClinicAnalytics['patients'] }) {
   const total = patients.lifecycle.reduce((s, l) => s + l.count, 0);
   return (
-    <div
-      className="rounded-2xl overflow-hidden"
-      style={{ border: '1px solid rgba(255,255,255,0.07)', backgroundColor: 'rgba(255,255,255,0.02)' }}
-    >
-      <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <p className="text-[9px] uppercase tracking-[0.18em] font-medium" style={{ color: 'rgba(255,255,255,0.22)' }}>Patient Intelligence</p>
-        <p className="text-[15px] font-bold mt-0.5" style={{ color: 'rgba(255,255,255,0.80)' }}>Lifecycle Distribution</p>
+    <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #EBE5FF' }}>
+      <div className="px-5 py-4" style={{ borderBottom: '1px solid #EBE5FF' }}>
+        <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-0.5" style={{ color: '#8B84A0' }}>Patient Intelligence</p>
+        <p className="text-[15px] font-bold" style={{ color: '#1A1035' }}>Lifecycle Distribution</p>
       </div>
       <div className="p-5">
-        {/* Stacked bar */}
         <div className="h-3 rounded-full overflow-hidden flex mb-4">
           {patients.lifecycle.map(l => (
-            <div
-              key={l.label}
-              style={{ width: `${(l.count / total) * 100}%`, backgroundColor: l.color }}
-              title={`${l.label}: ${l.count}`}
-            />
+            <div key={l.label} style={{ width: `${(l.count / total) * 100}%`, backgroundColor: l.color }} title={`${l.label}: ${l.count}`} />
           ))}
         </div>
-
-        {/* Legend */}
         <div className="space-y-2.5">
           {patients.lifecycle.map(l => (
             <div key={l.label} className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: l.color }} />
-                <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.55)' }}>{l.label}</p>
+                <p className="text-[11px]" style={{ color: '#524D66' }}>{l.label}</p>
               </div>
               <div className="flex items-center gap-3">
-                <div className="w-20">
-                  <MiniBar value={l.count} max={total} color={l.color} />
-                </div>
-                <p className="text-[11px] font-semibold w-6 text-right" style={{ color: 'rgba(255,255,255,0.72)' }}>{l.count}</p>
+                <div className="w-20"><MiniBar value={l.count} max={total} color={l.color} /></div>
+                <p className="text-[11px] font-semibold w-6 text-right" style={{ color: '#1A1035' }}>{l.count}</p>
               </div>
             </div>
           ))}
         </div>
-
-        {/* Micro-KPIs */}
-        <div className="mt-4 pt-4 grid grid-cols-3 gap-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="mt-4 pt-4 grid grid-cols-3 gap-3" style={{ borderTop: '1px solid #EBE5FF' }}>
           {[
-            { label: 'Returning', value: `${patients.returning_pct}%`, color: '#22c55e' },
+            { label: 'Returning', value: `${patients.returning_pct}%`, color: '#059669' },
             { label: 'Avg LTV',   value: `£${patients.avg_ltv}`,       color: '#6D28D9' },
-            { label: 'At Risk',   value: patients.at_risk.toString(),   color: '#ef4444' },
+            { label: 'At Risk',   value: patients.at_risk.toString(),   color: '#DC2626' },
           ].map(k => (
-            <div key={k.label} className="text-center px-2 py-2 rounded-xl" style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
+            <div key={k.label} className="text-center px-2 py-2 rounded-xl" style={{ backgroundColor: `${k.color}08`, border: `1px solid ${k.color}20` }}>
               <p className="text-[16px] font-black" style={{ color: k.color }}>{k.value}</p>
-              <p className="text-[8px] mt-0.5" style={{ color: 'rgba(255,255,255,0.22)' }}>{k.label}</p>
+              <p className="text-[8px] mt-0.5" style={{ color: '#8B84A0' }}>{k.label}</p>
             </div>
           ))}
         </div>
@@ -240,53 +201,52 @@ function PatientPanel({ patients }: { analytics: ClinicAnalytics; patients: Clin
   );
 }
 
+// =============================================================================
+// KOMAL PANEL
+// =============================================================================
+
 function KomalPanel({ komal }: { komal: ClinicAnalytics['komal'] }) {
-  const ansRate  = Math.round((komal.calls_answered / komal.calls_total) * 100);
+  const ansRate = Math.round((komal.calls_answered / komal.calls_total) * 100);
   const items = [
-    { label: 'Total Calls',      value: komal.calls_total.toString(),        color: '#8b5cf6' },
-    { label: 'Answered',         value: komal.calls_answered.toString(),      color: '#22c55e' },
-    { label: 'Missed',           value: komal.calls_missed.toString(),        color: '#ef4444' },
-    { label: 'Avg Duration',     value: fmtSec(komal.avg_duration_sec),       color: '#94a3b8' },
-    { label: 'Booking Rate',     value: `${komal.booking_rate}%`,             color: '#3b82f6' },
-    { label: 'Leads Captured',   value: komal.leads_captured.toString(),      color: '#D97706' },
+    { label: 'Total Calls',    value: komal.calls_total.toString(),       color: '#7C3AED' },
+    { label: 'Answered',       value: komal.calls_answered.toString(),     color: '#059669' },
+    { label: 'Missed',         value: komal.calls_missed.toString(),       color: '#DC2626' },
+    { label: 'Avg Duration',   value: fmtSec(komal.avg_duration_sec),      color: '#524D66' },
+    { label: 'Booking Rate',   value: `${komal.booking_rate}%`,            color: '#3B82F6' },
+    { label: 'Leads Captured', value: komal.leads_captured.toString(),     color: '#D97706' },
   ];
 
   return (
-    <div
-      className="rounded-2xl overflow-hidden"
-      style={{ border: '1px solid rgba(168,85,247,0.15)', backgroundColor: 'rgba(168,85,247,0.04)' }}
-    >
-      <div className="px-5 py-4 flex items-center gap-2" style={{ borderBottom: '1px solid rgba(168,85,247,0.10)' }}>
-        <Mic className="w-3.5 h-3.5" style={{ color: '#a855f7' }} />
+    <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #D5CCFF', backgroundColor: 'rgba(109,40,217,0.03)' }}>
+      <div className="px-5 py-4 flex items-center gap-2" style={{ borderBottom: '1px solid #D5CCFF' }}>
+        <Mic className="w-3.5 h-3.5" style={{ color: '#7C3AED' }} />
         <div>
-          <p className="text-[9px] uppercase tracking-[0.18em] font-medium" style={{ color: 'rgba(168,85,247,0.60)' }}>Voice Receptionist</p>
-          <p className="text-[15px] font-bold" style={{ color: 'rgba(255,255,255,0.80)' }}>Komal — Call Intelligence</p>
+          <p className="text-[8px] uppercase tracking-[0.28em] font-semibold" style={{ color: '#7C3AED' }}>Voice Receptionist</p>
+          <p className="text-[15px] font-bold" style={{ color: '#1A1035' }}>Komal — Call Intelligence</p>
         </div>
       </div>
       <div className="p-5">
-        {/* Answer rate ring (simple arc via border) */}
         <div className="flex items-center gap-4 mb-5">
           <div className="relative w-14 h-14 flex-shrink-0">
             <svg viewBox="0 0 56 56" className="w-14 h-14 -rotate-90">
-              <circle cx="28" cy="28" r="22" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="5" />
-              <circle cx="28" cy="28" r="22" fill="none" stroke="#a855f7" strokeWidth="5"
+              <circle cx="28" cy="28" r="22" fill="none" stroke="rgba(138,108,255,0.12)" strokeWidth="5" />
+              <circle cx="28" cy="28" r="22" fill="none" stroke="#7C3AED" strokeWidth="5"
                 strokeDasharray={`${(ansRate / 100) * 138.2} 138.2`} strokeLinecap="round" />
             </svg>
             <div className="absolute inset-0 flex items-center justify-center">
-              <p className="text-[11px] font-black" style={{ color: '#a855f7' }}>{ansRate}%</p>
+              <p className="text-[11px] font-black" style={{ color: '#7C3AED' }}>{ansRate}%</p>
             </div>
           </div>
           <div>
-            <p className="text-[12px] font-semibold" style={{ color: 'rgba(255,255,255,0.75)' }}>Answer Rate</p>
-            <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.30)' }}>{komal.calls_missed} calls missed this period</p>
+            <p className="text-[12px] font-semibold" style={{ color: '#1A1035' }}>Answer Rate</p>
+            <p className="text-[10px]" style={{ color: '#6E6688' }}>{komal.calls_missed} calls missed this period</p>
           </div>
         </div>
-
         <div className="grid grid-cols-3 gap-2">
           {items.map(item => (
-            <div key={item.label} className="px-3 py-2.5 rounded-xl text-center" style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+            <div key={item.label} className="px-3 py-2.5 rounded-xl text-center" style={{ border: '1px solid #EBE5FF', backgroundColor: 'transparent' }}>
               <p className="text-[16px] font-black" style={{ color: item.color }}>{item.value}</p>
-              <p className="text-[8px] mt-0.5 leading-tight" style={{ color: 'rgba(255,255,255,0.22)' }}>{item.label}</p>
+              <p className="text-[8px] mt-0.5 leading-tight" style={{ color: '#8B84A0' }}>{item.label}</p>
             </div>
           ))}
         </div>
@@ -295,33 +255,28 @@ function KomalPanel({ komal }: { komal: ClinicAnalytics['komal'] }) {
   );
 }
 
+// =============================================================================
+// AGENT PANEL
+// =============================================================================
+
 function AgentPanel({ agents }: { agents: ClinicAnalytics['agents'] }) {
   return (
-    <div
-      className="rounded-2xl overflow-hidden"
-      style={{ border: '1px solid rgba(255,255,255,0.07)', backgroundColor: 'rgba(255,255,255,0.02)' }}
-    >
-      <div className="px-5 py-4 flex items-center gap-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <Bot className="w-3.5 h-3.5" style={{ color: 'rgba(255,255,255,0.40)' }} />
+    <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #EBE5FF' }}>
+      <div className="px-5 py-4 flex items-center gap-2" style={{ borderBottom: '1px solid #EBE5FF' }}>
+        <Bot className="w-3.5 h-3.5" style={{ color: '#8B84A0' }} />
         <div>
-          <p className="text-[9px] uppercase tracking-[0.18em] font-medium" style={{ color: 'rgba(255,255,255,0.22)' }}>Agent Intelligence</p>
-          <p className="text-[15px] font-bold" style={{ color: 'rgba(255,255,255,0.80)' }}>AI Agent Performance</p>
+          <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-0.5" style={{ color: '#8B84A0' }}>Agent Intelligence</p>
+          <p className="text-[15px] font-bold" style={{ color: '#1A1035' }}>AI Agent Performance</p>
         </div>
       </div>
       <div className="p-5 grid grid-cols-3 gap-4">
         {agents.map(a => (
-          <div
-            key={a.key}
-            className="px-4 py-4 rounded-2xl flex flex-col gap-3"
-            style={{ border: `1px solid ${a.color}25`, backgroundColor: `${a.color}08` }}
-          >
-            {/* Header */}
+          <div key={a.key} className="px-4 py-4 rounded-2xl flex flex-col gap-3"
+            style={{ border: `1px solid ${a.color}25`, backgroundColor: `${a.color}06` }}>
             <div className="flex items-center justify-between">
               <p className="text-[13px] font-black" style={{ color: a.color }}>{a.name}</p>
               <Sparkline data={a.sparkline} color={a.color} width={50} height={20} />
             </div>
-
-            {/* Metrics */}
             <div className="space-y-2.5">
               {[
                 { label: 'Signals',    value: a.signals.toString() },
@@ -330,17 +285,13 @@ function AgentPanel({ agents }: { agents: ClinicAnalytics['agents'] }) {
                 { label: 'Actions',    value: a.actions.toString() },
               ].map(m => (
                 <div key={m.label} className="flex items-center justify-between">
-                  <p className="text-[9px] uppercase tracking-[0.08em]" style={{ color: 'rgba(255,255,255,0.25)' }}>{m.label}</p>
-                  <p className="text-[12px] font-bold" style={{ color: 'rgba(255,255,255,0.80)' }}>{m.value}</p>
+                  <p className="text-[9px] uppercase tracking-[0.08em]" style={{ color: '#8B84A0' }}>{m.label}</p>
+                  <p className="text-[12px] font-bold" style={{ color: '#1A1035' }}>{m.value}</p>
                 </div>
               ))}
             </div>
-
-            {/* Resolution bar */}
-            <div>
-              <div className="h-1 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}>
-                <div className="h-full rounded-full" style={{ width: `${a.resolution}%`, backgroundColor: a.color }} />
-              </div>
+            <div className="h-1 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(138,108,255,0.08)' }}>
+              <div className="h-full rounded-full" style={{ width: `${a.resolution}%`, backgroundColor: a.color }} />
             </div>
           </div>
         ))}
@@ -349,34 +300,35 @@ function AgentPanel({ agents }: { agents: ClinicAnalytics['agents'] }) {
   );
 }
 
+// =============================================================================
+// OPERATIONS STRIP
+// =============================================================================
+
 function OperationsStrip({ ops }: { ops: ClinicAnalytics['operations'] }) {
   const items = [
-    { label: 'Compliance Score', value: `${ops.compliance_score}%`, color: ops.compliance_score > 85 ? '#22c55e' : ops.compliance_score > 65 ? '#D97706' : '#ef4444', icon: Shield },
-    { label: 'Signals Today',    value: ops.signals_today.toString(),  color: '#3b82f6', icon: Activity },
-    { label: 'Open Signals',     value: ops.open_signals.toString(),   color: '#f59e0b', icon: Activity },
-    { label: 'Automations Fired',value: ops.automations_fired.toString(), color: '#8b5cf6', icon: Zap },
-    { label: 'CQC Inspection',   value: ops.cqc_days_to !== null ? `${ops.cqc_days_to}d` : 'TBC', color: ops.cqc_days_to !== null && ops.cqc_days_to <= 7 ? '#ef4444' : '#94a3b8', icon: Shield },
+    { label: 'Compliance Score',  value: `${ops.compliance_score}%`,          color: ops.compliance_score > 85 ? '#059669' : ops.compliance_score > 65 ? '#D97706' : '#DC2626', icon: Shield },
+    { label: 'Signals Today',     value: ops.signals_today.toString(),          color: '#3B82F6', icon: Activity },
+    { label: 'Open Signals',      value: ops.open_signals.toString(),           color: '#D97706', icon: Activity },
+    { label: 'Automations Fired', value: ops.automations_fired.toString(),      color: '#7C3AED', icon: Zap },
+    { label: 'CQC Inspection',    value: ops.cqc_days_to !== null ? `${ops.cqc_days_to}d` : 'TBC', color: ops.cqc_days_to !== null && ops.cqc_days_to <= 7 ? '#DC2626' : '#6E6688', icon: Shield },
   ];
 
   return (
-    <div
-      className="rounded-2xl overflow-hidden"
-      style={{ border: '1px solid rgba(255,255,255,0.07)', backgroundColor: 'rgba(255,255,255,0.02)' }}
-    >
-      <div className="px-5 py-3 flex items-center gap-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <p className="text-[9px] uppercase tracking-[0.18em] font-medium" style={{ color: 'rgba(255,255,255,0.22)' }}>Operations Health</p>
+    <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #EBE5FF' }}>
+      <div className="px-5 py-3" style={{ borderBottom: '1px solid #EBE5FF' }}>
+        <p className="text-[8px] uppercase tracking-[0.28em] font-semibold" style={{ color: '#8B84A0' }}>Operations Health</p>
       </div>
       <div className="px-5 py-4 grid grid-cols-5 gap-4">
         {items.map(item => {
           const Icon = item.icon;
           return (
             <div key={item.label} className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${item.color}15` }}>
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${item.color}12` }}>
                 <Icon className="w-3.5 h-3.5" style={{ color: item.color }} />
               </div>
               <div>
                 <p className="text-[16px] font-black" style={{ color: item.color }}>{item.value}</p>
-                <p className="text-[8px] leading-tight" style={{ color: 'rgba(255,255,255,0.22)' }}>{item.label}</p>
+                <p className="text-[8px] leading-tight" style={{ color: '#8B84A0' }}>{item.label}</p>
               </div>
             </div>
           );
@@ -395,19 +347,19 @@ export default function AnalyticsPage() {
   const userId       = searchParams.get('userId') ?? '';
 
   const [profile,    setProfile]    = useState<StaffProfile | null>(null);
-  const [brandColor, setBrandColor] = useState('#ffffff');
+  const [brandColor, setBrandColor] = useState('#8A6CFF');
   const [range,      setRange]      = useState<TimeRange>('30d');
   const [analytics,  setAnalytics]  = useState<ClinicAnalytics | null>(null);
   const [brief,      setBrief]      = useState<string | null>(null);
-  const [loadingData,   setLoadingData]   = useState(true);
-  const [loadingBrief,  setLoadingBrief]  = useState(false);
+  const [loadingData,  setLoadingData]  = useState(true);
+  const [loadingBrief, setLoadingBrief] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
     getStaffProfile('clinic', userId).then(r => {
       if (r.success && r.data?.profile) {
         setProfile(r.data.profile);
-        setBrandColor(r.data.profile.brandColor ?? '#ffffff');
+        setBrandColor(r.data.profile.brandColor ?? '#8A6CFF');
       }
     });
   }, [userId]);
@@ -418,8 +370,6 @@ export default function AnalyticsPage() {
     const data = await getClinicAnalytics(r);
     setAnalytics(data);
     setLoadingData(false);
-
-    // Generate brief in background
     setLoadingBrief(true);
     const res = await generateIntelligenceBrief(data, r);
     if (res.success && res.brief) setBrief(res.brief);
@@ -429,12 +379,9 @@ export default function AnalyticsPage() {
   useEffect(() => { loadAnalytics(range); }, [range, loadAnalytics]);
 
   return (
-    <div
-      className="min-h-screen overflow-y-auto"
-      style={{ backgroundColor: '#000', paddingLeft: 'var(--nav-w, 240px)' }}
-    >
+    <div className="min-h-screen overflow-y-auto" style={{ backgroundColor: '#FAF7F2', paddingLeft: 'var(--nav-w, 240px)' }}>
       <StaffNav
-        profile={profile ?? { userId: '', firstName: '—', lastName: '', email: '', jobTitle: null, departmentName: null, departmentId: null, roleName: null, isAdmin: false, isOwner: false, companyName: '', aiName: 'Aria', brandColor: '#ffffff', logoUrl: null, industry: null, reportsTo: null, teamSize: 0 }}
+        profile={profile ?? FALLBACK}
         userId={userId}
         brandColor={brandColor}
         currentPath="Analytics"
@@ -445,22 +392,17 @@ export default function AnalyticsPage() {
         {/* Header */}
         <div className="flex items-end justify-between mb-6">
           <div>
-            <p className="text-[9px] uppercase tracking-[0.22em] font-medium mb-1" style={{ color: 'rgba(255,255,255,0.22)' }}>Intelligence</p>
-            <h1 className="text-[32px] font-black tracking-tight" style={{ color: 'rgba(255,255,255,0.92)' }}>Central Intelligence</h1>
+            <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-1" style={{ color: '#8B84A0' }}>Intelligence</p>
+            <h1 className="text-[38px] font-black tracking-[-0.035em]" style={{ color: '#1A1035' }}>Central Intelligence</h1>
           </div>
-
-          {/* Time range */}
-          <div className="flex gap-1 p-1 rounded-xl" style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+          <div className="flex gap-1 p-1 rounded-xl" style={{ backgroundColor: 'rgba(138,108,255,0.06)', border: '1px solid #EBE5FF' }}>
             {(['7d', '30d', '90d'] as TimeRange[]).map(r => (
-              <button
-                key={r}
-                onClick={() => setRange(r)}
+              <button key={r} onClick={() => setRange(r)}
                 className="px-4 py-1.5 rounded-lg text-[11px] font-semibold transition-all"
                 style={{
-                  backgroundColor: range === r ? 'rgba(255,255,255,0.12)' : 'transparent',
-                  color:           range === r ? 'rgba(255,255,255,0.90)' : 'rgba(255,255,255,0.30)',
-                }}
-              >
+                  backgroundColor: range === r ? 'rgba(138,108,255,0.14)' : 'transparent',
+                  color:           range === r ? '#1A1035' : '#8B84A0',
+                }}>
                 {r}
               </button>
             ))}
@@ -468,31 +410,28 @@ export default function AnalyticsPage() {
         </div>
 
         {/* Intelligence Brief */}
-        <div
-          className="mb-6 px-6 py-5 rounded-2xl"
-          style={{ border: '1px solid rgba(109,40,217,0.20)', backgroundColor: 'rgba(109,40,217,0.06)' }}
-        >
+        <div className="mb-6 px-6 py-5 rounded-2xl" style={{ border: '1px solid #D5CCFF', backgroundColor: 'rgba(109,40,217,0.04)' }}>
           <div className="flex items-start gap-3">
-            <div className="w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5" style={{ backgroundColor: 'rgba(109,40,217,0.15)' }}>
+            <div className="w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5" style={{ backgroundColor: 'rgba(109,40,217,0.10)' }}>
               <Sparkles className="w-3.5 h-3.5" style={{ color: '#6D28D9' }} />
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-2">
-                <p className="text-[9px] uppercase tracking-[0.18em] font-semibold" style={{ color: '#6D28D9' }}>Intelligence Brief</p>
-                <p className="text-[9px]" style={{ color: 'rgba(255,255,255,0.20)' }}>· Generated by Aria</p>
+                <p className="text-[8px] uppercase tracking-[0.28em] font-semibold" style={{ color: '#6D28D9' }}>Intelligence Brief</p>
+                <p className="text-[9px]" style={{ color: '#8B84A0' }}>· Generated by Aria</p>
               </div>
               <AnimatePresence mode="wait">
                 {loadingBrief ? (
                   <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-2">
                     <Loader2 className="w-3 h-3 animate-spin" style={{ color: '#6D28D9' }} />
-                    <p className="text-[12px]" style={{ color: 'rgba(255,255,255,0.30)' }}>Generating intelligence brief…</p>
+                    <p className="text-[12px]" style={{ color: '#8B84A0' }}>Generating intelligence brief…</p>
                   </motion.div>
                 ) : brief ? (
-                  <motion.p key="brief" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-[13px] leading-relaxed" style={{ color: 'rgba(255,255,255,0.72)' }}>
+                  <motion.p key="brief" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-[13px] leading-relaxed" style={{ color: '#524D66' }}>
                     {brief}
                   </motion.p>
                 ) : (
-                  <motion.p key="wait" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-[12px]" style={{ color: 'rgba(255,255,255,0.25)' }}>
+                  <motion.p key="wait" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-[12px]" style={{ color: '#8B84A0' }}>
                     Brief unavailable — load analytics data to generate.
                   </motion.p>
                 )}
@@ -503,29 +442,20 @@ export default function AnalyticsPage() {
 
         {loadingData ? (
           <div className="flex items-center justify-center py-24">
-            <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'rgba(255,255,255,0.20)' }} />
+            <Loader2 className="w-6 h-6 animate-spin" style={{ color: '#8B84A0' }} />
           </div>
         ) : analytics ? (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-
-            {/* KPI Strip */}
             <KPIStrip analytics={analytics} />
-
-            {/* Treatment + Patient */}
             <div className="grid grid-cols-[1.2fr_1fr] gap-4 mb-4">
               <TreatmentPanel treatments={analytics.treatments} />
               <PatientPanel analytics={analytics} patients={analytics.patients} />
             </div>
-
-            {/* Komal + Agent */}
             <div className="grid grid-cols-[1fr_1.6fr] gap-4 mb-4">
               <KomalPanel komal={analytics.komal} />
               <AgentPanel agents={analytics.agents} />
             </div>
-
-            {/* Operations */}
             <OperationsStrip ops={analytics.operations} />
-
             <div className="h-8" />
           </motion.div>
         ) : null}

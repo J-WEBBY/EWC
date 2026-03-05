@@ -1,285 +1,361 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+// =============================================================================
+// Inventory & Equipment — Stock management + equipment register
+// AI reorder predictions, CQC compliance tracking
+// =============================================================================
+
+import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Package, AlertTriangle, CheckCircle2, RefreshCw,
-  ChevronRight, Search, TrendingDown,
-} from 'lucide-react';
-import {
-  getStaffProfile, getCurrentUser, type StaffProfile,
-} from '@/lib/actions/staff-onboarding';
+  getInventoryData,
+  getAIReorderRecommendations,
+  updateStockLevel,
+  markEquipmentServiced,
+} from '@/lib/actions/inventory';
+import type {
+  ConsumableItem,
+  EquipmentItem,
+  InventoryStats,
+  AIReorderRecommendation,
+} from '@/lib/actions/inventory';
+import { getStaffProfile, getLatestTenantAndUser } from '@/lib/actions/staff-onboarding';
+import type { StaffProfile } from '@/lib/actions/staff-onboarding';
 import { StaffNav } from '@/components/staff-nav';
 
-// =============================================================================
-// SIMULATED DATA
-// =============================================================================
+const ACCENT = '#6D28D9';
 
-type StockStatus = 'ok' | 'low' | 'critical' | 'out';
+const STOCK_STYLE: Record<ConsumableItem['stock_status'], { bg: string; border: string; text: string; label: string }> = {
+  ok:           { bg: 'rgba(5,150,105,0.07)',   border: 'rgba(5,150,105,0.25)',   text: '#059669', label: 'OK' },
+  low:          { bg: 'rgba(217,119,6,0.07)',   border: 'rgba(217,119,6,0.25)',   text: '#D97706', label: 'Low' },
+  critical:     { bg: 'rgba(220,38,38,0.08)',   border: 'rgba(220,38,38,0.25)',   text: '#DC2626', label: 'Critical' },
+  out_of_stock: { bg: 'rgba(220,38,38,0.12)',   border: 'rgba(220,38,38,0.35)',   text: '#DC2626', label: 'Out' },
+  on_order:     { bg: 'rgba(37,99,235,0.07)',   border: 'rgba(37,99,235,0.25)',   text: '#2563EB', label: 'On Order' },
+};
 
-interface InventoryItem {
-  id: string;
-  name: string;
-  category: string;
-  sku: string;
-  quantity: number;
-  reorderLevel: number;
-  unit: string;
-  supplier: string;
-  lastOrdered: string;
-  expiryDate: string | null;
-  status: StockStatus;
-  unitCost?: string;
+const EQUIP_STYLE: Record<EquipmentItem['equipment_status'], { dot: string; label: string; text: string }> = {
+  operational:      { dot: '#059669', label: 'Operational', text: '#059669' },
+  due_service:      { dot: '#D97706', label: 'Due Service',  text: '#D97706' },
+  overdue_service:  { dot: '#DC2626', label: 'Overdue',      text: '#DC2626' },
+  out_of_service:   { dot: '#8B84A0', label: 'Out of Svc',   text: '#8B84A0' },
+};
+
+const FALLBACK: StaffProfile = {
+  userId: '', firstName: 'Staff', lastName: '', email: '',
+  jobTitle: null, departmentName: null, departmentId: null,
+  roleName: null, isAdmin: false, isOwner: false,
+  companyName: 'Edgbaston Wellness Clinic',
+  aiName: 'Aria', brandColor: '#6D28D9', logoUrl: null,
+  industry: null, reportsTo: null, teamSize: 0,
+};
+
+function fmtDate(d: string | null) {
+  if (!d) return 'N/A';
+  return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-const INVENTORY: InventoryItem[] = [
-  // Injectables
-  { id: 'inv01', name: 'Botulinum Toxin A (Bocouture 50u)',  category: 'Injectables',   sku: 'INJ-001', quantity: 24, reorderLevel: 10, unit: 'vials',   supplier: 'Sinclair Pharma',  lastOrdered: '2026-02-01', expiryDate: '2026-08-31', status: 'ok'       },
-  { id: 'inv02', name: 'Juvederm Ultra 2 (1ml)',             category: 'Injectables',   sku: 'INJ-002', quantity: 8,  reorderLevel: 10, unit: 'syringes',supplier: 'Allergan',         lastOrdered: '2026-01-15', expiryDate: '2026-06-30', status: 'low'      },
-  { id: 'inv03', name: 'Juvederm Voluma 2ml',                category: 'Injectables',   sku: 'INJ-003', quantity: 3,  reorderLevel: 8,  unit: 'syringes',supplier: 'Allergan',         lastOrdered: '2025-12-20', expiryDate: '2026-05-15', status: 'critical' },
-  { id: 'inv04', name: 'Belotero Balance (1ml)',             category: 'Injectables',   sku: 'INJ-004', quantity: 12, reorderLevel: 6,  unit: 'syringes',supplier: 'Merz',             lastOrdered: '2026-02-05', expiryDate: '2026-09-10', status: 'ok'       },
-  // IV Therapy
-  { id: 'inv05', name: 'Normal Saline 500ml (0.9%)',         category: 'IV Therapy',    sku: 'IVT-001', quantity: 48, reorderLevel: 20, unit: 'bags',    supplier: 'Baxter',           lastOrdered: '2026-01-28', expiryDate: '2027-01-01', status: 'ok'       },
-  { id: 'inv06', name: 'Vitamin C (Ascorbic Acid 500mg/5ml)',category: 'IV Therapy',    sku: 'IVT-002', quantity: 5,  reorderLevel: 10, unit: 'ampoules',supplier: 'Alliance Pharma',  lastOrdered: '2025-12-10', expiryDate: '2026-03-01', status: 'critical' },
-  { id: 'inv07', name: 'B-Complex IV Solution',             category: 'IV Therapy',    sku: 'IVT-003', quantity: 15, reorderLevel: 8,  unit: 'vials',   supplier: 'Alliance Pharma',  lastOrdered: '2026-01-20', expiryDate: '2026-07-15', status: 'ok'       },
-  // Consumables
-  { id: 'inv08', name: 'Sterile Cannulas 22G',               category: 'Consumables',   sku: 'CON-001', quantity: 200, reorderLevel: 50, unit: 'pcs',    supplier: 'Medline',          lastOrdered: '2026-02-01', expiryDate: null,         status: 'ok'       },
-  { id: 'inv09', name: 'Nitrile Examination Gloves (M)',     category: 'Consumables',   sku: 'CON-002', quantity: 2,  reorderLevel: 5,  unit: 'boxes',   supplier: 'Medline',          lastOrdered: '2026-01-10', expiryDate: null,         status: 'critical' },
-  { id: 'inv10', name: 'Alcohol Swabs 70% IPA',              category: 'Consumables',   sku: 'CON-003', quantity: 300, reorderLevel: 100, unit: 'pcs',   supplier: 'Medline',          lastOrdered: '2026-02-01', expiryDate: null,         status: 'ok'       },
-  // Skincare
-  { id: 'inv11', name: 'Numbing Cream EMLA 5%',              category: 'Skincare',      sku: 'SKN-001', quantity: 9,  reorderLevel: 6,  unit: 'tubes',   supplier: 'Aspen Pharma',     lastOrdered: '2026-01-25', expiryDate: '2027-06-01', status: 'ok'       },
-  { id: 'inv12', name: 'Medical Grade Cleanser',             category: 'Skincare',      sku: 'SKN-002', quantity: 2,  reorderLevel: 4,  unit: 'bottles', supplier: 'SkinBetter',       lastOrdered: '2025-11-30', expiryDate: null,         status: 'critical' },
-];
+function StockBar({ current, reorder, max }: { current: number; reorder: number; max: number }) {
+  const pct = Math.min(100, (current / max) * 100);
+  const reorderPct = Math.min(100, (reorder / max) * 100);
+  const color = current <= 0 ? '#DC2626' : current <= reorder * 0.5 ? '#DC2626' : current <= reorder ? '#D97706' : '#059669';
+  return (
+    <div style={{ position: 'relative', height: 4, background: 'rgba(138,108,255,0.08)', borderRadius: 2, width: '100%' }}>
+      <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: `${pct}%`, background: color, borderRadius: 2 }} />
+      <div style={{ position: 'absolute', top: -3, bottom: -3, left: `${reorderPct}%`, width: 1, background: '#D5CCFF' }} />
+    </div>
+  );
+}
 
-const CATEGORIES = ['All', ...Array.from(new Set(INVENTORY.map(i => i.category)))];
+function ConsumableRow({ item, tenantId, onUpdate }: { item: ConsumableItem; tenantId: string; onUpdate: (id: string, stock: number) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [newStock, setNewStock] = useState(item.current_stock);
+  const [saving, setSaving] = useState(false);
+  const ss = STOCK_STYLE[item.stock_status];
+  const maxStock = item.reorder_quantity * 2;
 
-// =============================================================================
-// HELPERS
-// =============================================================================
-
-const STATUS_DOT: Record<StockStatus, string> = {
-  ok:       'bg-[#F0EDE5]',
-  low:      'bg-[#fbbf24]',
-  critical: 'bg-[#f87171]',
-  out:      'bg-[#f87171]/50',
-};
-
-const STATUS_BADGE: Record<StockStatus, string> = {
-  ok:       'text-[#6E6688] border-[#EBE5FF]',
-  low:      'text-[#fbbf24]/70 border-[#fbbf24]/[0.20]',
-  critical: 'text-[#f87171]/70 border-[#f87171]/[0.20]',
-  out:      'text-[#f87171]/50 border-[#f87171]/[0.15]',
-};
-
-const STATUS_LABEL: Record<StockStatus, string> = {
-  ok: 'OK', low: 'Low', critical: 'Critical', out: 'Out of Stock',
-};
-
-// =============================================================================
-// MAIN PAGE
-// =============================================================================
-
-export default function InventoryPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const urlUserId = searchParams.get('userId');
-
-  const [userId, setUserId]   = useState<string | null>(urlUserId);
-  const [profile, setProfile] = useState<StaffProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch]   = useState('');
-  const [activeCat, setActiveCat] = useState('All');
-
-  const brandColor = profile?.brandColor || '#8A6CFF';
-
-  useEffect(() => {
-    (async () => {
-      let uid = urlUserId;
-      if (!uid) {
-        const fb = await getCurrentUser();
-        if (fb.success && fb.userId) uid = fb.userId;
-      }
-      if (!uid) { router.push('/login'); return; }
-      setUserId(uid);
-      const profileRes = await getStaffProfile('clinic', uid);
-      if (profileRes.success && profileRes.data) setProfile(profileRes.data.profile);
-      setLoading(false);
-    })();
-  }, [urlUserId, router]);
-
-  if (loading || !profile) {
-    return (
-      <div className="min-h-screen pl-[240px] bg-[#FAF7F2] flex items-center justify-center">
-        <motion.div
-          animate={{ opacity: [0.2, 0.5, 0.2] }}
-          transition={{ duration: 1.8, repeat: Infinity }}
-          className="w-1.5 h-1.5 rounded-full bg-[#F0EDE5]"
-        />
-      </div>
-    );
+  async function handleSave() {
+    setSaving(true);
+    await updateStockLevel(tenantId, item.id, newStock);
+    onUpdate(item.id, newStock);
+    setEditing(false);
+    setSaving(false);
   }
 
-  const filtered = INVENTORY.filter(item => {
-    const matchCat = activeCat === 'All' || item.category === activeCat;
-    const matchQ   = !search || item.name.toLowerCase().includes(search.toLowerCase());
-    return matchCat && matchQ;
-  });
+  return (
+    <motion.div layout initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} style={{ borderBottom: '1px solid #EBE5FF', padding: '14px 0' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 160px 1fr 80px', gap: 12, alignItems: 'center' }}>
+        <div>
+          <p style={{ fontSize: 12, fontWeight: 700, color: '#1A1035', margin: 0 }}>{item.name}</p>
+          <p style={{ fontSize: 10, color: '#8B84A0', margin: 0 }}>{item.supplier} · {item.treatment_link ?? 'General'}</p>
+          {item.ai_reorder_prediction && (
+            <p style={{ fontSize: 10, color: ACCENT, marginTop: 3, fontStyle: 'italic' }}>AI: {item.ai_reorder_prediction}</p>
+          )}
+        </div>
+        <div>
+          {editing ? (
+            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+              <input type="number" value={newStock} onChange={e => setNewStock(Math.max(0, parseInt(e.target.value) || 0))}
+                style={{ width: 56, padding: '4px 8px', borderRadius: 6, border: '1px solid #EBE5FF', fontSize: 12, color: '#1A1035', outline: 'none' }} />
+              <button onClick={handleSave} disabled={saving} style={{ padding: '4px 8px', borderRadius: 6, background: ACCENT, color: '#fff', border: 'none', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>
+                {saving ? '...' : 'Save'}
+              </button>
+              <button onClick={() => setEditing(false)} style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #EBE5FF', background: 'transparent', color: '#8B84A0', fontSize: 10, cursor: 'pointer' }}>x</button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 22, fontWeight: 900, color: '#1A1035', letterSpacing: '-0.03em' }}>{item.current_stock}</span>
+              <span style={{ fontSize: 10, color: '#8B84A0' }}>{item.unit}</span>
+              <button onClick={() => setEditing(true)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#8B84A0', fontSize: 10 }}>Edit</button>
+            </div>
+          )}
+        </div>
+        <div>
+          <StockBar current={item.current_stock} reorder={item.reorder_level} max={maxStock} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+            <span style={{ fontSize: 9, color: '#8B84A0' }}>0</span>
+            <span style={{ fontSize: 9, color: '#8B84A0' }}>RL: {item.reorder_level}</span>
+            <span style={{ fontSize: 9, color: '#8B84A0' }}>{maxStock}</span>
+          </div>
+        </div>
+        <div>
+          <p style={{ fontSize: 10, color: '#6E6688', margin: 0 }}>Reorder: {item.reorder_quantity} {item.unit}</p>
+          <p style={{ fontSize: 10, color: '#6E6688', margin: 0 }}>Cost: £{item.cost_per_unit}/{item.unit}</p>
+          {item.cqc_relevant && <span style={{ fontSize: 9, color: '#D97706', fontWeight: 700 }}>CQC</span>}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <span style={{ fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 6, background: ss.bg, border: `1px solid ${ss.border}`, color: ss.text }}>{ss.label}</span>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
 
-  const criticalCount = INVENTORY.filter(i => i.status === 'critical' || i.status === 'out').length;
-  const lowCount      = INVENTORY.filter(i => i.status === 'low').length;
-  const okCount       = INVENTORY.filter(i => i.status === 'ok').length;
+function EquipmentRow({ item, tenantId, onService }: { item: EquipmentItem; tenantId: string; onService: (id: string) => void }) {
+  const [logging, setLogging] = useState(false);
+  const es = EQUIP_STYLE[item.equipment_status];
+
+  async function handleService() {
+    setLogging(true);
+    await markEquipmentServiced(tenantId, item.id, new Date().toISOString().split('T')[0]);
+    onService(item.id);
+    setLogging(false);
+  }
 
   return (
-    <div className="min-h-screen pl-[240px]">
-      <StaffNav profile={profile} userId={userId!} brandColor={brandColor} currentPath="Inventory" />
+    <motion.div layout initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} style={{ borderBottom: '1px solid #EBE5FF', padding: '14px 0' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 120px', gap: 12, alignItems: 'center' }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: es.dot }} />
+            <p style={{ fontSize: 12, fontWeight: 700, color: '#1A1035', margin: 0 }}>{item.name}</p>
+          </div>
+          <p style={{ fontSize: 10, color: '#8B84A0', margin: 0 }}>{item.model ?? ''}{item.serial_number ? ' · ' + item.serial_number : ''}</p>
+          <p style={{ fontSize: 10, color: '#6E6688', margin: 0 }}>{item.location} · {item.responsible_person}</p>
+        </div>
+        <div>
+          <p style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#8B84A0', margin: 0 }}>Last Service</p>
+          <p style={{ fontSize: 11, fontWeight: 700, color: '#1A1035', marginTop: 2 }}>{fmtDate(item.last_service_date)}</p>
+        </div>
+        <div>
+          <p style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#8B84A0', margin: 0 }}>Next Service</p>
+          <p style={{ fontSize: 11, fontWeight: 700, color: item.equipment_status === 'overdue_service' ? '#DC2626' : '#1A1035', marginTop: 2 }}>{fmtDate(item.next_service_date)}</p>
+        </div>
+        <div>
+          {item.cqc_registered && <p style={{ fontSize: 10, color: '#D97706', fontWeight: 700 }}>{item.cqc_registration_number}</p>}
+          {item.notes && <p style={{ fontSize: 10, color: '#6E6688', margin: 0 }}>{item.notes}</p>}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
+          <span style={{ fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 6, background: es.dot + '18', color: es.text, border: `1px solid ${es.dot}35` }}>{es.label}</span>
+          {(item.equipment_status === 'due_service' || item.equipment_status === 'overdue_service') && (
+            <button onClick={handleService} disabled={logging} style={{ padding: '5px 10px', borderRadius: 7, background: '#1A1035', color: '#fff', border: 'none', fontSize: 10, fontWeight: 700, cursor: 'pointer', opacity: logging ? 0.6 : 1 }}>
+              {logging ? '...' : 'Log Service'}
+            </button>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
 
-      <div className="min-h-screen flex">
-        <main className="flex-1 px-8 py-10 min-w-0">
+type TabView = 'consumables' | 'equipment' | 'reorder';
 
-          {/* Header */}
-          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-            <p className="text-[11px] uppercase tracking-[0.18em] text-[#6E6688] mb-2">Operations</p>
-            <h1 className="text-[26px] font-semibold tracking-tight text-[#1A1035]">Inventory</h1>
-            <p className="text-[13px] text-[#6E6688] mt-1">Clinic stock levels — injectables, IV therapy, consumables, skincare.</p>
-          </motion.div>
+export default function InventoryPage() {
+  const params = useSearchParams();
+  const userId = params.get('userId') ?? '';
 
-          {/* Stats */}
-          <div className="grid grid-cols-4 gap-3 mb-8">
+  const [profile, setProfile] = useState<StaffProfile | null>(null);
+  const [consumables, setConsumables] = useState<ConsumableItem[]>([]);
+  const [equipment, setEquipment] = useState<EquipmentItem[]>([]);
+  const [stats, setStats] = useState<InventoryStats | null>(null);
+  const [reorderRecs, setReorderRecs] = useState<AIReorderRecommendation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [reorderLoading, setReorderLoading] = useState(false);
+  const [tab, setTab] = useState<TabView>('consumables');
+  const [tenantId] = useState('clinic');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const [, profileRes, invRes] = await Promise.all([
+      getLatestTenantAndUser(),
+      getStaffProfile('clinic', userId),
+      getInventoryData('clinic'),
+    ]);
+    setProfile(profileRes.success && profileRes.data ? profileRes.data.profile : FALLBACK);
+    if (invRes.success && invRes.data) {
+      setConsumables(invRes.data.consumables);
+      setEquipment(invRes.data.equipment);
+      setStats(invRes.data.stats);
+    }
+    setLoading(false);
+  }, [userId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function handleLoadReorder() {
+    setTab('reorder');
+    if (reorderRecs.length > 0) return;
+    setReorderLoading(true);
+    const res = await getAIReorderRecommendations(tenantId);
+    if (res.success && res.data) setReorderRecs(res.data);
+    setReorderLoading(false);
+  }
+
+  function handleStockUpdate(id: string, stock: number) {
+    setConsumables(prev => prev.map(c => {
+      if (c.id !== id) return c;
+      const s: ConsumableItem['stock_status'] = stock === 0 ? 'out_of_stock' : stock <= c.reorder_level * 0.5 ? 'critical' : stock <= c.reorder_level ? 'low' : 'ok';
+      return { ...c, current_stock: stock, stock_status: s };
+    }));
+  }
+
+  function handleEquipmentService(id: string) {
+    setEquipment(prev => prev.map(e => e.id === id ? {
+      ...e, equipment_status: 'operational' as EquipmentItem['equipment_status'],
+      last_service_date: new Date().toISOString().split('T')[0],
+    } : e));
+  }
+
+  const accentColor = profile?.brandColor ?? ACCENT;
+
+  if (loading) return (
+    <div style={{ minHeight: '100vh', backgroundColor: '#FAF7F2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 32, height: 32, border: '2px solid #EBE5FF', borderTopColor: ACCENT, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+
+  return (
+    <div style={{ minHeight: '100vh', backgroundColor: '#FAF7F2' }}>
+      {profile && <StaffNav profile={profile} userId={userId} brandColor={accentColor} currentPath="Inventory" />}
+      <main style={{ paddingLeft: 240, minHeight: '100vh' }}>
+        <div style={{ padding: '40px 40px 0', borderBottom: '1px solid #EBE5FF' }}>
+          <div style={{ paddingBottom: 24 }}>
+            <p style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.28em', color: '#8B84A0', marginBottom: 6 }}>Operations</p>
+            <h1 style={{ fontSize: 38, fontWeight: 900, letterSpacing: '-0.035em', color: '#1A1035', lineHeight: 1 }}>Inventory & Equipment</h1>
+            <p style={{ fontSize: 13, color: '#524D66', marginTop: 6 }}>Consumables, medications, PPE and equipment register — AI reorder predictions</p>
+          </div>
+          <div style={{ display: 'flex', gap: 0 }}>
+            {([
+              { key: 'consumables', label: `Consumables (${consumables.length})` },
+              { key: 'equipment', label: `Equipment (${equipment.length})` },
+              { key: 'reorder', label: stats && (stats.low_stock_count + stats.critical_stock_count) > 0 ? `AI Reorder (${stats.low_stock_count + stats.critical_stock_count})` : 'AI Reorder' },
+            ] as { key: TabView; label: string }[]).map(t => (
+              <button key={t.key} onClick={() => t.key === 'reorder' ? handleLoadReorder() : setTab(t.key)} style={{
+                padding: '10px 20px', border: 'none', background: 'transparent', fontSize: 11, fontWeight: 700,
+                cursor: 'pointer', color: tab === t.key ? accentColor : '#8B84A0',
+                borderBottom: `2px solid ${tab === t.key ? accentColor : 'transparent'}`, transition: 'all 0.2s',
+              }}>{t.label}</button>
+            ))}
+          </div>
+        </div>
+
+        {stats && (
+          <div style={{ display: 'flex', borderBottom: '1px solid #EBE5FF' }}>
             {[
-              { label: 'Total Items',     value: INVENTORY.length, icon: Package        },
-              { label: 'Critical/Out',    value: criticalCount,    icon: AlertTriangle  },
-              { label: 'Low Stock',       value: lowCount,         icon: TrendingDown   },
-              { label: 'Fully Stocked',   value: okCount,          icon: CheckCircle2   },
-            ].map((c, i) => (
-              <motion.div
-                key={c.label}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.06 }}
-                className="bg-white border border-[#EBE5FF] rounded-xl p-5 flex flex-col gap-3"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] uppercase tracking-[0.15em] text-[#6E6688] font-medium">{c.label}</span>
-                  <c.icon size={14} className="text-[#6E6688]" />
-                </div>
-                <p className="text-[28px] font-semibold tracking-tight text-[#1A1035] leading-none">{c.value}</p>
-              </motion.div>
+              { label: 'Low Stock',      value: stats.low_stock_count,           color: '#D97706' },
+              { label: 'Critical',       value: stats.critical_stock_count,       color: '#DC2626' },
+              { label: 'Equip Overdue',  value: stats.equipment_overdue_service,  color: '#DC2626' },
+              { label: 'Due Service',    value: stats.equipment_due_service,      color: '#D97706' },
+              { label: 'Est Reorder',    value: `£${stats.estimated_reorder_value.toFixed(0)}`, color: '#1A1035' },
+            ].map((m, i) => (
+              <div key={m.label} style={{ flex: 1, padding: '18px 20px', borderRight: i < 4 ? '1px solid #EBE5FF' : 'none' }}>
+                <p style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.25em', color: '#8B84A0', margin: 0 }}>{m.label}</p>
+                <p style={{ fontSize: 26, fontWeight: 900, color: m.color, letterSpacing: '-0.04em', margin: 0 }}>{m.value}</p>
+              </div>
             ))}
           </div>
+        )}
 
-          {/* Search + category filter */}
-          <div className="flex items-center gap-3 mb-6 flex-wrap">
-            <div className="flex items-center gap-2 flex-1 min-w-[200px] px-3.5 py-2.5 bg-white border border-[#EBE5FF] rounded-xl">
-              <Search size={14} className="text-[#6E6688] flex-shrink-0" />
-              <input
-                type="text"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Search inventory…"
-                className="flex-1 bg-transparent text-[13px] text-[#1A1035] placeholder:text-[#6E6688] outline-none"
-              />
-            </div>
-            {CATEGORIES.map(cat => (
-              <button
-                key={cat}
-                onClick={() => setActiveCat(cat)}
-                className={`px-3.5 py-2.5 rounded-xl text-[12px] border transition-colors whitespace-nowrap ${
-                  activeCat === cat
-                    ? 'bg-white border-white/[0.15] text-[#1A1035]'
-                    : 'bg-[#F0ECFF] border-[#EBE5FF] text-[#6E6688] hover:bg-[#FAF7F2]'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-
-          {/* Inventory table */}
-          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-            <div className="bg-[#F0ECFF] border border-[#EBE5FF] rounded-xl overflow-hidden">
-              {/* Header row */}
-              <div className="grid grid-cols-[1fr_100px_80px_80px_120px_100px] gap-4 px-5 py-2.5 border-b border-[#EBE5FF]">
-                {['Item', 'Category', 'Qty', 'Reorder', 'Supplier', 'Status'].map(h => (
-                  <span key={h} className="text-[10px] uppercase tracking-[0.12em] text-[#6E6688] font-medium">{h}</span>
+        <AnimatePresence mode="wait">
+          {tab === 'consumables' && (
+            <motion.div key="cons" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ padding: '24px 40px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 160px 1fr 80px', gap: 12, paddingBottom: 10, borderBottom: '2px solid #EBE5FF', marginBottom: 4 }}>
+                {['Item / AI Insight', 'Stock', 'Level', 'Details', 'Status'].map(h => (
+                  <span key={h} style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.25em', color: '#8B84A0' }}>{h}</span>
                 ))}
               </div>
               <AnimatePresence>
-                {filtered.map((item, i) => (
-                  <motion.div
-                    key={item.id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className={`grid grid-cols-[1fr_100px_80px_80px_120px_100px] gap-4 items-center px-5 py-3 ${i < filtered.length - 1 ? 'border-b border-[#EBE5FF]' : ''}`}
-                  >
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${STATUS_DOT[item.status]}`} />
-                        <p className="text-[13px] text-[#1A1035] truncate">{item.name}</p>
-                      </div>
-                      {item.expiryDate && (
-                        <p className="text-[11px] text-[#6E6688] ml-3.5">Exp: {item.expiryDate}</p>
-                      )}
-                    </div>
-                    <span className="text-[11px] text-[#6E6688]">{item.category}</span>
-                    <span className={`text-[13px] font-medium ${
-                      item.status === 'critical' ? 'text-[#f87171]/70' :
-                      item.status === 'low' ? 'text-[#fbbf24]/70' : 'text-[#524D66]'
-                    }`}>
-                      {item.quantity} <span className="text-[10px] text-[#6E6688]">{item.unit}</span>
-                    </span>
-                    <span className="text-[11px] text-[#6E6688]">{item.reorderLevel} {item.unit}</span>
-                    <span className="text-[11px] text-[#6E6688] truncate">{item.supplier}</span>
-                    <span className={`text-[10px] font-medium uppercase tracking-[0.08em] px-2 py-0.5 rounded-full border w-fit ${STATUS_BADGE[item.status]}`}>
-                      {STATUS_LABEL[item.status]}
-                    </span>
-                  </motion.div>
-                ))}
+                {consumables.map(item => <ConsumableRow key={item.id} item={item} tenantId={tenantId} onUpdate={handleStockUpdate} />)}
               </AnimatePresence>
-              {filtered.length === 0 && (
-                <div className="py-12 text-center">
-                  <Package size={24} className="mx-auto mb-3 text-[#8B84A0]" />
-                  <p className="text-[13px] text-[#6E6688]">No items match your search</p>
+            </motion.div>
+          )}
+
+          {tab === 'equipment' && (
+            <motion.div key="eq" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ padding: '24px 40px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 120px', gap: 12, paddingBottom: 10, borderBottom: '2px solid #EBE5FF', marginBottom: 4 }}>
+                {['Equipment', 'Last Service', 'Next Service', 'Notes', 'Status'].map(h => (
+                  <span key={h} style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.25em', color: '#8B84A0' }}>{h}</span>
+                ))}
+              </div>
+              <AnimatePresence>
+                {equipment.map(item => <EquipmentRow key={item.id} item={item} tenantId={tenantId} onService={handleEquipmentService} />)}
+              </AnimatePresence>
+            </motion.div>
+          )}
+
+          {tab === 'reorder' && (
+            <motion.div key="reorder" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ padding: '32px 40px' }}>
+              <p style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.28em', color: '#8B84A0', marginBottom: 20 }}>AI Reorder Recommendations</p>
+              {reorderLoading ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 20, height: 20, border: '2px solid #EBE5FF', borderTopColor: ACCENT, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                  <span style={{ fontSize: 12, color: '#8B84A0' }}>Analysing stock and appointment schedule...</span>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 720 }}>
+                  {reorderRecs.map(rec => (
+                    <motion.div key={rec.item_id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} style={{
+                      border: `1px solid ${rec.urgency === 'urgent' ? 'rgba(220,38,38,0.25)' : rec.urgency === 'soon' ? 'rgba(217,119,6,0.25)' : '#EBE5FF'}`,
+                      borderRadius: 14, padding: '18px 20px',
+                      background: rec.urgency === 'urgent' ? 'rgba(220,38,38,0.04)' : rec.urgency === 'soon' ? 'rgba(217,119,6,0.04)' : 'transparent',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{
+                            fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 5,
+                            textTransform: 'uppercase', letterSpacing: '0.12em',
+                            background: rec.urgency === 'urgent' ? 'rgba(220,38,38,0.10)' : rec.urgency === 'soon' ? 'rgba(217,119,6,0.10)' : 'rgba(138,108,255,0.07)',
+                            color: rec.urgency === 'urgent' ? '#DC2626' : rec.urgency === 'soon' ? '#D97706' : ACCENT,
+                          }}>{rec.urgency}</span>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: '#1A1035' }}>{rec.item_name}</span>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <p style={{ fontSize: 11, color: '#8B84A0', margin: 0 }}>Qty: {rec.recommended_quantity}</p>
+                          <p style={{ fontSize: 13, fontWeight: 900, color: '#1A1035', margin: 0 }}>£{rec.estimated_cost}</p>
+                        </div>
+                      </div>
+                      <p style={{ fontSize: 12, color: '#524D66', lineHeight: 1.55 }}>{rec.reason}</p>
+                    </motion.div>
+                  ))}
+                  {reorderRecs.length === 0 && <p style={{ fontSize: 13, color: '#8B84A0' }}>All stock levels adequate. No reorder recommendations.</p>}
                 </div>
               )}
-            </div>
-          </motion.div>
-        </main>
-
-        {/* Sidebar */}
-        <aside className="w-[240px] flex-shrink-0 px-6 py-10 border-l border-[#EBE5FF]">
-          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-            <h3 className="text-[11px] uppercase tracking-[0.18em] text-[#6E6688] font-medium mb-3">Needs Ordering</h3>
-            <div className="space-y-1.5 mb-6">
-              {INVENTORY.filter(i => i.status === 'critical' || i.status === 'low').map(item => (
-                <div key={item.id} className="flex items-center gap-2.5 px-3 py-2 bg-[#F0ECFF] border border-[#EBE5FF] rounded-lg">
-                  <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${STATUS_DOT[item.status]}`} />
-                  <span className="text-[11px] text-[#6E6688] truncate">{item.name.split('(')[0].trim()}</span>
-                </div>
-              ))}
-            </div>
-
-            <h3 className="text-[11px] uppercase tracking-[0.18em] text-[#6E6688] font-medium mb-3">Quick Actions</h3>
-            <div className="space-y-1">
-              {[
-                { label: 'Ask Aria to order',  href: `/staff/chat?userId=${userId}` },
-                { label: 'Compliance',         href: `/staff/compliance?userId=${userId}` },
-              ].map(a => (
-                <button
-                  key={a.label}
-                  onClick={() => router.push(a.href)}
-                  className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[12px] text-[#6E6688] hover:text-[#524D66] hover:bg-[#FAF9F5] transition-all text-left"
-                >
-                  <Package size={12} className="flex-shrink-0" />
-                  {a.label}
-                  <ChevronRight size={11} className="ml-auto opacity-40" />
-                </button>
-              ))}
-            </div>
-          </motion.div>
-        </aside>
-      </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </main>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }

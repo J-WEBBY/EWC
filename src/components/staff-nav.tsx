@@ -21,6 +21,12 @@ import {
   CalendarDays,
   LayoutGrid,
   Brain,
+  Package,
+  Scale,
+  BookOpen,
+  ClipboardList,
+  Building2,
+  GraduationCap,
 } from 'lucide-react';
 import type { StaffProfile } from '@/lib/actions/staff-onboarding';
 
@@ -71,29 +77,40 @@ export function StaffNav({
     {
       title: 'Operations',
       items: [
-        { label: 'Dashboard', href: `/staff/dashboard?userId=${userId}`, icon: LayoutDashboard },
-        { label: 'KPIs',      href: `/staff/kpis?userId=${userId}`,      icon: BarChart2 },
-        { label: 'Signals',   href: `/staff/signals?userId=${userId}`,   icon: Activity },
-        { label: 'Patients',  href: `/staff/patients?userId=${userId}`,  icon: Users },
-        { label: 'Bridge',    href: `/staff/bridge?userId=${userId}`,    icon: Link2 },
-        { label: 'Calendar',  href: `/staff/calendar?userId=${userId}`,  icon: CalendarDays },
-        { label: 'Team',      href: `/staff/team?userId=${userId}`,      icon: LayoutGrid },
+        { label: 'Dashboard',  href: `/staff/dashboard?userId=${userId}`,  icon: LayoutDashboard },
+        { label: 'KPIs',       href: `/staff/kpis?userId=${userId}`,       icon: BarChart2 },
+        { label: 'Signals',    href: `/staff/signals?userId=${userId}`,    icon: Activity },
+        { label: 'Patients',   href: `/staff/patients?userId=${userId}`,   icon: Users },
+        { label: 'Bridge',     href: `/staff/bridge?userId=${userId}`,     icon: Link2 },
+        { label: 'Calendar',   href: `/staff/calendar?userId=${userId}`,   icon: CalendarDays },
+        { label: 'Team',       href: `/staff/team?userId=${userId}`,       icon: LayoutGrid },
+        { label: 'Inventory',  href: `/staff/inventory?userId=${userId}`,  icon: Package },
+        { label: 'Corporate',  href: `/staff/corporate?userId=${userId}`,  icon: Building2 },
       ],
     },
     {
       title: 'Intelligence',
       items: [
-        { label: 'Analytics',    href: `/staff/analytics?userId=${userId}`,   icon: Brain },
-        { label: 'Agents',       href: `/staff/agents?userId=${userId}`,      icon: Bot },
-        { label: 'Receptionist', href: `/staff/voice?userId=${userId}`,       icon: Mic },
-        { label: 'Automations',  href: `/staff/automations?userId=${userId}`, icon: Zap },
+        { label: 'Analytics',       href: `/staff/analytics?userId=${userId}`,   icon: Brain },
+        { label: 'Judgement Engine', href: `/staff/judgement?userId=${userId}`,  icon: Scale },
+        { label: 'Agents',          href: `/staff/agents?userId=${userId}`,      icon: Bot },
+        { label: 'Receptionist',    href: `/staff/voice?userId=${userId}`,       icon: Mic },
+        { label: 'Automations',     href: `/staff/automations?userId=${userId}`, icon: Zap },
+      ],
+    },
+    {
+      title: 'Clinical',
+      items: [
+        { label: 'Knowledge Base', href: `/staff/knowledge?userId=${userId}`, icon: BookOpen },
+        { label: 'Consent Forms',  href: `/staff/consent?userId=${userId}`,   icon: ClipboardList },
       ],
     },
     {
       title: 'Governance',
       items: [
-        { label: 'Compliance', href: `/staff/compliance?userId=${userId}`, icon: Shield },
-        { label: 'Reports',    href: `/staff/reports?userId=${userId}`,    icon: FileText },
+        { label: 'Compliance',    href: `/staff/compliance?userId=${userId}`,  icon: Shield },
+        { label: 'CPD & Learning', href: `/staff/learning?userId=${userId}`,   icon: GraduationCap },
+        { label: 'Reports',       href: `/staff/reports?userId=${userId}`,     icon: FileText },
       ],
     },
   ];

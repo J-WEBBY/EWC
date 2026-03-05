@@ -2,7 +2,7 @@
 
 // =============================================================================
 // Integrations Page — Data connection control centre
-// B&W design system. Cliniko is primary integration.
+// Light design system — #FAF7F2 base.
 // =============================================================================
 
 import { useState, useEffect, useCallback } from 'react';
@@ -166,13 +166,13 @@ function formatCurrency(n: number): string {
 // =============================================================================
 
 function StatusBadge({ status, label }: { status: CatalogStatus; label: string }) {
-  const styles: Record<CatalogStatus, string> = {
-    live:    'bg-emerald-400/10 border border-emerald-400/20 text-emerald-400',
-    pending: 'bg-amber-400/10 border border-amber-400/20 text-amber-400',
-    planned: 'bg-white/[0.04] border border-white/[0.08] text-white/25',
+  const styles: Record<CatalogStatus, React.CSSProperties> = {
+    live:    { backgroundColor: 'rgba(5,150,105,0.10)', border: '1px solid rgba(5,150,105,0.25)', color: '#059669' },
+    pending: { backgroundColor: 'rgba(217,119,6,0.10)', border: '1px solid rgba(217,119,6,0.25)', color: '#D97706' },
+    planned: { backgroundColor: 'rgba(138,108,255,0.06)', border: '1px solid #EBE5FF', color: '#8B84A0' },
   };
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium tracking-wide ${styles[status]}`}>
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium tracking-wide" style={styles[status]}>
       {label}
     </span>
   );
@@ -183,29 +183,24 @@ function StatusBadge({ status, label }: { status: CatalogStatus; label: string }
 // =============================================================================
 
 function SyncLogRow({ log }: { log: SyncLog }) {
-  const statusStyles: Record<string, string> = {
-    completed: 'text-emerald-400',
-    failed:    'text-red-400',
-    partial:   'text-amber-400',
-    started:   'text-amber-400',
+  const statusColor: Record<string, string> = {
+    completed: '#059669', failed: '#DC2626', partial: '#D97706', started: '#D97706',
   };
-  const color = statusStyles[log.status] ?? 'text-white/40';
+  const color = statusColor[log.status] ?? '#8B84A0';
   const typeLabels: Record<string, string> = {
     full: 'Full sync', patients: 'Patients', appointments: 'Appointments',
     invoices: 'Invoices', practitioners: 'Practitioners',
   };
 
   return (
-    <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 items-center py-2.5 border-b border-white/[0.04] last:border-0">
+    <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 items-center py-2.5 last:border-0" style={{ borderBottom: '1px solid #EBE5FF' }}>
       <div className="min-w-0">
-        <span className="text-[12px] text-white/60">{typeLabels[log.sync_type] ?? log.sync_type}</span>
-        {log.error_message && (
-          <p className="text-[10px] text-red-400/70 truncate mt-0.5">{log.error_message}</p>
-        )}
+        <span className="text-[12px]" style={{ color: '#524D66' }}>{typeLabels[log.sync_type] ?? log.sync_type}</span>
+        {log.error_message && <p className="text-[10px] truncate mt-0.5" style={{ color: '#DC2626' }}>{log.error_message}</p>}
       </div>
-      <span className={`text-[11px] font-medium ${color}`}>{log.status}</span>
-      <span className="text-[11px] text-white/30">{log.records_synced > 0 ? `+${log.records_synced}` : '—'}</span>
-      <span className="text-[11px] text-white/25">{formatTime(log.started_at)}</span>
+      <span className="text-[11px] font-medium" style={{ color }}>{log.status}</span>
+      <span className="text-[11px]" style={{ color: '#6E6688' }}>{log.records_synced > 0 ? `+${log.records_synced}` : '—'}</span>
+      <span className="text-[11px]" style={{ color: '#8B84A0' }}>{formatTime(log.started_at)}</span>
     </div>
   );
 }
@@ -214,25 +209,17 @@ function SyncLogRow({ log }: { log: SyncLog }) {
 // STAT TILE
 // =============================================================================
 
-function StatTile({
-  label, value, sub, icon: Icon, delay,
-}: {
-  label: string; value: string; sub?: string; icon: LucideIcon; delay?: number;
-}) {
+function StatTile({ label, value, sub, icon: Icon, delay }: { label: string; value: string; sub?: string; icon: LucideIcon; delay?: number }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: delay ?? 0 }}
-      className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-5 flex flex-col gap-3"
-    >
+    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: delay ?? 0 }}
+      className="rounded-xl p-5 flex flex-col gap-3" style={{ border: '1px solid #EBE5FF' }}>
       <div className="flex items-center justify-between">
-        <span className="text-[11px] uppercase tracking-[0.18em] text-white/25 font-medium">{label}</span>
-        <Icon size={14} className="text-white/20" />
+        <span className="text-[8px] uppercase tracking-[0.28em] font-semibold" style={{ color: '#8B84A0' }}>{label}</span>
+        <Icon size={14} style={{ color: '#8B84A0' }} />
       </div>
       <div>
-        <p className="text-[28px] font-light text-white leading-none tracking-tight">{value}</p>
-        {sub && <p className="text-[11px] text-white/30 mt-1.5">{sub}</p>}
+        <p className="text-[28px] font-black leading-none tracking-tight" style={{ color: '#1A1035' }}>{value}</p>
+        {sub && <p className="text-[11px] mt-1.5" style={{ color: '#6E6688' }}>{sub}</p>}
       </div>
     </motion.div>
   );
@@ -245,20 +232,20 @@ function StatTile({
 function CatalogCard({ item }: { item: CatalogItem }) {
   const Icon = item.icon;
   return (
-    <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-5 flex flex-col gap-4">
+    <div className="rounded-xl p-5 flex flex-col gap-4" style={{ border: '1px solid #EBE5FF' }}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-white/[0.04] border border-white/[0.08] flex items-center justify-center flex-shrink-0">
-            <Icon size={15} className="text-white/50" />
+          <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(138,108,255,0.08)', border: '1px solid #EBE5FF' }}>
+            <Icon size={15} style={{ color: '#6E6688' }} />
           </div>
           <div>
-            <p className="text-[13px] font-medium text-white/80">{item.name}</p>
-            <p className="text-[10px] uppercase tracking-[0.15em] text-white/20 mt-0.5">{item.category}</p>
+            <p className="text-[13px] font-semibold" style={{ color: '#1A1035' }}>{item.name}</p>
+            <p className="text-[8px] uppercase tracking-[0.15em] mt-0.5" style={{ color: '#8B84A0' }}>{item.category}</p>
           </div>
         </div>
         <StatusBadge status={item.status} label={item.statusLabel} />
       </div>
-      <p className="text-[12px] text-white/35 leading-relaxed">{item.description}</p>
+      <p className="text-[12px] leading-relaxed" style={{ color: '#6E6688' }}>{item.description}</p>
     </div>
   );
 }
@@ -294,52 +281,41 @@ function ClinikoConnectForm({ onConnected }: { onConnected: () => void }) {
 
   return (
     <div className="space-y-5">
-      <p className="text-[13px] text-white/40 leading-relaxed max-w-lg">
+      <p className="text-[13px] leading-relaxed max-w-lg" style={{ color: '#6E6688' }}>
         Enter your Cliniko API key to begin syncing patient records, appointments, and invoices.
         The shard is auto-detected from the key suffix (e.g.{' '}
-        <span className="font-mono text-white/60">-uk1</span>).
+        <span className="font-mono" style={{ color: '#524D66' }}>-uk1</span>).
       </p>
-
       <div className="space-y-2">
-        <label className="text-[11px] uppercase tracking-[0.18em] text-white/25 font-medium">Cliniko API Key</label>
-        <div className="flex items-center gap-2 px-3 py-3 rounded-xl bg-white/[0.04] border border-white/[0.1] focus-within:border-white/[0.22] transition-colors">
+        <label className="text-[8px] uppercase tracking-[0.28em] font-semibold" style={{ color: '#8B84A0' }}>Cliniko API Key</label>
+        <div className="flex items-center gap-2 px-3 py-3 rounded-xl transition-colors" style={{ border: '1px solid #EBE5FF', backgroundColor: 'white' }}>
           <input
             type={showKey ? 'text' : 'password'}
             value={apiKey}
             onChange={e => setApiKey(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') handleConnect(); }}
             placeholder="Paste your Cliniko API key..."
-            className="flex-1 bg-transparent text-[13px] text-white placeholder:text-white/20 outline-none font-mono"
+            className="flex-1 bg-transparent text-[13px] outline-none font-mono"
+            style={{ color: '#1A1035' }}
           />
-          <button
-            onClick={() => setShowKey(v => !v)}
-            className="text-white/25 hover:text-white/50 transition-colors flex-shrink-0"
-          >
+          <button onClick={() => setShowKey(v => !v)} className="transition-colors flex-shrink-0" style={{ color: '#8B84A0' }}>
             {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
           </button>
         </div>
       </div>
-
       <AnimatePresence>
         {error && (
-          <motion.div
-            initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className="flex items-start gap-2.5 px-3 py-2.5 rounded-lg bg-red-500/[0.06] border border-red-500/[0.15]"
-          >
-            <AlertTriangle size={13} className="text-red-400/80 mt-0.5 flex-shrink-0" />
-            <p className="text-[12px] text-red-400/80">{error}</p>
+          <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            className="flex items-start gap-2.5 px-3 py-2.5 rounded-lg" style={{ backgroundColor: 'rgba(220,38,38,0.05)', border: '1px solid rgba(220,38,38,0.20)' }}>
+            <AlertTriangle size={13} className="mt-0.5 flex-shrink-0" style={{ color: '#DC2626' }} />
+            <p className="text-[12px]" style={{ color: '#DC2626' }}>{error}</p>
           </motion.div>
         )}
       </AnimatePresence>
-
-      <button
-        onClick={handleConnect}
-        disabled={connecting || !apiKey.trim()}
-        className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-white text-black text-[13px] font-semibold hover:bg-white/90 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-      >
-        {connecting
-          ? <><Loader2 size={14} className="animate-spin" /> Connecting...</>
-          : <><Link2 size={14} /> Connect Cliniko</>}
+      <button onClick={handleConnect} disabled={connecting || !apiKey.trim()}
+        className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-[13px] font-semibold transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+        style={{ backgroundColor: '#1A1035', color: '#FAF7F2' }}>
+        {connecting ? <><Loader2 size={14} className="animate-spin" /> Connecting…</> : <><Link2 size={14} /> Connect Cliniko</>}
       </button>
     </div>
   );
@@ -369,30 +345,27 @@ function ClinikoConnectedPanel({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="relative flex-shrink-0">
-            <div className="w-2 h-2 rounded-full bg-emerald-400" />
-            <motion.div
-              className="absolute inset-0 rounded-full bg-emerald-400"
-              animate={{ scale: [1, 2.5, 1], opacity: [0.5, 0, 0.5] }}
-              transition={{ duration: 2.5, repeat: Infinity }}
-            />
+            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#059669' }} />
+            <motion.div className="absolute inset-0 rounded-full" style={{ backgroundColor: '#059669' }}
+              animate={{ scale: [1, 2.5, 1], opacity: [0.5, 0, 0.5] }} transition={{ duration: 2.5, repeat: Infinity }} />
           </div>
           <div>
-            <p className="text-[13px] text-white font-medium">Connected</p>
-            <p className="text-[11px] text-white/30">
-              Shard: <span className="font-mono text-white/50">{status.shard ?? 'uk1'}</span>
+            <p className="text-[13px] font-semibold" style={{ color: '#1A1035' }}>Connected</p>
+            <p className="text-[11px]" style={{ color: '#6E6688' }}>
+              Shard: <span className="font-mono">{status.shard ?? 'uk1'}</span>
               {status.lastSyncAt && <> · Last sync: {timeSince(status.lastSyncAt)}</>}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1.5 text-[11px] text-white/20">
-            <Activity size={11} />
-            Auto-sync every 5 min
+          <div className="flex items-center gap-1.5 text-[11px]" style={{ color: '#8B84A0' }}>
+            <Activity size={11} /> Auto-sync every 5 min
           </div>
-          <button
-            onClick={onDisconnect}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] text-red-400/50 border border-red-500/[0.12] hover:bg-red-500/[0.05] hover:text-red-400/70 transition-all"
-          >
+          <button onClick={onDisconnect}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] transition-all"
+            style={{ color: '#DC2626', border: '1px solid rgba(220,38,38,0.20)' }}
+            onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(220,38,38,0.05)')}
+            onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}>
             <Unplug size={11} /> Disconnect
           </button>
         </div>
@@ -400,24 +373,20 @@ function ClinikoConnectedPanel({
 
       {/* First-sync CTA */}
       {isFirstSync && (
-        <motion.div
-          initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
-          className="flex items-start gap-4 p-4 rounded-xl bg-white/[0.03] border border-white/[0.08]"
-        >
-          <Database size={14} className="text-white/40 mt-0.5 flex-shrink-0" />
+        <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+          className="flex items-start gap-4 p-4 rounded-xl" style={{ border: '1px solid #EBE5FF' }}>
+          <Database size={14} className="mt-0.5 flex-shrink-0" style={{ color: '#8B84A0' }} />
           <div className="flex-1 min-w-0">
-            <p className="text-[13px] text-white/70 font-medium">Ready for first sync</p>
-            <p className="text-[12px] text-white/35 mt-0.5">
+            <p className="text-[13px] font-semibold" style={{ color: '#1A1035' }}>Ready for first sync</p>
+            <p className="text-[12px] mt-0.5" style={{ color: '#6E6688' }}>
               Run a full sync to import all patients, appointments, and invoices from Cliniko.
             </p>
           </div>
-          <button
-            onClick={onSync}
-            disabled={syncing}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-black text-[12px] font-semibold hover:bg-white/90 transition-all disabled:opacity-40 flex-shrink-0"
-          >
+          <button onClick={onSync} disabled={syncing}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-[12px] font-semibold transition-all disabled:opacity-40 flex-shrink-0"
+            style={{ backgroundColor: '#1A1035', color: '#FAF7F2' }}>
             {syncing ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-            {syncing ? 'Syncing...' : 'Run First Sync'}
+            {syncing ? 'Syncing…' : 'Run First Sync'}
           </button>
         </motion.div>
       )}
@@ -425,29 +394,29 @@ function ClinikoConnectedPanel({
       {/* Stat tiles */}
       {stats && stats.patients > 0 && (
         <div className="grid grid-cols-4 gap-3">
-          <StatTile label="Patients"    value={stats.patients.toLocaleString()}              sub="In Cliniko"         icon={Users}         delay={0.05} />
-          <StatTile label="Upcoming"    value={stats.appointments_upcoming.toLocaleString()} sub="Appointments"       icon={Calendar}      delay={0.1}  />
-          <StatTile label="Outstanding" value={stats.revenue_outstanding > 0 ? formatCurrency(stats.revenue_outstanding) : '£0'} sub={`${stats.invoices} invoices`} icon={PoundSterling} delay={0.15} />
-          <StatTile label="Practitioners" value={stats.practitioners.toLocaleString()}       sub="Active"             icon={Activity}      delay={0.2}  />
+          <StatTile label="Patients"      value={stats.patients.toLocaleString()}              sub="In Cliniko"   icon={Users}         delay={0.05} />
+          <StatTile label="Upcoming"      value={stats.appointments_upcoming.toLocaleString()} sub="Appointments" icon={Calendar}      delay={0.1}  />
+          <StatTile label="Outstanding"   value={stats.revenue_outstanding > 0 ? formatCurrency(stats.revenue_outstanding) : '£0'} sub={`${stats.invoices} invoices`} icon={PoundSterling} delay={0.15} />
+          <StatTile label="Practitioners" value={stats.practitioners.toLocaleString()}         sub="Active"       icon={Activity}      delay={0.2}  />
         </div>
       )}
 
-      {/* Sync controls (after first sync) */}
+      {/* Sync controls */}
       {!isFirstSync && (
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-[12px] text-white/30">
+          <div className="flex items-center gap-2 text-[12px]" style={{ color: '#6E6688' }}>
             <Clock size={12} />
             {status.lastSyncAt ? `Last sync: ${timeSince(status.lastSyncAt)}` : 'No sync yet'}
-            {status.lastSyncStatus === 'completed' && <span className="text-emerald-400/60"> · Success</span>}
-            {status.lastSyncStatus === 'partial'   && <span className="text-amber-400/60">  · Partial</span>}
+            {status.lastSyncStatus === 'completed' && <span style={{ color: '#059669' }}> · Success</span>}
+            {status.lastSyncStatus === 'partial'   && <span style={{ color: '#D97706' }}> · Partial</span>}
           </div>
-          <button
-            onClick={onSync}
-            disabled={syncing}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/[0.06] border border-white/[0.1] text-white/70 text-[12px] font-medium hover:bg-white/[0.1] hover:text-white transition-all disabled:opacity-30"
-          >
+          <button onClick={onSync} disabled={syncing}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-[12px] font-medium transition-all disabled:opacity-30"
+            style={{ border: '1px solid #EBE5FF', color: '#524D66' }}
+            onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(138,108,255,0.05)')}
+            onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}>
             {syncing ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-            {syncing ? 'Syncing...' : 'Sync Now'}
+            {syncing ? 'Syncing…' : 'Sync Now'}
           </button>
         </div>
       )}
@@ -455,17 +424,14 @@ function ClinikoConnectedPanel({
       {/* Sync result */}
       <AnimatePresence>
         {syncMsg && (
-          <motion.div
-            initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg border ${
-              syncMsg.success
-                ? 'bg-emerald-400/[0.04] border-emerald-400/[0.15] text-emerald-400/70'
-                : 'bg-red-400/[0.04] border-red-400/[0.15] text-red-400/70'
-            }`}
-          >
-            {syncMsg.success
-              ? <CheckCircle2 size={13} className="flex-shrink-0" />
-              : <AlertTriangle size={13} className="flex-shrink-0" />}
+          <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg"
+            style={{
+              backgroundColor: syncMsg.success ? 'rgba(5,150,105,0.05)' : 'rgba(220,38,38,0.05)',
+              border:          syncMsg.success ? '1px solid rgba(5,150,105,0.20)' : '1px solid rgba(220,38,38,0.20)',
+              color:           syncMsg.success ? '#059669' : '#DC2626',
+            }}>
+            {syncMsg.success ? <CheckCircle2 size={13} className="flex-shrink-0" /> : <AlertTriangle size={13} className="flex-shrink-0" />}
             <p className="text-[12px]">{syncMsg.message}</p>
           </motion.div>
         )}
@@ -474,9 +440,9 @@ function ClinikoConnectedPanel({
       {/* Sync log */}
       {displayLogs.length > 0 && (
         <div>
-          <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 pb-2 mb-1 border-b border-white/[0.04]">
+          <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 pb-2 mb-1" style={{ borderBottom: '1px solid #EBE5FF' }}>
             {['Sync type', 'Status', 'Records', 'Time'].map(h => (
-              <span key={h} className="text-[10px] uppercase tracking-[0.15em] text-white/20">{h}</span>
+              <span key={h} className="text-[8px] uppercase tracking-[0.15em] font-semibold" style={{ color: '#8B84A0' }}>{h}</span>
             ))}
           </div>
           {displayLogs.map(log => <SyncLogRow key={log.id} log={log} />)}
@@ -583,129 +549,94 @@ export default function IntegrationsPage() {
   // ── Loading ──
   if (loading || !profile) {
     return (
-      <div className="min-h-screen pl-[240px] bg-black flex items-center justify-center">
-        <motion.div
-          animate={{ opacity: [0.2, 0.5, 0.2] }}
-          transition={{ duration: 1.8, repeat: Infinity }}
-          className="w-1.5 h-1.5 rounded-full bg-white/30"
-        />
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#FAF7F2', paddingLeft: 'var(--nav-w, 240px)' }}>
+        <motion.div animate={{ opacity: [0.2, 0.5, 0.2] }} transition={{ duration: 1.8, repeat: Infinity }}
+          className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#8B84A0' }} />
       </div>
     );
   }
 
-  const brandColor = profile.brandColor ?? '#ffffff';
+  const brandColor = profile.brandColor ?? '#8A6CFF';
 
   return (
-    <div className="min-h-screen pl-[240px] bg-black">
+    <div className="min-h-screen" style={{ backgroundColor: '#FAF7F2', paddingLeft: 'var(--nav-w, 240px)' }}>
       <StaffNav profile={profile} userId={userId!} brandColor={brandColor} currentPath="Integrations" />
 
       <main className="px-8 py-10">
 
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-10">
-          <p className="text-[11px] uppercase tracking-[0.18em] text-white/25 font-medium mb-3">System</p>
-          <h1 className="text-[28px] font-light text-white tracking-tight">Integrations</h1>
-          <p className="text-[13px] text-white/35 mt-2 max-w-xl">
+          <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-1" style={{ color: '#8B84A0' }}>System</p>
+          <h1 className="text-[38px] font-black tracking-[-0.035em]" style={{ color: '#1A1035' }}>Integrations</h1>
+          <p className="text-[13px] mt-2 max-w-xl" style={{ color: '#6E6688' }}>
             Connect external systems to sync patient data, automate workflows, and enrich the intelligence layer.
           </p>
         </motion.div>
 
         {/* Cliniko — primary integration */}
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
-          className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-6 mb-8"
-        >
-          {/* Integration header */}
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
+          className="rounded-2xl p-6 mb-8" style={{ border: '1px solid #EBE5FF' }}>
           <div className="flex items-start gap-4 mb-6">
-            <div className="w-11 h-11 rounded-xl bg-white/[0.05] border border-white/[0.1] flex items-center justify-center flex-shrink-0">
-              <Database size={18} className="text-white/60" />
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(138,108,255,0.08)', border: '1px solid #EBE5FF' }}>
+              <Database size={18} style={{ color: '#6E6688' }} />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-3 flex-wrap">
-                <h2 className="text-[15px] font-medium text-white">Cliniko</h2>
-                <span className="text-[10px] uppercase tracking-[0.15em] text-white/25">Patient Management</span>
+                <h2 className="text-[15px] font-bold" style={{ color: '#1A1035' }}>Cliniko</h2>
+                <span className="text-[8px] uppercase tracking-[0.15em] font-semibold" style={{ color: '#8B84A0' }}>Patient Management</span>
                 {clinikoStatus?.isConnected && (
-                  <span className="bg-emerald-400/10 border border-emerald-400/20 text-emerald-400 text-[10px] px-2 py-0.5 rounded-full font-medium">
-                    Live
-                  </span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: 'rgba(5,150,105,0.10)', border: '1px solid rgba(5,150,105,0.25)', color: '#059669' }}>Live</span>
                 )}
               </div>
-              <p className="text-[12px] text-white/35 mt-1 max-w-2xl">
+              <p className="text-[12px] mt-1 max-w-2xl" style={{ color: '#6E6688' }}>
                 Syncs patients, appointments, invoices, and practitioners into the EWC intelligence layer.
-                Powers patient recognition, appointment history, revenue signals, and Komal&#39;s real-time knowledge.
+                Powers patient recognition, appointment history, revenue signals, and Komal&apos;s real-time knowledge.
               </p>
             </div>
             {!clinikoStatus?.isConnected && (
-              <div className="flex items-center gap-1.5 text-[11px] text-white/20 flex-shrink-0">
-                <div className="w-1.5 h-1.5 rounded-full bg-white/15" />
-                Disconnected
+              <div className="flex items-center gap-1.5 text-[11px] flex-shrink-0" style={{ color: '#8B84A0' }}>
+                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#D5CCFF' }} /> Disconnected
               </div>
             )}
           </div>
 
-          <div className="border-t border-white/[0.05] mb-6" />
+          <div className="mb-6" style={{ borderTop: '1px solid #EBE5FF' }} />
 
           {clinikoStatus?.isConnected ? (
-            <ClinikoConnectedPanel
-              status={clinikoStatus}
-              stats={stats}
-              syncLogs={syncLogs}
-              syncing={syncing}
-              syncMsg={syncMsg}
-              onSync={handleSync}
-              onDisconnect={handleDisconnect}
-            />
+            <ClinikoConnectedPanel status={clinikoStatus} stats={stats} syncLogs={syncLogs} syncing={syncing} syncMsg={syncMsg} onSync={handleSync} onDisconnect={handleDisconnect} />
           ) : (
             <ClinikoConnectForm onConnected={handleConnected} />
           )}
         </motion.div>
 
         {/* Other integrations */}
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.12 }}
-        >
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}>
           <div className="flex items-center justify-between mb-5">
-            <p className="text-[11px] uppercase tracking-[0.18em] text-white/25 font-medium">Other Connections</p>
-            <div className="flex items-center gap-1.5 text-[11px] text-white/20">
-              <Clock size={11} />
-              Week 2 roadmap
+            <p className="text-[8px] uppercase tracking-[0.28em] font-semibold" style={{ color: '#8B84A0' }}>Other Connections</p>
+            <div className="flex items-center gap-1.5 text-[11px]" style={{ color: '#8B84A0' }}>
+              <Clock size={11} /> Week 2 roadmap
             </div>
           </div>
-
           <div className="grid grid-cols-3 gap-3">
             {CATALOG.map((item, i) => (
-              <motion.div
-                key={item.id}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.15 + i * 0.04 }}
-              >
+              <motion.div key={item.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 + i * 0.04 }}>
                 <CatalogCard item={item} />
               </motion.div>
             ))}
           </div>
         </motion.div>
 
-        {/* Footer nav */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-          className="mt-10 pt-8 border-t border-white/[0.05] flex items-center justify-between"
-        >
-          <button
-            onClick={() => router.push('/staff/dashboard')}
-            className="text-[12px] text-white/25 hover:text-white/50 transition-colors"
-          >
+        {/* Footer */}
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
+          className="mt-10 pt-8 flex items-center justify-between" style={{ borderTop: '1px solid #EBE5FF' }}>
+          <button onClick={() => router.push('/staff/dashboard')} className="text-[12px] transition-colors"
+            style={{ color: '#8B84A0' }}
+            onMouseEnter={e => (e.currentTarget.style.color = '#524D66')}
+            onMouseLeave={e => (e.currentTarget.style.color = '#8B84A0')}>
             ← Dashboard
           </button>
-          <div className="flex items-center gap-1.5 text-[11px] text-white/15">
-            <ArrowUpRight size={11} />
-            api.uk1.cliniko.com
+          <div className="flex items-center gap-1.5 text-[11px]" style={{ color: '#8B84A0' }}>
+            <ArrowUpRight size={11} /> api.uk1.cliniko.com
           </div>
         </motion.div>
 
