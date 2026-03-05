@@ -17,7 +17,7 @@ import {
 import { getStaffProfile, getCurrentUser, type StaffProfile } from '@/lib/actions/staff-onboarding';
 import { StaffNav } from '@/components/staff-nav';
 import {
-  getPatientHub, addPatientNote, getPatientNotes, getPatientSignalList,
+  getPatientHub, addPatientNote, getPatientNotes, getPatientSignalList, setPatientLifecycle,
   type PatientHubData, type PatientIntelligenceRow, type TimelineEvent,
   type PatientAppointment, type LifecycleStage, type PatientNote, type PatientSignal,
 } from '@/lib/actions/patients';
@@ -40,12 +40,13 @@ import {
 // =============================================================================
 
 const LC_CFG: Record<LifecycleStage, { label: string; color: string; bg: string; border: string }> = {
-  lead:    { label: 'Lead',    color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE' },
-  new:     { label: 'New',     color: '#0284C7', bg: '#EFF6FF', border: '#BFDBFE' },
-  active:  { label: 'Active',  color: '#059669', bg: '#ECFDF5', border: '#A7F3D0' },
-  loyal:   { label: 'Loyal',   color: '#D97706', bg: '#FFFBEB', border: '#FDE68A' },
-  at_risk: { label: 'At Risk', color: '#DC2626', bg: '#FFF1F2', border: '#FECDD3' },
-  lapsed:  { label: 'Lapsed',  color: '#6B7280', bg: '#F9FAFB', border: '#E5E7EB' },
+  existing: { label: 'Existing', color: '#0891B2', bg: '#F0F9FF', border: '#BAE6FD' },
+  lead:     { label: 'Lead',     color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE' },
+  new:      { label: 'New',      color: '#0284C7', bg: '#EFF6FF', border: '#BFDBFE' },
+  active:   { label: 'Active',   color: '#059669', bg: '#ECFDF5', border: '#A7F3D0' },
+  loyal:    { label: 'Loyal',    color: '#D97706', bg: '#FFFBEB', border: '#FDE68A' },
+  at_risk:  { label: 'At Risk',  color: '#DC2626', bg: '#FFF1F2', border: '#FECDD3' },
+  lapsed:   { label: 'Lapsed',   color: '#6B7280', bg: '#F9FAFB', border: '#E5E7EB' },
 };
 
 const PRIO_COLOR: Record<string, string> = {
@@ -3787,11 +3788,13 @@ export default function PatientHubPage() {
   const [userId,    setUserId]    = useState('');
   const [profile,   setProfile]   = useState<StaffProfile | null>(null);
   const [brandColor,setBrandColor]= useState('#6D28D9');
-  const [hub,       setHub]       = useState<PatientHubData | null>(null);
-  const [isDemo,    setIsDemo]    = useState(false);
-  const [loading,   setLoading]   = useState(true);
-  const [error,     setError]     = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<Tab>('overview');
+  const [hub,          setHub]         = useState<PatientHubData | null>(null);
+  const [isDemo,       setIsDemo]      = useState(false);
+  const [loading,      setLoading]     = useState(true);
+  const [error,        setError]       = useState<string | null>(null);
+  const [activeTab,    setActiveTab]   = useState<Tab>('overview');
+  const [statusMenu,   setStatusMenu]  = useState(false);
+  const [statusSaving, setStatusSaving]= useState(false);
 
   useEffect(() => {
     getCurrentUser().then(r => {
@@ -3831,6 +3834,22 @@ export default function PatientHubPage() {
 
   const handleAddNote = useCallback(() => setActiveTab('communications'), []);
   const handleGenerateReport = useCallback(() => setActiveTab('intelligence'), []);
+
+  const handleSetStatus = useCallback(async (stage: LifecycleStage | null) => {
+    if (!patient || isDemo) return;
+    setStatusSaving(true); setStatusMenu(false);
+    await setPatientLifecycle(patient.id, stage);
+    await load();
+    setStatusSaving(false);
+  }, [patient, isDemo, load]);
+
+  // Close status menu on outside click
+  useEffect(() => {
+    if (!statusMenu) return;
+    const close = () => setStatusMenu(false);
+    document.addEventListener('click', close, { capture: true, once: true });
+    return () => document.removeEventListener('click', close, { capture: true });
+  }, [statusMenu]);
 
   // Unused imports suppressor
   void [Activity, BarChart2, CreditCard, Package, Users, Flag, UserIcon, Target, Shield, FileText];
@@ -3879,8 +3898,55 @@ export default function PatientHubPage() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-3 flex-wrap mb-1">
                   <h1 className="text-[28px] font-black tracking-[-0.035em] text-[#1A1035]">{patient.first_name} {patient.last_name}</h1>
-                  <span className="text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide"
-                    style={{ backgroundColor: lc.bg, color: lc.color, border: `1px solid ${lc.border}` }}>{lc.label}</span>
+                  {/* Lifecycle badge + manual override */}
+                  <div className="relative">
+                    <button
+                      onClick={() => !isDemo && setStatusMenu(v => !v)}
+                      className="flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide transition-opacity"
+                      style={{ backgroundColor: lc.bg, color: lc.color, border: `1px solid ${lc.border}`, opacity: statusSaving ? 0.5 : 1 }}
+                      title={isDemo ? 'Status override not available in demo mode' : 'Click to change status'}
+                    >
+                      {statusSaving ? <RefreshCw size={9} className="animate-spin" /> : null}
+                      {lc.label}
+                      {patient.lifecycle_manually_set && <span className="ml-0.5 opacity-60 text-[8px]">manual</span>}
+                      {!isDemo && <ChevronDown size={9} className="opacity-50" />}
+                    </button>
+                    <AnimatePresence>
+                      {statusMenu && (
+                        <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+                          className="absolute left-0 top-full mt-1 z-50 rounded-xl overflow-hidden shadow-lg"
+                          style={{ border: '1px solid #EBE5FF', backgroundColor: '#FAF7F2', minWidth: 140 }}>
+                          <div className="px-3 py-2 text-[8px] uppercase tracking-[0.2em] font-semibold text-[#8B84A0]" style={{ borderBottom: '1px solid #EBE5FF' }}>
+                            Set Status
+                          </div>
+                          {(['existing','active','new','loyal','at_risk','lapsed','lead'] as LifecycleStage[]).map(s => {
+                            const cfg = LC_CFG[s];
+                            const isCurrent = patient.lifecycle_stage === s;
+                            return (
+                              <button key={s} onClick={() => handleSetStatus(s)}
+                                className="w-full flex items-center gap-2 px-3 py-2 text-[11px] transition-colors text-left"
+                                style={{ backgroundColor: isCurrent ? cfg.bg : 'transparent', color: isCurrent ? cfg.color : '#524D66' }}
+                                onMouseEnter={e => { if (!isCurrent) (e.currentTarget as HTMLElement).style.backgroundColor = '#F5F0FF'; }}
+                                onMouseLeave={e => { if (!isCurrent) (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}>
+                                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cfg.color }} />
+                                {cfg.label}
+                                {isCurrent && <span className="ml-auto text-[8px] opacity-50">current</span>}
+                              </button>
+                            );
+                          })}
+                          {patient.lifecycle_manually_set && (
+                            <>
+                              <div style={{ borderTop: '1px solid #EBE5FF' }} />
+                              <button onClick={() => handleSetStatus(null)}
+                                className="w-full flex items-center gap-2 px-3 py-2 text-[11px] text-[#8B84A0] transition-colors text-left hover:bg-[#F9F7FF]">
+                                <RefreshCw size={10} /> Reset to auto
+                              </button>
+                            </>
+                          )}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
                   {isVip && <span className="text-[10px] font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: '#FFFBEB', color: '#D97706', border: '1px solid #FDE68A' }}>VIP</span>}
                   {patient.open_signals_count > 0 && (
                     <span className="text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1" style={{ backgroundColor: '#FFF1F2', color: '#DC2626', border: '1px solid #FECDD3' }}>

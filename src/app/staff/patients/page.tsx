@@ -22,15 +22,16 @@ import {
 // =============================================================================
 
 const LC_CFG: Record<LifecycleStage, { label: string; color: string; bg: string; border: string }> = {
-  lead:    { label: 'Lead',    color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE' },
-  new:     { label: 'New',     color: '#0284C7', bg: '#EFF6FF', border: '#BFDBFE' },
-  active:  { label: 'Active',  color: '#059669', bg: '#ECFDF5', border: '#A7F3D0' },
-  loyal:   { label: 'Loyal',   color: '#D97706', bg: '#FFFBEB', border: '#FDE68A' },
-  at_risk: { label: 'At Risk', color: '#DC2626', bg: '#FFF1F2', border: '#FECDD3' },
-  lapsed:  { label: 'Lapsed',  color: '#6B7280', bg: '#F9FAFB', border: '#E5E7EB' },
+  existing: { label: 'Existing', color: '#0891B2', bg: '#F0F9FF', border: '#BAE6FD' },
+  lead:     { label: 'Lead',     color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE' },
+  new:      { label: 'New',      color: '#0284C7', bg: '#EFF6FF', border: '#BFDBFE' },
+  active:   { label: 'Active',   color: '#059669', bg: '#ECFDF5', border: '#A7F3D0' },
+  loyal:    { label: 'Loyal',    color: '#D97706', bg: '#FFFBEB', border: '#FDE68A' },
+  at_risk:  { label: 'At Risk',  color: '#DC2626', bg: '#FFF1F2', border: '#FECDD3' },
+  lapsed:   { label: 'Lapsed',   color: '#6B7280', bg: '#F9FAFB', border: '#E5E7EB' },
 };
 
-const LC_ORDER: LifecycleStage[] = ['lead', 'new', 'active', 'loyal', 'at_risk', 'lapsed'];
+const LC_ORDER: LifecycleStage[] = ['existing', 'lead', 'new', 'active', 'loyal', 'at_risk', 'lapsed'];
 const PAGE_SIZE = 24;
 
 const PRIO_COLOR: Record<string, string> = { high: '#DC2626', medium: '#D97706', low: '#059669' };

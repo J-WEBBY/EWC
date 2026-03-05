@@ -6,7 +6,7 @@ import { createSovereignClient } from '@/lib/supabase/service';
 // TYPES
 // =============================================================================
 
-export type LifecycleStage = 'lead' | 'new' | 'active' | 'loyal' | 'at_risk' | 'lapsed';
+export type LifecycleStage = 'existing' | 'lead' | 'new' | 'active' | 'loyal' | 'at_risk' | 'lapsed';
 
 export interface NextBestAction {
   type: 'rebook' | 'outreach' | 'book_first' | 'referral_ask' | 'winback' | 'followup';
@@ -47,6 +47,9 @@ export interface PatientIntelligenceRow {
   all_phones: PatientPhone[];
   address: PatientAddress | null;
   created_in_cliniko_at: string | null;
+  // Staff-set override (persisted in DB)
+  lifecycle_override: LifecycleStage | null;
+  lifecycle_manually_set: boolean;
   // Computed
   lifecycle_stage: LifecycleStage;
   engagement_score: number;
@@ -133,10 +136,15 @@ function daysAgo(iso: string | null): number | null {
 function computeLifecycle(
   totalVisits: number,
   daysSinceLast: number | null,
-  _hasFutureAppt: boolean,
+  hasFutureAppt: boolean,
+  isClinikoPatient = true,
 ): LifecycleStage {
-  if (totalVisits === 0) return 'lead';
-  if (daysSinceLast === null) return 'lead';
+  // Future appointment → 'active' regardless of past visit count
+  if (hasFutureAppt) return 'active';
+  // Real Cliniko patient with no recorded appointment history → 'existing' (not a lead)
+  if (isClinikoPatient && totalVisits === 0) return 'existing';
+  // Non-Cliniko capture (signal lead) with no visits → 'lead'
+  if (totalVisits === 0 || daysSinceLast === null) return 'lead';
   if (totalVisits >= 5 && daysSinceLast <= 90) return 'loyal';
   if (daysSinceLast <= 90) return totalVisits <= 2 ? 'new' : 'active';
   if (daysSinceLast <= 180) return 'at_risk';
@@ -175,6 +183,13 @@ function computeNextBestAction(
   daysSinceLast: number | null,
   totalVisits: number,
 ): NextBestAction | null {
+  if (stage === 'existing') return {
+    type: 'book_first',
+    title: 'Book first appointment',
+    description: 'Patient is in the system but has no appointment history on record. Reach out to schedule their first visit.',
+    urgency: 'medium',
+  };
+
   if (stage === 'lead') return {
     type: 'book_first',
     title: 'Book first consultation',
@@ -252,6 +267,7 @@ const DEMO_PATIENTS: PatientIntelligenceRow[] = [
     latest_treatment: 'Botox — Anti-Wrinkle', treatment_tags: ['Botox', 'Filler', 'Skin Booster'],
     cancellation_rate: 0, open_signals_count: 0, has_agent_memories: true,
     next_best_action: { type: 'referral_ask', title: 'Referral opportunity', description: '11 visits over 18 months — Sarah loves the clinic. Ideal time for a referral ask.', urgency: 'low' },
+    lifecycle_override: null, lifecycle_manually_set: false,
     occupation: null, emergency_contact: null, all_phones: [], address: null, source: 'demo',
   },
   {
@@ -267,6 +283,7 @@ const DEMO_PATIENTS: PatientIntelligenceRow[] = [
     latest_treatment: 'B12 IV Drip', treatment_tags: ['B12', 'IV Therapy'],
     cancellation_rate: 0.25, open_signals_count: 1, has_agent_memories: true,
     next_best_action: { type: 'outreach', title: 'Re-engagement needed', description: '142 days since last B12 session — trending towards lapsed. A check-in call could recover this patient.', urgency: 'medium' },
+    lifecycle_override: null, lifecycle_manually_set: false,
     occupation: null, emergency_contact: null, all_phones: [], address: null, source: 'demo',
   },
   {
@@ -282,6 +299,7 @@ const DEMO_PATIENTS: PatientIntelligenceRow[] = [
     latest_treatment: 'IV Therapy — Wellness Drip', treatment_tags: ['IV Therapy', 'Weight Management'],
     cancellation_rate: 0.14, open_signals_count: 0, has_agent_memories: false,
     next_best_action: { type: 'rebook', title: 'IV Therapy session due', description: '38 days since last Wellness Drip — approaching the 6-week window. Confirm their upcoming appointment.', urgency: 'low', days_until_due: 18 },
+    lifecycle_override: null, lifecycle_manually_set: false,
     occupation: null, emergency_contact: null, all_phones: [], address: null, source: 'demo',
   },
   {
@@ -297,6 +315,7 @@ const DEMO_PATIENTS: PatientIntelligenceRow[] = [
     latest_treatment: 'Botox — Anti-Wrinkle Consultation', treatment_tags: ['Botox', 'Consultation'],
     cancellation_rate: 0, open_signals_count: 0, has_agent_memories: true,
     next_best_action: { type: 'followup', title: 'Post-treatment follow-up', description: '14 days since first Botox treatment. A follow-up call builds confidence and encourages rebooking.', urgency: 'medium' },
+    lifecycle_override: null, lifecycle_manually_set: false,
     occupation: null, emergency_contact: null, all_phones: [], address: null, source: 'demo',
   },
   {
@@ -312,6 +331,7 @@ const DEMO_PATIENTS: PatientIntelligenceRow[] = [
     latest_treatment: null, treatment_tags: ['CoolSculpting'],
     cancellation_rate: 0, open_signals_count: 2, has_agent_memories: true,
     next_best_action: { type: 'book_first', title: 'Book first consultation', description: 'Priya enquired about CoolSculpting via Komal 8 days ago. Offer a free consultation to move her forward.', urgency: 'high' },
+    lifecycle_override: null, lifecycle_manually_set: false,
     occupation: null, emergency_contact: null, all_phones: [], address: null, source: 'demo',
   },
   {
@@ -327,6 +347,7 @@ const DEMO_PATIENTS: PatientIntelligenceRow[] = [
     latest_treatment: 'Hair Loss Consultation', treatment_tags: ['Hair Loss', 'Consultation'],
     cancellation_rate: 0.33, open_signals_count: 0, has_agent_memories: false,
     next_best_action: { type: 'winback', title: 'Winback outreach', description: '271 days inactive. A personalised message about new treatments or an offer could re-engage Robert.', urgency: 'high' },
+    lifecycle_override: null, lifecycle_manually_set: false,
     occupation: null, emergency_contact: null, all_phones: [], address: null, source: 'demo',
   },
   {
@@ -342,6 +363,7 @@ const DEMO_PATIENTS: PatientIntelligenceRow[] = [
     latest_treatment: 'Dermal Filler — Lips', treatment_tags: ['Filler', 'Skin Booster', 'Consultation'],
     cancellation_rate: 0, open_signals_count: 0, has_agent_memories: false,
     next_best_action: { type: 'rebook', title: 'Filler review due', description: 'Lip filler booked 55 days ago — review window at 6 months. Good time to confirm the next session.', urgency: 'low' },
+    lifecycle_override: null, lifecycle_manually_set: false,
     occupation: null, emergency_contact: null, all_phones: [], address: null, source: 'demo',
   },
   {
@@ -357,6 +379,7 @@ const DEMO_PATIENTS: PatientIntelligenceRow[] = [
     latest_treatment: 'Full Face Rejuvenation', treatment_tags: ['Botox', 'Filler', 'Skin Booster', 'IV Therapy'],
     cancellation_rate: 0.05, open_signals_count: 0, has_agent_memories: true,
     next_best_action: { type: 'referral_ask', title: 'Referral opportunity', description: '18 visits over 2+ years. Charlotte is the clinic\'s strongest advocate — a referral programme offer would be very well received.', urgency: 'low' },
+    lifecycle_override: null, lifecycle_manually_set: false,
     occupation: null, emergency_contact: null, all_phones: [], address: null, source: 'demo',
   },
   {
@@ -372,6 +395,7 @@ const DEMO_PATIENTS: PatientIntelligenceRow[] = [
     latest_treatment: 'Health Screening — Male MOT', treatment_tags: ['Health Screening'],
     cancellation_rate: 0, open_signals_count: 1, has_agent_memories: false,
     next_best_action: { type: 'followup', title: 'New patient follow-up overdue', description: 'Marcus has had 1 visit 62 days ago with no follow-up booked. Reach out to understand his experience and encourage a next step.', urgency: 'medium' },
+    lifecycle_override: null, lifecycle_manually_set: false,
     occupation: null, emergency_contact: null, all_phones: [], address: null, source: 'demo',
   },
   {
@@ -387,6 +411,7 @@ const DEMO_PATIENTS: PatientIntelligenceRow[] = [
     latest_treatment: 'Hormone Therapy Consultation', treatment_tags: ['Hormone Therapy', 'Weight Management'],
     cancellation_rate: 0.2, open_signals_count: 0, has_agent_memories: false,
     next_best_action: { type: 'outreach', title: 'Re-engagement needed', description: 'Lisa was on a monthly plan — 118 days of silence is concerning. A personal outreach from the clinic could recover her.', urgency: 'medium' },
+    lifecycle_override: null, lifecycle_manually_set: false,
     occupation: null, emergency_contact: null, all_phones: [], address: null, source: 'demo',
   },
 ];
@@ -443,7 +468,7 @@ export async function getPatientPage(params: {
     let countQ = db.from('cliniko_patients').select('id', { count: 'exact', head: true });
     let rowQ   = db
       .from('cliniko_patients')
-      .select('id, cliniko_id, first_name, last_name, email, phone, date_of_birth, gender, referral_source, notes, occupation, emergency_contact, all_phones, address, created_in_cliniko_at')
+      .select('id, cliniko_id, first_name, last_name, email, phone, date_of_birth, gender, referral_source, notes, occupation, emergency_contact, all_phones, address, created_in_cliniko_at, lifecycle_override, lifecycle_manually_set')
       .order('last_name', { ascending: true })
       .range(page * pageSize, (page + 1) * pageSize - 1);
 
@@ -517,7 +542,8 @@ export async function getPatientPage(params: {
         if (t && !seen.has(t) && tags.length < 3) { seen.add(t); tags.push(t); }
       }
 
-      const lifecycle  = computeLifecycle(totalVisits, daysSince, !!nextAppt);
+      const computed   = computeLifecycle(totalVisits, daysSince, !!nextAppt, true);
+      const lifecycle  = (r.lifecycle_manually_set && r.lifecycle_override) ? (r.lifecycle_override as LifecycleStage) : computed;
       const engagement = computeEngagement(totalVisits, daysSince, cancelRate);
       const nba        = computeNextBestAction(lifecycle, latestTreat, daysSince, totalVisits);
 
@@ -531,6 +557,8 @@ export async function getPatientPage(params: {
         all_phones: (r.all_phones as PatientPhone[]) ?? [],
         address: (r.address as PatientAddress) ?? null,
         created_in_cliniko_at: r.created_in_cliniko_at ?? null,
+        lifecycle_override: (r.lifecycle_override as LifecycleStage) ?? null,
+        lifecycle_manually_set: r.lifecycle_manually_set ?? false,
         lifecycle_stage: lifecycle, engagement_score: engagement,
         total_visits: totalVisits, days_since_last_visit: daysSince,
         last_appointment_at: lastAppt, next_appointment_at: nextAppt,
@@ -570,7 +598,7 @@ export async function getPatientIntelligenceList(search?: string): Promise<{
     // and dramatically reduces payload size for large patient bases (9k+ records).
     let query = db
       .from('cliniko_patients')
-      .select('id, cliniko_id, first_name, last_name, email, phone, date_of_birth, gender, referral_source, notes, occupation, emergency_contact, all_phones, address, created_in_cliniko_at')
+      .select('id, cliniko_id, first_name, last_name, email, phone, date_of_birth, gender, referral_source, notes, occupation, emergency_contact, all_phones, address, created_in_cliniko_at, lifecycle_override, lifecycle_manually_set')
       .order('last_name', { ascending: true })
       .limit(15000); // High enough for any realistic clinic size
 
@@ -653,7 +681,8 @@ export async function getPatientIntelligenceList(search?: string): Promise<{
         if (t && !seen.has(t) && tags.length < 3) { seen.add(t); tags.push(t); }
       }
 
-      const lifecycle = computeLifecycle(totalVisits, daysSince, !!nextAppt);
+      const computed  = computeLifecycle(totalVisits, daysSince, !!nextAppt, true);
+      const lifecycle = (r.lifecycle_manually_set && r.lifecycle_override) ? (r.lifecycle_override as LifecycleStage) : computed;
       const engagement = computeEngagement(totalVisits, daysSince, cancelRate);
       const nba = computeNextBestAction(lifecycle, latestTreatment, daysSince, totalVisits);
       const phone = r.phone as string | null;
@@ -675,6 +704,8 @@ export async function getPatientIntelligenceList(search?: string): Promise<{
         all_phones: (r.all_phones as PatientPhone[]) ?? [],
         address: (r.address as PatientAddress) ?? null,
         created_in_cliniko_at: r.created_in_cliniko_at ?? null,
+        lifecycle_override: (r.lifecycle_override as LifecycleStage) ?? null,
+        lifecycle_manually_set: r.lifecycle_manually_set ?? false,
         lifecycle_stage: lifecycle,
         engagement_score: engagement,
         total_visits: totalVisits,
@@ -761,7 +792,8 @@ export async function getPatientHub(id: string): Promise<{
       if (t && !seen.has(t) && tags.length < 4) { seen.add(t); tags.push(t); }
     }
 
-    const lifecycle = computeLifecycle(totalVisits, daysSince, !!nextAppt);
+    const computed  = computeLifecycle(totalVisits, daysSince, !!nextAppt, true);
+    const lifecycle = (r.lifecycle_manually_set && r.lifecycle_override) ? (r.lifecycle_override as LifecycleStage) : computed;
     const engagement = computeEngagement(totalVisits, daysSince, cancelRate);
     const nba = computeNextBestAction(lifecycle, latestTreatment, daysSince, totalVisits);
 
@@ -776,6 +808,8 @@ export async function getPatientHub(id: string): Promise<{
       all_phones: (r.all_phones as PatientPhone[]) ?? [],
       address: (r.address as PatientAddress) ?? null,
       created_in_cliniko_at: r.created_in_cliniko_at ?? null,
+      lifecycle_override: (r.lifecycle_override as LifecycleStage) ?? null,
+      lifecycle_manually_set: r.lifecycle_manually_set ?? false,
       lifecycle_stage: lifecycle, engagement_score: engagement,
       total_visits: totalVisits, days_since_last_visit: daysSince,
       last_appointment_at: lastAppt, next_appointment_at: nextAppt,
@@ -931,6 +965,30 @@ export async function getPatientDetail(clinikoId: number) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     appointments: (apptsRes.data ?? []).map((a: any) => ({ id: a.id, cliniko_id: a.cliniko_id, appointment_type: a.appointment_type ?? null, practitioner_name: a.practitioner_name ?? null, starts_at: a.starts_at ?? null, ends_at: a.ends_at ?? null, duration_minutes: a.duration_minutes ?? null, status: a.status ?? null, cancellation_reason: a.cancellation_reason ?? null, notes: a.notes ?? null, invoice_status: a.invoice_status ?? null, room_name: a.room_name ?? null })) as PatientAppointment[],
   };
+}
+
+// =============================================================================
+// setPatientLifecycle — staff manual override
+// =============================================================================
+
+export async function setPatientLifecycle(
+  patientId: string,
+  stage: LifecycleStage | null,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const db = createSovereignClient();
+    const { error } = await db
+      .from('cliniko_patients')
+      .update({
+        lifecycle_override:     stage,
+        lifecycle_manually_set: stage !== null,
+      })
+      .eq('id', patientId);
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: String(err) };
+  }
 }
 
 export async function getPatientStats() {
