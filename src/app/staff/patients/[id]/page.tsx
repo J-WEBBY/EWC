@@ -272,7 +272,7 @@ function TimelineItem({ ev, last }: { ev: TimelineEvent; last: boolean }) {
 // TABS
 // =============================================================================
 
-type Tab = 'overview' | 'lifecycle' | 'appointments' | 'practitioners' | 'communications' | 'payments' | 'files' | 'intelligence' | 'treatment_log' | 'plan';
+type Tab = 'overview' | 'lifecycle' | 'appointments' | 'practitioners' | 'communications' | 'payments' | 'files' | 'intelligence' | 'treatment_log' | 'plan' | 'client_detail';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'overview',        label: 'Overview' },
@@ -282,6 +282,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'communications',  label: 'Communications' },
   { id: 'payments',        label: 'Payments' },
   { id: 'files',           label: 'Files' },
+  { id: 'client_detail',   label: 'Client Detail' },
   { id: 'treatment_log',   label: 'Treatment Log' },
   { id: 'plan',            label: 'Patient Plan' },
   { id: 'intelligence',    label: 'Intelligence' },
@@ -1220,6 +1221,200 @@ function FilesTab({ patient }: { patient: PatientIntelligenceRow }) {
           </div>
         </Panel>
       ))}
+    </div>
+  );
+}
+
+// =============================================================================
+// TAB: CLIENT DETAIL
+// Full client biography — personal info, contact details, address, referral,
+// emergency contact, related clients, and internal notes.
+// =============================================================================
+
+function DetailRow({ label, value, mono }: { label: string; value: string | null | undefined; mono?: boolean }) {
+  if (!value) return null;
+  return (
+    <div className="flex items-start gap-3 py-3" style={{ borderBottom: '1px solid #EBE5FF' }}>
+      <p className="text-[10px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] w-[120px] shrink-0 pt-0.5">{label}</p>
+      <p className={`text-[12px] text-[#1A1035] font-medium leading-relaxed ${mono ? 'font-mono' : ''}`}>{value}</p>
+    </div>
+  );
+}
+
+function DetailBlock({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
+  return (
+    <Panel>
+      <PanelHeader title={title} action={action} />
+      <div className="px-5 pb-1">{children}</div>
+    </Panel>
+  );
+}
+
+function ClientDetailTab({ patient }: { patient: PatientIntelligenceRow }) {
+  const fullName  = `${patient.first_name} ${patient.last_name}`;
+  const age       = patient.date_of_birth ? fmtAge(patient.date_of_birth) : null;
+  const dob       = patient.date_of_birth ? fmtDate(patient.date_of_birth) : null;
+  const dobFull   = dob && age ? `${dob}  ·  ${age}` : dob ?? age ?? null;
+
+  // Format address into readable lines
+  const addr = patient.address;
+  const addressLines: string[] = [];
+  if (addr) {
+    if (addr.line1) addressLines.push(addr.line1);
+    if (addr.line2) addressLines.push(addr.line2);
+    if (addr.line3) addressLines.push(addr.line3);
+    if (addr.city)  addressLines.push(addr.city);
+    if (addr.state) addressLines.push(addr.state);
+    const pc = [addr.postcode, addr.country].filter(Boolean).join('  ');
+    if (pc) addressLines.push(pc);
+  }
+  const addressStr = addressLines.length > 0 ? addressLines.join('\n') : null;
+
+  // Phones
+  const primaryPhone  = patient.phone ?? null;
+  const allPhones     = patient.all_phones ?? [];
+  const additionalPhs = allPhones.filter(p => p.number !== primaryPhone);
+
+  // Patient since
+  const patientSince  = patient.created_in_cliniko_at ? fmtDate(patient.created_in_cliniko_at) : null;
+
+  // Gender display
+  const genderDisplay = patient.gender
+    ? patient.gender.charAt(0).toUpperCase() + patient.gender.slice(1)
+    : null;
+
+  return (
+    <div className="space-y-5">
+
+      {/* ── PERSONAL INFORMATION ── */}
+      <DetailBlock title="Personal Information">
+        <DetailRow label="Full Name"    value={fullName} />
+        <DetailRow label="Date of Birth" value={dobFull} />
+        <DetailRow label="Gender"       value={genderDisplay} />
+        <DetailRow label="Occupation"   value={patient.occupation} />
+        <DetailRow label="Patient Since" value={patientSince} />
+        <DetailRow label="Cliniko ID"   value={patient.cliniko_id ? String(patient.cliniko_id) : null} mono />
+        {!dob && !genderDisplay && !patient.occupation && (
+          <div className="py-6 text-center">
+            <p className="text-[12px] text-[#8B84A0]">No personal details on file</p>
+            <p className="text-[10px] text-[#B0A8C8] mt-1">Synced from Cliniko — update the patient record there to populate</p>
+          </div>
+        )}
+      </DetailBlock>
+
+      {/* ── CONTACT DETAILS ── */}
+      <DetailBlock title="Contact Details">
+        <DetailRow label="Primary Phone"  value={primaryPhone} mono />
+        <DetailRow label="Email"          value={patient.email} mono />
+        {additionalPhs.map((p, i) => (
+          <DetailRow key={i} label={p.type || `Phone ${i + 2}`} value={p.number} mono />
+        ))}
+        {!primaryPhone && !patient.email && (
+          <div className="py-6 text-center">
+            <p className="text-[12px] text-[#8B84A0]">No contact details on file</p>
+          </div>
+        )}
+      </DetailBlock>
+
+      {/* ── ADDRESS ── */}
+      <DetailBlock title="Address">
+        {addressStr ? (
+          <div className="py-3">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 shrink-0">
+                <MapPin size={14} style={{ color: '#8B84A0' }} />
+              </div>
+              <pre className="text-[12px] text-[#1A1035] font-medium leading-relaxed font-sans whitespace-pre-line">{addressStr}</pre>
+            </div>
+          </div>
+        ) : (
+          <div className="py-6 text-center">
+            <p className="text-[12px] text-[#8B84A0]">No address on file</p>
+          </div>
+        )}
+      </DetailBlock>
+
+      {/* ── EMERGENCY CONTACT ── */}
+      <DetailBlock title="Emergency Contact">
+        {patient.emergency_contact ? (
+          <div className="py-3 flex items-start gap-3">
+            <Heart size={14} style={{ color: '#8B84A0', marginTop: 2 }} />
+            <p className="text-[12px] text-[#1A1035] font-medium leading-relaxed">{patient.emergency_contact}</p>
+          </div>
+        ) : (
+          <div className="py-6 text-center">
+            <p className="text-[12px] text-[#8B84A0]">No emergency contact recorded</p>
+            <p className="text-[10px] text-[#B0A8C8] mt-1">Add via Cliniko patient record</p>
+          </div>
+        )}
+      </DetailBlock>
+
+      {/* ── REFERRAL & SOURCE ── */}
+      <DetailBlock title="Referral &amp; Acquisition">
+        <DetailRow label="Referral Source" value={patient.referral_source} />
+        <DetailRow label="Data Source"     value={patient.source === 'cliniko' ? 'Cliniko Sync' : patient.source === 'signal_lead' ? 'Signal / Lead Capture' : 'Demo'} />
+        <DetailRow label="Lifecycle Stage" value={LC_CFG[patient.lifecycle_stage]?.label ?? patient.lifecycle_stage} />
+        {!patient.referral_source && (
+          <div className="py-3 pb-4 text-center">
+            <p className="text-[12px] text-[#8B84A0]">No referral source recorded</p>
+          </div>
+        )}
+      </DetailBlock>
+
+      {/* ── TREATMENT PROFILE ── */}
+      <DetailBlock title="Treatment Profile">
+        {patient.treatment_tags.length > 0 ? (
+          <div className="py-4">
+            <p className="text-[10px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-3">Known Treatments</p>
+            <div className="flex flex-wrap gap-2">
+              {patient.treatment_tags.map(tag => (
+                <span key={tag} className="text-[11px] font-medium px-3 py-1 rounded-full"
+                  style={{ backgroundColor: '#F5F3FF', color: '#6D28D9', border: '1px solid #DDD6FE' }}>
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="py-6 text-center">
+            <p className="text-[12px] text-[#8B84A0]">No treatment history recorded</p>
+          </div>
+        )}
+        <DetailRow label="Total Visits"   value={String(patient.total_visits)} />
+        <DetailRow label="Last Visit"     value={patient.last_appointment_at ? fmtDate(patient.last_appointment_at) : null} />
+        <DetailRow label="Next Appt"      value={patient.next_appointment_at ? fmtDate(patient.next_appointment_at) : null} />
+        <DetailRow label="Cancellation Rate" value={patient.cancellation_rate > 0 ? `${Math.round(patient.cancellation_rate * 100)}%` : null} />
+      </DetailBlock>
+
+      {/* ── INTERNAL NOTES ── */}
+      <DetailBlock title="Internal Notes">
+        {patient.notes ? (
+          <div className="py-3">
+            <p className="text-[12px] text-[#1A1035] leading-relaxed whitespace-pre-wrap">{patient.notes}</p>
+          </div>
+        ) : (
+          <div className="py-6 text-center">
+            <p className="text-[12px] text-[#8B84A0]">No notes on file</p>
+            <p className="text-[10px] text-[#B0A8C8] mt-1">Add notes via Cliniko or the Intelligence tab</p>
+          </div>
+        )}
+      </DetailBlock>
+
+      {/* ── RELATED CLIENTS ── */}
+      <Panel>
+        <PanelHeader title="Related Clients"
+          action={<span className="text-[9px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wide" style={{ backgroundColor: '#F5F3FF', color: '#7C3AED', border: '1px solid #DDD6FE' }}>Coming Soon</span>} />
+        <div className="p-5">
+          <div className="flex flex-col items-center justify-center py-8 gap-2.5 rounded-xl" style={{ border: '1.5px dashed #EBE5FF', backgroundColor: '#FDFCFB' }}>
+            <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#F5F3FF' }}>
+              <Users size={14} style={{ color: '#D5CCFF' }} />
+            </div>
+            <p className="text-[12px] font-semibold text-[#8B84A0]">No related clients linked</p>
+            <p className="text-[10px] text-[#B0A8C8] text-center max-w-[260px]">Family members, corporate accounts, and referral networks will appear here once linked</p>
+          </div>
+        </div>
+      </Panel>
+
     </div>
   );
 }
@@ -2419,6 +2614,7 @@ export default function PatientHubPage() {
                   {activeTab === 'communications' && <CommunicationsTab patient={patient} timeline={hub!.timeline} />}
                   {activeTab === 'payments'       && <PaymentsTab patient={patient} appointments={hub!.appointments} />}
                   {activeTab === 'files'          && <FilesTab patient={patient} />}
+                  {activeTab === 'client_detail'  && <ClientDetailTab patient={patient} />}
                   {activeTab === 'treatment_log'  && <TreatmentLogTab patient={patient} />}
                   {activeTab === 'plan'           && <PatientPlanTab patient={patient} />}
                   {activeTab === 'intelligence'   && <IntelligenceTab patient={patient} onGenerateReport={handleGenerateReport} onChatWithAgent={handleChatWithAgent} />}
