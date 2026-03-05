@@ -11,6 +11,7 @@ import { StaffNav } from '@/components/staff-nav';
 import {
   getClinicAnalytics, generateIntelligenceBrief,
   type ClinicAnalytics, type TimeRange, type TreatmentStat,
+  type MonthlyRevenue, type FunnelStage, type AppointmentUtil,
 } from '@/lib/actions/analytics';
 import { getStaffProfile, type StaffProfile } from '@/lib/actions/staff-onboarding';
 
@@ -301,6 +302,146 @@ function AgentPanel({ agents }: { agents: ClinicAnalytics['agents'] }) {
 }
 
 // =============================================================================
+// REVENUE TREND CHART
+// =============================================================================
+
+function RevenueTrendPanel({ monthly, range }: { monthly: MonthlyRevenue[]; range: TimeRange }) {
+  const maxVal = Math.max(...monthly.map(m => Math.max(m.value, m.target)));
+  const chartH  = 100;
+  const barW    = 28;
+  const gap     = 16;
+  const totalW  = monthly.length * (barW + gap) - gap;
+
+  return (
+    <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #EBE5FF' }}>
+      <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid #EBE5FF' }}>
+        <div>
+          <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-0.5" style={{ color: '#8B84A0' }}>Revenue Trend</p>
+          <p className="text-[15px] font-bold" style={{ color: '#1A1035' }}>Monthly Performance</p>
+        </div>
+        <div className="flex items-center gap-4 text-[10px]">
+          <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: '#6D28D9' }} /><span style={{ color: '#524D66' }}>Actual</span></div>
+          <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: '#EBE5FF' }} /><span style={{ color: '#524D66' }}>Target</span></div>
+        </div>
+      </div>
+      <div className="px-5 py-5">
+        <svg width="100%" height={chartH + 32} viewBox={`0 0 ${totalW + 24} ${chartH + 32}`} preserveAspectRatio="xMidYMid meet">
+          {monthly.map((m, i) => {
+            const x       = i * (barW + gap);
+            const valH    = (m.value  / maxVal) * chartH;
+            const targH   = (m.target / maxVal) * chartH;
+            const overTgt = m.value >= m.target;
+            return (
+              <g key={m.month}>
+                {/* Target bar (background) */}
+                <rect x={x} y={chartH - targH} width={barW} height={targH} rx={3} fill="#EBE5FF" />
+                {/* Actual bar */}
+                <rect x={x} y={chartH - valH} width={barW} height={valH} rx={3} fill={overTgt ? '#059669' : '#6D28D9'} opacity={0.85} />
+                {/* Month label */}
+                <text x={x + barW / 2} y={chartH + 16} textAnchor="middle" fontSize={9} fill="#8B84A0">{m.month}</text>
+                {/* Value label */}
+                <text x={x + barW / 2} y={chartH - valH - 4} textAnchor="middle" fontSize={8} fill={overTgt ? '#059669' : '#6D28D9'} fontWeight="700">
+                  {m.value >= 1000 ? `£${(m.value / 1000).toFixed(0)}k` : `£${m.value}`}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// CONVERSION FUNNEL + APPOINTMENT UTIL
+// =============================================================================
+
+function FunnelPanel({ funnel, util }: { funnel: FunnelStage[]; util: AppointmentUtil }) {
+  const maxCount = funnel[0]?.count ?? 1;
+  return (
+    <div className="grid grid-cols-[1.4fr_1fr] gap-4">
+      {/* Funnel */}
+      <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #EBE5FF' }}>
+        <div className="px-5 py-4" style={{ borderBottom: '1px solid #EBE5FF' }}>
+          <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-0.5" style={{ color: '#8B84A0' }}>Acquisition</p>
+          <p className="text-[15px] font-bold" style={{ color: '#1A1035' }}>Conversion Funnel</p>
+        </div>
+        <div className="p-5 space-y-3">
+          {funnel.map((stage, i) => {
+            const pct = (stage.count / maxCount) * 100;
+            return (
+              <div key={stage.stage}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="text-[11px] font-medium" style={{ color: '#1A1035' }}>{stage.stage}</p>
+                  <div className="flex items-center gap-3">
+                    {i > 0 && (
+                      <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded" style={{ backgroundColor: 'rgba(13,148,136,0.10)', color: '#0D9488' }}>
+                        {stage.rate}% conv
+                      </span>
+                    )}
+                    <p className="text-[12px] font-bold w-8 text-right" style={{ color: stage.color }}>{stage.count}</p>
+                  </div>
+                </div>
+                <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(138,108,255,0.07)' }}>
+                  <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, backgroundColor: stage.color }} />
+                </div>
+              </div>
+            );
+          })}
+          <div className="pt-3 mt-1" style={{ borderTop: '1px solid #EBE5FF' }}>
+            <p className="text-[10px]" style={{ color: '#6E6688' }}>
+              Overall conversion: <span className="font-bold" style={{ color: '#1A1035' }}>
+                {funnel.length > 1 ? Math.round((funnel[funnel.length - 1].count / funnel[0].count) * 100) : 0}%
+              </span> enquiry → retained patient
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Appointment utilisation */}
+      <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #EBE5FF' }}>
+        <div className="px-5 py-4" style={{ borderBottom: '1px solid #EBE5FF' }}>
+          <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-0.5" style={{ color: '#8B84A0' }}>Schedule</p>
+          <p className="text-[15px] font-bold" style={{ color: '#1A1035' }}>Appointment Utilisation</p>
+        </div>
+        <div className="p-5">
+          {/* Donut */}
+          <div className="flex items-center gap-4 mb-5">
+            <div className="relative w-20 h-20 flex-shrink-0">
+              <svg viewBox="0 0 80 80" className="w-20 h-20 -rotate-90">
+                <circle cx="40" cy="40" r="32" fill="none" stroke="rgba(138,108,255,0.08)" strokeWidth="7" />
+                <circle cx="40" cy="40" r="32" fill="none" stroke={util.pct >= 80 ? '#059669' : util.pct >= 60 ? '#D97706' : '#DC2626'} strokeWidth="7"
+                  strokeDasharray={`${(util.pct / 100) * 201.1} 201.1`} strokeLinecap="round" />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <p className="text-[16px] font-black" style={{ color: '#1A1035' }}>{util.pct}%</p>
+              </div>
+            </div>
+            <div>
+              <p className="text-[12px] font-semibold" style={{ color: '#1A1035' }}>Slot Utilisation</p>
+              <p className="text-[10px]" style={{ color: '#6E6688' }}>{util.booked.toLocaleString()} of {util.capacity.toLocaleString()} slots filled</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: 'Booked',    value: util.booked.toLocaleString(),    color: '#059669' },
+              { label: 'Available', value: (util.capacity - util.booked).toLocaleString(), color: '#8B84A0' },
+              { label: 'No-shows',  value: util.no_shows.toLocaleString(),  color: '#DC2626' },
+              { label: 'Capacity',  value: util.capacity.toLocaleString(),  color: '#1A1035' },
+            ].map(k => (
+              <div key={k.label} className="px-3 py-2 rounded-xl text-center" style={{ backgroundColor: `${k.color}08`, border: `1px solid ${k.color}20` }}>
+                <p className="text-[14px] font-black" style={{ color: k.color }}>{k.value}</p>
+                <p className="text-[8px] mt-0.5" style={{ color: '#8B84A0' }}>{k.label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
 // OPERATIONS STRIP
 // =============================================================================
 
@@ -447,9 +588,15 @@ export default function AnalyticsPage() {
         ) : analytics ? (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
             <KPIStrip analytics={analytics} />
+            <div className="mb-4">
+              <RevenueTrendPanel monthly={analytics.monthly_revenue} range={range} />
+            </div>
             <div className="grid grid-cols-[1.2fr_1fr] gap-4 mb-4">
               <TreatmentPanel treatments={analytics.treatments} />
               <PatientPanel analytics={analytics} patients={analytics.patients} />
+            </div>
+            <div className="mb-4">
+              <FunnelPanel funnel={analytics.funnel} util={analytics.appointment_util} />
             </div>
             <div className="grid grid-cols-[1fr_1.6fr] gap-4 mb-4">
               <KomalPanel komal={analytics.komal} />

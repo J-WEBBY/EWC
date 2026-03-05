@@ -988,3 +988,377 @@ Write a brief clinical note (2–3 sentences) for the practitioner about these s
     return { flags: [], hasRedFlags: false, aiNotes: '', error: String(err) };
   }
 }
+
+// =============================================================================
+// PRESCRIPTIONS
+// =============================================================================
+
+export interface Prescription {
+  id: string;
+  cliniko_patient_id: string;
+  drug_name: string;
+  drug_generic_name: string | null;
+  drug_class: string | null;
+  formulation: string | null;
+  strength: string | null;
+  dose: string;
+  frequency: string;
+  route: string;
+  quantity: string | null;
+  duration: string | null;
+  indication: string | null;
+  prescriber_name: string;
+  prescriber_gmc: string | null;
+  prescribed_date: string;
+  start_date: string | null;
+  end_date: string | null;
+  dispensed_by: string | null;
+  dispensed_date: string | null;
+  repeat_allowed: boolean;
+  repeats_remaining: number;
+  last_repeat_date: string | null;
+  status: 'active' | 'completed' | 'stopped' | 'on_hold' | 'cancelled';
+  stopped_reason: string | null;
+  stopped_date: string | null;
+  allergies_checked: boolean;
+  interactions_checked: boolean;
+  special_instructions: string | null;
+  patient_counselled: boolean;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+const DEMO_PRESCRIPTIONS: Prescription[] = [
+  {
+    id: 'rx-1', cliniko_patient_id: 'demo',
+    drug_name: 'Sertraline', drug_generic_name: 'Sertraline HCl', drug_class: 'other',
+    formulation: 'tablet', strength: '50mg', dose: '50mg', frequency: 'Once daily',
+    route: 'oral', quantity: '28 tablets', duration: 'Ongoing',
+    indication: 'Generalised anxiety disorder — maintenance therapy',
+    prescriber_name: 'Dr James Smith', prescriber_gmc: 'GMC-1234567',
+    prescribed_date: '2023-06-01', start_date: '2023-06-01', end_date: null,
+    dispensed_by: 'Edgbaston Pharmacy', dispensed_date: '2023-06-02',
+    repeat_allowed: true, repeats_remaining: 5, last_repeat_date: '2025-11-01',
+    status: 'active', stopped_reason: null, stopped_date: null,
+    allergies_checked: true, interactions_checked: true,
+    special_instructions: 'Take in the morning with food. Do not stop abruptly.',
+    patient_counselled: true, notes: null,
+    created_by: null, created_at: '2023-06-01T09:00:00Z', updated_at: '2025-11-01T09:00:00Z',
+  },
+  {
+    id: 'rx-2', cliniko_patient_id: 'demo',
+    drug_name: 'Semaglutide (Wegovy)', drug_generic_name: 'Semaglutide', drug_class: 'weight_management',
+    formulation: 'injection', strength: '0.25mg', dose: '0.25mg weekly (titration)',
+    frequency: 'Once weekly subcutaneous', route: 'injection', quantity: '4 pens',
+    duration: '12 weeks initial programme',
+    indication: 'Weight management programme — BMI 28.5, co-morbid HTN',
+    prescriber_name: 'Dr Suresh Ganata', prescriber_gmc: 'GMC-7654321',
+    prescribed_date: '2025-10-15', start_date: '2025-10-20', end_date: '2026-01-20',
+    dispensed_by: null, dispensed_date: null,
+    repeat_allowed: true, repeats_remaining: 2, last_repeat_date: null,
+    status: 'active', stopped_reason: null, stopped_date: null,
+    allergies_checked: true, interactions_checked: true,
+    special_instructions: 'Inject abdomen/thigh. Titrate dose per protocol. Monitor for nausea.',
+    patient_counselled: true, notes: 'Patient tolerating well at 0.25mg. Review at week 4.',
+    created_by: null, created_at: '2025-10-15T10:00:00Z', updated_at: '2025-11-01T10:00:00Z',
+  },
+];
+
+export async function getPrescriptions(patientId: string): Promise<{ data: Prescription[]; isDemo: boolean }> {
+  try {
+    const db = createSovereignClient();
+    const { data, error } = await db
+      .from('prescriptions')
+      .select('*')
+      .eq('cliniko_patient_id', patientId)
+      .order('prescribed_date', { ascending: false });
+    if (error?.message?.includes('does not exist') || error?.message?.includes('relation')) {
+      return { data: DEMO_PRESCRIPTIONS, isDemo: true };
+    }
+    return { data: (data as Prescription[]) ?? [], isDemo: false };
+  } catch { return { data: DEMO_PRESCRIPTIONS, isDemo: true }; }
+}
+
+export async function addPrescription(
+  input: Omit<Prescription, 'id' | 'created_at' | 'updated_at'>,
+): Promise<{ success: boolean; id?: string; error?: string }> {
+  try {
+    const db = createSovereignClient();
+    const { data, error } = await db.from('prescriptions').insert({
+      ...input, created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    }).select('id').single();
+    return error ? { success: false, error: error.message } : { success: true, id: data?.id };
+  } catch (err) { return { success: false, error: String(err) }; }
+}
+
+export async function updatePrescriptionStatus(
+  id: string,
+  status: Prescription['status'],
+  reason?: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const db = createSovereignClient();
+    const updates: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
+    if (status === 'stopped') { updates.stopped_reason = reason ?? null; updates.stopped_date = new Date().toISOString().split('T')[0]; }
+    const { error } = await db.from('prescriptions').update(updates).eq('id', id);
+    return { success: !error, error: error?.message };
+  } catch (err) { return { success: false, error: String(err) }; }
+}
+
+// =============================================================================
+// LAB RESULTS
+// =============================================================================
+
+export interface PanelResult {
+  name: string;
+  value: string;
+  unit?: string;
+  range?: string;
+  flag?: string;
+}
+
+export interface LabResult {
+  id: string;
+  cliniko_patient_id: string;
+  test_name: string;
+  test_category: string | null;
+  test_code: string | null;
+  panel_name: string | null;
+  ordered_by: string;
+  ordered_date: string;
+  lab_name: string | null;
+  lab_reference: string | null;
+  result_value: string | null;
+  result_unit: string | null;
+  reference_range_low: number | null;
+  reference_range_high: number | null;
+  reference_range_text: string | null;
+  flag: 'normal' | 'low' | 'high' | 'critical_low' | 'critical_high' | 'abnormal' | 'pending' | null;
+  panel_results: PanelResult[];
+  sample_date: string | null;
+  result_date: string | null;
+  result_received_at: string | null;
+  status: 'pending' | 'received' | 'reviewed' | 'actioned' | 'cancelled';
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  clinical_notes: string | null;
+  action_required: boolean;
+  action_taken: string | null;
+  report_url: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+const DEMO_LAB_RESULTS: LabResult[] = [
+  {
+    id: 'lab-1', cliniko_patient_id: 'demo',
+    test_name: 'Full Blood Count', test_category: 'blood', test_code: 'FBC', panel_name: 'Full Blood Count',
+    ordered_by: 'Dr Suresh Ganata', ordered_date: '2025-11-10', lab_name: 'Spire Health Labs',
+    lab_reference: 'SHL-2025-44821', result_value: null, result_unit: null,
+    reference_range_low: null, reference_range_high: null, reference_range_text: null,
+    flag: 'normal',
+    panel_results: [
+      { name: 'Haemoglobin', value: '138', unit: 'g/L', range: '115-165', flag: 'normal' },
+      { name: 'White Cell Count', value: '6.2', unit: '10^9/L', range: '4.0-11.0', flag: 'normal' },
+      { name: 'Platelets', value: '245', unit: '10^9/L', range: '150-400', flag: 'normal' },
+      { name: 'MCV', value: '88', unit: 'fL', range: '80-100', flag: 'normal' },
+    ],
+    sample_date: '2025-11-10', result_date: '2025-11-12', result_received_at: '2025-11-12T14:00:00Z',
+    status: 'reviewed', reviewed_by: 'Dr Suresh Ganata', reviewed_at: '2025-11-13T09:00:00Z',
+    clinical_notes: 'Normal FBC. No anaemia. Reassuring.',
+    action_required: false, action_taken: null, report_url: null,
+    created_by: null, created_at: '2025-11-10T09:00:00Z', updated_at: '2025-11-13T09:00:00Z',
+  },
+  {
+    id: 'lab-2', cliniko_patient_id: 'demo',
+    test_name: 'HbA1c', test_category: 'blood', test_code: 'HBA1C', panel_name: null,
+    ordered_by: 'Dr Suresh Ganata', ordered_date: '2025-11-10', lab_name: 'Spire Health Labs',
+    lab_reference: 'SHL-2025-44822', result_value: '38', result_unit: 'mmol/mol',
+    reference_range_low: null, reference_range_high: 42, reference_range_text: '<42 mmol/mol',
+    flag: 'normal', panel_results: [],
+    sample_date: '2025-11-10', result_date: '2025-11-12', result_received_at: '2025-11-12T14:00:00Z',
+    status: 'reviewed', reviewed_by: 'Dr Suresh Ganata', reviewed_at: '2025-11-13T09:00:00Z',
+    clinical_notes: 'HbA1c normal. No pre-diabetes. Good progress on weight management programme.',
+    action_required: false, action_taken: null, report_url: null,
+    created_by: null, created_at: '2025-11-10T09:00:00Z', updated_at: '2025-11-13T09:00:00Z',
+  },
+  {
+    id: 'lab-3', cliniko_patient_id: 'demo',
+    test_name: 'Vitamin D (25-OH)', test_category: 'blood', test_code: 'VITD', panel_name: null,
+    ordered_by: 'Dr Suresh Ganata', ordered_date: '2025-08-01', lab_name: 'Spire Health Labs',
+    lab_reference: 'SHL-2025-31044', result_value: '28', result_unit: 'nmol/L',
+    reference_range_low: 50, reference_range_high: null, reference_range_text: '>50 nmol/L',
+    flag: 'low', panel_results: [],
+    sample_date: '2025-08-01', result_date: '2025-08-03', result_received_at: '2025-08-03T11:00:00Z',
+    status: 'actioned', reviewed_by: 'Dr Suresh Ganata', reviewed_at: '2025-08-04T09:00:00Z',
+    clinical_notes: 'Vitamin D insufficient. Commenced 1000IU daily. Recheck in 3 months.',
+    action_required: true, action_taken: 'Prescribed Vitamin D 1000IU daily.',
+    report_url: null, created_by: null, created_at: '2025-08-01T09:00:00Z', updated_at: '2025-08-04T09:00:00Z',
+  },
+];
+
+export async function getLabResults(patientId: string): Promise<{ data: LabResult[]; isDemo: boolean }> {
+  try {
+    const db = createSovereignClient();
+    const { data, error } = await db
+      .from('lab_results').select('*')
+      .eq('cliniko_patient_id', patientId)
+      .order('ordered_date', { ascending: false });
+    if (error?.message?.includes('does not exist') || error?.message?.includes('relation')) {
+      return { data: DEMO_LAB_RESULTS, isDemo: true };
+    }
+    return { data: (data as LabResult[]) ?? [], isDemo: false };
+  } catch { return { data: DEMO_LAB_RESULTS, isDemo: true }; }
+}
+
+export async function addLabResult(
+  input: Omit<LabResult, 'id' | 'created_at' | 'updated_at'>,
+): Promise<{ success: boolean; id?: string; error?: string }> {
+  try {
+    const db = createSovereignClient();
+    const { data, error } = await db.from('lab_results').insert({
+      ...input, created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    }).select('id').single();
+    return error ? { success: false, error: error.message } : { success: true, id: data?.id };
+  } catch (err) { return { success: false, error: String(err) }; }
+}
+
+export async function reviewLabResult(
+  id: string, reviewedBy: string, clinicalNotes: string,
+  actionRequired: boolean, actionTaken?: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const db = createSovereignClient();
+    const { error } = await db.from('lab_results').update({
+      status: actionRequired ? 'actioned' : 'reviewed',
+      reviewed_by: reviewedBy, reviewed_at: new Date().toISOString(),
+      clinical_notes: clinicalNotes, action_required: actionRequired,
+      action_taken: actionTaken ?? null, updated_at: new Date().toISOString(),
+    }).eq('id', id);
+    return { success: !error, error: error?.message };
+  } catch (err) { return { success: false, error: String(err) }; }
+}
+
+// =============================================================================
+// REFERRALS
+// =============================================================================
+
+export interface Referral {
+  id: string;
+  cliniko_patient_id: string;
+  direction: 'out' | 'in';
+  referral_type: string;
+  specialty: string | null;
+  urgency: 'routine' | 'urgent' | 'two_week_wait' | 'emergency';
+  reason: string;
+  referred_by: string;
+  referred_date: string;
+  referred_to_name: string | null;
+  referred_to_hospital: string | null;
+  referred_to_address: string | null;
+  referred_to_phone: string | null;
+  referred_to_email: string | null;
+  clinical_summary: string | null;
+  investigations_included: string[];
+  medications_included: boolean;
+  status: 'draft' | 'sent' | 'acknowledged' | 'appointment_booked' | 'appointment_attended' | 'completed' | 'rejected' | 'cancelled';
+  sent_date: string | null;
+  acknowledged_date: string | null;
+  appointment_date: string | null;
+  appointment_location: string | null;
+  completed_date: string | null;
+  outcome: string | null;
+  follow_up_required: boolean;
+  follow_up_notes: string | null;
+  response_received: boolean;
+  response_date: string | null;
+  response_summary: string | null;
+  response_url: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+const DEMO_REFERRALS: Referral[] = [
+  {
+    id: 'ref-1', cliniko_patient_id: 'demo',
+    direction: 'out', referral_type: 'specialist', specialty: 'Neurology',
+    urgency: 'routine',
+    reason: 'Query myasthenia gravis — positive ice pack test, ptosis history. Neurological assessment required before botulinum toxin.',
+    referred_by: 'Dr Suresh Ganata', referred_date: '2024-01-10',
+    referred_to_name: 'Prof. Daniel Ahmed', referred_to_hospital: 'Queen Elizabeth Hospital Birmingham',
+    referred_to_address: 'Mindelsohn Way, Edgbaston, B15 2GW', referred_to_phone: '0121 627 2000',
+    referred_to_email: null,
+    clinical_summary: 'Patient presents with intermittent bilateral ptosis, worsening with fatigue. Ice pack test positive. Requesting neuromuscular assessment. Botox contraindicated until MG excluded.',
+    investigations_included: [], medications_included: true,
+    status: 'completed',
+    sent_date: '2024-01-10', acknowledged_date: '2024-01-15',
+    appointment_date: '2024-02-20', appointment_location: 'Neurology OPD, QE Birmingham',
+    completed_date: '2024-02-20',
+    outcome: 'MG excluded. AChR antibodies negative. Botox cleared with caution — small doses, monitor closely.',
+    follow_up_required: false, follow_up_notes: null,
+    response_received: true, response_date: '2024-03-01',
+    response_summary: 'No evidence of myasthenia gravis. Safe to proceed with standard precautions.',
+    response_url: null, created_by: null, created_at: '2024-01-10T09:00:00Z', updated_at: '2024-03-01T09:00:00Z',
+  },
+  {
+    id: 'ref-2', cliniko_patient_id: 'demo',
+    direction: 'out', referral_type: 'gp', specialty: null, urgency: 'routine',
+    reason: 'Vitamin D deficiency — 28 nmol/L. Supplementation commenced. Requesting GP monitoring.',
+    referred_by: 'Dr Suresh Ganata', referred_date: '2025-08-04',
+    referred_to_name: 'Dr James Smith', referred_to_hospital: null,
+    referred_to_address: 'Edgbaston Medical Centre', referred_to_phone: '0121 454 1200',
+    referred_to_email: null,
+    clinical_summary: 'Vitamin D 28 nmol/L (Aug 2025). Commenced 1000IU daily. Request monitoring at 3-month recheck.',
+    investigations_included: ['lab-3'], medications_included: true,
+    status: 'sent',
+    sent_date: '2025-08-04', acknowledged_date: null, appointment_date: null,
+    appointment_location: null, completed_date: null, outcome: null,
+    follow_up_required: true, follow_up_notes: 'Recheck Vitamin D November 2025',
+    response_received: false, response_date: null, response_summary: null, response_url: null,
+    created_by: null, created_at: '2025-08-04T09:00:00Z', updated_at: '2025-08-04T09:00:00Z',
+  },
+];
+
+export async function getReferrals(patientId: string): Promise<{ data: Referral[]; isDemo: boolean }> {
+  try {
+    const db = createSovereignClient();
+    const { data, error } = await db
+      .from('referrals').select('*')
+      .eq('cliniko_patient_id', patientId)
+      .order('referred_date', { ascending: false });
+    if (error?.message?.includes('does not exist') || error?.message?.includes('relation')) {
+      return { data: DEMO_REFERRALS, isDemo: true };
+    }
+    return { data: (data as Referral[]) ?? [], isDemo: false };
+  } catch { return { data: DEMO_REFERRALS, isDemo: true }; }
+}
+
+export async function addReferral(
+  input: Omit<Referral, 'id' | 'created_at' | 'updated_at'>,
+): Promise<{ success: boolean; id?: string; error?: string }> {
+  try {
+    const db = createSovereignClient();
+    const { data, error } = await db.from('referrals').insert({
+      ...input, created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    }).select('id').single();
+    return error ? { success: false, error: error.message } : { success: true, id: data?.id };
+  } catch (err) { return { success: false, error: String(err) }; }
+}
+
+export async function updateReferralStatus(
+  id: string,
+  status: Referral['status'],
+  updates?: Partial<Pick<Referral, 'outcome' | 'response_summary' | 'appointment_date' | 'completed_date' | 'follow_up_notes'>>,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const db = createSovereignClient();
+    const { error } = await db.from('referrals').update({
+      status, ...(updates ?? {}), updated_at: new Date().toISOString(),
+    }).eq('id', id);
+    return { success: !error, error: error?.message };
+  } catch (err) { return { success: false, error: String(err) }; }
+}

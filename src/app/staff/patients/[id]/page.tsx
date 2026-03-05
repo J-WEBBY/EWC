@@ -29,9 +29,10 @@ import {
   getClinicalRecord, getSOAPNotes, getPatientConsents, getClinicalPhotos,
   addSOAPNote, updateSOAPNote, signOffSOAPNote, addPatientConsent, updateConsentStatus,
   getVitalsHistory, generateAINotesDraft, generateClinicalSummary,
+  getPrescriptions, getLabResults, getReferrals,
   type ClinicalRecord, type SOAPNote, type PatientConsent, type ClinicalPhoto,
   type VitalsReading, type Allergy, type Medication, type MedicalCondition,
-  type RiskFlag, type Contraindication,
+  type RiskFlag, type Contraindication, type Prescription, type LabResult, type Referral,
 } from '@/lib/actions/clinical';
 
 // =============================================================================
@@ -280,7 +281,7 @@ function TimelineItem({ ev, last }: { ev: TimelineEvent; last: boolean }) {
 // TABS
 // =============================================================================
 
-type Tab = 'overview' | 'lifecycle' | 'appointments' | 'practitioners' | 'communications' | 'payments' | 'files' | 'intelligence' | 'treatment_log' | 'plan' | 'client_detail' | 'clinical_record' | 'soap_notes' | 'consents' | 'photos';
+type Tab = 'overview' | 'lifecycle' | 'appointments' | 'practitioners' | 'communications' | 'payments' | 'files' | 'intelligence' | 'treatment_log' | 'plan' | 'client_detail' | 'clinical_record' | 'soap_notes' | 'consents' | 'photos' | 'prescriptions' | 'lab_results' | 'referrals';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'overview',         label: 'Overview' },
@@ -297,6 +298,9 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'soap_notes',       label: 'SOAP Notes' },
   { id: 'consents',         label: 'Consents' },
   { id: 'photos',           label: 'Photos' },
+  { id: 'prescriptions',    label: 'Prescriptions' },
+  { id: 'lab_results',      label: 'Lab Results' },
+  { id: 'referrals',        label: 'Referrals' },
   { id: 'intelligence',     label: 'Intelligence' },
 ];
 
@@ -3261,6 +3265,517 @@ function PhotosTab({ patient }: { patient: PatientIntelligenceRow }) {
 }
 
 // =============================================================================
+// TAB: PRESCRIPTIONS
+// =============================================================================
+
+function PrescriptionsTab({ patient }: { patient: PatientIntelligenceRow }) {
+  const ARIA = '#0D9488';
+  const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
+  const [isDemo, setIsDemo] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [selectedRx, setSelectedRx] = useState<Prescription | null>(null);
+
+  useEffect(() => {
+    getPrescriptions(String(patient.cliniko_id ?? '')).then(r => {
+      setPrescriptions(r.data);
+      setIsDemo(r.isDemo);
+      setLoading(false);
+    });
+  }, [patient.cliniko_id]);
+
+  const statusColor = (s: string) => {
+    if (s === 'active') return { bg: '#D1FAE5', color: '#065F46' };
+    if (s === 'completed') return { bg: '#EDE9FE', color: '#5B21B6' };
+    if (s === 'stopped') return { bg: '#FEE2E2', color: '#991B1B' };
+    if (s === 'on_hold') return { bg: '#FEF3C7', color: '#92400E' };
+    return { bg: '#F3F4F6', color: '#374151' };
+  };
+
+  if (loading) return <div className="py-16 text-center text-[13px] text-[#8B84A0]">Loading prescriptions…</div>;
+
+  return (
+    <div>
+      {isDemo && (
+        <div className="mb-4 px-4 py-2 rounded-xl text-[11px]" style={{ backgroundColor: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A' }}>
+          Demo data — migration 037 not yet applied
+        </div>
+      )}
+
+      {/* Summary strip */}
+      <div className="grid grid-cols-4 gap-3 mb-6">
+        {[
+          { label: 'Active', val: prescriptions.filter(r => r.status === 'active').length, color: '#059669' },
+          { label: 'On Hold', val: prescriptions.filter(r => r.status === 'on_hold').length, color: '#D97706' },
+          { label: 'Stopped', val: prescriptions.filter(r => r.status === 'stopped').length, color: '#DC2626' },
+          { label: 'Total', val: prescriptions.length, color: ARIA },
+        ].map(m => (
+          <div key={m.label} className="rounded-xl p-4" style={{ border: '1px solid #EBE5FF' }}>
+            <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#8B84A0] mb-1">{m.label}</p>
+            <p className="text-[28px] font-black tracking-[-0.03em]" style={{ color: m.color }}>{m.val}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Prescription list */}
+      {prescriptions.length === 0 ? (
+        <div className="py-12 text-center text-[13px] text-[#8B84A0]">No prescriptions recorded</div>
+      ) : (
+        <div className="space-y-2">
+          {prescriptions.map(rx => {
+            const sc = statusColor(rx.status);
+            const isSelected = selectedRx?.id === rx.id;
+            return (
+              <motion.div
+                key={rx.id}
+                layout
+                className="rounded-2xl overflow-hidden cursor-pointer"
+                style={{ border: `1px solid ${isSelected ? ARIA : '#EBE5FF'}` }}
+                onClick={() => setSelectedRx(isSelected ? null : rx)}
+              >
+                <div className="flex items-center gap-4 px-5 py-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-[14px] font-semibold text-[#1A1035]">{rx.drug_name}</p>
+                      {rx.drug_generic_name && rx.drug_generic_name !== rx.drug_name && (
+                        <span className="text-[11px] text-[#8B84A0]">({rx.drug_generic_name})</span>
+                      )}
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: sc.bg, color: sc.color }}>{rx.status}</span>
+                    </div>
+                    <p className="text-[12px] text-[#524D66] mt-0.5">{rx.dose} — {rx.frequency} — {rx.route}</p>
+                    {rx.indication && <p className="text-[11px] text-[#8B84A0] mt-0.5">For: {rx.indication}</p>}
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-[11px] text-[#524D66]">{rx.prescriber_name}</p>
+                    <p className="text-[10px] text-[#8B84A0]">{rx.prescribed_date}</p>
+                    {rx.end_date && <p className="text-[10px] text-[#8B84A0]">Until {rx.end_date}</p>}
+                  </div>
+                </div>
+
+                <AnimatePresence>
+                  {isSelected && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="px-5 pb-5 pt-1" style={{ borderTop: '1px solid #EBE5FF' }}>
+                        <div className="grid grid-cols-3 gap-4 text-[11px]">
+                          {[
+                            { label: 'Formulation', val: rx.formulation },
+                            { label: 'Strength', val: rx.strength },
+                            { label: 'Quantity', val: rx.quantity },
+                            { label: 'Duration', val: rx.duration },
+                            { label: 'Route', val: rx.route },
+                            { label: 'GMC No.', val: rx.prescriber_gmc },
+                          ].filter(f => f.val).map(f => (
+                            <div key={f.label}>
+                              <p className="text-[9px] uppercase tracking-[0.2em] text-[#8B84A0] mb-0.5">{f.label}</p>
+                              <p className="text-[#1A1035] font-medium">{f.val}</p>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="mt-3 flex gap-4 text-[11px]">
+                          {[
+                            { label: 'Allergies checked', val: rx.allergies_checked },
+                            { label: 'Interactions checked', val: rx.interactions_checked },
+                            { label: 'Patient counselled', val: rx.patient_counselled },
+                            { label: 'Repeats allowed', val: rx.repeat_allowed },
+                          ].map(f => (
+                            <div key={f.label} className="flex items-center gap-1.5">
+                              <div className="w-3 h-3 rounded-full flex items-center justify-center" style={{ backgroundColor: f.val ? '#D1FAE5' : '#FEE2E2' }}>
+                                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: f.val ? '#059669' : '#DC2626' }} />
+                              </div>
+                              <span className="text-[#524D66]">{f.label}</span>
+                            </div>
+                          ))}
+                        </div>
+                        {rx.special_instructions && (
+                          <p className="mt-2 text-[11px] text-[#524D66] p-3 rounded-xl" style={{ backgroundColor: '#FAF7F2', border: '1px solid #EBE5FF' }}>
+                            <span className="font-semibold text-[#1A1035]">Instructions: </span>{rx.special_instructions}
+                          </p>
+                        )}
+                        {rx.stopped_reason && (
+                          <p className="mt-2 text-[11px] text-[#DC2626]">
+                            <span className="font-semibold">Stopped: </span>{rx.stopped_reason} {rx.stopped_date && `(${rx.stopped_date})`}
+                          </p>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// =============================================================================
+// TAB: LAB RESULTS
+// =============================================================================
+
+function LabResultsTab({ patient }: { patient: PatientIntelligenceRow }) {
+  const ARIA = '#0D9488';
+  const [results, setResults] = useState<LabResult[]>([]);
+  const [isDemo, setIsDemo] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<LabResult | null>(null);
+
+  useEffect(() => {
+    getLabResults(String(patient.cliniko_id ?? '')).then(r => {
+      setResults(r.data);
+      setIsDemo(r.isDemo);
+      setLoading(false);
+    });
+  }, [patient.cliniko_id]);
+
+  const flagColor = (f: string | null) => {
+    if (f === 'normal') return { bg: '#D1FAE5', color: '#065F46' };
+    if (f === 'low' || f === 'high') return { bg: '#FEF3C7', color: '#92400E' };
+    if (f === 'critical_low' || f === 'critical_high') return { bg: '#FEE2E2', color: '#991B1B' };
+    if (f === 'abnormal') return { bg: '#FEE2E2', color: '#991B1B' };
+    if (f === 'pending') return { bg: '#EDE9FE', color: '#5B21B6' };
+    return { bg: '#F3F4F6', color: '#374151' };
+  };
+
+  const statusColor = (s: string) => {
+    if (s === 'reviewed' || s === 'actioned') return { bg: '#D1FAE5', color: '#065F46' };
+    if (s === 'received') return { bg: '#EDE9FE', color: '#5B21B6' };
+    if (s === 'pending') return { bg: '#FEF3C7', color: '#92400E' };
+    return { bg: '#F3F4F6', color: '#374151' };
+  };
+
+  if (loading) return <div className="py-16 text-center text-[13px] text-[#8B84A0]">Loading lab results…</div>;
+
+  const abnormal = results.filter(r => r.flag && ['low', 'high', 'critical_low', 'critical_high', 'abnormal'].includes(r.flag));
+
+  return (
+    <div>
+      {isDemo && (
+        <div className="mb-4 px-4 py-2 rounded-xl text-[11px]" style={{ backgroundColor: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A' }}>
+          Demo data — migration 037 not yet applied
+        </div>
+      )}
+
+      {/* Summary strip */}
+      <div className="grid grid-cols-4 gap-3 mb-6">
+        {[
+          { label: 'Total Results', val: results.length, color: ARIA },
+          { label: 'Abnormal', val: abnormal.length, color: '#DC2626' },
+          { label: 'Pending Review', val: results.filter(r => r.status === 'received').length, color: '#D97706' },
+          { label: 'Actions Required', val: results.filter(r => r.action_required).length, color: '#7C3AED' },
+        ].map(m => (
+          <div key={m.label} className="rounded-xl p-4" style={{ border: '1px solid #EBE5FF' }}>
+            <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#8B84A0] mb-1">{m.label}</p>
+            <p className="text-[28px] font-black tracking-[-0.03em]" style={{ color: m.color }}>{m.val}</p>
+          </div>
+        ))}
+      </div>
+
+      {results.length === 0 ? (
+        <div className="py-12 text-center text-[13px] text-[#8B84A0]">No lab results recorded</div>
+      ) : (
+        <div className="space-y-2">
+          {results.map(r => {
+            const fc = flagColor(r.flag);
+            const sc = statusColor(r.status);
+            const isSelected = selected?.id === r.id;
+            return (
+              <motion.div
+                key={r.id}
+                layout
+                className="rounded-2xl overflow-hidden cursor-pointer"
+                style={{ border: `1px solid ${isSelected ? ARIA : '#EBE5FF'}` }}
+                onClick={() => setSelected(isSelected ? null : r)}
+              >
+                <div className="flex items-center gap-4 px-5 py-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-[14px] font-semibold text-[#1A1035]">{r.test_name}</p>
+                      {r.panel_name && r.panel_name !== r.test_name && (
+                        <span className="text-[11px] text-[#8B84A0]">— {r.panel_name}</span>
+                      )}
+                      {r.flag && (
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: fc.bg, color: fc.color }}>{r.flag.replace('_', ' ')}</span>
+                      )}
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: sc.bg, color: sc.color }}>{r.status}</span>
+                    </div>
+                    <p className="text-[12px] text-[#524D66] mt-0.5">
+                      Ordered by {r.ordered_by} — {r.ordered_date}
+                      {r.lab_name && ` · ${r.lab_name}`}
+                    </p>
+                    {r.result_value && (
+                      <p className="text-[12px] font-semibold mt-0.5" style={{ color: fc.color }}>
+                        Result: {r.result_value} {r.result_unit}
+                        {r.reference_range_text && <span className="text-[#8B84A0] font-normal"> (ref: {r.reference_range_text})</span>}
+                      </p>
+                    )}
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    {r.result_date && <p className="text-[11px] text-[#524D66]">Result: {r.result_date}</p>}
+                    {r.reviewed_by && <p className="text-[10px] text-[#8B84A0]">Reviewed: {r.reviewed_by}</p>}
+                  </div>
+                </div>
+
+                <AnimatePresence>
+                  {isSelected && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="px-5 pb-5 pt-1" style={{ borderTop: '1px solid #EBE5FF' }}>
+                        {r.panel_results && r.panel_results.length > 0 && (
+                          <div className="mb-4">
+                            <p className="text-[9px] uppercase tracking-[0.2em] text-[#8B84A0] mb-2">Panel Results</p>
+                            <div className="space-y-1">
+                              {r.panel_results.map((pr, i) => {
+                                const pfc = flagColor(pr.flag ?? null);
+                                return (
+                                  <div key={i} className="flex items-center justify-between py-1.5 px-3 rounded-lg" style={{ backgroundColor: pr.flag !== 'normal' ? `${pfc.bg}60` : '#FAF7F2' }}>
+                                    <span className="text-[12px] text-[#1A1035]">{pr.name}</span>
+                                    <div className="flex items-center gap-3">
+                                      <span className="text-[12px] font-semibold" style={{ color: pfc.color }}>{pr.value} {pr.unit}</span>
+                                      {pr.range && <span className="text-[10px] text-[#8B84A0]">ref: {pr.range}</span>}
+                                      <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: pfc.bg, color: pfc.color }}>{pr.flag}</span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                        {r.clinical_notes && (
+                          <div className="p-3 rounded-xl" style={{ backgroundColor: '#FAF7F2', border: '1px solid #EBE5FF' }}>
+                            <p className="text-[9px] uppercase tracking-[0.2em] text-[#8B84A0] mb-1">Clinical Notes</p>
+                            <p className="text-[12px] text-[#1A1035]">{r.clinical_notes}</p>
+                          </div>
+                        )}
+                        {r.action_required && r.action_taken && (
+                          <p className="mt-2 text-[11px] text-[#0D9488]">
+                            <span className="font-semibold">Action taken: </span>{r.action_taken}
+                          </p>
+                        )}
+                        {r.lab_reference && (
+                          <p className="mt-2 text-[10px] text-[#8B84A0]">Lab ref: {r.lab_reference}</p>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// =============================================================================
+// TAB: REFERRALS
+// =============================================================================
+
+function ReferralsTab({ patient }: { patient: PatientIntelligenceRow }) {
+  const ARIA = '#0D9488';
+  const [referrals, setReferrals] = useState<Referral[]>([]);
+  const [isDemo, setIsDemo] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<Referral | null>(null);
+
+  useEffect(() => {
+    getReferrals(String(patient.cliniko_id ?? '')).then(r => {
+      setReferrals(r.data);
+      setIsDemo(r.isDemo);
+      setLoading(false);
+    });
+  }, [patient.cliniko_id]);
+
+  const urgencyColor = (u: string) => {
+    if (u === 'two_week_wait') return { bg: '#FEE2E2', color: '#991B1B' };
+    if (u === 'urgent') return { bg: '#FEF3C7', color: '#92400E' };
+    if (u === 'emergency') return { bg: '#FEE2E2', color: '#7F1D1D' };
+    return { bg: '#EDE9FE', color: '#5B21B6' };
+  };
+
+  const statusColor = (s: string) => {
+    if (s === 'completed') return { bg: '#D1FAE5', color: '#065F46' };
+    if (s === 'appointment_attended' || s === 'appointment_booked') return { bg: '#DBEAFE', color: '#1E40AF' };
+    if (s === 'sent' || s === 'acknowledged') return { bg: '#EDE9FE', color: '#5B21B6' };
+    if (s === 'rejected' || s === 'cancelled') return { bg: '#FEE2E2', color: '#991B1B' };
+    return { bg: '#F3F4F6', color: '#374151' };
+  };
+
+  const statusSteps = ['draft', 'sent', 'acknowledged', 'appointment_booked', 'appointment_attended', 'completed'];
+
+  if (loading) return <div className="py-16 text-center text-[13px] text-[#8B84A0]">Loading referrals…</div>;
+
+  return (
+    <div>
+      {isDemo && (
+        <div className="mb-4 px-4 py-2 rounded-xl text-[11px]" style={{ backgroundColor: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A' }}>
+          Demo data — migration 037 not yet applied
+        </div>
+      )}
+
+      {/* Summary strip */}
+      <div className="grid grid-cols-4 gap-3 mb-6">
+        {[
+          { label: 'Total Referrals', val: referrals.length, color: ARIA },
+          { label: 'Active', val: referrals.filter(r => !['completed', 'rejected', 'cancelled'].includes(r.status)).length, color: '#7C3AED' },
+          { label: 'Completed', val: referrals.filter(r => r.status === 'completed').length, color: '#059669' },
+          { label: 'Awaiting Response', val: referrals.filter(r => !r.response_received && r.status !== 'completed').length, color: '#D97706' },
+        ].map(m => (
+          <div key={m.label} className="rounded-xl p-4" style={{ border: '1px solid #EBE5FF' }}>
+            <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#8B84A0] mb-1">{m.label}</p>
+            <p className="text-[28px] font-black tracking-[-0.03em]" style={{ color: m.color }}>{m.val}</p>
+          </div>
+        ))}
+      </div>
+
+      {referrals.length === 0 ? (
+        <div className="py-12 text-center text-[13px] text-[#8B84A0]">No referrals recorded</div>
+      ) : (
+        <div className="space-y-2">
+          {referrals.map(ref => {
+            const uc = urgencyColor(ref.urgency);
+            const sc = statusColor(ref.status);
+            const isSelected = selected?.id === ref.id;
+            const stepIdx = statusSteps.indexOf(ref.status);
+            return (
+              <motion.div
+                key={ref.id}
+                layout
+                className="rounded-2xl overflow-hidden cursor-pointer"
+                style={{ border: `1px solid ${isSelected ? ARIA : '#EBE5FF'}` }}
+                onClick={() => setSelected(isSelected ? null : ref)}
+              >
+                <div className="flex items-center gap-4 px-5 py-4">
+                  {/* Direction badge */}
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-[9px] font-black uppercase tracking-wide"
+                    style={{ backgroundColor: ref.direction === 'out' ? '#EDE9FE' : '#D1FAE5', color: ref.direction === 'out' ? '#5B21B6' : '#065F46' }}>
+                    {ref.direction.toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-[14px] font-semibold text-[#1A1035]">
+                        {ref.specialty || ref.referral_type}
+                      </p>
+                      {ref.referred_to_name && <span className="text-[11px] text-[#8B84A0]">— {ref.referred_to_name}</span>}
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: sc.bg, color: sc.color }}>{ref.status.replace('_', ' ')}</span>
+                      {ref.urgency !== 'routine' && (
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: uc.bg, color: uc.color }}>{ref.urgency.replace('_', ' ')}</span>
+                      )}
+                    </div>
+                    <p className="text-[12px] text-[#524D66] mt-0.5 line-clamp-1">{ref.reason}</p>
+                    <p className="text-[11px] text-[#8B84A0] mt-0.5">
+                      Referred by {ref.referred_by} · {ref.referred_date}
+                      {ref.referred_to_hospital && ` · ${ref.referred_to_hospital}`}
+                    </p>
+                  </div>
+                </div>
+
+                <AnimatePresence>
+                  {isSelected && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="px-5 pb-5 pt-1" style={{ borderTop: '1px solid #EBE5FF' }}>
+                        {/* Progress tracker */}
+                        {!['rejected', 'cancelled'].includes(ref.status) && (
+                          <div className="mb-4">
+                            <p className="text-[9px] uppercase tracking-[0.2em] text-[#8B84A0] mb-2">Progress</p>
+                            <div className="flex items-center gap-1">
+                              {statusSteps.map((step, i) => (
+                                <div key={step} className="flex items-center gap-1 flex-1">
+                                  <div className="flex-1 h-1 rounded-full" style={{ backgroundColor: i <= stepIdx ? ARIA : '#EBE5FF' }} />
+                                  {i === statusSteps.length - 1 && (
+                                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: i <= stepIdx ? ARIA : '#EBE5FF' }} />
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                            <div className="flex justify-between mt-1">
+                              {statusSteps.map((step, i) => (
+                                <p key={step} className="text-[8px] capitalize" style={{ color: i <= stepIdx ? ARIA : '#8B84A0' }}>
+                                  {step.replace('_', ' ')}
+                                </p>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Clinical summary */}
+                        {ref.clinical_summary && (
+                          <div className="p-3 rounded-xl mb-3" style={{ backgroundColor: '#FAF7F2', border: '1px solid #EBE5FF' }}>
+                            <p className="text-[9px] uppercase tracking-[0.2em] text-[#8B84A0] mb-1">Clinical Summary Sent</p>
+                            <p className="text-[12px] text-[#1A1035]">{ref.clinical_summary}</p>
+                          </div>
+                        )}
+
+                        {/* Outcome */}
+                        {ref.outcome && (
+                          <div className="p-3 rounded-xl mb-3" style={{ backgroundColor: '#F0FDF4', border: '1px solid #BBF7D0' }}>
+                            <p className="text-[9px] uppercase tracking-[0.2em] text-[#059669] mb-1">Outcome</p>
+                            <p className="text-[12px] text-[#1A1035]">{ref.outcome}</p>
+                          </div>
+                        )}
+
+                        {/* Response */}
+                        {ref.response_summary && (
+                          <div className="p-3 rounded-xl mb-3" style={{ backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE' }}>
+                            <p className="text-[9px] uppercase tracking-[0.2em] text-[#1E40AF] mb-1">Specialist Response {ref.response_date && `· ${ref.response_date}`}</p>
+                            <p className="text-[12px] text-[#1A1035]">{ref.response_summary}</p>
+                          </div>
+                        )}
+
+                        {/* Contact info */}
+                        {(ref.referred_to_phone || ref.referred_to_address) && (
+                          <div className="grid grid-cols-2 gap-3 text-[11px]">
+                            {ref.referred_to_phone && (
+                              <div>
+                                <p className="text-[9px] uppercase tracking-[0.2em] text-[#8B84A0] mb-0.5">Phone</p>
+                                <p className="text-[#1A1035]">{ref.referred_to_phone}</p>
+                              </div>
+                            )}
+                            {ref.referred_to_address && (
+                              <div>
+                                <p className="text-[9px] uppercase tracking-[0.2em] text-[#8B84A0] mb-0.5">Address</p>
+                                <p className="text-[#1A1035]">{ref.referred_to_address}</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {ref.follow_up_required && ref.follow_up_notes && (
+                          <p className="mt-2 text-[11px] text-[#D97706]">
+                            <span className="font-semibold">Follow-up: </span>{ref.follow_up_notes}
+                          </p>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// =============================================================================
 // MAIN PAGE
 // =============================================================================
 
@@ -3424,6 +3939,9 @@ export default function PatientHubPage() {
                   {activeTab === 'soap_notes'       && <SOAPNotesTab patient={patient} userId={userId} />}
                   {activeTab === 'consents'         && <ConsentsTab patient={patient} userId={userId} />}
                   {activeTab === 'photos'           && <PhotosTab patient={patient} />}
+                  {activeTab === 'prescriptions'    && <PrescriptionsTab patient={patient} />}
+                  {activeTab === 'lab_results'      && <LabResultsTab patient={patient} />}
+                  {activeTab === 'referrals'        && <ReferralsTab patient={patient} />}
                   {activeTab === 'intelligence'     && <IntelligenceTab patient={patient} onGenerateReport={handleGenerateReport} onChatWithAgent={handleChatWithAgent} />}
                 </motion.div>
               </AnimatePresence>

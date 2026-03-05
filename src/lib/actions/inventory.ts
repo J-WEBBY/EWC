@@ -33,6 +33,11 @@ export interface ConsumableItem {
   cqc_relevant: boolean;
   treatment_link: string | null;   // which treatment this supplies
   ai_reorder_prediction: string | null;   // AI predicted reorder date
+  expiry_date?: string | null;
+  batch_number?: string | null;
+  storage_requirements?: string | null;
+  supplier_contact?: string | null;
+  supplier_phone?: string | null;
 }
 
 export interface EquipmentItem {
@@ -347,4 +352,87 @@ export async function markEquipmentServiced(
 ): Promise<{ success: boolean; error?: string }> {
   void equipmentId; void servicedDate;
   return { success: true };
+}
+
+// =============================================================================
+// EXPIRY TRACKING
+// =============================================================================
+
+export interface ExpiryItem {
+  id: string;
+  name: string;
+  category: ItemCategory;
+  batch_number: string;
+  expiry_date: string;         // ISO date
+  quantity: number;
+  unit: string;
+  supplier: string;
+  supplier_contact: string | null;
+  supplier_phone: string | null;
+  storage_requirements: string | null;
+  cqc_relevant: boolean;
+  treatment_link: string | null;
+  days_until_expiry: number;   // computed
+  expiry_status: 'ok' | 'expiring_soon' | 'expired';
+}
+
+const DEMO_EXPIRY_ITEMS: Omit<ExpiryItem, 'days_until_expiry' | 'expiry_status'>[] = [
+  {
+    id: 'exp-001', name: 'Bocouture 50u (Batch A)', category: 'medication',
+    batch_number: 'BCR-2025-4421', expiry_date: new Date(Date.now() + 18 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    quantity: 3, unit: 'vial', supplier: 'Merz Aesthetics',
+    supplier_contact: 'orders@merzaesthetics.co.uk', supplier_phone: '0800 888 4455',
+    storage_requirements: 'Refrigerate 2–8°C. Do not freeze.',
+    cqc_relevant: true, treatment_link: 'Botox Anti-Wrinkle',
+  },
+  {
+    id: 'exp-002', name: 'Juvéderm Ultra 1ml (Batch B)', category: 'medication',
+    batch_number: 'JUV-2025-7733', expiry_date: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    quantity: 5, unit: 'syringe', supplier: 'Allergan / AbbVie',
+    supplier_contact: 'uk.aesthetics@abbvie.com', supplier_phone: '01628 515 000',
+    storage_requirements: 'Room temperature. Below 25°C. Do not freeze.',
+    cqc_relevant: true, treatment_link: 'Dermal Fillers',
+  },
+  {
+    id: 'exp-003', name: 'Hyalase 1500 IU (Safety Stock)', category: 'medication',
+    batch_number: 'HYA-2025-1102', expiry_date: new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    quantity: 1, unit: 'vial', supplier: 'Alliance Pharma',
+    supplier_contact: 'orders@alliancepharmaceuticals.co.uk', supplier_phone: '01249 466 966',
+    storage_requirements: 'Store below 25°C. Protect from light.',
+    cqc_relevant: true, treatment_link: 'Emergency reversal agent',
+  },
+  {
+    id: 'exp-004', name: 'Lidocaine 2% (Dental Cartridges)', category: 'medication',
+    batch_number: 'LID-2026-0031', expiry_date: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    quantity: 12, unit: 'cartridge', supplier: 'Septodont UK',
+    supplier_contact: null, supplier_phone: '01622 695 520',
+    storage_requirements: 'Store at room temperature. Protect from light.',
+    cqc_relevant: true, treatment_link: 'Lip Filler',
+  },
+  {
+    id: 'exp-005', name: 'IV Vitamin C (25g/500ml)', category: 'medication',
+    batch_number: 'IVC-2025-8844', expiry_date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    quantity: 2, unit: 'bag', supplier: 'Allma Healthcare',
+    supplier_contact: 'info@allma.co.uk', supplier_phone: null,
+    storage_requirements: 'Refrigerate 2–8°C. Use within 24h of opening.',
+    cqc_relevant: true, treatment_link: 'IV Therapy',
+  },
+  {
+    id: 'exp-006', name: 'Semaglutide 0.5mg (Ozempic pens)', category: 'medication',
+    batch_number: 'SEM-2025-3311', expiry_date: new Date(Date.now() + 62 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    quantity: 4, unit: 'pen', supplier: 'Novo Nordisk',
+    supplier_contact: 'medinfo@novonordisk.com', supplier_phone: '01293 613 555',
+    storage_requirements: 'Refrigerate 2–8°C. Opened pen: room temp, use within 4 weeks.',
+    cqc_relevant: true, treatment_link: 'Weight Management',
+  },
+];
+
+export async function getExpiryTracking(_tenantId: string): Promise<{ success: boolean; data?: ExpiryItem[]; error?: string }> {
+  const now = Date.now();
+  const data: ExpiryItem[] = DEMO_EXPIRY_ITEMS.map(item => {
+    const days = Math.round((new Date(item.expiry_date).getTime() - now) / 86400000);
+    const expiry_status: ExpiryItem['expiry_status'] = days < 0 ? 'expired' : days <= 30 ? 'expiring_soon' : 'ok';
+    return { ...item, days_until_expiry: days, expiry_status };
+  }).sort((a, b) => a.days_until_expiry - b.days_until_expiry);
+  return { success: true, data };
 }

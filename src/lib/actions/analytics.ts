@@ -64,13 +64,36 @@ export interface OperationsHealth {
   cqc_days_to:       number | null;
 }
 
+export interface MonthlyRevenue {
+  month:  string;   // 'Jan', 'Feb' etc.
+  value:  number;
+  target: number;
+}
+
+export interface FunnelStage {
+  stage: string;
+  count: number;
+  rate:  number;    // conversion rate from previous stage (%)
+  color: string;
+}
+
+export interface AppointmentUtil {
+  booked:   number;
+  capacity: number;
+  pct:      number;
+  no_shows: number;
+}
+
 export interface ClinicAnalytics {
-  revenue:    RevenueData;
-  treatments: TreatmentStat[];
-  patients:   PatientMetric;
-  komal:      KomalMetric;
-  agents:     AgentStat[];
-  operations: OperationsHealth;
+  revenue:          RevenueData;
+  treatments:       TreatmentStat[];
+  patients:         PatientMetric;
+  komal:            KomalMetric;
+  agents:           AgentStat[];
+  operations:       OperationsHealth;
+  monthly_revenue:  MonthlyRevenue[];
+  funnel:           FunnelStage[];
+  appointment_util: AppointmentUtil;
 }
 
 // =============================================================================
@@ -154,7 +177,32 @@ function buildDemoData(range: TimeRange): ClinicAnalytics {
     cqc_days_to:       3,
   };
 
-  return { revenue, treatments, patients, komal, agents, operations };
+  const monthly_revenue: MonthlyRevenue[] = [
+    { month: 'Aug', value: 27400, target: 28000 },
+    { month: 'Sep', value: 29800, target: 28000 },
+    { month: 'Oct', value: 31200, target: 30000 },
+    { month: 'Nov', value: 33600, target: 30000 },
+    { month: 'Dec', value: 28100, target: 30000 },
+    { month: 'Jan', value: 30200, target: 32000 },
+    { month: 'Feb', value: 34850, target: 32000 },
+  ];
+
+  const funnel: FunnelStage[] = [
+    { stage: 'Enquiries',     count: range === '7d' ? 48  : range === '30d' ? 194 : 561,  rate: 100, color: '#6D28D9' },
+    { stage: 'Consultations', count: range === '7d' ? 31  : range === '30d' ? 126 : 364,  rate: 65,  color: '#3B82F6' },
+    { stage: 'Booked',        count: range === '7d' ? 22  : range === '30d' ? 89  : 257,  rate: 71,  color: '#0D9488' },
+    { stage: 'Treated',       count: range === '7d' ? 19  : range === '30d' ? 78  : 226,  rate: 88,  color: '#059669' },
+    { stage: 'Retained',      count: range === '7d' ? 12  : range === '30d' ? 51  : 147,  rate: 65,  color: '#D97706' },
+  ];
+
+  const appointment_util: AppointmentUtil = {
+    booked:   range === '7d' ? 94  : range === '30d' ? 382 : 1094,
+    capacity: range === '7d' ? 120 : range === '30d' ? 480 : 1440,
+    pct:      range === '7d' ? 78  : range === '30d' ? 80  : 76,
+    no_shows: range === '7d' ? 4   : range === '30d' ? 17  : 48,
+  };
+
+  return { revenue, treatments, patients, komal, agents, operations, monthly_revenue, funnel, appointment_util };
 }
 
 // =============================================================================
@@ -176,8 +224,11 @@ export async function getClinicAnalytics(range: TimeRange): Promise<ClinicAnalyt
 
     return {
       ...demo,
-      patients:   { ...demo.patients,   total },
-      operations: { ...demo.operations, open_signals: open },
+      patients:         { ...demo.patients,   total },
+      operations:       { ...demo.operations, open_signals: open },
+      monthly_revenue:  demo.monthly_revenue,
+      funnel:           demo.funnel,
+      appointment_util: demo.appointment_util,
     };
   } catch {
     return buildDemoData(range);

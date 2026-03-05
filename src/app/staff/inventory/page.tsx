@@ -13,12 +13,14 @@ import {
   getAIReorderRecommendations,
   updateStockLevel,
   markEquipmentServiced,
+  getExpiryTracking,
 } from '@/lib/actions/inventory';
 import type {
   ConsumableItem,
   EquipmentItem,
   InventoryStats,
   AIReorderRecommendation,
+  ExpiryItem,
 } from '@/lib/actions/inventory';
 import { getStaffProfile, getLatestTenantAndUser } from '@/lib/actions/staff-onboarding';
 import type { StaffProfile } from '@/lib/actions/staff-onboarding';
@@ -178,7 +180,7 @@ function EquipmentRow({ item, tenantId, onService }: { item: EquipmentItem; tena
   );
 }
 
-type TabView = 'consumables' | 'equipment' | 'reorder';
+type TabView = 'consumables' | 'equipment' | 'reorder' | 'expiry';
 
 export default function InventoryPage() {
   const params = useSearchParams();
@@ -189,8 +191,10 @@ export default function InventoryPage() {
   const [equipment, setEquipment] = useState<EquipmentItem[]>([]);
   const [stats, setStats] = useState<InventoryStats | null>(null);
   const [reorderRecs, setReorderRecs] = useState<AIReorderRecommendation[]>([]);
+  const [expiryItems, setExpiryItems] = useState<ExpiryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [reorderLoading, setReorderLoading] = useState(false);
+  const [expiryLoading, setExpiryLoading] = useState(false);
   const [tab, setTab] = useState<TabView>('consumables');
   const [tenantId] = useState('clinic');
 
@@ -219,6 +223,15 @@ export default function InventoryPage() {
     const res = await getAIReorderRecommendations(tenantId);
     if (res.success && res.data) setReorderRecs(res.data);
     setReorderLoading(false);
+  }
+
+  async function handleLoadExpiry() {
+    setTab('expiry');
+    if (expiryItems.length > 0) return;
+    setExpiryLoading(true);
+    const res = await getExpiryTracking(tenantId);
+    if (res.success && res.data) setExpiryItems(res.data);
+    setExpiryLoading(false);
   }
 
   function handleStockUpdate(id: string, stock: number) {
@@ -260,8 +273,13 @@ export default function InventoryPage() {
               { key: 'consumables', label: `Consumables (${consumables.length})` },
               { key: 'equipment', label: `Equipment (${equipment.length})` },
               { key: 'reorder', label: stats && (stats.low_stock_count + stats.critical_stock_count) > 0 ? `AI Reorder (${stats.low_stock_count + stats.critical_stock_count})` : 'AI Reorder' },
+              { key: 'expiry', label: 'Expiry Tracker' },
             ] as { key: TabView; label: string }[]).map(t => (
-              <button key={t.key} onClick={() => t.key === 'reorder' ? handleLoadReorder() : setTab(t.key)} style={{
+              <button key={t.key} onClick={() => {
+                if (t.key === 'reorder') handleLoadReorder();
+                else if (t.key === 'expiry') handleLoadExpiry();
+                else setTab(t.key);
+              }} style={{
                 padding: '10px 20px', border: 'none', background: 'transparent', fontSize: 11, fontWeight: 700,
                 cursor: 'pointer', color: tab === t.key ? accentColor : '#8B84A0',
                 borderBottom: `2px solid ${tab === t.key ? accentColor : 'transparent'}`, transition: 'all 0.2s',
@@ -311,6 +329,85 @@ export default function InventoryPage() {
               <AnimatePresence>
                 {equipment.map(item => <EquipmentRow key={item.id} item={item} tenantId={tenantId} onService={handleEquipmentService} />)}
               </AnimatePresence>
+            </motion.div>
+          )}
+
+          {tab === 'expiry' && (
+            <motion.div key="expiry" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ padding: '24px 40px' }}>
+              <div style={{ display: 'flex', gap: 20, marginBottom: 20 }}>
+                {[
+                  { label: 'Expired',        val: expiryItems.filter(e => e.expiry_status === 'expired').length,        color: '#DC2626' },
+                  { label: 'Expiring <30d',  val: expiryItems.filter(e => e.expiry_status === 'expiring_soon').length,  color: '#D97706' },
+                  { label: 'OK',             val: expiryItems.filter(e => e.expiry_status === 'ok').length,             color: '#059669' },
+                  { label: 'CQC Items',      val: expiryItems.filter(e => e.cqc_relevant).length,                       color: '#6D28D9' },
+                ].map(m => (
+                  <div key={m.label} style={{ flex: 1, padding: '16px 20px', border: '1px solid #EBE5FF', borderRadius: 14 }}>
+                    <p style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.25em', color: '#8B84A0', margin: 0 }}>{m.label}</p>
+                    <p style={{ fontSize: 26, fontWeight: 900, color: m.color, letterSpacing: '-0.04em', margin: 0 }}>{m.val}</p>
+                  </div>
+                ))}
+              </div>
+              {expiryLoading ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 20, height: 20, border: '2px solid #EBE5FF', borderTopColor: ACCENT, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                  <span style={{ fontSize: 12, color: '#8B84A0' }}>Loading expiry data...</span>
+                </div>
+              ) : (
+                <div>
+                  {/* Header */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 100px', gap: 12, paddingBottom: 10, borderBottom: '2px solid #EBE5FF', marginBottom: 4 }}>
+                    {['Item / Batch', 'Qty', 'Expiry', 'Days Left', 'Storage', 'Status'].map(h => (
+                      <span key={h} style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.25em', color: '#8B84A0' }}>{h}</span>
+                    ))}
+                  </div>
+                  <AnimatePresence>
+                    {expiryItems.map(item => {
+                      const expired  = item.expiry_status === 'expired';
+                      const expiring = item.expiry_status === 'expiring_soon';
+                      const dotColor = expired ? '#DC2626' : expiring ? '#D97706' : '#059669';
+                      const rowBg    = expired ? 'rgba(220,38,38,0.03)' : expiring ? 'rgba(217,119,6,0.03)' : 'transparent';
+                      return (
+                        <motion.div key={item.id} layout initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+                          style={{ borderBottom: '1px solid #EBE5FF', padding: '14px 0', backgroundColor: rowBg, display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 100px', gap: 12, alignItems: 'center' }}>
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                              <div style={{ width: 6, height: 6, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
+                              <p style={{ fontSize: 12, fontWeight: 700, color: '#1A1035', margin: 0 }}>{item.name}</p>
+                            </div>
+                            <p style={{ fontSize: 10, color: '#8B84A0', margin: 0, paddingLeft: 13 }}>Batch: {item.batch_number} · {item.supplier}</p>
+                            {item.treatment_link && <p style={{ fontSize: 9, color: ACCENT, margin: 0, paddingLeft: 13, fontStyle: 'italic' }}>{item.treatment_link}</p>}
+                            {item.supplier_contact && <p style={{ fontSize: 9, color: '#6E6688', margin: 0, paddingLeft: 13 }}>{item.supplier_contact}</p>}
+                          </div>
+                          <div>
+                            <p style={{ fontSize: 18, fontWeight: 900, color: '#1A1035', margin: 0, letterSpacing: '-0.03em' }}>{item.quantity}</p>
+                            <p style={{ fontSize: 9, color: '#8B84A0', margin: 0 }}>{item.unit}</p>
+                          </div>
+                          <div>
+                            <p style={{ fontSize: 11, fontWeight: 700, color: dotColor, margin: 0 }}>{new Date(item.expiry_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                          </div>
+                          <div>
+                            <p style={{ fontSize: 18, fontWeight: 900, color: dotColor, margin: 0, letterSpacing: '-0.03em' }}>
+                              {expired ? 'EXP' : `${item.days_until_expiry}d`}
+                            </p>
+                            <p style={{ fontSize: 9, color: '#8B84A0', margin: 0 }}>{expired ? 'EXPIRED — do not use' : expiring ? 'expiring soon' : 'in date'}</p>
+                          </div>
+                          <div>
+                            <p style={{ fontSize: 9, color: '#6E6688', margin: 0 }}>{item.storage_requirements ?? '—'}</p>
+                          </div>
+                          <div>
+                            <span style={{
+                              fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 6,
+                              background: expired ? 'rgba(220,38,38,0.10)' : expiring ? 'rgba(217,119,6,0.08)' : 'rgba(5,150,105,0.07)',
+                              color: dotColor,
+                              border: `1px solid ${dotColor}30`,
+                            }}>{expired ? 'Expired' : expiring ? 'Expiring' : 'In Date'}</span>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </AnimatePresence>
+                </div>
+              )}
             </motion.div>
           )}
 
