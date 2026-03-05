@@ -408,6 +408,12 @@ export async function syncAll(
   results.push(await syncAppointments(client, updatedSince, cleanup));
   results.push(await syncInvoices(client, updatedSince));
 
+  // Recompute lifecycle stages for all non-manually-set patients after appointments sync
+  const supabase = createSovereignClient();
+  await supabase.rpc('compute_all_lifecycle_stages').then(({ error }) => {
+    if (error) console.warn('[sync] compute_all_lifecycle_stages RPC error:', error.message);
+  });
+
   const success = results.every(r => r.success);
   await updateConfigStatus(
     success,

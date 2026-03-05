@@ -334,7 +334,7 @@ const DEFAULT_FILTERS: FilterState = {
 
 function applyFilters(patients: PatientIntelligenceRow[], f: FilterState): PatientIntelligenceRow[] {
   let out = patients;
-  if (f.lifecycle !== 'all') out = out.filter(p => p.lifecycle_stage === f.lifecycle);
+  // lifecycle filter is server-side — no client-side filter needed here
   if (f.engagement !== 'all') out = out.filter(p =>
     f.engagement === 'high' ? p.engagement_score >= 70 :
     f.engagement === 'medium' ? p.engagement_score >= 40 && p.engagement_score < 70 :
@@ -426,9 +426,14 @@ export default function PatientsPage() {
     getPatientStats().then(res => { if (res.success) setGlobalStats(res.stats); });
   }, []);
 
-  const loadPage = useCallback((q?: string, p = 0) => {
+  const loadPage = useCallback((q?: string, p = 0, lc?: LifecycleStage | 'all') => {
     setLoading(true);
-    getPatientPage({ search: q || undefined, page: p, pageSize: PAGE_SIZE }).then(res => {
+    getPatientPage({
+      search:    q || undefined,
+      page:      p,
+      pageSize:  PAGE_SIZE,
+      lifecycle: (lc && lc !== 'all') ? lc : undefined,
+    }).then(res => {
       setPatients(res.patients);
       setServerTotal(res.total);
       setServerTotalPages(res.totalPages);
@@ -437,16 +442,25 @@ export default function PatientsPage() {
     });
   }, []);
 
+  // Search debounce — reload when query changes
   useEffect(() => {
-    const t = setTimeout(() => { setPage(0); loadPage(search || undefined, 0); }, search ? 350 : 0);
+    const t = setTimeout(() => { setPage(0); loadPage(search || undefined, 0, filters.lifecycle as LifecycleStage | 'all'); }, search ? 350 : 0);
     return () => clearTimeout(t);
-  }, [search, loadPage]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
+
+  // Lifecycle filter — server-side reload when changed
+  useEffect(() => {
+    setPage(0);
+    loadPage(search || undefined, 0, filters.lifecycle as LifecycleStage | 'all');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.lifecycle]);
 
   const goToPage = useCallback((p: number) => {
     setPage(p);
-    loadPage(search || undefined, p);
+    loadPage(search || undefined, p, filters.lifecycle as LifecycleStage | 'all');
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [search, loadPage]);
+  }, [search, loadPage, filters.lifecycle]);
 
   const setFilter = <K extends keyof FilterState>(key: K, val: FilterState[K]) => {
     setFilters(f => ({ ...f, [key]: val }));
@@ -475,28 +489,14 @@ export default function PatientsPage() {
           style={{ borderBottom: '1px solid #EBE5FF' }}
         >
           <div>
-            <div className="flex items-center gap-3 mb-1">
-              <div className="relative w-[6px] h-[6px]">
-                <motion.div
-                  animate={{ scale: [1, 2.2, 1], opacity: [0.4, 0, 0.4] }}
-                  transition={{ duration: 2.5, repeat: Infinity }}
-                  className="absolute inset-0 rounded-full bg-[#0D9488]"
-                />
-                <div className="w-full h-full rounded-full bg-[#0D9488]" />
+            {isDemo && (
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-[8px] uppercase tracking-[0.24em] px-2 py-0.5 rounded font-semibold"
+                  style={{ backgroundColor: '#F5F3FF', color: '#7C3AED', border: '1px solid #DDD6FE' }}>
+                  Demo mode
+                </span>
               </div>
-              <span className="text-[8px] uppercase tracking-[0.28em] font-semibold" style={{ color: '#0D9488cc' }}>
-                Aria — Patient Relationships
-              </span>
-              {isDemo && (
-                <>
-                  <span className="text-[#8B84A0]">·</span>
-                  <span className="text-[8px] uppercase tracking-[0.24em] px-2 py-0.5 rounded font-semibold"
-                    style={{ backgroundColor: '#F5F3FF', color: '#7C3AED', border: '1px solid #DDD6FE' }}>
-                    Demo mode
-                  </span>
-                </>
-              )}
-            </div>
+            )}
             <h1 className="text-[34px] font-black tracking-[-0.035em] text-[#1A1035]">Patient Intelligence</h1>
             <p className="text-[11px] text-[#6E6688] mt-1">
               {serverTotal > 0 ? serverTotal.toLocaleString() : globalStats.total.toLocaleString()} patients · lifecycle &amp; CRM · engagement tracking

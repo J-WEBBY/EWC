@@ -444,6 +444,7 @@ export async function getPatientPage(params: {
   search?: string;
   page?: number;
   pageSize?: number;
+  lifecycle?: LifecycleStage;
 }): Promise<{
   success: boolean;
   patients: PatientIntelligenceRow[];
@@ -453,9 +454,10 @@ export async function getPatientPage(params: {
   isDemo: boolean;
   error?: string;
 }> {
-  const page     = params.page     ?? 0;
-  const pageSize = params.pageSize ?? 24;
-  const search   = params.search?.trim();
+  const page      = params.page      ?? 0;
+  const pageSize  = params.pageSize  ?? 24;
+  const search    = params.search?.trim();
+  const lifecycle = params.lifecycle ?? null;
 
   try {
     const db = createSovereignClient();
@@ -468,13 +470,19 @@ export async function getPatientPage(params: {
     let countQ = db.from('cliniko_patients').select('id', { count: 'exact', head: true });
     let rowQ   = db
       .from('cliniko_patients')
-      .select('id, cliniko_id, first_name, last_name, email, phone, date_of_birth, gender, referral_source, notes, occupation, emergency_contact, all_phones, address, created_in_cliniko_at, lifecycle_override, lifecycle_manually_set')
+      .select('id, cliniko_id, first_name, last_name, email, phone, date_of_birth, gender, referral_source, notes, occupation, emergency_contact, all_phones, address, created_in_cliniko_at, lifecycle_stage, lifecycle_override, lifecycle_manually_set')
       .order('last_name', { ascending: true })
       .range(page * pageSize, (page + 1) * pageSize - 1);
 
     if (searchFilter) {
       countQ = countQ.or(searchFilter);
       rowQ   = rowQ.or(searchFilter);
+    }
+
+    // Server-side lifecycle filter — uses the persisted lifecycle_stage column
+    if (lifecycle) {
+      countQ = countQ.eq('lifecycle_stage', lifecycle);
+      rowQ   = rowQ.eq('lifecycle_stage', lifecycle);
     }
 
     const [{ count }, { data: rows, error }] = await Promise.all([countQ, rowQ]);
@@ -543,7 +551,12 @@ export async function getPatientPage(params: {
       }
 
       const computed   = computeLifecycle(totalVisits, daysSince, !!nextAppt, true);
-      const lifecycle  = (r.lifecycle_manually_set && r.lifecycle_override) ? (r.lifecycle_override as LifecycleStage) : computed;
+      // Prefer DB-persisted lifecycle_stage (set during sync via compute_all_lifecycle_stages).
+      // Fall back to TypeScript computation for patients not yet through a sync.
+      const dbStage    = r.lifecycle_stage as LifecycleStage | null;
+      const lifecycle  = (r.lifecycle_manually_set && r.lifecycle_override)
+        ? (r.lifecycle_override as LifecycleStage)
+        : (dbStage ?? computed);
       const engagement = computeEngagement(totalVisits, daysSince, cancelRate);
       const nba        = computeNextBestAction(lifecycle, latestTreat, daysSince, totalVisits);
 
@@ -982,6 +995,8 @@ export async function setPatientLifecycle(
       .update({
         lifecycle_override:     stage,
         lifecycle_manually_set: stage !== null,
+        // Also write effective stage so server-side filter sees the override immediately
+        lifecycle_stage:        stage ?? undefined,
       })
       .eq('id', patientId);
     if (error) return { success: false, error: error.message };
