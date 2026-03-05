@@ -19,6 +19,8 @@ import {
   Settings,
   ChevronLeft,
   CalendarDays,
+  LayoutGrid,
+  Brain,
 } from 'lucide-react';
 import type { StaffProfile } from '@/lib/actions/staff-onboarding';
 
@@ -75,11 +77,13 @@ export function StaffNav({
         { label: 'Patients',  href: `/staff/patients?userId=${userId}`,  icon: Users },
         { label: 'Bridge',    href: `/staff/bridge?userId=${userId}`,    icon: Link2 },
         { label: 'Calendar',  href: `/staff/calendar?userId=${userId}`,  icon: CalendarDays },
+        { label: 'Team',      href: `/staff/team?userId=${userId}`,      icon: LayoutGrid },
       ],
     },
     {
       title: 'Intelligence',
       items: [
+        { label: 'Analytics',    href: `/staff/analytics?userId=${userId}`,   icon: Brain },
         { label: 'Agents',       href: `/staff/agents?userId=${userId}`,      icon: Bot },
         { label: 'Receptionist', href: `/staff/voice?userId=${userId}`,       icon: Mic },
         { label: 'Automations',  href: `/staff/automations?userId=${userId}`, icon: Zap },
