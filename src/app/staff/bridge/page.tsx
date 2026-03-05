@@ -1,392 +1,403 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Inbox, Search, X, Loader2,
-  CheckCircle2, AlertTriangle, Clock, Star,
-  Mail, MessageSquare, Hash, Globe, Webhook,
-  Archive, BellOff, Reply, Forward, ChevronRight,
-  Paperclip, Eye, CornerUpLeft, Sparkles,
-  Filter, RefreshCw, Check, Zap,
+  Search, Phone, Mail, MessageSquare, Mic, Bot, Zap,
+  CalendarCheck, AlertTriangle, ChevronDown, ChevronRight,
+  Send, Sparkles, User, ArrowUpRight, ArrowDownLeft,
+  Loader2, CheckCircle2, X, MessageCircle, RefreshCw,
 } from 'lucide-react';
 import { StaffNav } from '@/components/staff-nav';
 import {
-  getMessages, getThread, getBridgeStats, generateSmartReplies,
-  markMessageStatus, toggleStar,
-  type BridgeMessage, type ThreadReply, type BridgeStats,
-  type SmartReply, type ChannelType, type MessagePriority,
-  type MessageStatus, type MessageCategory,
+  getPatientList, getPatientTimeline, sendPatientMessage, draftMessageWithAI,
+  type PatientSummary, type TimelineItem, type TimelineSource,
+  type SendChannel, type DraftPurpose,
 } from '@/lib/actions/bridge';
 import {
-  getStaffProfile, getCurrentUser, type StaffProfile, type AgentCard,
+  getStaffProfile, getCurrentUser,
+  type StaffProfile,
 } from '@/lib/actions/staff-onboarding';
-import { classifyAndRoute, sendDirectToAgent } from '@/lib/actions/primary-agent';
-import type { ClassificationResult } from '@/lib/actions/primary-agent';
+
+// =============================================================================
+// SOURCE CONFIG — visual treatment per interaction type
+// =============================================================================
+
+const SOURCE_CONFIG: Record<TimelineSource, {
+  label: string;
+  color: string;
+  bg:    string;
+  Icon:  React.ElementType;
+}> = {
+  voice_komal: { label: 'VOICE · KOMAL', color: '#a855f7', bg: 'rgba(168,85,247,0.10)', Icon: Mic },
+  agent_aria:  { label: 'AGENT · ARIA',  color: '#3b82f6', bg: 'rgba(59,130,246,0.10)',  Icon: Bot },
+  agent_orion: { label: 'AGENT · ORION', color: '#22c55e', bg: 'rgba(34,197,94,0.10)',   Icon: Bot },
+  agent_ewc:   { label: 'AGENT · EWC',   color: '#f59e0b', bg: 'rgba(245,158,11,0.10)',  Icon: Bot },
+  automation:  { label: 'AUTOMATION',    color: '#f97316', bg: 'rgba(249,115,22,0.10)',   Icon: Zap },
+  appointment: { label: 'CLINIKO',       color: '#14b8a6', bg: 'rgba(20,184,166,0.10)',   Icon: CalendarCheck },
+  signal:      { label: 'SIGNAL',        color: '#ef4444', bg: 'rgba(239,68,68,0.10)',    Icon: AlertTriangle },
+  sms_out:     { label: 'SMS',           color: '#94a3b8', bg: 'rgba(148,163,184,0.06)',  Icon: MessageSquare },
+  sms_in:      { label: 'SMS',           color: '#64748b', bg: 'rgba(100,116,139,0.06)',  Icon: MessageSquare },
+  email_out:   { label: 'EMAIL',         color: '#94a3b8', bg: 'rgba(148,163,184,0.06)',  Icon: Mail },
+  email_in:    { label: 'EMAIL',         color: '#64748b', bg: 'rgba(100,116,139,0.06)',  Icon: Mail },
+};
 
 // =============================================================================
 // CONSTANTS
 // =============================================================================
 
-const CHANNEL_CONFIG: Record<ChannelType, { label: string; icon: typeof Mail; color: string }> = {
-  email: { label: 'Email', icon: Mail, color: '#3b82f6' },
-  slack: { label: 'Slack', icon: Hash, color: '#e01e5a' },
-  teams: { label: 'Teams', icon: MessageSquare, color: '#6264a7' },
-  internal: { label: 'System', icon: Zap, color: '#f59e0b' },
-  webhook: { label: 'Webhook', icon: Webhook, color: '#6b7280' },
+const PURPOSE_LABELS: Record<DraftPurpose, string> = {
+  appointment_reminder:   'Appointment Reminder',
+  post_treatment_checkin: 'Post-treatment Check-in',
+  rebooking:              'Rebooking Invitation',
+  payment_chase:          'Payment Follow-up',
+  follow_up:              'General Follow-up',
+  general:                'General Message',
 };
 
-const PRIORITY_CONFIG: Record<MessagePriority, { label: string; color: string }> = {
-  urgent: { label: 'Urgent', color: '#ef4444' },
-  high: { label: 'High', color: '#f59e0b' },
-  normal: { label: 'Normal', color: '#6b7280' },
-  low: { label: 'Low', color: '#6b7280' },
+type TimelineFilter = 'all' | 'voice' | 'agent' | 'messages' | 'automation' | 'cliniko';
+
+const FILTER_MATCH: Record<TimelineFilter, TimelineSource[]> = {
+  all:        [],
+  voice:      ['voice_komal'],
+  agent:      ['agent_aria', 'agent_orion', 'agent_ewc'],
+  messages:   ['sms_out', 'sms_in', 'email_out', 'email_in'],
+  automation: ['automation'],
+  cliniko:    ['appointment'],
 };
-
-const CATEGORY_CONFIG: Record<MessageCategory, { label: string; color: string }> = {
-  action_required: { label: 'Action Required', color: '#ef4444' },
-  approval: { label: 'Approval', color: '#f59e0b' },
-  escalation: { label: 'Escalation', color: '#f97316' },
-  fyi: { label: 'FYI', color: '#3b82f6' },
-  update: { label: 'Update', color: '#22c55e' },
-  social: { label: 'Social', color: '#8b5cf6' },
-};
-
-type SidebarFilter = 'all' | 'unread' | 'starred' | 'action_required' | 'approval' | 'snoozed';
-
-const SIDEBAR_ITEMS: { id: SidebarFilter; label: string; icon: typeof Inbox }[] = [
-  { id: 'all', label: 'All Messages', icon: Inbox },
-  { id: 'unread', label: 'Unread', icon: Eye },
-  { id: 'starred', label: 'Starred', icon: Star },
-  { id: 'action_required', label: 'Action Required', icon: AlertTriangle },
-  { id: 'approval', label: 'Approvals', icon: CheckCircle2 },
-  { id: 'snoozed', label: 'Snoozed', icon: BellOff },
-];
-
-// =============================================================================
-// SVG
-// =============================================================================
-
-function NeuralGrid({ color }: { color: string }) {
-  return (
-    <svg className="absolute inset-0 w-full h-full opacity-[0.07] pointer-events-none">
-      <defs>
-        <pattern id="bridge-grid" width="60" height="60" patternUnits="userSpaceOnUse">
-          <path d="M 60 0 L 0 0 0 60" fill="none" stroke={color} strokeWidth="0.5" />
-        </pattern>
-      </defs>
-      <rect width="100%" height="100%" fill="url(#bridge-grid)" />
-    </svg>
-  );
-}
 
 // =============================================================================
 // HELPERS
 // =============================================================================
 
-function formatTime(timestamp: string): string {
-  const date = new Date(timestamp);
+function fmtTime(iso: string): string {
+  const d   = new Date(iso);
   const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-
-  if (diffMins < 1) return 'now';
-  if (diffMins < 60) return `${diffMins}m`;
-  const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours}h`;
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays < 7) return `${diffDays}d`;
-  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  const ms  = now.getTime() - d.getTime();
+  const m   = Math.floor(ms / 60000);
+  const h   = Math.floor(m / 60);
+  const day = Math.floor(h / 24);
+  if (m  <  2) return 'just now';
+  if (m  < 60) return `${m}m ago`;
+  if (h  < 24) return `${h}h ago`;
+  if (day === 1) return 'yesterday';
+  if (day <  7) return `${day}d ago`;
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 }
 
-function formatFullTime(timestamp: string): string {
-  return new Date(timestamp).toLocaleString('en-GB', {
-    weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  });
+function fmtDateLabel(iso: string): string {
+  const d   = new Date(iso);
+  const now = new Date();
+  const today     = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today.getTime() - 86400000);
+  const target    = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  if (target.getTime() === today.getTime())     return 'Today';
+  if (target.getTime() === yesterday.getTime()) return 'Yesterday';
+  return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 
 function getInitials(name: string): string {
-  return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+}
+
+function getAvatarColor(name: string): string {
+  const colors = ['#a855f7', '#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#14b8a6', '#ec4899', '#8b5cf6'];
+  let hash = 0;
+  for (const ch of name) hash = (hash * 31 + ch.charCodeAt(0)) % colors.length;
+  return colors[hash];
+}
+
+function groupByDate(items: TimelineItem[]): { label: string; items: TimelineItem[] }[] {
+  const sorted = [...items].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  const groups: { label: string; items: TimelineItem[] }[] = [];
+  const seen: Record<string, TimelineItem[]> = {};
+  for (const item of sorted) {
+    const lbl = fmtDateLabel(item.timestamp);
+    if (!seen[lbl]) { seen[lbl] = []; groups.push({ label: lbl, items: seen[lbl] }); }
+    seen[lbl].push(item);
+  }
+  return groups;
 }
 
 // =============================================================================
-// MESSAGE ROW (compact inbox row)
+// PATIENT ROW
 // =============================================================================
 
-function MessageRow({
-  message, brandColor, isSelected, onSelect, onToggleStar,
-}: {
-  message: BridgeMessage; brandColor: string;
-  isSelected: boolean; onSelect: () => void; onToggleStar: () => void;
-}) {
-  const ch = CHANNEL_CONFIG[message.channel];
-  const ChIcon = ch.icon;
-  const isUnread = message.status === 'unread';
-
+function PatientRow({
+  patient, selected, onClick,
+}: { patient: PatientSummary; selected: boolean; onClick: () => void }) {
+  const color = getAvatarColor(patient.full_name);
   return (
-    <motion.button
-      onClick={onSelect}
-      whileTap={{ scale: 0.998 }}
-      className={`w-full text-left px-4 py-3 border-b transition-all ${
-        isSelected
-          ? 'bg-[#FAF9F5] border-[#EBE5FF]'
-          : 'bg-transparent border-[#EBE5FF] hover:bg-[#FAF7F2]'
-      }`}
-      style={isSelected ? { borderLeftWidth: 2, borderLeftColor: brandColor } : undefined}
+    <button
+      onClick={onClick}
+      className="w-full text-left px-3 py-3 flex items-center gap-2.5 transition-all rounded-lg mx-1"
+      style={{
+        backgroundColor: selected ? 'rgba(255,255,255,0.06)' : 'transparent',
+        borderLeft: selected ? `2px solid rgba(255,255,255,0.30)` : '2px solid transparent',
+      }}
+      onMouseEnter={e => { if (!selected) (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(255,255,255,0.03)'; }}
+      onMouseLeave={e => { if (!selected) (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent'; }}
     >
-      <div className="flex items-start gap-3">
-        {/* Channel indicator + unread dot */}
-        <div className="flex flex-col items-center gap-1 pt-0.5 flex-shrink-0">
-          <ChIcon size={13} style={{ color: ch.color }} />
-          {isUnread && (
-            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: brandColor }} />
-          )}
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-0.5">
-            <span className={`text-[12px] truncate ${isUnread ? 'text-[#1A1035] font-medium' : 'text-[#524D66]'}`}>
-              {message.sender_name}
-            </span>
-            {message.priority === 'urgent' && (
-              <span className="text-[8px] uppercase tracking-wider px-1 py-0.5 rounded bg-red-500/15 text-red-400 flex-shrink-0">Urgent</span>
-            )}
-            {message.priority === 'high' && (
-              <span className="text-[8px] uppercase tracking-wider px-1 py-0.5 rounded bg-amber-500/15 text-amber-400 flex-shrink-0">High</span>
-            )}
-            <span className="text-[10px] text-[#8B84A0] ml-auto flex-shrink-0">{formatTime(message.received_at)}</span>
-          </div>
-          <p className={`text-[11px] truncate mb-0.5 ${isUnread ? 'text-[#1A1035]' : 'text-[#6E6688]'}`}>
-            {message.subject}
-          </p>
-          <p className="text-[10px] text-[#6E6688] truncate">{message.preview}</p>
-
-          {/* Metadata chips */}
-          <div className="flex items-center gap-2 mt-1.5">
-            <span className="text-[8px] text-[#8B84A0] bg-[#FAF9F5] px-1.5 py-0.5 rounded">{ch.label}</span>
-            {message.department && (
-              <span className="text-[8px] text-[#8B84A0] bg-[#FAF9F5] px-1.5 py-0.5 rounded">{message.department}</span>
-            )}
-            {message.has_attachments && (
-              <span className="flex items-center gap-0.5 text-[8px] text-[#8B84A0]">
-                <Paperclip size={8} /> {message.attachment_count}
-              </span>
-            )}
-            {message.thread_count > 0 && (
-              <span className="flex items-center gap-0.5 text-[8px] text-[#8B84A0]">
-                <CornerUpLeft size={8} /> {message.thread_count}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Star */}
-        <button
-          onClick={e => { e.stopPropagation(); onToggleStar(); }}
-          className="flex-shrink-0 mt-0.5"
-        >
-          <Star
-            size={13}
-            className={message.is_starred ? 'fill-amber-400 text-amber-400' : 'text-[#8B84A0] hover:text-[#6E6688]'}
-          />
-        </button>
+      {/* Avatar */}
+      <div
+        className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
+        style={{ backgroundColor: `${color}22`, color, border: `1px solid ${color}44` }}
+      >
+        {getInitials(patient.full_name)}
       </div>
-    </motion.button>
+
+      {/* Info */}
+      <div className="flex-1 min-w-0">
+        <p className="text-[12px] font-medium truncate" style={{ color: selected ? 'rgba(255,255,255,0.90)' : 'rgba(255,255,255,0.65)' }}>
+          {patient.full_name}
+        </p>
+        <p className="text-[10px] truncate mt-0.5" style={{ color: 'rgba(255,255,255,0.25)' }}>
+          {patient.last_treatment ?? 'No treatments'}
+        </p>
+      </div>
+
+      {/* Time */}
+      <p className="text-[9px] flex-shrink-0" style={{ color: 'rgba(255,255,255,0.20)' }}>
+        {patient.last_contact ? fmtTime(patient.last_contact) : '—'}
+      </p>
+    </button>
   );
 }
 
 // =============================================================================
-// THREAD REPLY
+// TRANSCRIPT VIEWER
 // =============================================================================
 
-function ThreadReplyBubble({ reply, brandColor }: { reply: ThreadReply; brandColor: string }) {
-  const ch = CHANNEL_CONFIG[reply.channel];
+function TranscriptViewer({ transcript }: { transcript: { role: 'komal' | 'patient'; text: string }[] }) {
+  return (
+    <div className="mt-3 rounded-lg overflow-hidden border" style={{ borderColor: 'rgba(168,85,247,0.15)', backgroundColor: 'rgba(168,85,247,0.04)' }}>
+      <div className="px-3 py-1.5 border-b flex items-center gap-2" style={{ borderColor: 'rgba(168,85,247,0.12)', backgroundColor: 'rgba(168,85,247,0.08)' }}>
+        <Mic className="w-2.5 h-2.5" style={{ color: '#a855f7' }} />
+        <p className="text-[9px] uppercase tracking-[0.12em] font-semibold" style={{ color: '#a855f7' }}>Call Transcript</p>
+      </div>
+      <div className="p-3 space-y-2.5 max-h-52 overflow-y-auto">
+        {transcript.map((line, i) => (
+          <div key={i} className={`flex gap-2 ${line.role === 'patient' ? 'flex-row-reverse' : ''}`}>
+            <div
+              className="w-4 h-4 rounded-full flex items-center justify-center text-[7px] font-bold flex-shrink-0 mt-0.5"
+              style={{
+                backgroundColor: line.role === 'komal' ? 'rgba(168,85,247,0.20)' : 'rgba(255,255,255,0.08)',
+                color: line.role === 'komal' ? '#a855f7' : 'rgba(255,255,255,0.40)',
+              }}
+            >
+              {line.role === 'komal' ? 'K' : 'P'}
+            </div>
+            <div
+              className="flex-1 rounded-lg px-2.5 py-1.5"
+              style={{
+                backgroundColor: line.role === 'komal' ? 'rgba(168,85,247,0.08)' : 'rgba(255,255,255,0.04)',
+                maxWidth: '85%',
+              }}
+            >
+              <p className="text-[10px] leading-relaxed" style={{ color: line.role === 'komal' ? 'rgba(255,255,255,0.70)' : 'rgba(255,255,255,0.55)' }}>
+                {line.text}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// TIMELINE ITEM CARD — system events (voice, agent, automation, cliniko, signal)
+// =============================================================================
+
+function TimelineItemCard({
+  item, expanded, onToggle,
+}: { item: TimelineItem; expanded: boolean; onToggle: () => void }) {
+  const cfg = SOURCE_CONFIG[item.source];
+  const Icon = cfg.Icon;
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8 }}
+      layout
+      initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`flex ${reply.is_own ? 'justify-end' : 'justify-start'}`}
+      className="rounded-xl border overflow-hidden"
+      style={{ borderColor: `${cfg.color}20`, backgroundColor: cfg.bg }}
     >
-      <div className={`max-w-[80%] ${reply.is_own ? 'text-right' : 'text-left'}`}>
-        <div className="flex items-center gap-2 mb-1" style={{ justifyContent: reply.is_own ? 'flex-end' : 'flex-start' }}>
-          {!reply.is_own && (
-            <div className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-medium bg-white text-[#6E6688]">
-              {getInitials(reply.sender_name)}
+      <div className="p-3">
+        {/* Header row */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            {/* Source badge */}
+            <div
+              className="flex items-center gap-1 px-1.5 py-0.5 rounded-md flex-shrink-0"
+              style={{ backgroundColor: `${cfg.color}18`, border: `1px solid ${cfg.color}30` }}
+            >
+              <Icon className="w-2 h-2" style={{ color: cfg.color }} />
+              <span className="text-[8px] font-semibold uppercase tracking-[0.10em]" style={{ color: cfg.color }}>
+                {cfg.label}
+              </span>
             </div>
+            <p className="text-[11px] font-medium truncate" style={{ color: 'rgba(255,255,255,0.75)' }}>
+              {item.title}
+            </p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <p className="text-[9px]" style={{ color: 'rgba(255,255,255,0.20)' }}>{fmtTime(item.timestamp)}</p>
+            {item.is_expandable && (
+              <button onClick={onToggle} className="p-0.5 rounded" style={{ color: 'rgba(255,255,255,0.25)' }}>
+                {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Body */}
+        <p className="mt-2 text-[11px] leading-relaxed" style={{ color: 'rgba(255,255,255,0.45)' }}>
+          {expanded ? item.body : item.body.slice(0, 160) + (item.body.length > 160 ? '…' : '')}
+        </p>
+
+        {/* Metadata chips */}
+        {item.metadata && Object.keys(item.metadata).length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {Object.entries(item.metadata).map(([k, v]) => v !== null && (
+              <span
+                key={k}
+                className="text-[8px] px-1.5 py-0.5 rounded-md"
+                style={{ backgroundColor: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.25)', border: '1px solid rgba(255,255,255,0.06)' }}
+              >
+                {k.replace(/_/g, ' ')}: {String(v)}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Transcript */}
+        <AnimatePresence>
+          {expanded && item.transcript && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              <TranscriptViewer transcript={item.transcript} />
+            </motion.div>
           )}
-          <span className="text-[9px] text-[#6E6688]">{reply.sender_name}</span>
-          <span className="text-[8px] text-[#8B84A0]">{formatTime(reply.sent_at)}</span>
-        </div>
-        <div className={`inline-block px-3.5 py-2.5 rounded-xl text-[12px] leading-relaxed ${
-          reply.is_own
-            ? 'bg-white border border-[#EBE5FF] text-[#524D66]'
-            : 'text-[#524D66]'
-        }`}
-          style={reply.is_own ? { borderColor: `${brandColor}25` } : undefined}
-        >
-          {reply.content}
-        </div>
+        </AnimatePresence>
+
+        {/* Expandable email body */}
+        <AnimatePresence>
+          {expanded && !item.transcript && item.body.includes('\n') && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+              className="mt-3 p-3 rounded-lg"
+              style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
+            >
+              <pre className="text-[10px] leading-relaxed whitespace-pre-wrap font-sans" style={{ color: 'rgba(255,255,255,0.50)' }}>
+                {item.body}
+              </pre>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </motion.div>
   );
 }
 
 // =============================================================================
-// MESSAGE DETAIL PANEL
+// MESSAGE BUBBLE — inbound / outbound SMS & email
 // =============================================================================
 
-function MessageDetail({
-  message, thread, brandColor, aiName,
-  smartReplies, loadingReplies,
-  onClose, onArchive, onSnooze, onGenerateReplies,
-}: {
-  message: BridgeMessage;
-  thread: ThreadReply[];
-  brandColor: string;
-  aiName: string;
-  smartReplies: SmartReply[];
-  loadingReplies: boolean;
-  onClose: () => void;
-  onArchive: () => void;
-  onSnooze: () => void;
-  onGenerateReplies: () => void;
-}) {
-  const ch = CHANNEL_CONFIG[message.channel];
-  const ChIcon = ch.icon;
-  const cat = CATEGORY_CONFIG[message.category];
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [replyText, setReplyText] = useState('');
-
-  useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [thread]);
+function MessageBubble({ item }: { item: TimelineItem }) {
+  const isOut   = item.direction === 'outbound';
+  const cfg     = SOURCE_CONFIG[item.source];
+  const isEmail = item.source === 'email_out' || item.source === 'email_in';
+  const sentBy  = (item.metadata?.sent_by as string | null) ?? null;
 
   return (
     <motion.div
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 20 }}
-      className="flex flex-col h-full"
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`flex ${isOut ? 'justify-end' : 'justify-start'}`}
     >
-      {/* Header */}
-      <div className="px-5 py-4 border-b border-[#EBE5FF] flex-shrink-0">
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <ChIcon size={14} style={{ color: ch.color }} />
-            <span className="text-[10px] text-[#6E6688]">{message.channel_detail}</span>
-            <span className="text-[10px] text-[#8B84A0]">·</span>
-            <span className="text-[10px] text-[#8B84A0]">{formatFullTime(message.received_at)}</span>
-          </div>
-          <button onClick={onClose} className="text-[#6E6688] hover:text-[#6E6688] transition-colors"><X size={14} /></button>
+      {/* Inbound: avatar on left */}
+      {!isOut && (
+        <div
+          className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold flex-shrink-0 mr-2 mt-1"
+          style={{ backgroundColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.30)' }}
+        >
+          P
         </div>
+      )}
 
-        <h2 className="text-[15px] text-[#1A1035] font-medium leading-snug mb-2">{message.subject}</h2>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-1.5">
-            <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-medium bg-white text-[#524D66]">
-              {getInitials(message.sender_name)}
-            </div>
-            <span className="text-[11px] text-[#524D66]">{message.sender_name}</span>
-          </div>
-          <span className="text-[8px] uppercase tracking-wider px-1.5 py-0.5 rounded"
-            style={{ background: `${cat.color}15`, color: cat.color }}>
-            {cat.label}
+      <div style={{ maxWidth: '78%' }}>
+        {/* Meta label */}
+        <div className={`flex items-center gap-1.5 mb-1 ${isOut ? 'justify-end' : 'justify-start'}`}>
+          <span className="text-[8px] uppercase tracking-[0.08em]" style={{ color: 'rgba(255,255,255,0.18)' }}>
+            {isOut ? `${isEmail ? 'Email' : 'SMS'} · ${sentBy ?? 'Staff'}` : `${isEmail ? 'Email' : 'SMS'} · Received`}
           </span>
-          {message.has_attachments && (
-            <span className="flex items-center gap-1 text-[9px] text-[#6E6688] bg-[#FAF9F5] px-1.5 py-0.5 rounded">
-              <Paperclip size={9} /> {message.attachment_count} attachment{message.attachment_count !== 1 ? 's' : ''}
-            </span>
+          <span className="text-[8px]" style={{ color: 'rgba(255,255,255,0.15)' }}>{fmtTime(item.timestamp)}</span>
+        </div>
+
+        {/* Bubble */}
+        <div
+          className="px-3 py-2.5 rounded-2xl text-[11px] leading-relaxed"
+          style={{
+            backgroundColor: isOut ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.04)',
+            color:           isOut ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.55)',
+            borderBottomRightRadius: isOut ? '4px' : '16px',
+            borderBottomLeftRadius:  isOut ? '16px' : '4px',
+            border: `1px solid ${isOut ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.06)'}`,
+          }}
+        >
+          {/* Email: show source badge */}
+          {isEmail && (
+            <div className="flex items-center gap-1 mb-1.5">
+              <Mail className="w-2.5 h-2.5" style={{ color: cfg.color }} />
+              <span className="text-[8px] uppercase tracking-[0.08em] font-semibold" style={{ color: cfg.color }}>
+                {item.source === 'email_out' ? 'Sent email' : 'Received email'}
+              </span>
+            </div>
           )}
+          {item.body}
         </div>
 
-        {/* Quick actions */}
-        <div className="flex items-center gap-2 mt-3">
-          <button onClick={onArchive}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] text-[#6E6688] border border-[#EBE5FF] hover:bg-[#FAF9F5] transition-all">
-            <Archive size={11} /> Archive
-          </button>
-          <button onClick={onSnooze}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] text-[#6E6688] border border-[#EBE5FF] hover:bg-[#FAF9F5] transition-all">
-            <BellOff size={11} /> Snooze
-          </button>
-          <button className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] text-[#6E6688] border border-[#EBE5FF] hover:bg-[#FAF9F5] transition-all">
-            <Forward size={11} /> Forward
-          </button>
+        {/* Direction arrow chip */}
+        <div className={`flex mt-1 ${isOut ? 'justify-end' : 'justify-start'}`}>
+          {isOut
+            ? <ArrowUpRight className="w-2.5 h-2.5" style={{ color: 'rgba(255,255,255,0.12)' }} />
+            : <ArrowDownLeft className="w-2.5 h-2.5" style={{ color: 'rgba(255,255,255,0.12)' }} />
+          }
         </div>
       </div>
 
-      {/* Body + Thread */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-        {/* Original message body */}
-        <div className="text-[13px] text-[#524D66] leading-relaxed whitespace-pre-wrap">
-          {message.body}
+      {/* Outbound: avatar on right */}
+      {isOut && (
+        <div
+          className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold flex-shrink-0 ml-2 mt-1"
+          style={{ backgroundColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.40)' }}
+        >
+          EWC
         </div>
-
-        {/* Thread replies */}
-        {thread.length > 0 && (
-          <div className="pt-4 border-t border-[#EBE5FF] space-y-3">
-            <p className="text-[9px] uppercase tracking-[0.2em] text-[#6E6688]">
-              Thread · {thread.length} {thread.length === 1 ? 'reply' : 'replies'}
-            </p>
-            {thread.map(reply => (
-              <ThreadReplyBubble key={reply.id} reply={reply} brandColor={brandColor} />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Smart replies + compose */}
-      <div className="px-5 py-3.5 border-t border-[#EBE5FF] flex-shrink-0 space-y-2.5">
-        {/* AI smart replies */}
-        {smartReplies.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            <span className="text-[8px] uppercase tracking-wider text-[#8B84A0] self-center mr-1">
-              <Sparkles size={9} className="inline" style={{ color: brandColor }} /> Smart replies
-            </span>
-            {smartReplies.map(sr => (
-              <button key={sr.id} onClick={() => setReplyText(sr.text)}
-                className="px-2.5 py-1 rounded-full text-[10px] text-[#6E6688] border border-[#EBE5FF] hover:bg-[#FAF9F5] hover:text-[#524D66] transition-all truncate max-w-[200px]">
-                {sr.text}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {smartReplies.length === 0 && (
-          <button onClick={onGenerateReplies} disabled={loadingReplies}
-            className="flex items-center gap-1.5 text-[10px] transition-colors disabled:opacity-40"
-            style={{ color: `${brandColor}80` }}>
-            {loadingReplies ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
-            {loadingReplies ? 'Generating...' : `Ask ${aiName} for reply suggestions`}
-          </button>
-        )}
-
-        {/* Compose reply */}
-        <div className="flex items-end gap-2">
-          <div className="flex-1 px-3.5 py-2.5 rounded-xl border transition-all"
-            style={{ borderColor: replyText ? `${brandColor}30` : 'rgba(0,0,0,0.05)', backgroundColor: 'transparent' }}>
-            <textarea
-              value={replyText}
-              onChange={e => setReplyText(e.target.value)}
-              placeholder="Write a reply..."
-              rows={2}
-              className="w-full bg-transparent text-[12px] text-[#524D66] placeholder-[#B0A8C8] outline-none resize-none"
-              style={{ maxHeight: '100px' }}
-            />
-          </div>
-          <button
-            disabled={!replyText.trim()}
-            className="w-9 h-9 rounded-xl flex items-center justify-center transition-all disabled:opacity-25 flex-shrink-0 mb-0.5"
-            style={{ backgroundColor: `${brandColor}20` }}>
-            <Reply size={14} style={{ color: brandColor }} />
-          </button>
-        </div>
-      </div>
+      )}
     </motion.div>
+  );
+}
+
+// =============================================================================
+// EMPTY STATE
+// =============================================================================
+
+function EmptyState({ label }: { label: string }) {
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center gap-3" style={{ color: 'rgba(255,255,255,0.15)' }}>
+      <MessageCircle className="w-10 h-10" style={{ opacity: 0.3 }} />
+      <p className="text-[12px] font-medium">{label}</p>
+    </div>
   );
 }
 
@@ -395,671 +406,598 @@ function MessageDetail({
 // =============================================================================
 
 export default function BridgePage() {
-  const router = useRouter();
+  const searchParams = useSearchParams();
+  const userId       = searchParams.get('userId') ?? '';
 
-  const [resolvedUserId, setResolvedUserId] = useState<string | null>(null);
+  const [profile,    setProfile]    = useState<StaffProfile | null>(null);
+  const [brandColor, setBrandColor] = useState('#ffffff');
 
-  const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState<StaffProfile | null>(null);
-  const [messages, setMessages] = useState<BridgeMessage[]>([]);
-  const [stats, setStats] = useState<BridgeStats | null>(null);
+  const [patients,        setPatients]        = useState<PatientSummary[]>([]);
+  const [search,          setSearch]          = useState('');
+  const [selectedPatient, setSelectedPatient] = useState<PatientSummary | null>(null);
+  const [timeline,        setTimeline]        = useState<TimelineItem[]>([]);
+  const [timelineFilter,  setTimelineFilter]  = useState<TimelineFilter>('all');
+  const [expandedItems,   setExpandedItems]   = useState<Set<string>>(new Set());
+  const [timelineLoading, setTimelineLoading] = useState(false);
 
-  // Selection + detail
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [thread, setThread] = useState<ThreadReply[]>([]);
-  const [smartReplies, setSmartReplies] = useState<SmartReply[]>([]);
-  const [loadingReplies, setLoadingReplies] = useState(false);
-  const [loadingThread, setLoadingThread] = useState(false);
+  const [compose, setCompose] = useState<{
+    channel: SendChannel;
+    purpose: DraftPurpose;
+    body:    string;
+  }>({ channel: 'sms', purpose: 'general', body: '' });
 
-  // Filters
-  const [sidebarFilter, setSidebarFilter] = useState<SidebarFilter>('all');
-  const [channelFilter, setChannelFilter] = useState<ChannelType | 'all'>('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
+  const [sending,     setSending]     = useState(false);
+  const [drafting,    setDrafting]    = useState(false);
+  const [sendSuccess, setSendSuccess] = useState(false);
+  const [loading,     setLoading]     = useState(true);
 
-  // Agent chat mode
-  type BridgeMode = 'inbox' | 'agent_chat';
-  const [bridgeMode, setBridgeMode] = useState<BridgeMode>('inbox');
-  const [agents, setAgents] = useState<AgentCard[]>([]);
-  const [agentTarget, setAgentTarget] = useState<string>('primary');
-  const [agentMessages, setAgentMessages] = useState<{ role: 'user' | 'assistant'; content: string; meta?: ClassificationResult }[]>([]);
-  const [agentInput, setAgentInput] = useState('');
-  const [isRouting, setIsRouting] = useState(false);
-  const agentChatEndRef = useRef<HTMLDivElement>(null);
+  const timelineRef = useRef<HTMLDivElement>(null);
 
-  const c = profile?.brandColor || '#10b981';
-  const aiName = profile?.aiName || 'Ilyas';
-
-  // ── Resolve user ──
+  // Load profile + patients
   useEffect(() => {
-    (async () => {
-      const res = await getCurrentUser();
-      if (res.success && res.userId) setResolvedUserId(res.userId);
-    })();
-  }, []);
+    if (!userId) return;
 
-  // ── Load data ──
-  useEffect(() => {
-    if (!resolvedUserId) return;
-    (async () => {
-      setLoading(true);
-      const [profileRes, msgsRes, statsRes] = await Promise.all([
-        getStaffProfile('clinic', resolvedUserId),
-        getMessages('clinic'),
-        getBridgeStats('clinic'),
-      ]);
-      if (profileRes.success && profileRes.data) {
-        setProfile(profileRes.data.profile);
-        setAgents(profileRes.data.agents);
+    getStaffProfile('clinic', userId).then(r => {
+      if (r.success && r.data?.profile) {
+        setProfile(r.data.profile);
+        setBrandColor(r.data.profile.brandColor ?? '#ffffff');
       }
-      if (msgsRes.success && msgsRes.messages) setMessages(msgsRes.messages);
-      if (statsRes.success && statsRes.stats) setStats(statsRes.stats);
+    });
+
+    getPatientList().then(list => {
+      setPatients(list);
       setLoading(false);
-    })();
-  }, [resolvedUserId]);
+    });
+  }, [userId]);
 
-  // ── Select message → load thread + mark read ──
-  const selectMessage = useCallback(async (id: string) => {
-    setSelectedId(id);
-    setSmartReplies([]);
-    setLoadingThread(true);
+  // Load timeline when patient changes
+  useEffect(() => {
+    if (!selectedPatient) return;
+    setTimelineLoading(true);
+    setTimeline([]);
+    setExpandedItems(new Set());
+    getPatientTimeline(selectedPatient.id).then(items => {
+      setTimeline(items);
+      setTimelineLoading(false);
+    });
+  }, [selectedPatient]);
 
-    // Mark as read
-    setMessages(prev => prev.map(m => m.id === id && m.status === 'unread' ? { ...m, status: 'read' as MessageStatus } : m));
-    await markMessageStatus('clinic', id, 'read');
+  // Scroll timeline to top when patient changes
+  useEffect(() => {
+    if (timelineRef.current) timelineRef.current.scrollTop = 0;
+  }, [selectedPatient]);
 
-    // Load thread
-    const res = await getThread('clinic', id);
-    setThread(res.success && res.replies ? res.replies : []);
-    setLoadingThread(false);
-  }, []);
-
-  // ── Star toggle ──
-  const handleToggleStar = useCallback(async (id: string) => {
-    setMessages(prev => prev.map(m => m.id === id ? { ...m, is_starred: !m.is_starred } : m));
-    await toggleStar('clinic', id);
-  }, []);
-
-  // ── Archive ──
-  const handleArchive = useCallback(async () => {
-    if (!selectedId) return;
-    setMessages(prev => prev.map(m => m.id === selectedId ? { ...m, status: 'archived' as MessageStatus } : m));
-    await markMessageStatus('clinic', selectedId, 'archived');
-    setSelectedId(null);
-  }, [selectedId]);
-
-  // ── Snooze ──
-  const handleSnooze = useCallback(async () => {
-    if (!selectedId) return;
-    setMessages(prev => prev.map(m => m.id === selectedId ? { ...m, status: 'snoozed' as MessageStatus } : m));
-    await markMessageStatus('clinic', selectedId, 'snoozed');
-    setSelectedId(null);
-  }, [selectedId]);
-
-  // ── Smart replies ──
-  const handleGenerateReplies = useCallback(async () => {
-    if (!resolvedUserId || !selectedId) return;
-    const msg = messages.find(m => m.id === selectedId);
-    if (!msg) return;
-    setLoadingReplies(true);
-    const res = await generateSmartReplies('clinic', resolvedUserId, msg.body, aiName);
-    if (res.success && res.replies) setSmartReplies(res.replies);
-    setLoadingReplies(false);
-  }, [resolvedUserId, selectedId, messages, aiName]);
-
-  // ── Agent chat send ──
-  const handleAgentSend = useCallback(async () => {
-    if (!agentInput.trim() || !resolvedUserId || isRouting) return;
-    const text = agentInput.trim();
-    setAgentInput('');
-    setAgentMessages(prev => [...prev, { role: 'user', content: text }]);
-    setIsRouting(true);
-
-    try {
-      if (agentTarget === 'primary') {
-        const res = await classifyAndRoute('clinic', resolvedUserId, { text, source: 'bridge' });
-        if (res.success && res.result) {
-          setAgentMessages(prev => [...prev, {
-            role: 'assistant',
-            content: `Routed to **${res.result!.agentName}** (${res.result!.classification.confidence}% confidence)\n\n**Signal:** ${res.result!.classification.title}\n**Priority:** ${res.result!.classification.priority}\n**Reasoning:** ${res.result!.classification.reasoning}`,
-            meta: res.result!,
-          }]);
-        } else {
-          setAgentMessages(prev => [...prev, { role: 'assistant', content: `Routing failed: ${res.error || 'Unknown error'}` }]);
-        }
-      } else {
-        const res = await sendDirectToAgent('clinic', resolvedUserId, agentTarget, text);
-        const agentName = agents.find(a => a.id === agentTarget)?.name || agentTarget;
-        if (res.success) {
-          setAgentMessages(prev => [...prev, { role: 'assistant', content: `Signal created and sent to **${agentName}**.\nSignal ID: \`${res.signalId}\`` }]);
-        } else {
-          setAgentMessages(prev => [...prev, { role: 'assistant', content: `Failed to send to ${agentName}: ${res.error || 'Unknown error'}` }]);
-        }
-      }
-    } catch {
-      setAgentMessages(prev => [...prev, { role: 'assistant', content: 'An error occurred while routing. Please try again.' }]);
-    }
-
-    setIsRouting(false);
-    setTimeout(() => agentChatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-  }, [agentInput, resolvedUserId, agentTarget, isRouting, agents]);
-
-  // ── Filtered messages ──
-  const filteredMessages = useMemo(() => {
-    let result = messages.filter(m => m.status !== 'archived');
-
-    // Sidebar filter
-    switch (sidebarFilter) {
-      case 'unread': result = result.filter(m => m.status === 'unread'); break;
-      case 'starred': result = result.filter(m => m.is_starred); break;
-      case 'action_required': result = result.filter(m => m.category === 'action_required'); break;
-      case 'approval': result = result.filter(m => m.category === 'approval'); break;
-      case 'snoozed': result = result.filter(m => m.status === 'snoozed'); break;
-    }
-
-    // Channel filter
-    if (channelFilter !== 'all') result = result.filter(m => m.channel === channelFilter);
-
-    // Search
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(m =>
-        m.subject.toLowerCase().includes(q) ||
-        m.sender_name.toLowerCase().includes(q) ||
-        m.preview.toLowerCase().includes(q),
-      );
-    }
-
-    return result;
-  }, [messages, sidebarFilter, channelFilter, searchQuery]);
-
-  const selectedMessage = useMemo(() =>
-    messages.find(m => m.id === selectedId) || null,
-  [messages, selectedId]);
-
-  // Sidebar counts
-  const unreadCount = useMemo(() => messages.filter(m => m.status === 'unread').length, [messages]);
-  const starredCount = useMemo(() => messages.filter(m => m.is_starred).length, [messages]);
-  const actionCount = useMemo(() => messages.filter(m => m.category === 'action_required' && m.status !== 'archived').length, [messages]);
-  const approvalCount = useMemo(() => messages.filter(m => m.category === 'approval' && m.status !== 'archived').length, [messages]);
-
-  // ── Loading ──
-  if (loading || !profile) {
-    return (
-      <div className="min-h-screen pl-[240px] bg-[#FAF7F2] flex items-center justify-center">
-        <motion.div animate={{ opacity: [0.3, 0.6, 0.3] }} transition={{ duration: 2, repeat: Infinity }}
-          className="flex items-center gap-3 text-[#6E6688] text-[13px]">
-          <Loader2 size={16} className="animate-spin" />
-          <span>Loading Bridge...</span>
-        </motion.div>
-      </div>
+  // Filtered patients
+  const filteredPatients = useMemo(() => {
+    if (!search) return patients;
+    const q = search.toLowerCase();
+    return patients.filter(p =>
+      p.full_name.toLowerCase().includes(q) ||
+      (p.phone ?? '').includes(q) ||
+      (p.email ?? '').toLowerCase().includes(q)
     );
+  }, [patients, search]);
+
+  // Filtered + grouped timeline
+  const filteredTimeline = useMemo(() => {
+    if (timelineFilter === 'all') return timeline;
+    const allowed = FILTER_MATCH[timelineFilter];
+    return timeline.filter(item => allowed.includes(item.source));
+  }, [timeline, timelineFilter]);
+
+  const groupedTimeline = useMemo(() => groupByDate(filteredTimeline), [filteredTimeline]);
+
+  // Stats for timeline filter
+  const filterCounts = useMemo<Record<TimelineFilter, number>>(() => ({
+    all:        timeline.length,
+    voice:      timeline.filter(i => FILTER_MATCH.voice.includes(i.source)).length,
+    agent:      timeline.filter(i => FILTER_MATCH.agent.includes(i.source)).length,
+    messages:   timeline.filter(i => FILTER_MATCH.messages.includes(i.source)).length,
+    automation: timeline.filter(i => FILTER_MATCH.automation.includes(i.source)).length,
+    cliniko:    timeline.filter(i => FILTER_MATCH.cliniko.includes(i.source)).length,
+  }), [timeline]);
+
+  function toggleExpand(id: string) {
+    setExpandedItems(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
   }
 
-  return (
-    <div className="min-h-screen pl-[240px]">
-      <NeuralGrid color={c} />
-      <StaffNav profile={profile} userId={resolvedUserId || ''} brandColor={c} currentPath="Bridge" />
+  async function handleSelectPatient(patient: PatientSummary) {
+    setSelectedPatient(patient);
+    setTimelineFilter('all');
+    setCompose(c => ({ ...c, body: '' }));
+    setSendSuccess(false);
+  }
 
-      <div className="relative z-10 flex flex-col" style={{ height: 'calc(100vh - 48px)', marginTop: '48px' }}>
-        {/* ── SUB-HEADER ── */}
-        <div className="flex items-center justify-between px-5 py-2.5 border-b border-[#EBE5FF] flex-shrink-0">
-          <div className="flex items-center gap-2">
-            <Inbox size={13} className="text-[#6E6688]" />
-            <span className="text-[12px] text-[#524D66] font-medium">Unified Inbox</span>
-            {unreadCount > 0 && (
-              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full" style={{ backgroundColor: `${c}20`, color: c }}>
-                {unreadCount}
+  async function handleAIDraft() {
+    if (!selectedPatient || drafting) return;
+    setDrafting(true);
+    const res = await draftMessageWithAI(
+      selectedPatient.full_name,
+      selectedPatient.last_treatment,
+      compose.channel,
+      compose.purpose,
+    );
+    if (res.success && res.draft) setCompose(c => ({ ...c, body: res.draft! }));
+    setDrafting(false);
+  }
+
+  async function handleSend() {
+    if (!selectedPatient || !compose.body.trim() || sending) return;
+    setSending(true);
+    const res = await sendPatientMessage({
+      patient_id:    selectedPatient.id,
+      patient_name:  selectedPatient.full_name,
+      patient_phone: selectedPatient.phone,
+      patient_email: selectedPatient.email,
+      channel:       compose.channel,
+      body:          compose.body.trim(),
+      sent_by_name:  profile ? `${profile.firstName} ${profile.lastName}`.trim() : 'Staff',
+      purpose:       compose.purpose,
+    });
+
+    if (res.success) {
+      // Optimistically add to timeline
+      const newItem: TimelineItem = {
+        id:        `local-${Date.now()}`,
+        source:    compose.channel === 'email' ? 'email_out' : 'sms_out',
+        timestamp: new Date().toISOString(),
+        title:     compose.channel === 'email' ? 'Email sent' : 'SMS sent',
+        body:      compose.body.trim(),
+        direction: 'outbound',
+        is_expandable: false,
+        metadata: { sent_by: profile ? `${profile.firstName} ${profile.lastName}`.trim() : 'Staff' },
+      };
+      setTimeline(prev => [newItem, ...prev]);
+      setCompose(c => ({ ...c, body: '' }));
+      setSendSuccess(true);
+      setTimeout(() => setSendSuccess(false), 3000);
+    }
+    setSending(false);
+  }
+
+  const avatarColor = selectedPatient ? getAvatarColor(selectedPatient.full_name) : '#ffffff';
+  const smsLimit    = 160;
+
+  // =============================================================================
+  // RENDER
+  // =============================================================================
+
+  return (
+    <div className="flex h-screen overflow-hidden" style={{ backgroundColor: '#000', paddingLeft: 'var(--nav-w, 240px)' }}>
+      <StaffNav
+        profile={profile ?? { userId: '', firstName: '—', lastName: '', email: '', jobTitle: null, departmentName: null, departmentId: null, roleName: null, isAdmin: false, isOwner: false, companyName: '', aiName: 'Aria', brandColor: '#ffffff', logoUrl: null, industry: null, reportsTo: null, teamSize: 0 }}
+        userId={userId}
+        brandColor={brandColor}
+        currentPath="Bridge"
+      />
+
+      {/* ========== PATIENT LIST ========== */}
+      <div
+        className="w-[248px] flex-shrink-0 flex flex-col overflow-hidden"
+        style={{ borderRight: '1px solid rgba(255,255,255,0.06)' }}
+      >
+        {/* Header */}
+        <div className="px-4 pt-5 pb-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          <p className="text-[9px] uppercase tracking-[0.18em] font-medium mb-3" style={{ color: 'rgba(255,255,255,0.22)' }}>
+            Patients
+            {patients.length > 0 && (
+              <span className="ml-2 px-1.5 py-0.5 rounded-md text-[8px]" style={{ backgroundColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.25)' }}>
+                {patients.length}
+              </span>
+            )}
+          </p>
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3" style={{ color: 'rgba(255,255,255,0.18)' }} />
+            <input
+              className="w-full pl-7 pr-3 py-2 rounded-lg text-[11px] focus:outline-none transition-colors"
+              style={{
+                backgroundColor: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.07)',
+                color: 'rgba(255,255,255,0.70)',
+              }}
+              placeholder="Search patients..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* List */}
+        <div className="flex-1 overflow-y-auto py-2">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'rgba(255,255,255,0.20)' }} />
+            </div>
+          ) : filteredPatients.length === 0 ? (
+            <p className="text-center text-[11px] py-8" style={{ color: 'rgba(255,255,255,0.18)' }}>No patients found</p>
+          ) : (
+            filteredPatients.map(p => (
+              <PatientRow
+                key={p.id}
+                patient={p}
+                selected={selectedPatient?.id === p.id}
+                onClick={() => handleSelectPatient(p)}
+              />
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* ========== SECTION B: INTERACTION LOG ========== */}
+      <div
+        className="flex-1 flex flex-col overflow-hidden"
+        style={{ borderRight: '1px solid rgba(255,255,255,0.06)' }}
+      >
+        {/* Section header */}
+        <div
+          className="px-5 py-3.5 flex items-center justify-between flex-shrink-0"
+          style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+        >
+          <div className="flex items-center gap-3">
+            <div
+              className="px-2 py-0.5 rounded-md"
+              style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+            >
+              <span className="text-[8px] uppercase tracking-[0.16em] font-semibold" style={{ color: 'rgba(255,255,255,0.25)' }}>
+                Section B
+              </span>
+            </div>
+            <span className="text-[13px] font-semibold" style={{ color: 'rgba(255,255,255,0.75)' }}>Interaction Log</span>
+            {selectedPatient && (
+              <span className="text-[13px]" style={{ color: 'rgba(255,255,255,0.28)' }}>
+                · {selectedPatient.full_name}
               </span>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            {/* Mode toggle */}
-            <div className="flex items-center rounded-lg border border-[#EBE5FF] overflow-hidden">
-              <button
-                onClick={() => setBridgeMode('inbox')}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] transition-all"
-                style={{
-                  backgroundColor: bridgeMode === 'inbox' ? `${c}15` : 'transparent',
-                  color: bridgeMode === 'inbox' ? c : '#6E6688',
-                }}>
-                <Inbox size={11} /> Inbox
-              </button>
-              <button
-                onClick={() => setBridgeMode('agent_chat')}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] transition-all"
-                style={{
-                  backgroundColor: bridgeMode === 'agent_chat' ? `${c}15` : 'transparent',
-                  color: bridgeMode === 'agent_chat' ? c : '#6E6688',
-                }}>
-                <Sparkles size={11} /> Agent Chat
-              </button>
-            </div>
-            {bridgeMode === 'inbox' && (
-              <button onClick={() => setShowFilters(!showFilters)}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] border transition-all ${
-                  showFilters ? 'text-[#524D66] border-[#D5CCFF] bg-[#FAF9F5]' : 'text-[#6E6688] border-[#EBE5FF]'
-                }`}>
-                <Filter size={11} /> Filters
-              </button>
-            )}
-            <button className="w-8 h-8 rounded-lg flex items-center justify-center bg-[#FAF9F5] hover:bg-white transition-colors">
-              <RefreshCw size={13} className="text-[#6E6688]" />
+          {selectedPatient && (
+            <button
+              onClick={() => { setTimelineLoading(true); getPatientTimeline(selectedPatient.id).then(items => { setTimeline(items); setTimelineLoading(false); }); }}
+              className="p-1.5 rounded-lg transition-colors"
+              style={{ color: 'rgba(255,255,255,0.20)' }}
+              onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.50)')}
+              onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.20)')}
+              title="Refresh"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
             </button>
+          )}
+        </div>
+
+        {/* Patient mini-card */}
+        {selectedPatient && (
+          <div
+            className="px-5 py-3 flex items-center gap-3 flex-shrink-0"
+            style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', backgroundColor: 'rgba(255,255,255,0.01)' }}
+          >
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+              style={{ backgroundColor: `${avatarColor}18`, color: avatarColor, border: `1px solid ${avatarColor}30` }}
+            >
+              {getInitials(selectedPatient.full_name)}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[13px] font-semibold" style={{ color: 'rgba(255,255,255,0.85)' }}>{selectedPatient.full_name}</p>
+              <div className="flex items-center gap-3 mt-0.5">
+                {selectedPatient.phone && (
+                  <span className="flex items-center gap-1 text-[10px]" style={{ color: 'rgba(255,255,255,0.30)' }}>
+                    <Phone className="w-2.5 h-2.5" />{selectedPatient.phone}
+                  </span>
+                )}
+                {selectedPatient.email && (
+                  <span className="flex items-center gap-1 text-[10px]" style={{ color: 'rgba(255,255,255,0.30)' }}>
+                    <Mail className="w-2.5 h-2.5" />{selectedPatient.email}
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="text-right flex-shrink-0">
+              {selectedPatient.last_treatment && (
+                <p className="text-[10px] font-medium" style={{ color: 'rgba(255,255,255,0.40)' }}>{selectedPatient.last_treatment}</p>
+              )}
+              <p className="text-[9px] mt-0.5" style={{ color: 'rgba(255,255,255,0.18)' }}>
+                {selectedPatient.interaction_count} interactions
+              </p>
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* ── MAIN 3-PANEL LAYOUT ── */}
-        <div className="flex-1 flex overflow-hidden">
-
-          {/* ════ LEFT SIDEBAR ════ */}
-          <motion.aside initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.05 }}
-            className="w-[200px] xl:w-[220px] border-r border-[#EBE5FF] flex-shrink-0 flex flex-col">
-
-            {/* Sidebar nav */}
-            <div className="py-3 px-2 space-y-0.5 flex-shrink-0">
-              {SIDEBAR_ITEMS.map(item => {
-                const Icon = item.icon;
-                const count =
-                  item.id === 'unread' ? unreadCount :
-                  item.id === 'starred' ? starredCount :
-                  item.id === 'action_required' ? actionCount :
-                  item.id === 'approval' ? approvalCount : 0;
-                const isActive = sidebarFilter === item.id;
-                return (
-                  <button key={item.id}
-                    onClick={() => setSidebarFilter(item.id)}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[11px] transition-all ${
-                      isActive ? 'text-[#1A1035]' : 'text-[#6E6688] hover:text-[#524D66] hover:bg-[#FAF7F2]'
-                    }`}
-                    style={isActive ? { backgroundColor: `${c}12`, color: c } : undefined}
+        {/* Timeline filters */}
+        {selectedPatient && (
+          <div
+            className="px-5 py-2.5 flex items-center gap-1.5 overflow-x-auto flex-shrink-0"
+            style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+          >
+            {(Object.keys(FILTER_MATCH) as TimelineFilter[]).map(f => (
+              <button
+                key={f}
+                onClick={() => setTimelineFilter(f)}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-semibold uppercase tracking-[0.10em] transition-all whitespace-nowrap"
+                style={{
+                  backgroundColor: timelineFilter === f ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.03)',
+                  color:           timelineFilter === f ? 'rgba(255,255,255,0.80)' : 'rgba(255,255,255,0.25)',
+                  border:          timelineFilter === f ? '1px solid rgba(255,255,255,0.18)' : '1px solid rgba(255,255,255,0.06)',
+                }}
+              >
+                {f === 'all' ? 'All' : f}
+                {filterCounts[f] > 0 && (
+                  <span
+                    className="px-1 rounded text-[7px]"
+                    style={{ backgroundColor: timelineFilter === f ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.06)' }}
                   >
-                    <Icon size={13} />
-                    <span className="flex-1 text-left">{item.label}</span>
-                    {count > 0 && (
-                      <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded-full ${
-                        isActive ? '' : 'bg-[#FAF9F5] text-[#6E6688]'
-                      }`}
-                        style={isActive ? { backgroundColor: `${c}20` } : undefined}>
-                        {count}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+                    {filterCounts[f]}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
 
-            {/* Channel filter */}
-            <div className="px-3 py-2 border-t border-[#EBE5FF]">
-              <p className="text-[9px] uppercase tracking-[0.2em] text-[#8B84A0] mb-2 px-1">Channels</p>
-              {(Object.entries(CHANNEL_CONFIG) as [ChannelType, typeof CHANNEL_CONFIG[ChannelType]][]).map(([key, ch]) => {
-                const Icon = ch.icon;
-                const count = messages.filter(m => m.channel === key && m.status !== 'archived').length;
-                const isActive = channelFilter === key;
-                return (
-                  <button key={key}
-                    onClick={() => setChannelFilter(channelFilter === key ? 'all' : key)}
-                    className={`w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md text-[10px] transition-all ${
-                      isActive ? 'bg-[#FAF9F5] text-[#524D66]' : 'text-[#6E6688] hover:text-[#6E6688]'
-                    }`}>
-                    <Icon size={11} style={{ color: ch.color }} />
-                    <span className="flex-1 text-left">{ch.label}</span>
-                    <span className="text-[9px] text-[#8B84A0] font-mono">{count}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Agent selector — visible in agent_chat mode */}
-            {bridgeMode === 'agent_chat' && (
-              <div className="px-3 py-2 border-t border-[#EBE5FF]">
-                <p className="text-[9px] uppercase tracking-[0.2em] text-[#8B84A0] mb-2 px-1">Route to Agent</p>
-                <button
-                  onClick={() => setAgentTarget('primary')}
-                  className={`w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md text-[10px] transition-all mb-0.5 ${
-                    agentTarget === 'primary' ? 'text-[#1A1035]' : 'text-[#6E6688] hover:text-[#6E6688]'
-                  }`}
-                  style={agentTarget === 'primary' ? { backgroundColor: `${c}12`, color: c } : undefined}>
-                  <Sparkles size={11} style={{ color: agentTarget === 'primary' ? c : '#8B84A0' }} />
-                  <span className="flex-1 text-left">{aiName} (Router)</span>
-                </button>
-                {agents.map(agent => {
-                  const isActive = agentTarget === agent.id;
-                  return (
-                    <button key={agent.id}
-                      onClick={() => setAgentTarget(agent.id)}
-                      className={`w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md text-[10px] transition-all ${
-                        isActive ? 'text-[#1A1035]' : 'text-[#6E6688] hover:text-[#6E6688]'
-                      }`}
-                      style={isActive ? { backgroundColor: `${c}12`, color: c } : undefined}>
-                      <span className="w-3 h-3 rounded-sm flex items-center justify-center text-[8px]"
-                        style={{ backgroundColor: isActive ? `${c}30` : 'rgba(0,0,0,0.05)', color: isActive ? c : '#6E6688' }}>
-                        {agent.name.charAt(0)}
-                      </span>
-                      <span className="flex-1 text-left truncate">{agent.name}</span>
-                      <span className="text-[8px] text-[#8B84A0] uppercase">{agent.type === 'industry' ? 'IND' : 'CO'}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Stats */}
-            {stats && (
-              <div className="mt-auto px-3 py-3 border-t border-[#EBE5FF]">
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-[10px]">
-                    <span className="text-[#6E6688]">Total messages</span>
-                    <span className="text-[#6E6688] font-mono">{messages.length}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-[10px]">
-                    <span className="text-[#6E6688]">Need action</span>
-                    <span className="font-mono" style={{ color: stats.action_required > 0 ? '#ef4444' : '#22c55e' }}>
-                      {stats.action_required}
+        {/* Timeline content */}
+        {!selectedPatient ? (
+          <EmptyState label="Select a patient to view their interaction history" />
+        ) : timelineLoading ? (
+          <div className="flex-1 flex items-center justify-center">
+            <Loader2 className="w-5 h-5 animate-spin" style={{ color: 'rgba(255,255,255,0.15)' }} />
+          </div>
+        ) : groupedTimeline.length === 0 ? (
+          <EmptyState label="No interactions found for this filter" />
+        ) : (
+          <div ref={timelineRef} className="flex-1 overflow-y-auto px-5 py-5 space-y-6">
+            <AnimatePresence>
+              {groupedTimeline.map(group => (
+                <div key={group.label}>
+                  {/* Date divider */}
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="flex-1 h-px" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }} />
+                    <span className="text-[9px] uppercase tracking-[0.14em] font-medium px-2" style={{ color: 'rgba(255,255,255,0.18)' }}>
+                      {group.label}
                     </span>
+                    <div className="flex-1 h-px" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }} />
                   </div>
-                  <div className="flex items-center justify-between text-[10px]">
-                    <span className="text-[#6E6688]">Approvals</span>
-                    <span className="font-mono" style={{ color: stats.awaiting_approval > 0 ? '#f59e0b' : '#22c55e' }}>
-                      {stats.awaiting_approval}
-                    </span>
+
+                  {/* Items */}
+                  <div className="space-y-3">
+                    {group.items.map(item => (
+                      item.direction === 'system'
+                        ? <TimelineItemCard key={item.id} item={item} expanded={expandedItems.has(item.id)} onToggle={() => toggleExpand(item.id)} />
+                        : <MessageBubble key={item.id} item={item} />
+                    ))}
                   </div>
                 </div>
-              </div>
-            )}
-          </motion.aside>
+              ))}
+            </AnimatePresence>
 
-          {/* ════ CENTER PANEL ════ */}
-          {bridgeMode === 'inbox' ? (
-            /* ── INBOX: MESSAGE LIST ── */
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-              className="flex-1 min-w-[300px] max-w-[480px] border-r border-[#EBE5FF] flex flex-col">
+            {/* Bottom spacer */}
+            <div className="h-4" />
+          </div>
+        )}
+      </div>
 
-              {/* Search bar */}
-              <div className="px-3 py-2.5 border-b border-[#EBE5FF] flex-shrink-0">
-                <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[#EBE5FF] bg-[#F0ECFF]">
-                  <Search size={13} className="text-[#6E6688] flex-shrink-0" />
-                  <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-                    placeholder="Search messages..."
-                    className="flex-1 bg-transparent text-[12px] text-[#524D66] placeholder-[#B0A8C8] outline-none" />
-                  {searchQuery && (
-                    <button onClick={() => setSearchQuery('')} className="text-[#6E6688] hover:text-[#6E6688]">
-                      <X size={12} />
-                    </button>
-                  )}
-                </div>
-                <AnimatePresence>
-                  {showFilters && (
-                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                      <div className="flex flex-wrap gap-1.5 pt-2">
-                        {(Object.entries(PRIORITY_CONFIG) as [MessagePriority, { label: string; color: string }][]).map(([key, cfg]) => (
-                          <button key={key}
-                            className="px-2 py-1 rounded-md text-[9px] border border-[#EBE5FF] text-[#6E6688] hover:text-[#6E6688] hover:bg-[#FAF9F5] transition-all">
-                            {cfg.label}
-                          </button>
-                        ))}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              <div className="px-4 py-2 border-b border-[#EBE5FF] flex items-center justify-between flex-shrink-0">
-                <span className="text-[10px] text-[#6E6688]">{filteredMessages.length} messages</span>
-                {sidebarFilter !== 'all' && (
-                  <button onClick={() => setSidebarFilter('all')} className="text-[10px] hover:underline transition-colors" style={{ color: `${c}80` }}>
-                    Clear filter
-                  </button>
-                )}
-              </div>
-
-              <div className="flex-1 overflow-y-auto">
-                <AnimatePresence initial={false}>
-                  {filteredMessages.map(msg => (
-                    <MessageRow
-                      key={msg.id}
-                      message={msg}
-                      brandColor={c}
-                      isSelected={selectedId === msg.id}
-                      onSelect={() => selectMessage(msg.id)}
-                      onToggleStar={() => handleToggleStar(msg.id)}
-                    />
-                  ))}
-                </AnimatePresence>
-                {filteredMessages.length === 0 && (
-                  <div className="flex flex-col items-center justify-center py-16">
-                    <Inbox size={28} className="text-[#8B84A0] mb-3" />
-                    <p className="text-[12px] text-[#6E6688]">No messages</p>
-                    <p className="text-[10px] text-[#8B84A0] mt-1">
-                      {sidebarFilter !== 'all' ? 'Try a different filter' : 'Your inbox is clear'}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          ) : (
-            /* ── AGENT CHAT: Conversation Panel ── */
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-              className="flex-1 border-r border-[#EBE5FF] flex flex-col">
-
-              {/* Agent target header */}
-              <div className="px-4 py-3 border-b border-[#EBE5FF] flex items-center gap-3 flex-shrink-0">
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${c}15` }}>
-                  <Sparkles size={13} style={{ color: c }} />
-                </div>
-                <div>
-                  <p className="text-[12px] text-[#1A1035] font-medium">
-                    {agentTarget === 'primary' ? `${aiName} — Intelligence Router` : agents.find(a => a.id === agentTarget)?.name || agentTarget}
-                  </p>
-                  <p className="text-[9px] text-[#6E6688]">
-                    {agentTarget === 'primary'
-                      ? 'Classifies your input and routes to the right specialist agent'
-                      : 'Direct message — signal created without routing'}
-                  </p>
-                </div>
-              </div>
-
-              {/* Chat messages */}
-              <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-                {agentMessages.length === 0 && (
-                  <div className="flex flex-col items-center justify-center h-full text-center">
-                    <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-3" style={{ backgroundColor: `${c}08` }}>
-                      <Sparkles size={20} style={{ color: `${c}40` }} />
-                    </div>
-                    <p className="text-[13px] text-[#6E6688] mb-1">
-                      {agentTarget === 'primary'
-                        ? `Describe your issue — ${aiName} will route it to the right agent`
-                        : `Send a message directly to ${agents.find(a => a.id === agentTarget)?.name || 'this agent'}`}
-                    </p>
-                    <p className="text-[10px] text-[#8B84A0] max-w-[320px]">
-                      {agentTarget === 'primary'
-                        ? 'e.g. "A student is being evicted", "Book a room for Friday", "Find the invoice from January"'
-                        : 'A signal will be created and assigned to this agent for processing'}
-                    </p>
-                  </div>
-                )}
-                {agentMessages.map((msg, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[85%] rounded-xl px-3.5 py-2.5 ${
-                      msg.role === 'user'
-                        ? 'bg-[#FAF9F5] border border-[#EBE5FF]'
-                        : 'border border-[#EBE5FF]'
-                    }`}
-                      style={msg.role === 'assistant' ? { backgroundColor: `${c}06`, borderColor: `${c}12` } : undefined}>
-                      <p className="text-[12px] text-[#524D66] leading-relaxed whitespace-pre-wrap">
-                        {msg.content.split('**').map((part, j) =>
-                          j % 2 === 1
-                            ? <strong key={j} className="text-[#1A1035]">{part}</strong>
-                            : <span key={j}>{part}</span>,
-                        )}
-                      </p>
-                      {msg.meta && (
-                        <button
-                          onClick={() => router.push(`/staff/agents/${msg.meta!.agentId}`)}
-                          className="mt-2 flex items-center gap-1.5 text-[10px] transition-colors hover:underline"
-                          style={{ color: c }}>
-                          <Eye size={10} /> View in Agent Feed
-                          <ChevronRight size={10} />
-                        </button>
-                      )}
-                    </div>
-                  </motion.div>
-                ))}
-                {isRouting && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
-                    <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-[#EBE5FF]" style={{ backgroundColor: `${c}06` }}>
-                      <Loader2 size={12} className="animate-spin" style={{ color: c }} />
-                      <span className="text-[11px] text-[#6E6688]">
-                        {agentTarget === 'primary' ? 'Classifying & routing...' : 'Creating signal...'}
-                      </span>
-                    </div>
-                  </motion.div>
-                )}
-                <div ref={agentChatEndRef} />
-              </div>
-
-              {/* Input */}
-              <div className="px-4 py-3 border-t border-[#EBE5FF] flex-shrink-0">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={agentInput}
-                    onChange={e => setAgentInput(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleAgentSend()}
-                    placeholder={agentTarget === 'primary' ? `Describe issue — ${aiName} will route it...` : `Message ${agents.find(a => a.id === agentTarget)?.name || 'agent'}...`}
-                    className="flex-1 bg-white border border-[#EBE5FF] rounded-lg px-3.5 py-2.5 text-[12px] text-[#1A1035] placeholder-[#B0A8C8] outline-none focus:border-[#D5CCFF] transition-colors"
-                    disabled={isRouting}
-                  />
-                  <button
-                    onClick={handleAgentSend}
-                    disabled={isRouting || !agentInput.trim()}
-                    className="w-9 h-9 rounded-lg flex items-center justify-center transition-all disabled:opacity-30"
-                    style={{ backgroundColor: `${c}20`, color: c }}>
-                    {isRouting ? <Loader2 size={14} className="animate-spin" /> : <CornerUpLeft size={14} />}
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {/* ════ RIGHT: DETAIL / ROUTING PANEL ════ */}
-          {bridgeMode === 'inbox' ? (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }}
-              className="flex-1 min-w-0 flex flex-col">
-              <AnimatePresence mode="wait">
-                {selectedMessage ? (
-                  <MessageDetail
-                    key={selectedMessage.id}
-                    message={selectedMessage}
-                    thread={thread}
-                    brandColor={c}
-                    aiName={aiName}
-                    smartReplies={smartReplies}
-                    loadingReplies={loadingReplies}
-                    onClose={() => setSelectedId(null)}
-                    onArchive={handleArchive}
-                    onSnooze={handleSnooze}
-                    onGenerateReplies={handleGenerateReplies}
-                  />
-                ) : (
-                  <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                    className="flex-1 flex flex-col items-center justify-center text-center px-8">
-                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4" style={{ backgroundColor: `${c}08` }}>
-                      <Inbox size={28} style={{ color: `${c}30` }} />
-                    </div>
-                    <p className="text-[14px] text-[#6E6688] mb-1">Select a message</p>
-                    <p className="text-[11px] text-[#8B84A0] max-w-[280px] leading-relaxed">
-                      Click on any message to read the full content, view threads, and reply. {aiName} can suggest smart replies.
-                    </p>
-                    {stats && (
-                      <div className="mt-6 grid grid-cols-2 gap-3 w-full max-w-[280px]">
-                        <div className="bg-white border border-[#EBE5FF] rounded-xl p-3 text-center">
-                          <p className="text-[18px] font-light" style={{ color: unreadCount > 0 ? c : '#6E6688' }}>{unreadCount}</p>
-                          <p className="text-[9px] text-[#6E6688] uppercase tracking-wider">Unread</p>
-                        </div>
-                        <div className="bg-white border border-[#EBE5FF] rounded-xl p-3 text-center">
-                          <p className="text-[18px] font-light" style={{ color: actionCount > 0 ? '#ef4444' : '#6E6688' }}>{actionCount}</p>
-                          <p className="text-[9px] text-[#6E6688] uppercase tracking-wider">Action Req.</p>
-                        </div>
-                      </div>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.div>
-          ) : (
-            /* ── AGENT CHAT: Routing Info Panel ── */
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }}
-              className="flex-1 min-w-0 flex flex-col max-w-[360px]">
-              <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
-                {(() => {
-                  const lastRouted = [...agentMessages].reverse().find(m => m.meta);
-                  if (lastRouted?.meta) {
-                    const r = lastRouted.meta;
-                    return (
-                      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="w-full space-y-4">
-                        <div className="bg-white border border-[#EBE5FF] rounded-xl p-4 text-left space-y-3">
-                          <p className="text-[10px] uppercase tracking-[0.2em] text-[#6E6688]">Last Routed Signal</p>
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] text-[#6E6688]">Agent</span>
-                              <span className="text-[11px] font-medium" style={{ color: c }}>{r.agentName}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] text-[#6E6688]">Signal</span>
-                              <span className="text-[11px] text-[#524D66] truncate ml-4">{r.classification.title}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] text-[#6E6688]">Priority</span>
-                              <span className="text-[10px] uppercase px-1.5 py-0.5 rounded"
-                                style={{
-                                  backgroundColor: r.classification.priority === 'critical' ? '#ef444420' : r.classification.priority === 'high' ? '#f59e0b20' : `${c}15`,
-                                  color: r.classification.priority === 'critical' ? '#ef4444' : r.classification.priority === 'high' ? '#f59e0b' : c,
-                                }}>
-                                {r.classification.priority}
-                              </span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] text-[#6E6688]">Confidence</span>
-                              <span className="text-[11px] text-[#524D66]">{r.classification.confidence}%</span>
-                            </div>
-                            <div className="pt-1">
-                              <span className="text-[10px] text-[#6E6688] block mb-1">Reasoning</span>
-                              <p className="text-[11px] text-[#6E6688] leading-relaxed">{r.classification.reasoning}</p>
-                            </div>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => router.push(`/staff/agents/${r.agentId}`)}
-                          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-[11px] font-medium transition-all"
-                          style={{ backgroundColor: `${c}15`, color: c, border: `1px solid ${c}25` }}>
-                          <Eye size={12} /> View in {r.agentName} Feed
-                          <ChevronRight size={12} />
-                        </button>
-                      </motion.div>
-                    );
-                  }
-                  return (
-                    <>
-                      <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4" style={{ backgroundColor: `${c}08` }}>
-                        <Sparkles size={24} style={{ color: `${c}30` }} />
-                      </div>
-                      <p className="text-[13px] text-[#6E6688] mb-2">Routing Details</p>
-                      <p className="text-[10px] text-[#8B84A0] max-w-[260px] leading-relaxed">
-                        Send a message and the routing result will appear here — showing which agent was selected, the confidence level, and a link to view the signal in the agent&apos;s feed.
-                      </p>
-                    </>
-                  );
-                })()}
-              </div>
-            </motion.div>
-          )}
+      {/* ========== SECTION A: OUTREACH ========== */}
+      <div className="w-[308px] flex-shrink-0 flex flex-col overflow-hidden">
+        {/* Section header */}
+        <div
+          className="px-5 py-3.5 flex items-center gap-3 flex-shrink-0"
+          style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+        >
+          <div
+            className="px-2 py-0.5 rounded-md"
+            style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+          >
+            <span className="text-[8px] uppercase tracking-[0.16em] font-semibold" style={{ color: 'rgba(255,255,255,0.25)' }}>
+              Section A
+            </span>
+          </div>
+          <span className="text-[13px] font-semibold" style={{ color: 'rgba(255,255,255,0.75)' }}>Outreach</span>
         </div>
+
+        {!selectedPatient ? (
+          <EmptyState label="Select a patient to send a message" />
+        ) : (
+          <div className="flex-1 flex flex-col overflow-y-auto">
+            <div className="p-5 space-y-5">
+
+              {/* TO */}
+              <div>
+                <p className="text-[9px] uppercase tracking-[0.18em] font-medium mb-2" style={{ color: 'rgba(255,255,255,0.22)' }}>To</p>
+                <div
+                  className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl"
+                  style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}
+                >
+                  <div
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
+                    style={{ backgroundColor: `${avatarColor}18`, color: avatarColor }}
+                  >
+                    {getInitials(selectedPatient.full_name)}
+                  </div>
+                  <div>
+                    <p className="text-[12px] font-medium" style={{ color: 'rgba(255,255,255,0.80)' }}>{selectedPatient.full_name}</p>
+                    <p className="text-[10px] mt-0.5" style={{ color: 'rgba(255,255,255,0.25)' }}>
+                      {selectedPatient.phone ?? selectedPatient.email ?? 'No contact details'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* CHANNEL */}
+              <div>
+                <p className="text-[9px] uppercase tracking-[0.18em] font-medium mb-2" style={{ color: 'rgba(255,255,255,0.22)' }}>Channel</p>
+                <div className="flex gap-2">
+                  {(['sms', 'email', 'whatsapp'] as SendChannel[]).map(ch => (
+                    <button
+                      key={ch}
+                      onClick={() => ch !== 'whatsapp' && setCompose(c => ({ ...c, channel: ch, body: '' }))}
+                      className="flex-1 py-2 rounded-xl text-[10px] font-semibold uppercase tracking-[0.08em] transition-all relative"
+                      style={{
+                        backgroundColor: compose.channel === ch ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.03)',
+                        color:           compose.channel === ch ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.25)',
+                        border:          compose.channel === ch ? '1px solid rgba(255,255,255,0.20)' : '1px solid rgba(255,255,255,0.07)',
+                        opacity:         ch === 'whatsapp' ? 0.4 : 1,
+                        cursor:          ch === 'whatsapp' ? 'not-allowed' : 'pointer',
+                      }}
+                      title={ch === 'whatsapp' ? 'Coming soon' : undefined}
+                    >
+                      {ch === 'sms' ? 'SMS' : ch === 'email' ? 'Email' : 'WA'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* PURPOSE */}
+              <div>
+                <p className="text-[9px] uppercase tracking-[0.18em] font-medium mb-2" style={{ color: 'rgba(255,255,255,0.22)' }}>Purpose</p>
+                <select
+                  className="w-full px-3 py-2.5 rounded-xl text-[11px] focus:outline-none appearance-none"
+                  style={{
+                    backgroundColor: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    color: 'rgba(255,255,255,0.65)',
+                  }}
+                  value={compose.purpose}
+                  onChange={e => setCompose(c => ({ ...c, purpose: e.target.value as DraftPurpose, body: '' }))}
+                >
+                  {(Object.entries(PURPOSE_LABELS) as [DraftPurpose, string][]).map(([v, l]) => (
+                    <option key={v} value={v} style={{ backgroundColor: '#111' }}>{l}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* MESSAGE COMPOSE */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[9px] uppercase tracking-[0.18em] font-medium" style={{ color: 'rgba(255,255,255,0.22)' }}>Message</p>
+                  {compose.channel === 'sms' && (
+                    <p className="text-[9px] tabular-nums" style={{ color: compose.body.length > smsLimit ? '#ef4444' : 'rgba(255,255,255,0.20)' }}>
+                      {compose.body.length}/{smsLimit}
+                    </p>
+                  )}
+                </div>
+                <textarea
+                  className="w-full px-3 py-2.5 rounded-xl text-[11px] leading-relaxed resize-none focus:outline-none transition-colors"
+                  style={{
+                    backgroundColor: 'rgba(255,255,255,0.03)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    color: 'rgba(255,255,255,0.75)',
+                    minHeight: compose.channel === 'email' ? '120px' : '80px',
+                  }}
+                  onFocus={e => (e.target.style.borderColor = 'rgba(255,255,255,0.16)')}
+                  onBlur={e  => (e.target.style.borderColor = 'rgba(255,255,255,0.08)')}
+                  placeholder={
+                    compose.channel === 'sms'
+                      ? 'Type your SMS message…'
+                      : compose.channel === 'email'
+                      ? 'Subject: …\n\nMessage body…'
+                      : 'Type your WhatsApp message…'
+                  }
+                  value={compose.body}
+                  onChange={e => setCompose(c => ({ ...c, body: e.target.value }))}
+                />
+              </div>
+
+              {/* ACTION ROW */}
+              <div className="flex items-center gap-2">
+                {/* AI Draft */}
+                <button
+                  onClick={handleAIDraft}
+                  disabled={drafting}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-semibold transition-all flex-1"
+                  style={{
+                    backgroundColor: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.10)',
+                    color: drafting ? 'rgba(255,255,255,0.20)' : 'rgba(255,255,255,0.55)',
+                  }}
+                  onMouseEnter={e => { if (!drafting) (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.20)'); }}
+                  onMouseLeave={e => { (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)'); }}
+                >
+                  {drafting
+                    ? <Loader2 className="w-3 h-3 animate-spin" />
+                    : <Sparkles className="w-3 h-3" />
+                  }
+                  {drafting ? 'Drafting…' : 'AI Draft'}
+                </button>
+
+                {/* Send */}
+                <button
+                  onClick={handleSend}
+                  disabled={sending || !compose.body.trim()}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[10px] font-bold transition-all"
+                  style={{
+                    backgroundColor: sendSuccess ? 'rgba(34,197,94,0.15)' : (compose.body.trim() ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.03)'),
+                    border:          sendSuccess ? '1px solid rgba(34,197,94,0.30)' : (compose.body.trim() ? '1px solid rgba(255,255,255,0.18)' : '1px solid rgba(255,255,255,0.06)'),
+                    color:           sendSuccess ? '#22c55e' : (compose.body.trim() ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.20)'),
+                    cursor:          !compose.body.trim() ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  <AnimatePresence mode="wait">
+                    {sendSuccess ? (
+                      <motion.span key="ok"  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" /> Sent
+                      </motion.span>
+                    ) : sending ? (
+                      <motion.span key="spin" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-1">
+                        <Loader2 className="w-3 h-3 animate-spin" /> Sending…
+                      </motion.span>
+                    ) : (
+                      <motion.span key="send" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-1">
+                        <Send className="w-3 h-3" /> Send
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </button>
+              </div>
+
+              {/* Divider */}
+              <div className="h-px" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }} />
+
+              {/* RECENT SENT — last 5 outbound for this patient */}
+              {timeline.filter(i => ['sms_out', 'email_out'].includes(i.source)).length > 0 && (
+                <div>
+                  <p className="text-[9px] uppercase tracking-[0.18em] font-medium mb-3" style={{ color: 'rgba(255,255,255,0.18)' }}>
+                    Recently Sent
+                  </p>
+                  <div className="space-y-2">
+                    {timeline
+                      .filter(i => ['sms_out', 'email_out'].includes(i.source))
+                      .slice(0, 4)
+                      .map(item => (
+                        <div
+                          key={item.id}
+                          className="px-3 py-2.5 rounded-xl"
+                          style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-1.5">
+                              {item.source === 'email_out'
+                                ? <Mail className="w-2.5 h-2.5" style={{ color: 'rgba(255,255,255,0.20)' }} />
+                                : <MessageSquare className="w-2.5 h-2.5" style={{ color: 'rgba(255,255,255,0.20)' }} />
+                              }
+                              <span className="text-[9px] font-semibold uppercase tracking-[0.08em]" style={{ color: 'rgba(255,255,255,0.25)' }}>
+                                {item.source === 'email_out' ? 'Email' : 'SMS'}
+                              </span>
+                              {item.metadata?.sent_by && (
+                                <span className="text-[9px]" style={{ color: 'rgba(255,255,255,0.15)' }}>
+                                  · {String(item.metadata.sent_by)}
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[8px]" style={{ color: 'rgba(255,255,255,0.15)' }}>{fmtTime(item.timestamp)}</span>
+                          </div>
+                          <p className="text-[10px] leading-relaxed line-clamp-2" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                            {item.body}
+                          </p>
+                        </div>
+                      ))
+                    }
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

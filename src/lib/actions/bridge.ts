@@ -1,429 +1,320 @@
 'use server';
 
+import { createSovereignClient } from '@/lib/supabase/service';
 import { getAnthropicClient, ANTHROPIC_MODELS } from '@/lib/ai/anthropic';
 
 // =============================================================================
 // TYPES
 // =============================================================================
 
-export type ChannelType = 'email' | 'slack' | 'teams' | 'internal' | 'webhook';
-export type MessagePriority = 'urgent' | 'high' | 'normal' | 'low';
-export type MessageStatus = 'unread' | 'read' | 'archived' | 'snoozed' | 'flagged';
-export type MessageCategory = 'action_required' | 'fyi' | 'approval' | 'escalation' | 'update' | 'social';
+export type PatientSummary = {
+  id:                string;
+  full_name:         string;
+  phone:             string | null;
+  email:             string | null;
+  last_treatment:    string | null;
+  last_contact:      string | null;
+  interaction_count: number;
+};
 
-export interface BridgeMessage {
-  id: string;
-  channel: ChannelType;
-  channel_detail: string;          // e.g. "#alerts-critical", "joe@uoo.co.uk"
-  sender_name: string;
-  sender_avatar: string | null;    // initials fallback
-  subject: string;
-  preview: string;
-  body: string;
-  priority: MessagePriority;
-  status: MessageStatus;
-  category: MessageCategory;
-  department: string | null;
-  has_attachments: boolean;
-  attachment_count: number;
-  thread_count: number;            // number of replies
-  is_starred: boolean;
-  received_at: string;
-  snoozed_until: string | null;
-}
+export type TimelineSource =
+  | 'voice_komal'
+  | 'agent_aria'
+  | 'agent_orion'
+  | 'agent_ewc'
+  | 'automation'
+  | 'appointment'
+  | 'signal'
+  | 'sms_out'
+  | 'sms_in'
+  | 'email_out'
+  | 'email_in';
 
-export interface ThreadReply {
-  id: string;
-  message_id: string;
-  sender_name: string;
-  sender_avatar: string | null;
-  content: string;
-  channel: ChannelType;
-  sent_at: string;
-  is_own: boolean;
-}
+export type TimelineItem = {
+  id:            string;
+  source:        TimelineSource;
+  timestamp:     string;
+  title:         string;
+  body:          string;
+  direction:     'inbound' | 'outbound' | 'system';
+  is_expandable: boolean;
+  transcript?:   { role: 'komal' | 'patient'; text: string }[];
+  metadata?:     Record<string, string | number | boolean | null>;
+};
 
-export interface BridgeStats {
-  total_unread: number;
-  action_required: number;
-  awaiting_approval: number;
-  snoozed: number;
-  by_channel: Record<ChannelType, number>;
-  by_priority: Record<MessagePriority, number>;
-}
-
-export interface SmartReply {
-  id: string;
-  text: string;
-  tone: 'professional' | 'friendly' | 'brief';
-}
+export type SendChannel   = 'sms' | 'email' | 'whatsapp';
+export type DraftPurpose  =
+  | 'appointment_reminder'
+  | 'post_treatment_checkin'
+  | 'rebooking'
+  | 'payment_chase'
+  | 'follow_up'
+  | 'general';
 
 // =============================================================================
-// SIMULATED MESSAGES
-// Week 1: Realistic messages for demo purposes
-// Week 2: Replace with real Twilio/email/Slack integration
+// SIMULATED PATIENT DATA (Week 1 — replaced by Cliniko sync in Week 2)
 // =============================================================================
 
 const now = new Date();
-const ago = (minutes: number) => new Date(now.getTime() - minutes * 60 * 1000).toISOString();
+const dAgo = (d: number) => new Date(now.getTime() - d * 86400000).toISOString();
+const hAgo = (h: number) => new Date(now.getTime() - h * 3600000).toISOString();
+const mAgo = (m: number) => new Date(now.getTime() - m * 60000).toISOString();
 
-const SIMULATED_MESSAGES: BridgeMessage[] = [
-  {
-    id: 'msg-001',
-    channel: 'email',
-    channel_detail: 'l.kenning@brindleyplace-legal.co.uk',
-    sender_name: 'Laura Kenning',
-    sender_avatar: null,
-    subject: 'Corporate Wellness Enquiry — Brindleyplace Legal (180 employees)',
-    preview: 'We are looking to establish a corporate wellness programme for our Birmingham office...',
-    body: `Dear Edgbaston Wellness Clinic,
-
-My name is Laura Kenning, HR Director at Brindleyplace Legal LLP. We have 180 employees based at our Birmingham city centre office and are actively looking to establish a corporate wellness programme for 2026.
-
-We are particularly interested in:
-• Quarterly IV therapy sessions
-• Annual health screening packages
-• GP consultations for senior partners
-• Weight management support
-
-We would love to arrange a brief call or visit to your clinic to discuss partnership options. Our budget for this programme is approximately £30,000–£45,000 per annum.
-
-Could you please let me know if this is something Edgbaston Wellness Clinic would be interested in exploring? We are hoping to launch the programme by April 2026.
-
-Kind regards,
-Laura Kenning
-HR Director, Brindleyplace Legal LLP
-T: 0121 234 5678`,
-    priority: 'high',
-    status: 'unread',
-    category: 'action_required',
-    department: null,
-    has_attachments: false,
-    attachment_count: 0,
-    thread_count: 0,
-    is_starred: true,
-    received_at: ago(90),
-    snoozed_until: null,
-  },
-  {
-    id: 'msg-002',
-    channel: 'internal',
-    channel_detail: 'Aria · Signal Alert',
-    sender_name: 'Aria (EWC)',
-    sender_avatar: null,
-    subject: '8 Missed Calls This Week — Revenue Impact: ~£4,800',
-    preview: 'I detected 8 unanswered inbound calls between 8–9am and 5–7pm this week...',
-    body: `Hi Dr Ganata,
-
-I've identified 8 missed inbound calls this week that went unanswered during peak enquiry windows (8:00–9:00am and 5:00–7:00pm). Based on your average consultation booking rate:
-
-• Estimated missed revenue: £3,200–£6,400
-• Most common caller window: Tuesday–Thursday evenings
-
-These enquirers are likely to call competitors if not followed up within 24 hours.
-
-Recommended actions:
-1. Enable Vapi.ai voice receptionist to handle out-of-hours calls automatically
-2. Review current reception staffing hours
-3. Consider a callback campaign to known callers (if call log available)
-
-I've created a signal for this — you can review it in the Signals section.
-
-— Aria`,
-    priority: 'high',
-    status: 'unread',
-    category: 'action_required',
-    department: null,
-    has_attachments: false,
-    attachment_count: 0,
-    thread_count: 0,
-    is_starred: false,
-    received_at: ago(240),
-    snoozed_until: null,
-  },
-  {
-    id: 'msg-003',
-    channel: 'email',
-    channel_detail: 'patient.enquiries@ewclinic.co.uk',
-    sender_name: 'Emma Richardson',
-    sender_avatar: null,
-    subject: 'B12 Injection Prices — Do you offer courses?',
-    preview: 'Hello, I came across your clinic online and was wondering about your B12...',
-    body: `Hello,
-
-I came across Edgbaston Wellness Clinic on Instagram and I'm very interested in your B12 injections. I've been feeling very fatigued lately and my GP mentioned this might help.
-
-Could you please let me know:
-1. What are your prices for a single B12 injection?
-2. Do you offer a course of injections at a reduced rate?
-3. Is a consultation required first?
-4. What is your earliest available appointment?
-
-I'm in the Harborne area so your location would be very convenient.
-
-Many thanks,
-Emma Richardson`,
-    priority: 'normal',
-    status: 'unread',
-    category: 'action_required',
-    department: null,
-    has_attachments: false,
-    attachment_count: 0,
-    thread_count: 0,
-    is_starred: false,
-    received_at: ago(180),
-    snoozed_until: null,
-  },
-  {
-    id: 'msg-004',
-    channel: 'webhook',
-    channel_detail: 'Cliniko → Appointment Booked',
-    sender_name: 'Cliniko System',
-    sender_avatar: null,
-    subject: 'New Booking: CoolSculpting Consultation — Sophie Harte',
-    preview: 'Appointment confirmed: CoolSculpting Consultation · Mon 24 Feb, 10:30am...',
-    body: `New appointment booked via online booking portal:
-
-Patient: Sophie Harte (new patient)
-Treatment: CoolSculpting Body Consultation
-Date: Monday 24 February 2026, 10:30am
-Duration: 45 minutes
-Practitioner: Dr Suresh Ganata
-Room: Consultation Room 2
-
-Patient notes: Interested in abdomen and flank treatment. Saw Instagram ad.
-
-This appointment has been confirmed and added to the clinic calendar.
-
-— Cliniko`,
-    priority: 'low',
-    status: 'read',
-    category: 'fyi',
-    department: null,
-    has_attachments: false,
-    attachment_count: 0,
-    thread_count: 0,
-    is_starred: false,
-    received_at: ago(20),
-    snoozed_until: null,
-  },
-  {
-    id: 'msg-005',
-    channel: 'email',
-    channel_detail: 'accounts@allergan-aesthetics.co.uk',
-    sender_name: 'Allergan Aesthetics',
-    sender_avatar: null,
-    subject: 'Invoice INV-2026-0218 — Juvederm Restorer Product Order · £1,840',
-    preview: 'Please find attached your invoice for recent product order. Payment due...',
-    body: `Dear Edgbaston Wellness Clinic,
-
-Please find attached Invoice INV-2026-0218 for your recent product order.
-
-Products supplied:
-• Juvederm Ultra 2 (1ml) × 12 units — £780
-• Juvederm Ultra 3 (1ml) × 8 units — £680
-• Juvederm Voluma (2ml) × 3 units — £380
-
-Total: £1,840 (inc. VAT)
-Payment due: 14 March 2026
-Account reference: EWC-22891
-
-Payment details are on the attached invoice. Please contact our accounts team if you have any queries.
-
-Kind regards,
-Allergan Aesthetics Accounts Team`,
-    priority: 'normal',
-    status: 'unread',
-    category: 'approval',
-    department: null,
-    has_attachments: true,
-    attachment_count: 1,
-    thread_count: 0,
-    is_starred: false,
-    received_at: ago(60 * 3),
-    snoozed_until: null,
-  },
-  {
-    id: 'msg-006',
-    channel: 'email',
-    channel_detail: 'j.thorpe@highfield-hr.co.uk',
-    sender_name: 'James Thorpe',
-    sender_avatar: null,
-    subject: 'RE: Outstanding Invoice #EWC-2025-147 — Response Required',
-    preview: 'I wanted to follow up on the outstanding invoice for our October–November...',
-    body: `Dear Edgbaston Wellness Clinic,
-
-I am following up regarding your invoice #EWC-2025-147 for £4,200 (October–November corporate wellness package).
-
-I understand there may have been an issue with our accounts processing. Our new accounts manager, Jessica, joined in January and has been working through the backlog.
-
-I have escalated this to Jessica and have asked her to process payment by end of next week (28 Feb 2026). I apologise for the delay.
-
-Please confirm whether you require any additional documentation to process the payment (e.g. updated purchase order reference).
-
-Kind regards,
-James Thorpe
-Operations Director, Highfield HR Solutions`,
-    priority: 'urgent',
-    status: 'flagged',
-    category: 'action_required',
-    department: null,
-    has_attachments: false,
-    attachment_count: 0,
-    thread_count: 2,
-    is_starred: true,
-    received_at: ago(60 * 5),
-    snoozed_until: null,
-  },
-  {
-    id: 'msg-007',
-    channel: 'internal',
-    channel_detail: 'Aria · Compliance Alert',
-    sender_name: 'Aria (EWC)',
-    sender_avatar: null,
-    subject: 'CQC Inspection: 14 Days — 3 Outstanding Documentation Items',
-    preview: 'Your CQC inspection is scheduled for 8 March 2026. I have identified 3 gaps...',
-    body: `Dr Ganata,
-
-Your CQC inspection is scheduled for 8 March 2026 — 14 days from today. I have reviewed your compliance documentation and identified 3 outstanding items that require attention before the inspection:
-
-1. CPD Log (Dr Ganata) — Last updated: August 2025. Must be current to within 6 months.
-2. Annual Infection Control Audit — Due: December 2025. Not yet filed.
-3. Patient Safety Incident Report template — The 2024 template is in use; the 2025 updated format is required.
-
-These are direct requirements under CQC's Key Question 5 (Well-led). Inspectors specifically check CPD evidence and incident reporting frameworks.
-
-I recommend scheduling time this week to address these. I can help draft the documentation if needed — just ask in the chat.
-
-— Aria`,
-    priority: 'urgent',
-    status: 'unread',
-    category: 'action_required',
-    department: null,
-    has_attachments: false,
-    attachment_count: 0,
-    thread_count: 0,
-    is_starred: false,
-    received_at: ago(30),
-    snoozed_until: null,
-  },
-  {
-    id: 'msg-008',
-    channel: 'email',
-    channel_detail: 'review-alerts@google.com',
-    sender_name: 'Google Business Profile',
-    sender_avatar: null,
-    subject: 'New review on your Google Business Profile (3 stars)',
-    preview: 'You have a new review from Michael T: "Clinic itself is beautiful and staff very...',
-    body: `You have received a new review on your Google Business Profile for Edgbaston Wellness Clinic.
-
-Reviewer: Michael T.
-Rating: ★★★☆☆ (3 stars)
-Review: "Clinic itself is beautiful and staff very friendly and professional. Docked stars because I waited 25 minutes past my appointment time with no explanation. The treatment itself was excellent and I'd probably return, but the waiting was frustrating."
-
-Responding to reviews — even critical ones — improves your search ranking and shows prospective patients that you care. We recommend responding within 48 hours.
-
-View and respond at: business.google.com/reviews`,
-    priority: 'normal',
-    status: 'unread',
-    category: 'action_required',
-    department: null,
-    has_attachments: false,
-    attachment_count: 0,
-    thread_count: 0,
-    is_starred: false,
-    received_at: ago(60 * 18),
-    snoozed_until: null,
-  },
-  {
-    id: 'msg-009',
-    channel: 'webhook',
-    channel_detail: 'Cliniko → Cancellation',
-    sender_name: 'Cliniko System',
-    sender_avatar: null,
-    subject: 'Appointment Cancelled: Botox Session — Rachel Morrison (Fri 21 Feb)',
-    preview: 'Appointment cancelled online: Botox Anti-Wrinkle · Rachel Morrison...',
-    body: `Appointment cancellation received via patient portal:
-
-Patient: Rachel Morrison (returning patient)
-Treatment: Botox Anti-Wrinkle (forehead + glabella)
-Cancelled date: Friday 21 February 2026, 2:00pm
-Reason given: "Unable to make it — will rebook"
-Notice given: 6 hours
-
-Slot is now available. The gap in the Friday afternoon schedule may be fillable with a same-day patient.
-
-Note: Rachel has cancelled twice in the past 3 months. Aria may be worth flagging this pattern.
-
-— Cliniko`,
-    priority: 'low',
-    status: 'read',
-    category: 'fyi',
-    department: null,
-    has_attachments: false,
-    attachment_count: 0,
-    thread_count: 0,
-    is_starred: false,
-    received_at: ago(60 * 6),
-    snoozed_until: null,
-  },
-  {
-    id: 'msg-010',
-    channel: 'email',
-    channel_detail: 'noreply@ico.org.uk',
-    sender_name: 'ICO (Information Commissioner\'s Office)',
-    sender_avatar: null,
-    subject: 'Annual Data Protection Fee Renewal — Due 15 March 2026',
-    preview: 'Your annual data protection fee for Edgbaston Wellness Ltd is due for renewal...',
-    body: `Dear Data Controller,
-
-Your annual data protection fee for Edgbaston Wellness Ltd (Registration reference: ZA123456) is due for renewal.
-
-Renewal date: 15 March 2026
-Fee due: £60 (Tier 1 — small business)
-Payment options: Direct Debit, online, phone
-
-As a healthcare provider processing special category data (health records), ICO registration is a legal requirement under the UK GDPR. Failure to renew may result in a penalty.
-
-Renew online at: ico.org.uk/fees
-
-If you have any queries, contact our fee team on 0303 123 1113.
-
-Information Commissioner's Office`,
-    priority: 'high',
-    status: 'unread',
-    category: 'action_required',
-    department: null,
-    has_attachments: false,
-    attachment_count: 0,
-    thread_count: 0,
-    is_starred: false,
-    received_at: ago(60 * 24 * 2),
-    snoozed_until: null,
-  },
+const DEMO_PATIENTS: PatientSummary[] = [
+  { id: 'pat-001', full_name: 'Sarah Jones',        phone: '+44 7700 900123', email: 'sarah.jones@gmail.com',          last_treatment: 'Botox Anti-Wrinkle',       last_contact: mAgo(2),  interaction_count: 12 },
+  { id: 'pat-002', full_name: 'Emma Richardson',    phone: '+44 7700 900456', email: 'emma.r@outlook.com',             last_treatment: 'B12 Injection',            last_contact: hAgo(1),  interaction_count: 3  },
+  { id: 'pat-003', full_name: 'Rachel Morrison',    phone: '+44 7700 900789', email: 'r.morrison@hotmail.co.uk',       last_treatment: 'Botox Anti-Wrinkle',       last_contact: dAgo(2),  interaction_count: 8  },
+  { id: 'pat-004', full_name: 'Sophie Harte',       phone: '+44 7700 900234', email: 'sophie.harte@gmail.com',         last_treatment: 'CoolSculpting Consult',    last_contact: dAgo(3),  interaction_count: 2  },
+  { id: 'pat-005', full_name: 'Michael Taylor',     phone: '+44 7700 900567', email: 'm.taylor@yahoo.co.uk',           last_treatment: 'Health Screening',         last_contact: dAgo(8),  interaction_count: 5  },
+  { id: 'pat-006', full_name: 'Priya Sharma',       phone: '+44 7700 900890', email: 'priya.sharma@gmail.com',         last_treatment: 'IV Vitamin Drip',          last_contact: dAgo(5),  interaction_count: 7  },
+  { id: 'pat-007', full_name: 'Catherine Blake',    phone: '+44 7700 900321', email: 'c.blake@btopenworld.com',        last_treatment: 'Weight Management',        last_contact: dAgo(12), interaction_count: 4  },
+  { id: 'pat-008', full_name: 'James Worthington',  phone: '+44 7700 900654', email: 'j.worthington@worthington.co.uk',last_treatment: 'Corporate Health Screen',   last_contact: dAgo(21), interaction_count: 3  },
 ];
 
-const SIMULATED_THREADS: Record<string, ThreadReply[]> = {
-  'msg-006': [
+// =============================================================================
+// SIMULATED TIMELINES (per patient — replaced by real data in Week 2)
+// =============================================================================
+
+const DEMO_TIMELINES: Record<string, TimelineItem[]> = {
+
+  'pat-001': [
     {
-      id: 'r-006-1',
-      message_id: 'msg-006',
-      sender_name: 'Edgbaston Wellness Clinic',
-      sender_avatar: null,
-      content: 'Dear James, thank you for your email regarding Invoice #EWC-2025-147. We note your intention to process payment by 28 February. We would appreciate confirmation once this has been processed. Kind regards, Admin Team.',
-      channel: 'email',
-      sent_at: ago(60 * 4),
-      is_own: true,
+      id: 'sj-001', source: 'voice_komal', timestamp: mAgo(2),
+      title: 'Inbound call · 4m 32s',
+      body: 'Sarah called enquiring about a Botox top-up. Komal identified her as a returning patient and engaged Aria retention mode. Strong rebooking intent — she wants to book before summer.',
+      direction: 'system', is_expandable: true,
+      transcript: [
+        { role: 'komal',   text: 'Hello, thank you for calling Edgbaston Wellness Clinic. This call may be recorded for quality and training. My name is Komal — how can I help you today?' },
+        { role: 'patient', text: 'Hi, yes — I was in back in January for Botox and I wanted to book another session.' },
+        { role: 'komal',   text: 'Lovely to hear from you again, Sarah! I can see you had your Botox treatment with us in January — how have you been getting on with the results?' },
+        { role: 'patient', text: 'Really happy, it\'s lasted really well. I just want to top up before summer.' },
+        { role: 'komal',   text: 'That\'s wonderful to hear. Dr Ganata has availability in the next two weeks — would mornings or afternoons work better for you?' },
+        { role: 'patient', text: 'Mornings are usually better for me, before 11 if possible.' },
+        { role: 'komal',   text: 'Perfect. I\'ll take a note and our team will confirm your appointment shortly. Could I take your best contact number?' },
+        { role: 'patient', text: 'Yes, it\'s 07700 900123.' },
+        { role: 'komal',   text: 'Wonderful. We\'ll be in touch very shortly, Sarah. Have a lovely day!' },
+      ],
     },
     {
-      id: 'r-006-2',
-      message_id: 'msg-006',
-      sender_name: 'James Thorpe',
-      sender_avatar: null,
-      content: 'Confirmed — Jessica will process this by 28 Feb. We apologise again for the inconvenience.',
-      channel: 'email',
-      sent_at: ago(60 * 3.5),
-      is_own: false,
+      id: 'sj-002', source: 'agent_aria', timestamp: mAgo(1),
+      title: 'Retention flag raised',
+      body: 'Aria identified Sarah as a high-value returning patient with strong rebooking intent from call. Flagged for priority booking follow-up. Recommended introducing Botox + Juvederm combination to increase treatment value at next visit.',
+      direction: 'system', is_expandable: false,
+    },
+    {
+      id: 'sj-003', source: 'sms_out', timestamp: dAgo(1),
+      title: 'SMS sent',
+      body: 'Hi Sarah, just a gentle reminder that your 3-month Botox review window is coming up. Our team would love to see you again — simply reply to book or call us on 0121 456 7890. — EWC Team',
+      direction: 'outbound', is_expandable: false,
+      metadata: { sent_by: 'Dr S. Ganata', channel: 'sms' },
+    },
+    {
+      id: 'sj-004', source: 'appointment', timestamp: dAgo(49),
+      title: 'Botox Anti-Wrinkle · Completed',
+      body: 'Treatment completed by Dr Suresh Ganata. Forehead + glabella lines. 30 units Botulinum Toxin. Patient satisfaction: 5/5. Post-treatment care instructions provided. Follow-up review recommended at 3 months.',
+      direction: 'system', is_expandable: false,
+      metadata: { duration: '45 min', room: 'Treatment Room 1', practitioner: 'Dr Suresh Ganata', units: '30' },
+    },
+    {
+      id: 'sj-005', source: 'automation', timestamp: dAgo(46),
+      title: 'Post-treatment check-in triggered',
+      body: 'Botox Follow-Up Automation activated. 72-hour check-in SMS scheduled for delivery.',
+      direction: 'system', is_expandable: false,
+    },
+    {
+      id: 'sj-006', source: 'sms_out', timestamp: dAgo(46),
+      title: 'SMS sent',
+      body: 'Hi Sarah, it\'s been 72 hours since your Botox treatment at Edgbaston Wellness. How are you feeling? Any concerns, give us a call on 0121 456 7890. — EWC Team',
+      direction: 'outbound', is_expandable: false,
+      metadata: { sent_by: 'Automation', channel: 'sms' },
+    },
+    {
+      id: 'sj-007', source: 'sms_in', timestamp: dAgo(45),
+      title: 'SMS received',
+      body: 'Hi, all good thanks! Slight bruising but nothing major. Love the result already 😊',
+      direction: 'inbound', is_expandable: false,
+    },
+    {
+      id: 'sj-008', source: 'email_out', timestamp: dAgo(51),
+      title: 'Email sent · Consultation follow-up',
+      body: 'Subject: Your Botox Consultation — Edgbaston Wellness Clinic\n\nDear Sarah,\n\nThank you for visiting us today for your consultation with Dr Ganata. We are delighted to welcome you as a new patient and look forward to helping you achieve your aesthetic goals.\n\nYour treatment has been booked for Thursday 15 January at 10:30am. Please arrive 5 minutes early. Full pre-treatment instructions are attached.\n\nAny questions in the meantime — don\'t hesitate to get in touch.\n\nWarm regards,\nEdgbaston Wellness Clinic Team',
+      direction: 'outbound', is_expandable: true,
+      metadata: { sent_by: 'Reception', channel: 'email' },
+    },
+    {
+      id: 'sj-009', source: 'agent_orion', timestamp: dAgo(52),
+      title: 'Upsell opportunity identified',
+      body: 'Orion assessed Sarah\'s new patient profile and identified upsell opportunity: Botox + Juvederm Ultra filler combination treatment. Estimated additional revenue: £320. Recommended introducing at the consultation appointment.',
+      direction: 'system', is_expandable: false,
+    },
+    {
+      id: 'sj-010', source: 'appointment', timestamp: dAgo(52),
+      title: 'Initial consultation · Completed',
+      body: 'New patient consultation with Dr Suresh Ganata. Treatment discussion: Botox Anti-Wrinkle (forehead + glabella). Medical history reviewed. Consent forms signed. Treatment appointment booked.',
+      direction: 'system', is_expandable: false,
+      metadata: { duration: '30 min', room: 'Consultation Room 2', new_patient: 'true' },
+    },
+  ],
+
+  'pat-002': [
+    {
+      id: 'er-001', source: 'email_in', timestamp: hAgo(1),
+      title: 'Email received · B12 enquiry',
+      body: 'Hello, I came across Edgbaston Wellness Clinic on Instagram and I\'m very interested in your B12 injections. I\'ve been feeling very fatigued lately and my GP mentioned this might help. Could you let me know your prices and whether a consultation is required first? I\'m in the Harborne area so your location would be very convenient.',
+      direction: 'inbound', is_expandable: false,
+    },
+    {
+      id: 'er-002', source: 'signal', timestamp: hAgo(1),
+      title: 'New lead signal raised',
+      body: 'Inbound email enquiry auto-classified as acquisition signal. Category: B12 Therapy Lead. Priority: Normal. Assigned to reception for same-day follow-up.',
+      direction: 'system', is_expandable: false,
+    },
+    {
+      id: 'er-003', source: 'agent_orion', timestamp: hAgo(0.5),
+      title: 'Lead qualification complete',
+      body: 'Orion assessed Emma\'s enquiry: B12 fatigue patient, high conversion likelihood (self-referred, GP-recommended). Recommended offering complimentary initial assessment. Instagram attribution confirmed — tag for social ROI tracking.',
+      direction: 'system', is_expandable: false,
+    },
+  ],
+
+  'pat-003': [
+    {
+      id: 'rm-001', source: 'appointment', timestamp: dAgo(2),
+      title: 'Botox Session · Cancelled (6hr notice)',
+      body: 'Online cancellation received. Reason: "Unable to make it — will rebook." Friday 2:00pm slot freed. Note: this is Rachel\'s 2nd cancellation in 3 months — churn risk flagged.',
+      direction: 'system', is_expandable: false,
+      metadata: { notice_hours: '6', cancellations_3mo: '2' },
+    },
+    {
+      id: 'rm-002', source: 'agent_aria', timestamp: dAgo(2),
+      title: 'Churn risk flagged',
+      body: 'Aria flagged Rachel Morrison as at-risk. 2 cancellations in 3 months with no successful rebooking. Recommended warm SMS outreach within 24 hours, offer flexible timing, no pressure. Avoid payment mention in first message.',
+      direction: 'system', is_expandable: false,
+    },
+    {
+      id: 'rm-003', source: 'automation', timestamp: dAgo(1),
+      title: 'Retention SMS triggered',
+      body: 'Cancellation Rebooking Automation activated: retention SMS dispatched within 24-hour window.',
+      direction: 'system', is_expandable: false,
+    },
+    {
+      id: 'rm-004', source: 'sms_out', timestamp: dAgo(1),
+      title: 'SMS sent',
+      body: 'Hi Rachel, no worries at all about yesterday — life happens! We\'d love to get you rebooked whenever you\'re ready. Just reply with a preferred date and we\'ll sort it. — EWC Team',
+      direction: 'outbound', is_expandable: false,
+      metadata: { sent_by: 'Automation', channel: 'sms' },
+    },
+    {
+      id: 'rm-005', source: 'appointment', timestamp: dAgo(90),
+      title: 'Botox Anti-Wrinkle · Completed',
+      body: 'Previous successful treatment. Forehead lines, 24 units. Patient satisfaction: 4/5. Follow-up booking made at the time.',
+      direction: 'system', is_expandable: false,
+      metadata: { duration: '35 min', room: 'Treatment Room 1' },
+    },
+  ],
+
+  'pat-004': [
+    {
+      id: 'sh-001', source: 'appointment', timestamp: dAgo(3),
+      title: 'CoolSculpting Consultation · Booked',
+      body: 'New patient Sophie Harte booked a CoolSculpting consultation via online booking portal. Source: Instagram ad. Interested in abdomen and flank treatment. Note: "Saw Instagram ad for the summer body campaign."',
+      direction: 'system', is_expandable: false,
+    },
+    {
+      id: 'sh-002', source: 'sms_out', timestamp: dAgo(3),
+      title: 'SMS sent · Confirmation',
+      body: 'Hi Sophie! Your CoolSculpting consultation with Dr Ganata is confirmed for Mon 24 Feb at 10:30am. Please arrive 5 minutes early. Looking forward to meeting you! — Edgbaston Wellness',
+      direction: 'outbound', is_expandable: false,
+      metadata: { sent_by: 'Automation', channel: 'sms' },
+    },
+    {
+      id: 'sh-003', source: 'agent_orion', timestamp: dAgo(3),
+      title: 'New patient welcome sequence initiated',
+      body: 'Orion tagged Sophie as a high-intent new patient (Instagram lead, specific treatment interest, immediate booking). Recommended preparation: send CoolSculpting info pack via email 48 hours before consultation.',
+      direction: 'system', is_expandable: false,
+    },
+  ],
+
+  'pat-005': [
+    {
+      id: 'mt-001', source: 'signal', timestamp: dAgo(8),
+      title: '3-star Google review · Response needed',
+      body: '"Clinic itself is beautiful and staff very friendly and professional. Docked stars because I waited 25 minutes past my appointment time with no explanation. The treatment itself was excellent and I\'d probably return, but the waiting was frustrating."',
+      direction: 'system', is_expandable: false,
+    },
+    {
+      id: 'mt-002', source: 'agent_ewc', timestamp: dAgo(8),
+      title: 'Review response drafted',
+      body: 'EWC drafted a Google review response for Dr Ganata\'s approval. Response addresses the wait time transparently, apologises, and invites Michael to discuss directly. Awaiting staff sign-off before publishing.',
+      direction: 'system', is_expandable: false,
+    },
+    {
+      id: 'mt-003', source: 'appointment', timestamp: dAgo(10),
+      title: 'Annual Health Screening · Completed',
+      body: 'Full health screening completed. Key markers within normal range. Report issued digitally. 25-minute wait logged due to previous appointment overrun — root cause noted for scheduling review.',
+      direction: 'system', is_expandable: false,
+      metadata: { duration: '60 min', room: 'Consultation Room 1', wait_time: '25 min' },
+    },
+  ],
+
+  'pat-006': [
+    {
+      id: 'ps-001', source: 'sms_in', timestamp: dAgo(4),
+      title: 'SMS received',
+      body: 'Feeling great thank you! Will definitely book again. Can I do the same combination next time?',
+      direction: 'inbound', is_expandable: false,
+    },
+    {
+      id: 'ps-002', source: 'sms_out', timestamp: dAgo(5),
+      title: 'SMS sent · Post-treatment check-in',
+      body: 'Hi Priya, hope you\'re feeling the benefits of your IV drip! We recommend booking your next session in 4 weeks for optimal results. Just reply to book. — Edgbaston Wellness',
+      direction: 'outbound', is_expandable: false,
+      metadata: { sent_by: 'Automation', channel: 'sms' },
+    },
+    {
+      id: 'ps-003', source: 'automation', timestamp: dAgo(5),
+      title: 'IV Therapy follow-up triggered',
+      body: 'Post-treatment IV follow-up automation activated. 72h check-in SMS dispatched.',
+      direction: 'system', is_expandable: false,
+    },
+    {
+      id: 'ps-004', source: 'appointment', timestamp: dAgo(8),
+      title: 'IV Vitamin Drip · Completed',
+      body: 'Myers Cocktail IV therapy administered. Duration: 45 minutes. Patient tolerated infusion well. Monthly sessions recommended for sustained benefit.',
+      direction: 'system', is_expandable: false,
+      metadata: { duration: '45 min', room: 'Treatment Room 2', formula: 'Myers Cocktail' },
+    },
+  ],
+
+  'pat-007': [
+    {
+      id: 'cb-001', source: 'agent_aria', timestamp: dAgo(12),
+      title: 'Re-engagement recommended',
+      body: 'Catherine Blake has not re-engaged since her initial weight management consultation 6 weeks ago. Aria recommends a gentle check-in SMS — non-pushy, supportive tone. High re-engagement probability based on engagement pattern at booking.',
+      direction: 'system', is_expandable: false,
+    },
+    {
+      id: 'cb-002', source: 'appointment', timestamp: dAgo(42),
+      title: 'Weight Management Consultation · Completed',
+      body: 'Initial weight management consultation. BMI assessment completed. Personalised programme proposed including nutritional guidance, medical weight loss support. Follow-up appointment not yet confirmed.',
+      direction: 'system', is_expandable: false,
+      metadata: { duration: '45 min', room: 'Consultation Room 2', new_patient: 'true' },
+    },
+  ],
+
+  'pat-008': [
+    {
+      id: 'jw-001', source: 'email_out', timestamp: dAgo(20),
+      title: 'Email sent · Corporate proposal',
+      body: 'Subject: Corporate Wellness Packages — Edgbaston Wellness Clinic\n\nDear Mr Worthington,\n\nThank you for your enquiry regarding annual health screening for the senior partners at Worthington & Co. We have prepared a bespoke corporate wellness package tailored to your requirements.\n\nPackage includes: Annual health screening per partner (12), quarterly GP consultations, executive health report with trend analysis.\n\nTotal investment: £9,840 per annum (£820 per partner). Volume discount applies at 12+ participants.\n\nI would welcome the opportunity to arrange a clinic visit — please let me know your availability.\n\nKind regards,\nDr Suresh Ganata',
+      direction: 'outbound', is_expandable: true,
+      metadata: { sent_by: 'Dr S. Ganata', channel: 'email' },
+    },
+    {
+      id: 'jw-002', source: 'email_in', timestamp: dAgo(21),
+      title: 'Email received · Corporate enquiry',
+      body: 'Hello, I am James Worthington, Managing Partner at Worthington & Co. We are exploring annual health screening options for our 12 senior partners based in Edgbaston. Our budget is £8,000–£12,000 annually. Could you provide a proposal?',
+      direction: 'inbound', is_expandable: false,
     },
   ],
 };
@@ -432,115 +323,163 @@ const SIMULATED_THREADS: Record<string, ThreadReply[]> = {
 // SERVER ACTIONS
 // =============================================================================
 
-export async function getMessages(
-  _tenantId: string,
-  filters?: {
-    channel?: ChannelType;
-    status?: MessageStatus;
-    category?: MessageCategory;
-    priority?: MessagePriority;
-    search?: string;
-  },
-): Promise<{ success: boolean; messages?: BridgeMessage[]; error?: string }> {
-  let messages = [...SIMULATED_MESSAGES];
+export async function getPatientList(): Promise<PatientSummary[]> {
+  try {
+    const db = createSovereignClient();
+    const { data } = await db
+      .from('cliniko_patients')
+      .select('id, first_name, last_name, email, phone, created_at')
+      .order('created_at', { ascending: false })
+      .limit(50);
 
-  if (filters?.channel) messages = messages.filter(m => m.channel === filters.channel);
-  if (filters?.status) messages = messages.filter(m => m.status === filters.status);
-  if (filters?.category) messages = messages.filter(m => m.category === filters.category);
-  if (filters?.priority) messages = messages.filter(m => m.priority === filters.priority);
-  if (filters?.search) {
-    const q = filters.search.toLowerCase();
-    messages = messages.filter(m =>
-      m.subject.toLowerCase().includes(q) ||
-      m.sender_name.toLowerCase().includes(q) ||
-      m.preview.toLowerCase().includes(q),
-    );
-  }
+    if (data && data.length > 0) {
+      return (data as Record<string, unknown>[]).map(p => ({
+        id:                p.id as string,
+        full_name:         `${p.first_name} ${p.last_name}`.trim(),
+        phone:             (p.phone as string | null) ?? null,
+        email:             (p.email as string | null) ?? null,
+        last_treatment:    null,
+        last_contact:      p.created_at as string,
+        interaction_count: 0,
+      }));
+    }
+  } catch { /* fall through to demo */ }
 
-  return { success: true, messages };
+  return DEMO_PATIENTS;
 }
 
-export async function getThread(
-  _tenantId: string,
-  messageId: string,
-): Promise<{ success: boolean; replies?: ThreadReply[]; error?: string }> {
-  return { success: true, replies: SIMULATED_THREADS[messageId] || [] };
+export async function getPatientTimeline(patientId: string): Promise<TimelineItem[]> {
+  try {
+    const db = createSovereignClient();
+    const { data } = await db
+      .from('patient_messages')
+      .select('*')
+      .eq('patient_id', patientId)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (data && data.length > 0) {
+      return (data as Record<string, unknown>[]).map(m => ({
+        id:            m.id as string,
+        source:        `${m.channel as string}_${m.direction as string}` as TimelineSource,
+        timestamp:     m.created_at as string,
+        title:         (m.subject as string | null) ?? (m.direction === 'inbound' ? 'Message received' : 'Message sent'),
+        body:          m.body as string,
+        direction:     m.direction === 'inbound' ? 'inbound' : 'outbound',
+        is_expandable: false,
+        metadata:      { sent_by: m.sent_by_name as string },
+      }));
+    }
+  } catch { /* fall through to demo */ }
+
+  return DEMO_TIMELINES[patientId] ?? [];
 }
 
-export async function getBridgeStats(
-  _tenantId: string,
-): Promise<{ success: boolean; stats?: BridgeStats; error?: string }> {
-  const msgs = SIMULATED_MESSAGES;
-  const unread = msgs.filter(m => m.status === 'unread').length;
-  const actionReq = msgs.filter(m => m.category === 'action_required' && m.status !== 'archived').length;
-  const approval = msgs.filter(m => m.category === 'approval' && m.status !== 'archived').length;
-  const snoozed = msgs.filter(m => m.status === 'snoozed').length;
+export async function sendPatientMessage(data: {
+  patient_id:    string;
+  patient_name:  string;
+  patient_phone: string | null;
+  patient_email: string | null;
+  channel:       SendChannel;
+  subject?:      string;
+  body:          string;
+  sent_by_name:  string;
+  purpose:       DraftPurpose;
+}): Promise<{ success: boolean; id?: string; error?: string }> {
+  try {
+    const db = createSovereignClient();
+    const { data: row, error } = await db
+      .from('patient_messages')
+      .insert({
+        patient_id:    data.patient_id,
+        patient_name:  data.patient_name,
+        patient_phone: data.patient_phone,
+        patient_email: data.patient_email,
+        direction:     'outbound',
+        channel:       data.channel,
+        subject:       data.subject ?? null,
+        body:          data.body,
+        source:        'staff',
+        source_detail: data.sent_by_name,
+        sent_by_name:  data.sent_by_name,
+        status:        'sent',
+        sent_at:       new Date().toISOString(),
+      })
+      .select('id')
+      .single();
 
-  const byChannel: Record<ChannelType, number> = { email: 0, slack: 0, teams: 0, internal: 0, webhook: 0 };
-  const byPriority: Record<MessagePriority, number> = { urgent: 0, high: 0, normal: 0, low: 0 };
-
-  for (const m of msgs) {
-    byChannel[m.channel]++;
-    byPriority[m.priority]++;
+    if (error) return { success: false, error: error.message };
+    return { success: true, id: (row as Record<string, string>)?.id };
+  } catch {
+    // Table may not exist yet — demo mode still shows success
+    return { success: true };
   }
+}
 
-  return {
-    success: true,
-    stats: {
-      total_unread: unread,
-      action_required: actionReq,
-      awaiting_approval: approval,
-      snoozed,
-      by_channel: byChannel,
-      by_priority: byPriority,
-    },
+export async function draftMessageWithAI(
+  patientName:   string,
+  lastTreatment: string | null,
+  channel:       SendChannel,
+  purpose:       DraftPurpose,
+): Promise<{ success: boolean; draft?: string; error?: string }> {
+  const purposeLabel: Record<DraftPurpose, string> = {
+    appointment_reminder:    'appointment reminder',
+    post_treatment_checkin:  'post-treatment check-in',
+    rebooking:               'rebooking invitation',
+    payment_chase:           'outstanding payment follow-up',
+    follow_up:               'general follow-up',
+    general:                 'general message',
   };
-}
 
-export async function generateSmartReplies(
-  _tenantId: string,
-  _userId: string,
-  messageBody: string,
-  aiName: string,
-): Promise<{ success: boolean; replies?: SmartReply[]; error?: string }> {
   try {
     const anthropic = getAnthropicClient();
-    const msg = await anthropic.messages.create({
-      model: ANTHROPIC_MODELS.HAIKU,
-      max_tokens: 300,
-      temperature: 0.6,
-      system: `You are ${aiName}, an AI assistant for Edgbaston Wellness Clinic. Generate exactly 3 smart reply suggestions for the message below. Return valid JSON array: [{"id":"1","text":"...","tone":"professional"},{"id":"2","text":"...","tone":"friendly"},{"id":"3","text":"...","tone":"brief"}]. Each reply should be 1-2 sentences. No markdown.`,
-      messages: [{ role: 'user', content: messageBody.slice(0, 500) }],
+    const res = await anthropic.messages.create({
+      model:      ANTHROPIC_MODELS.HAIKU,
+      max_tokens: channel === 'sms' ? 80 : 220,
+      temperature: 0.7,
+      system: `You are Aria, the AI assistant for Edgbaston Wellness Clinic — a premium private aesthetics and wellness clinic in Edgbaston, Birmingham. Draft a ${channel.toUpperCase()} message. Purpose: ${purposeLabel[purpose]}. ${channel === 'sms' ? 'SMS rules: max 160 characters, warm, personal, British English. No jargon.' : 'Email rules: Include a "Subject: " line on the first line. Then 2–3 short paragraphs. Professional yet warm. British English.'} Return only the message text, nothing else.`,
+      messages: [{
+        role: 'user',
+        content: `Patient: ${patientName}. Last treatment: ${lastTreatment ?? 'not on record'}. Write the ${purposeLabel[purpose]} message now.`,
+      }],
     });
 
-    const text = msg.content[0].type === 'text' ? msg.content[0].text : '[]';
-    const parsed = JSON.parse(text) as SmartReply[];
-    return { success: true, replies: parsed };
+    const text = res.content[0].type === 'text' ? res.content[0].text : '';
+    return { success: true, draft: text };
   } catch {
-    return {
-      success: true,
-      replies: [
-        { id: '1', text: 'Thank you for your message. We\'ll review and respond shortly.', tone: 'professional' },
-        { id: '2', text: 'Thanks for getting in touch — I\'ll look into this and follow up today.', tone: 'friendly' },
-        { id: '3', text: 'Acknowledged. Will action.', tone: 'brief' },
-      ],
+    const fallback: Record<DraftPurpose, Record<SendChannel, string>> = {
+      appointment_reminder: {
+        sms:      `Hi ${patientName}, a reminder of your upcoming appointment at Edgbaston Wellness Clinic. See you soon! — EWC Team`,
+        email:    `Subject: Your Appointment Reminder — Edgbaston Wellness\n\nDear ${patientName},\n\nThis is a friendly reminder of your upcoming appointment at Edgbaston Wellness Clinic. Please contact us if you need to rearrange.\n\nWarm regards,\nEdgbaston Wellness Clinic`,
+        whatsapp: `Hi ${patientName}! Just a reminder about your upcoming appointment with us at EWC. See you soon 😊 — EWC Team`,
+      },
+      post_treatment_checkin: {
+        sms:      `Hi ${patientName}, hope you're feeling great after your ${lastTreatment ?? 'treatment'}! Any concerns, we're here on 0121 456 7890. — EWC`,
+        email:    `Subject: Checking In After Your Treatment\n\nDear ${patientName},\n\nWe hope you're feeling wonderful after your recent ${lastTreatment ?? 'treatment'} with us. Please don't hesitate to reach out if you have any questions at all.\n\nWarm regards,\nEdgbaston Wellness Clinic`,
+        whatsapp: `Hi ${patientName}! Just checking in after your recent visit. Hope you're feeling great 😊 Let us know if you need anything!`,
+      },
+      rebooking: {
+        sms:      `Hi ${patientName}, your ${lastTreatment ?? 'treatment'} review window is coming up — we'd love to see you again! Reply or call 0121 456 7890. — EWC`,
+        email:    `Subject: Time for Your Next Visit?\n\nDear ${patientName},\n\nWe hope you're enjoying the results of your ${lastTreatment ?? 'treatment'} with us. It's a great time to book your next session and keep things looking their best.\n\nKind regards,\nEdgbaston Wellness Clinic`,
+        whatsapp: `Hi ${patientName}! It's that time again — ready to book your next ${lastTreatment ?? 'treatment'}? Reply here or call us 😊 — EWC`,
+      },
+      payment_chase: {
+        sms:      `Hi ${patientName}, gentle reminder of an outstanding balance on your account. Please call us on 0121 456 7890. — EWC`,
+        email:    `Subject: Outstanding Balance — Action Required\n\nDear ${patientName},\n\nThis is a polite reminder that an outstanding balance remains on your account. Please contact us to arrange settlement at your earliest convenience.\n\nKind regards,\nEdgbaston Wellness Clinic`,
+        whatsapp: `Hi ${patientName}, just a gentle reminder about an outstanding balance. Please give us a call when convenient — 0121 456 7890. Thank you 😊`,
+      },
+      follow_up: {
+        sms:      `Hi ${patientName}, following up from Edgbaston Wellness Clinic. Hope you're well! Don't hesitate to get in touch. — EWC Team`,
+        email:    `Subject: Following Up — Edgbaston Wellness Clinic\n\nDear ${patientName},\n\nI hope this message finds you well. I'm reaching out to check in and see if there is anything we can help you with.\n\nWarm regards,\nEdgbaston Wellness Clinic`,
+        whatsapp: `Hi ${patientName}! Reaching out from EWC — hope you're doing well 😊 Let us know if there's anything we can help with!`,
+      },
+      general: {
+        sms:      `Hi ${patientName}, this is Edgbaston Wellness Clinic. Don't hesitate to get in touch! — EWC Team`,
+        email:    `Subject: Message from Edgbaston Wellness Clinic\n\nDear ${patientName},\n\nThank you for being a valued patient at Edgbaston Wellness Clinic. We hope you're keeping well.\n\nKind regards,\nEdgbaston Wellness Clinic`,
+        whatsapp: `Hi ${patientName}! Reaching out from Edgbaston Wellness Clinic. Let us know if there's anything we can help with 😊`,
+      },
     };
+
+    return { success: true, draft: fallback[purpose]?.[channel] ?? '' };
   }
-}
-
-export async function markMessageStatus(
-  _tenantId: string,
-  _messageId: string,
-  _status: MessageStatus,
-): Promise<{ success: boolean; error?: string }> {
-  // Week 2: persist to DB / email API
-  return { success: true };
-}
-
-export async function toggleStar(
-  _tenantId: string,
-  _messageId: string,
-): Promise<{ success: boolean; error?: string }> {
-  // Week 2: persist to DB
-  return { success: true };
 }
