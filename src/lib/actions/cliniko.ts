@@ -86,10 +86,16 @@ export async function disconnectCliniko(): Promise<{ success: boolean }> {
 // TRIGGER FULL SYNC (called from UI or API route)
 // =============================================================================
 
+// Budget for server action syncs: 45s, matches cron budget.
+// On Hobby (60s cap), this leaves 15s for upserts + overhead.
+// On Pro (300s cap), this is conservative — but keeps "Sync Now" responsive.
+const SYNC_BUDGET_MS = 45_000;
+
 export async function triggerFullSync(): Promise<{
   success: boolean;
   patients: number;
   appointments: number;
+  pending: boolean;   // true = more pages remain, click Sync Now again to continue
   results: SyncResult[];
   error?: string;
 }> {
@@ -101,13 +107,15 @@ export async function triggerFullSync(): Promise<{
       .single();
 
     if (!config?.api_key_encrypted || !config.is_connected) {
-      return { success: false, patients: 0, appointments: 0, results: [], error: 'Cliniko not connected' };
+      return { success: false, patients: 0, appointments: 0, pending: false, results: [], error: 'Cliniko not connected' };
     }
 
     const client = new ClinikoClient(config.api_key_encrypted, config.shard ?? 'uk1');
 
-    // Full refresh: no updatedSince — fetch all records, delete orphans
-    const { results, success } = await syncAll(client, undefined, true);
+    // Use budget-based sync so cursors are saved on timeout.
+    // updatedSince=undefined for first-ever sync (full fetch).
+    // Subsequent clicks resume from saved cursor until pending=false.
+    const { results, success, pending } = await syncAll(client, undefined, false, SYNC_BUDGET_MS);
 
     const patientsResult     = results.find(r => r.type === 'patients');
     const appointmentsResult = results.find(r => r.type === 'appointments');
@@ -115,13 +123,14 @@ export async function triggerFullSync(): Promise<{
 
     return {
       success,
+      pending,
       patients:     patientsResult?.records_synced     ?? 0,
       appointments: appointmentsResult?.records_synced ?? 0,
       results,
       error: errorMsg,
     };
   } catch (err) {
-    return { success: false, patients: 0, appointments: 0, results: [], error: String(err) };
+    return { success: false, patients: 0, appointments: 0, pending: false, results: [], error: String(err) };
   }
 }
 

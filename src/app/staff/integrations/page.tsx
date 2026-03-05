@@ -530,7 +530,9 @@ export default function IntegrationsPage() {
       patients: res.patients,
       appointments: res.appointments,
       message: res.success
-        ? `Sync complete — ${res.patients.toLocaleString()} patients · ${res.appointments.toLocaleString()} appointments imported.`
+        ? res.pending
+          ? `Syncing… ${res.patients.toLocaleString()} patients · ${res.appointments.toLocaleString()} appointments imported so far. Click Sync Now again to continue.`
+          : `Sync complete — ${res.patients.toLocaleString()} patients · ${res.appointments.toLocaleString()} appointments imported.`
         : res.error ?? 'Sync failed. Check your connection and try again.',
     });
 
