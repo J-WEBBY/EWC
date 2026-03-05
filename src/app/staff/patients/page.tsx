@@ -11,7 +11,8 @@ import {
 import { getStaffProfile, getCurrentUser, type StaffProfile } from '@/lib/actions/staff-onboarding';
 import { StaffNav } from '@/components/staff-nav';
 import {
-  getPatientIntelligenceList,
+  getPatientPage,
+  getPatientStats,
   type PatientIntelligenceRow,
   type LifecycleStage,
 } from '@/lib/actions/patients';
@@ -396,13 +397,16 @@ export default function PatientsPage() {
   const [userId, setUserId]     = useState('');
   const [profile, setProfile]   = useState<StaffProfile | null>(null);
   const [brandColor, setBrandColor] = useState('#6D28D9');
-  const [patients, setPatients] = useState<PatientIntelligenceRow[]>([]);
-  const [isDemo, setIsDemo]     = useState(false);
-  const [loading, setLoading]   = useState(true);
-  const [search, setSearch]     = useState('');
-  const [filters, setFilters]   = useState<FilterState>(DEFAULT_FILTERS);
+  const [patients, setPatients]   = useState<PatientIntelligenceRow[]>([]);
+  const [isDemo, setIsDemo]       = useState(false);
+  const [loading, setLoading]     = useState(true);
+  const [search, setSearch]       = useState('');
+  const [filters, setFilters]     = useState<FilterState>(DEFAULT_FILTERS);
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [page, setPage]         = useState(0);
+  const [page, setPage]           = useState(0);
+  const [serverTotal, setServerTotal]           = useState(0);
+  const [serverTotalPages, setServerTotalPages] = useState(0);
+  const [globalStats, setGlobalStats] = useState({ total: 0, active_this_month: 0, no_show_count: 0, upcoming_today: 0 });
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -417,36 +421,41 @@ export default function PatientsPage() {
         }
       });
     });
+    // Load accurate global stats once on mount
+    getPatientStats().then(res => { if (res.success) setGlobalStats(res.stats); });
   }, []);
 
-  const loadPatients = useCallback((q?: string) => {
+  const loadPage = useCallback((q?: string, p = 0) => {
     setLoading(true);
-    getPatientIntelligenceList(q).then(res => {
+    getPatientPage({ search: q || undefined, page: p, pageSize: PAGE_SIZE }).then(res => {
       setPatients(res.patients);
+      setServerTotal(res.total);
+      setServerTotalPages(res.totalPages);
       setIsDemo(res.isDemo);
       setLoading(false);
     });
   }, []);
 
   useEffect(() => {
-    const t = setTimeout(() => loadPatients(search || undefined), search ? 350 : 0);
+    const t = setTimeout(() => { setPage(0); loadPage(search || undefined, 0); }, search ? 350 : 0);
     return () => clearTimeout(t);
-  }, [search, loadPatients]);
+  }, [search, loadPage]);
+
+  const goToPage = useCallback((p: number) => {
+    setPage(p);
+    loadPage(search || undefined, p);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [search, loadPage]);
 
   const setFilter = <K extends keyof FilterState>(key: K, val: FilterState[K]) => {
     setFilters(f => ({ ...f, [key]: val }));
-    setPage(0);
   };
 
-  // Reset page when search changes
-  useEffect(() => { setPage(0); }, [search]);
-
+  // Lifecycle/engagement filters apply to the current page (24 patients)
   const filtered         = applyFilters(patients, filters);
-  const totalPages       = Math.ceil(filtered.length / PAGE_SIZE);
-  const pagePatients     = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const pagePatients     = filtered;
+  const totalPages       = serverTotalPages;
   const hasActiveFilters = JSON.stringify(filters) !== JSON.stringify(DEFAULT_FILTERS);
-  const atRisk           = patients.filter(p => p.lifecycle_stage === 'at_risk' || p.lifecycle_stage === 'lapsed').length;
-  const overdueRebook    = patients.filter(p => p.next_best_action?.urgency === 'high' && p.next_best_action.type === 'rebook').length;
   const avgEngagement    = patients.length ? Math.round(patients.reduce((s, p) => s + p.engagement_score, 0) / patients.length) : 0;
   const counts = patients.reduce<Record<string, number>>((acc, p) => {
     acc[p.lifecycle_stage] = (acc[p.lifecycle_stage] ?? 0) + 1;
@@ -489,7 +498,7 @@ export default function PatientsPage() {
             </div>
             <h1 className="text-[34px] font-black tracking-[-0.035em] text-[#1A1035]">Patient Intelligence</h1>
             <p className="text-[11px] text-[#6E6688] mt-1">
-              {patients.length} patients · lifecycle &amp; CRM · engagement tracking
+              {serverTotal > 0 ? serverTotal.toLocaleString() : globalStats.total.toLocaleString()} patients · lifecycle &amp; CRM · engagement tracking
             </p>
           </div>
           <div className="flex items-center gap-3 pt-2">
@@ -511,7 +520,7 @@ export default function PatientsPage() {
               )}
             </div>
             <button
-              onClick={() => loadPatients(search || undefined)} disabled={loading}
+              onClick={() => loadPage(search || undefined, page)} disabled={loading}
               className="w-9 h-9 rounded-xl flex items-center justify-center transition-all"
               style={{ background: 'rgba(0,0,0,0.02)', border: '1px solid #EBE5FF' }}
               onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.06)')}
@@ -530,10 +539,10 @@ export default function PatientsPage() {
           <div className="px-6"><SectionLabel label="CRM Overview" /></div>
           <div className="grid grid-cols-4">
             {[
-              { label: 'Total Patients',    value: String(patients.length), detail: 'in the system',        seed: 7001, color: '#60A5FA' },
-              { label: 'At Risk / Lapsed',  value: String(atRisk),          detail: 'need attention',       seed: 7002, color: '#F87171' },
-              { label: 'Rebook Overdue',    value: String(overdueRebook),   detail: 'high urgency actions', seed: 7003, color: '#FBBF24' },
-              { label: 'Avg Engagement',    value: `${avgEngagement}`,      detail: 'weighted score / 100', seed: 7004, color: '#34D399' },
+              { label: 'Total Patients',     value: (serverTotal || globalStats.total).toLocaleString(), detail: 'in Cliniko',               seed: 7001, color: '#60A5FA' },
+              { label: 'Active This Month',  value: String(globalStats.active_this_month),               detail: 'had appointments',         seed: 7002, color: '#34D399' },
+              { label: "Today's Appts",      value: String(globalStats.upcoming_today),                  detail: 'scheduled today',          seed: 7003, color: '#FBBF24' },
+              { label: 'Avg Engagement',     value: `${avgEngagement}`,                                  detail: 'current page / 100',       seed: 7004, color: '#A78BFA' },
             ].map((m, i) => <MetricCell key={m.label} {...m} last={i === 3} />)}
           </div>
         </motion.div>
@@ -582,7 +591,7 @@ export default function PatientsPage() {
                   : { backgroundColor: 'transparent', color: '#6E6688', border: '1px solid #EBE5FF' }
                 }
               >
-                All <span className="opacity-60">{patients.length}</span>
+                All
               </button>
               {LC_ORDER.map(stage => {
                 const c = LC_CFG[stage];
@@ -598,7 +607,7 @@ export default function PatientsPage() {
                       : { backgroundColor: c.bg, color: c.color, border: `1px solid ${c.border}` }
                     }
                   >
-                    {c.label} <span className="opacity-60">{cnt}</span>
+                    {c.label}{cnt > 0 && <span className="opacity-60 ml-1">{cnt}</span>}
                   </button>
                 );
               })}
@@ -686,7 +695,7 @@ export default function PatientsPage() {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.14 }}>
           <div className="px-6">
             <SectionLabel
-              label={`${filtered.length} patient${filtered.length !== 1 ? 's' : ''}${totalPages > 1 ? ` · page ${page + 1} of ${totalPages}` : ''}`}
+              label={`${serverTotal > 0 ? serverTotal.toLocaleString() : filtered.length} patient${serverTotal !== 1 ? 's' : ''}${hasActiveFilters ? ` · ${filtered.length} on this page` : ''}${totalPages > 1 ? ` · page ${page + 1} of ${totalPages}` : ''}`}
               right={
                 hasActiveFilters ? (
                   <span className="text-[8px] uppercase tracking-[0.20em] text-[#7C3AED]">
@@ -751,12 +760,12 @@ export default function PatientsPage() {
                   style={{ borderTop: '1px solid #EBE5FF' }}
                 >
                   <span className="text-[10px] text-[#8B84A0]">
-                    Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length}
+                    Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, serverTotal)} of {serverTotal.toLocaleString()}
                   </span>
 
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => { setPage(p => Math.max(0, p - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                      onClick={() => goToPage(Math.max(0, page - 1))}
                       disabled={page === 0}
                       className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all"
                       style={{
@@ -788,7 +797,7 @@ export default function PatientsPage() {
                         return (
                           <button
                             key={pageNum}
-                            onClick={() => { setPage(pageNum); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                            onClick={() => goToPage(pageNum)}
                             className="w-7 h-7 rounded-lg text-[11px] font-semibold transition-all"
                             style={pageNum === page
                               ? { backgroundColor: '#1A1035', color: '#FFFFFF', border: '1px solid #1A1035' }
@@ -802,7 +811,7 @@ export default function PatientsPage() {
                     </div>
 
                     <button
-                      onClick={() => { setPage(p => Math.min(totalPages - 1, p + 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                      onClick={() => goToPage(Math.min(totalPages - 1, page + 1))}
                       disabled={page >= totalPages - 1}
                       className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all"
                       style={{

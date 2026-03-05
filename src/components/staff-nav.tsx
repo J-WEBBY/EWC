@@ -27,6 +27,7 @@ import {
   ClipboardList,
   Building2,
   GraduationCap,
+  Stethoscope,
 } from 'lucide-react';
 import type { StaffProfile } from '@/lib/actions/staff-onboarding';
 
@@ -101,6 +102,7 @@ export function StaffNav({
     {
       title: 'Clinical',
       items: [
+        { label: 'EHR Hub',        href: `/staff/ehr?userId=${userId}`,       icon: Stethoscope },
         { label: 'Knowledge Base', href: `/staff/knowledge?userId=${userId}`, icon: BookOpen },
         { label: 'Consent Forms',  href: `/staff/consent?userId=${userId}`,   icon: ClipboardList },
       ],

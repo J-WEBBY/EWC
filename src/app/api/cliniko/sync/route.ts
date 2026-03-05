@@ -2,8 +2,10 @@
 // /api/cliniko/sync
 //
 // POST  — manual trigger (n8n, UI "Sync Now"). Auth: Bearer SYNC_SECRET.
-// GET   — Vercel Cron trigger (every 5 mins). Auth: Bearer CRON_SECRET.
+// GET   — Vercel Cron trigger (daily at 2am). Auth: Bearer CRON_SECRET.
 //         Without auth → returns health check status only.
+//
+// Pro plan: maxDuration=300s, full unbounded sync in a single run.
 // =============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -11,15 +13,7 @@ import { createSovereignClient } from '@/lib/supabase/service';
 import { ClinikoClient } from '@/lib/cliniko/client';
 import { syncAll, syncPatients, syncAppointments, syncInvoices } from '@/lib/cliniko/sync';
 
-// maxDuration: Vercel Pro allows up to 300s; Hobby plan caps at 60s.
-// We set 300 — on Hobby, Vercel overrides it to 60s automatically.
-// The resumable sync (budgetMs) handles Hobby gracefully within that 60s.
 export const maxDuration = 300;
-
-// Time budget allocated per sync run for Hobby plan compatibility.
-// 45s leaves ~15s for Supabase upserts + overhead before the 60s hard cap.
-// On Pro (maxDuration=300), budgetMs is unused (set to undefined = no limit).
-const HOBBY_BUDGET_MS = 45_000;
 
 const SYNC_SECRET = process.env.SYNC_SECRET ?? 'ewc-sync-secret-change-me';
 const CRON_SECRET = process.env.CRON_SECRET ?? '';
@@ -75,14 +69,12 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Cron: incremental sync using last_sync_at, with budget for Hobby plan.
-    // If a previous run saved cursors (partial sync), this continues from them.
+    // Incremental: only records changed since last sync
     const updatedSince = config?.last_sync_at ?? undefined;
-    const { results, success, pending } = await syncAll(client, updatedSince, false, HOBBY_BUDGET_MS);
+    const { results, success } = await syncAll(client, updatedSince, false);
 
     return NextResponse.json({
       ok: success,
-      pending, // true = more pages remain, next cron run will continue
       triggered_by: 'vercel-cron',
       results: results.map(r => ({
         type:    r.type,
@@ -90,8 +82,6 @@ export async function GET(req: NextRequest) {
         synced:  r.records_synced,
         failed:  r.records_failed,
         ms:      r.duration_ms,
-        resumed: r.resumed,
-        has_more: !!r.next_url,
       })),
     });
   } catch (err) {
@@ -133,10 +123,8 @@ export async function POST(req: NextRequest) {
     const updatedSince = forceFull ? undefined : (config?.last_sync_at ?? undefined);
 
     if (type === 'full') {
-      // Manual trigger: no budget (assume Pro/long-running context).
-      // If Hobby, the cron will resume any unfinished pages automatically.
-      const { results, success, pending } = await syncAll(client, updatedSince, forceFull);
-      return NextResponse.json({ success, pending, results });
+      const { results, success } = await syncAll(client, updatedSince, forceFull);
+      return NextResponse.json({ success, results });
     }
 
     let result;

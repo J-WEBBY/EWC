@@ -12,7 +12,7 @@ import {
   Mic2, FileText, Target, User as UserIcon, X,
   CreditCard, Package, BarChart2, Users, ChevronDown,
   ClipboardList, CheckSquare, Circle, MapPin, Heart,
-  BookOpen, AlertTriangle, Paperclip,
+  BookOpen, AlertTriangle, Paperclip, Camera,
 } from 'lucide-react';
 import { getStaffProfile, getCurrentUser, type StaffProfile } from '@/lib/actions/staff-onboarding';
 import { StaffNav } from '@/components/staff-nav';
@@ -25,6 +25,14 @@ import {
   getTreatmentLogs, getPatientPlan, addTreatmentLog,
   type TreatmentLog, type PatientPlan, type PlanPhase, type AddTreatmentLogInput,
 } from '@/lib/actions/patient-hub';
+import {
+  getClinicalRecord, getSOAPNotes, getPatientConsents, getClinicalPhotos,
+  addSOAPNote, updateSOAPNote, signOffSOAPNote, addPatientConsent, updateConsentStatus,
+  getVitalsHistory, generateAINotesDraft, generateClinicalSummary,
+  type ClinicalRecord, type SOAPNote, type PatientConsent, type ClinicalPhoto,
+  type VitalsReading, type Allergy, type Medication, type MedicalCondition,
+  type RiskFlag, type Contraindication,
+} from '@/lib/actions/clinical';
 
 // =============================================================================
 // DESIGN TOKENS
@@ -272,20 +280,24 @@ function TimelineItem({ ev, last }: { ev: TimelineEvent; last: boolean }) {
 // TABS
 // =============================================================================
 
-type Tab = 'overview' | 'lifecycle' | 'appointments' | 'practitioners' | 'communications' | 'payments' | 'files' | 'intelligence' | 'treatment_log' | 'plan' | 'client_detail';
+type Tab = 'overview' | 'lifecycle' | 'appointments' | 'practitioners' | 'communications' | 'payments' | 'files' | 'intelligence' | 'treatment_log' | 'plan' | 'client_detail' | 'clinical_record' | 'soap_notes' | 'consents' | 'photos';
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'overview',        label: 'Overview' },
-  { id: 'lifecycle',       label: 'Lifecycle' },
-  { id: 'appointments',    label: 'Appointments' },
-  { id: 'practitioners',   label: 'Practitioners' },
-  { id: 'communications',  label: 'Communications' },
-  { id: 'payments',        label: 'Payments' },
-  { id: 'files',           label: 'Files' },
-  { id: 'client_detail',   label: 'Client Detail' },
-  { id: 'treatment_log',   label: 'Treatment Log' },
-  { id: 'plan',            label: 'Patient Plan' },
-  { id: 'intelligence',    label: 'Intelligence' },
+  { id: 'overview',         label: 'Overview' },
+  { id: 'lifecycle',        label: 'Lifecycle' },
+  { id: 'appointments',     label: 'Appointments' },
+  { id: 'practitioners',    label: 'Practitioners' },
+  { id: 'communications',   label: 'Communications' },
+  { id: 'payments',         label: 'Payments' },
+  { id: 'files',            label: 'Files' },
+  { id: 'client_detail',    label: 'Client Detail' },
+  { id: 'treatment_log',    label: 'Treatment Log' },
+  { id: 'plan',             label: 'Patient Plan' },
+  { id: 'clinical_record',  label: 'Clinical Record' },
+  { id: 'soap_notes',       label: 'SOAP Notes' },
+  { id: 'consents',         label: 'Consents' },
+  { id: 'photos',           label: 'Photos' },
+  { id: 'intelligence',     label: 'Intelligence' },
 ];
 
 // =============================================================================
@@ -2458,6 +2470,797 @@ function ContextSidebar({ patient, onChatWithAgent, onAddNote }: {
 }
 
 // =============================================================================
+// CLINICAL RECORD TAB
+// =============================================================================
+
+const ARIA_COLOR = '#0D9488';
+
+function ClinicalRecordTab({ patient, userId }: { patient: PatientIntelligenceRow; userId: string }) {
+  const [record, setRecord] = useState<ClinicalRecord | null>(null);
+  const [vitals, setVitals] = useState<VitalsReading[]>([]);
+  const [isDemo, setIsDemo] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [generatingSummary, setGeneratingSummary] = useState(false);
+  const [aiMsg, setAiMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const [recRes, vitRes] = await Promise.all([
+        getClinicalRecord(patient.id),
+        getVitalsHistory(patient.id),
+      ]);
+      setRecord(recRes.data);
+      setIsDemo(recRes.isDemo);
+      setVitals(vitRes.data);
+      setLoading(false);
+    })();
+  }, [patient.id]);
+
+  const handleGenerateSummary = useCallback(async () => {
+    setGeneratingSummary(true);
+    setAiMsg(null);
+    const res = await generateClinicalSummary(patient.id, `${patient.first_name} ${patient.last_name}`);
+    if (!res.error) {
+      setAiMsg(res.summary);
+      // refresh
+      const recRes = await getClinicalRecord(patient.id);
+      setRecord(recRes.data);
+    } else {
+      setAiMsg('Unable to generate summary — please try again.');
+    }
+    setGeneratingSummary(false);
+  }, [patient.id, patient.first_name, patient.last_name]);
+
+  if (loading) return <div className="flex items-center justify-center py-16"><Loader2 size={18} className="animate-spin text-[#8B84A0]" /></div>;
+
+  const r = record;
+  const riskCfg: Record<string, { color: string; bg: string; border: string }> = {
+    critical: { color: '#DC2626', bg: '#FFF1F2', border: '#FECDD3' },
+    high:     { color: '#DC2626', bg: '#FFF1F2', border: '#FECDD3' },
+    medium:   { color: '#D97706', bg: '#FFFBEB', border: '#FDE68A' },
+    low:      { color: '#059669', bg: '#ECFDF5', border: '#A7F3D0' },
+  };
+
+  return (
+    <div className="space-y-5">
+      {isDemo && (
+        <div className="rounded-xl px-4 py-2.5 flex items-center gap-2" style={{ backgroundColor: `${ARIA_COLOR}0d`, border: `1px solid ${ARIA_COLOR}30` }}>
+          <Brain size={12} style={{ color: ARIA_COLOR }} />
+          <p className="text-[10px]" style={{ color: ARIA_COLOR }}>Showing demo data — run migration 036 in Supabase to activate live EHR</p>
+        </div>
+      )}
+
+      {/* AI Summary */}
+      {(r?.ai_clinical_summary || r?.ai_risk_assessment) && (
+        <Panel>
+          <PanelHeader title="Aria — Clinical Intelligence" action={
+            <button onClick={handleGenerateSummary} disabled={generatingSummary}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all"
+              style={{ backgroundColor: `${ARIA_COLOR}14`, color: ARIA_COLOR }}>
+              {generatingSummary ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
+              Regenerate
+            </button>
+          } />
+          <div className="p-5 space-y-3">
+            {r?.ai_clinical_summary && (
+              <div>
+                <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-1.5">Clinical Summary</p>
+                <p className="text-[12px] text-[#524D66] leading-relaxed">{r.ai_clinical_summary}</p>
+              </div>
+            )}
+            {r?.ai_risk_assessment && (
+              <div className="pt-3" style={{ borderTop: '1px solid #EBE5FF' }}>
+                <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-1.5">Risk Assessment</p>
+                <p className="text-[12px] text-[#524D66] leading-relaxed">{r.ai_risk_assessment}</p>
+              </div>
+            )}
+            {aiMsg && <p className="text-[11px]" style={{ color: ARIA_COLOR }}>{aiMsg}</p>}
+          </div>
+        </Panel>
+      )}
+
+      {!r?.ai_clinical_summary && (
+        <div className="rounded-xl px-5 py-4 flex items-center justify-between" style={{ backgroundColor: `${ARIA_COLOR}0a`, border: `1px solid ${ARIA_COLOR}25` }}>
+          <div className="flex items-center gap-2.5">
+            <Brain size={14} style={{ color: ARIA_COLOR }} />
+            <p className="text-[11px] font-semibold" style={{ color: ARIA_COLOR }}>Generate AI Clinical Summary</p>
+          </div>
+          <button onClick={handleGenerateSummary} disabled={generatingSummary}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[11px] font-semibold transition-all"
+            style={{ backgroundColor: ARIA_COLOR, color: '#fff' }}>
+            {generatingSummary ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
+            {generatingSummary ? 'Generating…' : 'Generate'}
+          </button>
+        </div>
+      )}
+
+      {/* Risk Flags */}
+      {(r?.risk_flags?.length ?? 0) > 0 && (
+        <Panel>
+          <PanelHeader title="Risk Flags" badge={r!.risk_flags.filter(f => f.severity === 'high' || f.severity === 'critical').length} />
+          <div className="divide-y" style={{ borderColor: '#EBE5FF' }}>
+            {r!.risk_flags.map((flag, i) => {
+              const cfg = riskCfg[flag.severity] ?? riskCfg.low;
+              return (
+                <div key={i} className="flex items-start gap-3 px-5 py-3.5">
+                  <AlertTriangle size={13} style={{ color: cfg.color, marginTop: 1, flexShrink: 0 }} />
+                  <div className="flex-1">
+                    <p className="text-[12px] text-[#1A1035] font-medium">{flag.message}</p>
+                    <p className="text-[10px] text-[#8B84A0] mt-0.5">{flag.type} · {flag.auto ? 'Auto-detected' : 'Manual'}</p>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase"
+                    style={{ color: cfg.color, backgroundColor: cfg.bg, border: `1px solid ${cfg.border}` }}>
+                    {flag.severity}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </Panel>
+      )}
+
+      {/* Two-column grid */}
+      <div className="grid grid-cols-2 gap-5">
+        {/* Allergies */}
+        <Panel>
+          <PanelHeader title="Allergies" badge={(r?.allergies?.length ?? 0)} />
+          <div className="p-4 space-y-2">
+            {(r?.allergies?.length ?? 0) === 0 ? (
+              <p className="text-[11px] text-[#8B84A0] text-center py-4">No allergies recorded</p>
+            ) : r!.allergies.map((a: Allergy, i) => (
+              <div key={i} className="rounded-xl px-3 py-2.5" style={{ backgroundColor: '#FFF1F2', border: '1px solid #FECDD3' }}>
+                <p className="text-[12px] font-semibold text-[#DC2626]">{a.name}</p>
+                <p className="text-[10px] text-[#8B84A0]">{a.reaction} · {a.severity}</p>
+              </div>
+            ))}
+          </div>
+        </Panel>
+
+        {/* Contraindications */}
+        <Panel>
+          <PanelHeader title="Contraindications" badge={(r?.contraindications?.length ?? 0)} />
+          <div className="p-4 space-y-2">
+            {(r?.contraindications?.length ?? 0) === 0 ? (
+              <p className="text-[11px] text-[#8B84A0] text-center py-4">No contraindications recorded</p>
+            ) : r!.contraindications.map((c: Contraindication, i) => (
+              <div key={i} className="rounded-xl px-3 py-2.5" style={{ backgroundColor: '#FFFBEB', border: '1px solid #FDE68A' }}>
+                <p className="text-[12px] font-semibold text-[#D97706]">{c.name}</p>
+                <p className="text-[10px] text-[#8B84A0]">{c.reason}</p>
+              </div>
+            ))}
+          </div>
+        </Panel>
+
+        {/* Medications */}
+        <Panel>
+          <PanelHeader title="Current Medications" />
+          <div className="p-4 space-y-2">
+            {(r?.medications?.length ?? 0) === 0 ? (
+              <p className="text-[11px] text-[#8B84A0] text-center py-4">No medications recorded</p>
+            ) : r!.medications.map((m: Medication, i) => (
+              <div key={i} className="rounded-xl px-3 py-2.5" style={{ backgroundColor: '#F8F7FF', border: '1px solid #EBE5FF' }}>
+                <p className="text-[12px] font-semibold text-[#1A1035]">{m.name}</p>
+                <p className="text-[10px] text-[#8B84A0]">{m.dose} · {m.frequency}{m.prescriber ? ` · ${m.prescriber}` : ''}</p>
+              </div>
+            ))}
+          </div>
+        </Panel>
+
+        {/* Conditions */}
+        <Panel>
+          <PanelHeader title="Medical Conditions" />
+          <div className="p-4 space-y-2">
+            {(r?.medical_conditions?.length ?? 0) === 0 ? (
+              <p className="text-[11px] text-[#8B84A0] text-center py-4">No conditions recorded</p>
+            ) : r!.medical_conditions.map((c: MedicalCondition, i) => (
+              <div key={i} className="rounded-xl px-3 py-2.5" style={{ backgroundColor: '#F8F7FF', border: '1px solid #EBE5FF' }}>
+                <p className="text-[12px] font-semibold text-[#1A1035]">{c.name}</p>
+                <p className="text-[10px]" style={{ color: c.status === 'active' ? '#DC2626' : c.status === 'managed' ? '#D97706' : '#059669' }}>{c.status}{c.notes ? ` · ${c.notes}` : ''}</p>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      </div>
+
+      {/* Vitals */}
+      <Panel>
+        <PanelHeader title="Latest Vitals" />
+        <div className="grid grid-cols-4 divide-x p-0" style={{ borderColor: '#EBE5FF' }}>
+          {[
+            { label: 'Blood Pressure', value: r?.blood_pressure_sys && r?.blood_pressure_dia ? `${r.blood_pressure_sys}/${r.blood_pressure_dia}` : '—', unit: 'mmHg' },
+            { label: 'Heart Rate', value: r?.heart_rate ? String(r.heart_rate) : '—', unit: 'bpm' },
+            { label: 'Weight', value: r?.weight_kg ? `${r.weight_kg}` : '—', unit: 'kg' },
+            { label: 'BMI', value: r?.bmi ? `${r.bmi}` : '—', unit: 'kg/m²' },
+          ].map(v => (
+            <div key={v.label} className="px-5 py-4">
+              <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-1">{v.label}</p>
+              <p className="text-[24px] font-black tracking-[-0.03em] text-[#1A1035] leading-none">{v.value}</p>
+              <p className="text-[9px] text-[#8B84A0] mt-0.5">{v.unit}</p>
+            </div>
+          ))}
+        </div>
+        {vitals.length > 1 && (
+          <div className="px-5 pb-4" style={{ borderTop: '1px solid #EBE5FF' }}>
+            <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mt-4 mb-2">Vitals History ({vitals.length} readings)</p>
+            <div className="space-y-1">
+              {vitals.slice(0, 4).map(v => (
+                <div key={v.id} className="flex items-center gap-3 text-[10px] text-[#8B84A0]">
+                  <span className="font-medium text-[#524D66]">{new Date(v.recorded_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                  {v.blood_pressure_sys && <span>BP {v.blood_pressure_sys}/{v.blood_pressure_dia}</span>}
+                  {v.heart_rate && <span>HR {v.heart_rate}</span>}
+                  {v.weight_kg && <span>{v.weight_kg}kg</span>}
+                  {v.context && <span className="ml-auto capitalize">{v.context.replace('_', ' ')}</span>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </Panel>
+
+      {/* GP Details */}
+      {(r?.gp_name || r?.nhs_number) && (
+        <Panel>
+          <PanelHeader title="GP & NHS Details" />
+          <div className="p-5 grid grid-cols-2 gap-4">
+            {[
+              { label: 'GP Name',    value: r?.gp_name ?? '—' },
+              { label: 'Practice',   value: r?.gp_practice ?? '—' },
+              { label: 'GP Phone',   value: r?.gp_phone ?? '—' },
+              { label: 'NHS Number', value: r?.nhs_number ?? '—' },
+            ].map(f => (
+              <div key={f.label}>
+                <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-0.5">{f.label}</p>
+                <p className="text-[12px] text-[#1A1035] font-medium">{f.value}</p>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      )}
+    </div>
+  );
+}
+
+// =============================================================================
+// SOAP NOTES TAB
+// =============================================================================
+
+function SOAPNotesTab({ patient, userId }: { patient: PatientIntelligenceRow; userId: string }) {
+  const [notes, setNotes]           = useState<SOAPNote[]>([]);
+  const [isDemo, setIsDemo]         = useState(false);
+  const [loading, setLoading]       = useState(true);
+  const [expanded, setExpanded]     = useState<string | null>(null);
+  const [addingNote, setAddingNote] = useState(false);
+  const [generatingDraft, setGeneratingDraft] = useState(false);
+  const [draft, setDraft]           = useState<Partial<SOAPNote> | null>(null);
+  const [saving, setSaving]         = useState(false);
+
+  // New note form state
+  const [form, setForm] = useState({
+    subjective: '', objective: '', assessment: '', plan: '',
+    appointment_type: '', treatment_performed: '', follow_up_required: false,
+    follow_up_notes: '',
+  });
+
+  useEffect(() => {
+    getSOAPNotes(patient.id).then(res => {
+      setNotes(res.data);
+      setIsDemo(res.isDemo);
+      setLoading(false);
+    });
+  }, [patient.id]);
+
+  const handleGenerateDraft = useCallback(async () => {
+    setGeneratingDraft(true);
+    const history = notes.slice(0, 2).map(n => `${n.appointment_date}: ${n.appointment_type} — ${n.assessment?.substring(0, 100)}`).join(' | ') || 'No prior notes';
+    const res = await generateAINotesDraft({
+      patientName: `${patient.first_name} ${patient.last_name}`,
+      appointmentType: form.appointment_type || 'Consultation',
+      patientHistory: history,
+    });
+    if (res.draft) {
+      setDraft(res.draft);
+      setForm(f => ({
+        ...f,
+        subjective: res.draft?.subjective ?? f.subjective,
+        objective:  res.draft?.objective  ?? f.objective,
+        assessment: res.draft?.assessment ?? f.assessment,
+        plan:       res.draft?.plan       ?? f.plan,
+      }));
+    }
+    setGeneratingDraft(false);
+  }, [notes, patient.first_name, patient.last_name, form.appointment_type]);
+
+  const handleSaveNote = useCallback(async () => {
+    setSaving(true);
+    await addSOAPNote({
+      cliniko_patient_id:    patient.id,
+      cliniko_appointment_id: null,
+      appointment_date:      new Date().toISOString().split('T')[0],
+      appointment_type:      form.appointment_type || null,
+      subjective:            form.subjective || null,
+      objective:             form.objective  || null,
+      assessment:            form.assessment || null,
+      plan:                  form.plan       || null,
+      treatment_performed:   form.treatment_performed || null,
+      products_used:         [],
+      adverse_events:        null,
+      follow_up_required:    form.follow_up_required,
+      follow_up_date:        null,
+      follow_up_notes:       form.follow_up_notes || null,
+      ai_draft_used:         !!draft,
+      ai_draft_generated_at: draft?.ai_draft_generated_at ?? null,
+      status:                'pending_review',
+      signed_off_by:         null,
+      signed_off_at:         null,
+      authored_by:           userId,
+    });
+    const res = await getSOAPNotes(patient.id);
+    setNotes(res.data);
+    setAddingNote(false);
+    setDraft(null);
+    setForm({ subjective: '', objective: '', assessment: '', plan: '', appointment_type: '', treatment_performed: '', follow_up_required: false, follow_up_notes: '' });
+    setSaving(false);
+  }, [patient.id, userId, form, draft]);
+
+  const handleSignOff = useCallback(async (noteId: string) => {
+    await signOffSOAPNote(noteId, userId);
+    const res = await getSOAPNotes(patient.id);
+    setNotes(res.data);
+  }, [patient.id, userId]);
+
+  if (loading) return <div className="flex items-center justify-center py-16"><Loader2 size={18} className="animate-spin text-[#8B84A0]" /></div>;
+
+  const statusCfg: Record<string, { label: string; color: string; bg: string; border: string }> = {
+    draft:          { label: 'Draft',           color: '#6B7280', bg: '#F9FAFB', border: '#E5E7EB' },
+    pending_review: { label: 'Pending Review',  color: '#D97706', bg: '#FFFBEB', border: '#FDE68A' },
+    signed_off:     { label: 'Signed Off',      color: '#059669', bg: '#ECFDF5', border: '#A7F3D0' },
+  };
+
+  return (
+    <div className="space-y-4">
+      {isDemo && (
+        <div className="rounded-xl px-4 py-2.5 flex items-center gap-2" style={{ backgroundColor: `${ARIA_COLOR}0d`, border: `1px solid ${ARIA_COLOR}30` }}>
+          <Brain size={12} style={{ color: ARIA_COLOR }} />
+          <p className="text-[10px]" style={{ color: ARIA_COLOR }}>Showing demo notes — run migration 036 to activate live SOAP notes</p>
+        </div>
+      )}
+
+      {/* Add Note Panel */}
+      {addingNote ? (
+        <Panel>
+          <PanelHeader title="New SOAP Note" action={
+            <div className="flex items-center gap-2">
+              <button onClick={handleGenerateDraft} disabled={generatingDraft}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold"
+                style={{ backgroundColor: `${ARIA_COLOR}14`, color: ARIA_COLOR }}>
+                {generatingDraft ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
+                AI Draft
+              </button>
+              <button onClick={() => setAddingNote(false)}
+                className="p-1.5 rounded-lg text-[#8B84A0] hover:text-[#1A1035]">
+                <X size={13} />
+              </button>
+            </div>
+          } />
+          <div className="p-5 space-y-4">
+            {draft && (
+              <div className="rounded-xl px-4 py-2.5 flex items-center gap-2" style={{ backgroundColor: `${ARIA_COLOR}0d`, border: `1px solid ${ARIA_COLOR}30` }}>
+                <Sparkles size={11} style={{ color: ARIA_COLOR }} />
+                <p className="text-[10px]" style={{ color: ARIA_COLOR }}>AI draft applied — review and edit before saving</p>
+              </div>
+            )}
+            <div>
+              <label className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0]">Appointment Type</label>
+              <input value={form.appointment_type} onChange={e => setForm(f => ({ ...f, appointment_type: e.target.value }))}
+                placeholder="e.g. Dermal Filler Consultation"
+                className="w-full mt-1 px-3 py-2 rounded-xl text-[12px] outline-none"
+                style={{ backgroundColor: '#F8F7FF', border: '1px solid #EBE5FF', color: '#1A1035' }} />
+            </div>
+            {(['subjective', 'objective', 'assessment', 'plan'] as const).map(field => (
+              <div key={field}>
+                <label className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0]">
+                  {field.charAt(0).toUpperCase() + field.slice(1)}
+                </label>
+                <textarea value={form[field]} onChange={e => setForm(f => ({ ...f, [field]: e.target.value }))}
+                  rows={3} placeholder={field === 'subjective' ? "Patient's reported symptoms or complaint…" : field === 'objective' ? 'Clinical observations…' : field === 'assessment' ? 'Assessment / diagnosis…' : 'Treatment plan and next steps…'}
+                  className="w-full mt-1 px-3 py-2 rounded-xl text-[12px] outline-none resize-none"
+                  style={{ backgroundColor: '#F8F7FF', border: '1px solid #EBE5FF', color: '#1A1035' }} />
+              </div>
+            ))}
+            <div>
+              <label className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0]">Treatment Performed (optional)</label>
+              <textarea value={form.treatment_performed} onChange={e => setForm(f => ({ ...f, treatment_performed: e.target.value }))}
+                rows={2} placeholder="Procedures carried out today…"
+                className="w-full mt-1 px-3 py-2 rounded-xl text-[12px] outline-none resize-none"
+                style={{ backgroundColor: '#F8F7FF', border: '1px solid #EBE5FF', color: '#1A1035' }} />
+            </div>
+            <div className="flex items-center gap-3">
+              <input type="checkbox" id="follow-up" checked={form.follow_up_required}
+                onChange={e => setForm(f => ({ ...f, follow_up_required: e.target.checked }))}
+                className="rounded" />
+              <label htmlFor="follow-up" className="text-[11px] text-[#524D66]">Follow-up required</label>
+            </div>
+            <div className="flex justify-end gap-2 pt-2" style={{ borderTop: '1px solid #EBE5FF' }}>
+              <button onClick={() => setAddingNote(false)}
+                className="px-4 py-2 rounded-xl text-[11px] font-semibold text-[#8B84A0]">
+                Cancel
+              </button>
+              <button onClick={handleSaveNote} disabled={saving}
+                className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-[11px] font-semibold text-white"
+                style={{ backgroundColor: '#1A1035' }}>
+                {saving ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle size={11} />}
+                Save Note
+              </button>
+            </div>
+          </div>
+        </Panel>
+      ) : (
+        <button onClick={() => setAddingNote(true)}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-[11px] font-semibold transition-all"
+          style={{ backgroundColor: '#1A1035', color: '#EBF0FF' }}>
+          <Plus size={12} />
+          New SOAP Note
+        </button>
+      )}
+
+      {/* Notes List */}
+      {notes.length === 0 ? (
+        <Panel><div className="flex flex-col items-center justify-center py-12 gap-2">
+          <p className="text-[12px] font-semibold text-[#8B84A0]">No SOAP notes yet</p>
+          <p className="text-[11px] text-[#B0A8C8]">Add the first clinical note for this patient</p>
+        </div></Panel>
+      ) : notes.map(note => {
+        const sc = statusCfg[note.status] ?? statusCfg.draft;
+        const isOpen = expanded === note.id;
+        return (
+          <Panel key={note.id}>
+            <button className="w-full flex items-center justify-between px-5 py-4 text-left"
+              onClick={() => setExpanded(isOpen ? null : note.id)}>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${ARIA_COLOR}14` }}>
+                  <FileText size={13} style={{ color: ARIA_COLOR }} />
+                </div>
+                <div>
+                  <p className="text-[12px] font-semibold text-[#1A1035]">{note.appointment_type ?? 'Clinical Note'}</p>
+                  <p className="text-[10px] text-[#8B84A0]">{note.appointment_date ? new Date(note.appointment_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                {note.ai_draft_used && <span className="text-[9px] font-medium" style={{ color: ARIA_COLOR }}>AI Draft</span>}
+                <span className="px-2 py-0.5 rounded-full text-[9px] font-bold"
+                  style={{ color: sc.color, backgroundColor: sc.bg, border: `1px solid ${sc.border}` }}>{sc.label}</span>
+                <ChevronDown size={13} className="text-[#8B84A0] transition-transform" style={{ transform: isOpen ? 'rotate(180deg)' : 'none' }} />
+              </div>
+            </button>
+            <AnimatePresence>
+              {isOpen && (
+                <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }}
+                  className="overflow-hidden" style={{ borderTop: '1px solid #EBE5FF' }}>
+                  <div className="p-5 space-y-4">
+                    {(['subjective', 'objective', 'assessment', 'plan'] as const).filter(f => note[f]).map(field => (
+                      <div key={field}>
+                        <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-1">
+                          {field.charAt(0).toUpperCase() + field.slice(1)}
+                        </p>
+                        <p className="text-[12px] text-[#524D66] leading-relaxed">{note[field]}</p>
+                      </div>
+                    ))}
+                    {note.treatment_performed && (
+                      <div style={{ borderTop: '1px solid #EBE5FF', paddingTop: 12 }}>
+                        <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-1">Treatment Performed</p>
+                        <p className="text-[12px] text-[#524D66]">{note.treatment_performed}</p>
+                      </div>
+                    )}
+                    {note.follow_up_required && (
+                      <div className="rounded-xl px-4 py-2.5" style={{ backgroundColor: '#FFFBEB', border: '1px solid #FDE68A' }}>
+                        <p className="text-[11px] text-[#D97706] font-medium">Follow-up required</p>
+                        {note.follow_up_notes && <p className="text-[10px] text-[#8B84A0] mt-0.5">{note.follow_up_notes}</p>}
+                      </div>
+                    )}
+                    {note.adverse_events && (
+                      <div className="rounded-xl px-4 py-2.5" style={{ backgroundColor: '#FFF1F2', border: '1px solid #FECDD3' }}>
+                        <p className="text-[11px] font-semibold text-[#DC2626]">Adverse Events</p>
+                        <p className="text-[11px] text-[#524D66] mt-0.5">{note.adverse_events}</p>
+                      </div>
+                    )}
+                    {note.status === 'pending_review' && (
+                      <div className="flex justify-end pt-2" style={{ borderTop: '1px solid #EBE5FF' }}>
+                        <button onClick={() => handleSignOff(note.id)}
+                          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-semibold"
+                          style={{ backgroundColor: '#059669', color: '#fff' }}>
+                          <CheckCircle size={11} />
+                          Sign Off
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </Panel>
+        );
+      })}
+    </div>
+  );
+}
+
+// =============================================================================
+// CONSENTS TAB
+// =============================================================================
+
+function ConsentsTab({ patient, userId }: { patient: PatientIntelligenceRow; userId: string }) {
+  const [consents, setConsents]   = useState<PatientConsent[]>([]);
+  const [isDemo, setIsDemo]       = useState(false);
+  const [loading, setLoading]     = useState(true);
+  const [addingConsent, setAddingConsent] = useState(false);
+  const [saving, setSaving]       = useState(false);
+  const [form, setForm]           = useState({ consent_type: 'treatment', treatment_name: '' });
+
+  useEffect(() => {
+    getPatientConsents(patient.id).then(res => {
+      setConsents(res.data);
+      setIsDemo(res.isDemo);
+      setLoading(false);
+    });
+  }, [patient.id]);
+
+  const handleAdd = useCallback(async () => {
+    setSaving(true);
+    await addPatientConsent({
+      cliniko_patient_id: patient.id,
+      consent_type:       form.consent_type,
+      treatment_name:     form.treatment_name || null,
+      consent_form_version: '1.0',
+      screening_answers:  {},
+      screening_flags:    [],
+      has_red_flags:      false,
+      status:             'pending',
+      consented_at:       null, refused_reason: null, withdrawn_at: null, withdrawal_reason: null,
+      valid_from:         new Date().toISOString().split('T')[0],
+      valid_until:        null,
+      collected_via:      'digital',
+      collected_by:       userId,
+      witness_name:       null, signature_url: null, ai_screening_notes: null, cqc_reference: null,
+    });
+    const res = await getPatientConsents(patient.id);
+    setConsents(res.data);
+    setAddingConsent(false);
+    setForm({ consent_type: 'treatment', treatment_name: '' });
+    setSaving(false);
+  }, [patient.id, userId, form]);
+
+  const handleStatusChange = useCallback(async (id: string, status: PatientConsent['status']) => {
+    await updateConsentStatus(id, status);
+    const res = await getPatientConsents(patient.id);
+    setConsents(res.data);
+  }, [patient.id]);
+
+  if (loading) return <div className="flex items-center justify-center py-16"><Loader2 size={18} className="animate-spin text-[#8B84A0]" /></div>;
+
+  const statusCfg: Record<string, { label: string; color: string; bg: string; border: string }> = {
+    pending:   { label: 'Pending',   color: '#D97706', bg: '#FFFBEB', border: '#FDE68A' },
+    consented: { label: 'Consented', color: '#059669', bg: '#ECFDF5', border: '#A7F3D0' },
+    refused:   { label: 'Refused',   color: '#DC2626', bg: '#FFF1F2', border: '#FECDD3' },
+    withdrawn: { label: 'Withdrawn', color: '#6B7280', bg: '#F9FAFB', border: '#E5E7EB' },
+    expired:   { label: 'Expired',   color: '#6B7280', bg: '#F9FAFB', border: '#E5E7EB' },
+  };
+
+  return (
+    <div className="space-y-4">
+      {isDemo && (
+        <div className="rounded-xl px-4 py-2.5 flex items-center gap-2" style={{ backgroundColor: `${ARIA_COLOR}0d`, border: `1px solid ${ARIA_COLOR}30` }}>
+          <Brain size={12} style={{ color: ARIA_COLOR }} />
+          <p className="text-[10px]" style={{ color: ARIA_COLOR }}>Showing demo consents — run migration 036 to activate live records</p>
+        </div>
+      )}
+
+      {/* Add Consent */}
+      {addingConsent ? (
+        <Panel>
+          <PanelHeader title="New Consent Form" action={
+            <button onClick={() => setAddingConsent(false)} className="p-1.5 rounded-lg text-[#8B84A0]"><X size={13} /></button>
+          } />
+          <div className="p-5 space-y-4">
+            <div>
+              <label className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0]">Consent Type</label>
+              <select value={form.consent_type} onChange={e => setForm(f => ({ ...f, consent_type: e.target.value }))}
+                className="w-full mt-1 px-3 py-2 rounded-xl text-[12px] outline-none"
+                style={{ backgroundColor: '#F8F7FF', border: '1px solid #EBE5FF', color: '#1A1035' }}>
+                {['treatment','photography','data_processing','marketing','referral','research'].map(t => (
+                  <option key={t} value={t}>{t.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}</option>
+                ))}
+              </select>
+            </div>
+            {form.consent_type === 'treatment' && (
+              <div>
+                <label className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0]">Treatment Name</label>
+                <input value={form.treatment_name} onChange={e => setForm(f => ({ ...f, treatment_name: e.target.value }))}
+                  placeholder="e.g. Dermal Fillers"
+                  className="w-full mt-1 px-3 py-2 rounded-xl text-[12px] outline-none"
+                  style={{ backgroundColor: '#F8F7FF', border: '1px solid #EBE5FF', color: '#1A1035' }} />
+              </div>
+            )}
+            <div className="flex justify-end gap-2" style={{ borderTop: '1px solid #EBE5FF', paddingTop: 12 }}>
+              <button onClick={() => setAddingConsent(false)} className="px-4 py-2 rounded-xl text-[11px] font-semibold text-[#8B84A0]">Cancel</button>
+              <button onClick={handleAdd} disabled={saving}
+                className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-[11px] font-semibold text-white"
+                style={{ backgroundColor: '#1A1035' }}>
+                {saving ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle size={11} />}
+                Create
+              </button>
+            </div>
+          </div>
+        </Panel>
+      ) : (
+        <button onClick={() => setAddingConsent(true)}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-[11px] font-semibold"
+          style={{ backgroundColor: '#1A1035', color: '#EBF0FF' }}>
+          <Plus size={12} />
+          New Consent Form
+        </button>
+      )}
+
+      {/* Consents List */}
+      {consents.length === 0 ? (
+        <Panel><div className="flex flex-col items-center justify-center py-12 gap-2">
+          <p className="text-[12px] font-semibold text-[#8B84A0]">No consent forms yet</p>
+          <p className="text-[11px] text-[#B0A8C8]">Add a consent form for this patient</p>
+        </div></Panel>
+      ) : consents.map(c => {
+        const sc = statusCfg[c.status] ?? statusCfg.pending;
+        return (
+          <Panel key={c.id}>
+            <div className="flex items-center justify-between px-5 py-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center"
+                  style={{ backgroundColor: c.has_red_flags ? '#FFF1F2' : `${ARIA_COLOR}14` }}>
+                  {c.has_red_flags
+                    ? <AlertCircle size={13} color="#DC2626" />
+                    : <ClipboardList size={13} style={{ color: ARIA_COLOR }} />}
+                </div>
+                <div>
+                  <p className="text-[12px] font-semibold text-[#1A1035]">
+                    {c.treatment_name ?? c.consent_type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                  </p>
+                  <p className="text-[10px] text-[#8B84A0]">
+                    v{c.consent_form_version} · {c.collected_via}
+                    {c.consented_at ? ` · Consented ${new Date(c.consented_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}
+                    {c.has_red_flags && ' · RED FLAGS'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded-full text-[9px] font-bold"
+                  style={{ color: sc.color, backgroundColor: sc.bg, border: `1px solid ${sc.border}` }}>{sc.label}</span>
+                {c.status === 'pending' && (
+                  <button onClick={() => handleStatusChange(c.id, 'consented')}
+                    className="px-3 py-1 rounded-lg text-[10px] font-semibold"
+                    style={{ backgroundColor: '#059669', color: '#fff' }}>
+                    Mark Consented
+                  </button>
+                )}
+              </div>
+            </div>
+            {c.has_red_flags && c.ai_screening_notes && (
+              <div className="px-5 pb-4">
+                <div className="rounded-xl px-4 py-2.5" style={{ backgroundColor: '#FFF1F2', border: '1px solid #FECDD3' }}>
+                  <p className="text-[10px] font-semibold text-[#DC2626] mb-0.5">Screening Flags</p>
+                  <p className="text-[10px] text-[#524D66]">{c.ai_screening_notes}</p>
+                </div>
+              </div>
+            )}
+          </Panel>
+        );
+      })}
+
+      {/* CQC Note */}
+      <div className="rounded-xl px-4 py-3" style={{ backgroundColor: '#F5F3FF', border: '1px solid #DDD6FE' }}>
+        <div className="flex items-start gap-2">
+          <Shield size={12} style={{ color: '#6D28D9', marginTop: 1, flexShrink: 0 }} />
+          <p className="text-[10px] text-[#524D66]">All consent forms are logged with version, timestamp, and collection method. CQC Section 4 compliant.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// PHOTOS TAB
+// =============================================================================
+
+function PhotosTab({ patient }: { patient: PatientIntelligenceRow }) {
+  const [photos, setPhotos] = useState<ClinicalPhoto[]>([]);
+  const [isDemo, setIsDemo] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getClinicalPhotos(patient.id).then(res => {
+      setPhotos(res.data);
+      setIsDemo(res.isDemo);
+      setLoading(false);
+    });
+  }, [patient.id]);
+
+  if (loading) return <div className="flex items-center justify-center py-16"><Loader2 size={18} className="animate-spin text-[#8B84A0]" /></div>;
+
+  const typeCfg: Record<string, { label: string; color: string; bg: string }> = {
+    before:    { label: 'Before',   color: '#6D28D9', bg: '#F5F3FF' },
+    after:     { label: 'After',    color: '#059669', bg: '#ECFDF5' },
+    progress:  { label: 'Progress', color: ARIA_COLOR,  bg: `${ARIA_COLOR}12` },
+    concern:   { label: 'Concern',  color: '#DC2626', bg: '#FFF1F2' },
+    reference: { label: 'Reference', color: '#6B7280', bg: '#F9FAFB' },
+  };
+
+  return (
+    <div className="space-y-4">
+      {isDemo && (
+        <div className="rounded-xl px-4 py-2.5 flex items-center gap-2" style={{ backgroundColor: `${ARIA_COLOR}0d`, border: `1px solid ${ARIA_COLOR}30` }}>
+          <Brain size={12} style={{ color: ARIA_COLOR }} />
+          <p className="text-[10px]" style={{ color: ARIA_COLOR }}>Run migration 036 to activate clinical photo storage</p>
+        </div>
+      )}
+
+      {/* Upload button */}
+      <button
+        className="flex items-center gap-2 px-4 py-2 rounded-xl text-[11px] font-semibold"
+        style={{ backgroundColor: '#1A1035', color: '#EBF0FF' }}
+        onClick={() => alert('Photo upload requires Supabase Storage configuration — see DEEP_PROBE_SETUP.md')}>
+        <Upload size={12} />
+        Upload Photos
+      </button>
+
+      {photos.length === 0 ? (
+        <Panel>
+          <div className="p-8 flex flex-col items-center justify-center gap-3">
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ backgroundColor: `${ARIA_COLOR}12` }}>
+              <Camera size={20} style={{ color: ARIA_COLOR }} />
+            </div>
+            <p className="text-[12px] font-semibold text-[#8B84A0]">No clinical photos yet</p>
+            <p className="text-[11px] text-[#B0A8C8] text-center max-w-xs">Upload before/after and progress photos for this patient. Consent is required before each upload.</p>
+          </div>
+          <div className="px-5 pb-5">
+            <div className="rounded-xl p-4" style={{ backgroundColor: `${ARIA_COLOR}0a`, border: `1px solid ${ARIA_COLOR}25` }}>
+              <p className="text-[10px] font-semibold mb-2" style={{ color: ARIA_COLOR }}>Photo Protocol</p>
+              <div className="grid grid-cols-2 gap-2">
+                {['Photo consent required before each upload', 'Before/after pairs linked for comparison', 'Tagged with treatment area and context', 'Stored in private encrypted bucket'].map(item => (
+                  <div key={item} className="flex items-start gap-1.5">
+                    <CheckCircle size={9} style={{ color: ARIA_COLOR, marginTop: 2, flexShrink: 0 }} />
+                    <p className="text-[10px] text-[#524D66]">{item}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </Panel>
+      ) : (
+        <div className="grid grid-cols-3 gap-4">
+          {photos.map(photo => {
+            const tc = typeCfg[photo.photo_type] ?? typeCfg.reference;
+            return (
+              <div key={photo.id} className="rounded-2xl overflow-hidden" style={{ border: '1px solid #EBE5FF' }}>
+                <div className="aspect-square flex items-center justify-center" style={{ backgroundColor: tc.bg }}>
+                  <div className="text-center">
+                    <p className="text-[10px] font-bold" style={{ color: tc.color }}>{tc.label}</p>
+                    <p className="text-[9px] text-[#8B84A0] mt-0.5">{photo.treatment_area ?? '—'}</p>
+                  </div>
+                </div>
+                <div className="p-3">
+                  <p className="text-[11px] font-semibold text-[#1A1035] truncate">{photo.file_name}</p>
+                  <p className="text-[10px] text-[#8B84A0]">{new Date(photo.taken_at).toLocaleDateString('en-GB')}</p>
+                  {!photo.photo_consent_given && (
+                    <p className="text-[9px] font-bold text-[#DC2626] mt-0.5">Consent required</p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// =============================================================================
 // MAIN PAGE
 // =============================================================================
 
@@ -2615,9 +3418,13 @@ export default function PatientHubPage() {
                   {activeTab === 'payments'       && <PaymentsTab patient={patient} appointments={hub!.appointments} />}
                   {activeTab === 'files'          && <FilesTab patient={patient} />}
                   {activeTab === 'client_detail'  && <ClientDetailTab patient={patient} />}
-                  {activeTab === 'treatment_log'  && <TreatmentLogTab patient={patient} />}
-                  {activeTab === 'plan'           && <PatientPlanTab patient={patient} />}
-                  {activeTab === 'intelligence'   && <IntelligenceTab patient={patient} onGenerateReport={handleGenerateReport} onChatWithAgent={handleChatWithAgent} />}
+                  {activeTab === 'treatment_log'    && <TreatmentLogTab patient={patient} />}
+                  {activeTab === 'plan'             && <PatientPlanTab patient={patient} />}
+                  {activeTab === 'clinical_record'  && <ClinicalRecordTab patient={patient} userId={userId} />}
+                  {activeTab === 'soap_notes'       && <SOAPNotesTab patient={patient} userId={userId} />}
+                  {activeTab === 'consents'         && <ConsentsTab patient={patient} userId={userId} />}
+                  {activeTab === 'photos'           && <PhotosTab patient={patient} />}
+                  {activeTab === 'intelligence'     && <IntelligenceTab patient={patient} onGenerateReport={handleGenerateReport} onChatWithAgent={handleChatWithAgent} />}
                 </motion.div>
               </AnimatePresence>
             </div>

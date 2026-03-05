@@ -133,7 +133,7 @@ function daysAgo(iso: string | null): number | null {
 function computeLifecycle(
   totalVisits: number,
   daysSinceLast: number | null,
-  hasFutureAppt: boolean,
+  _hasFutureAppt: boolean,
 ): LifecycleStage {
   if (totalVisits === 0) return 'lead';
   if (daysSinceLast === null) return 'lead';
@@ -409,6 +409,147 @@ const DEMO_TIMELINES: Record<string, TimelineEvent[]> = {
     { id: 't3', type: 'signal', date: _daysAgo(8), title: 'Lead captured — CoolSculpting interest', description: 'Lead captured via Komal. Interested in full abdomen treatment. Budget concern noted.', outcome: 'lead_captured' },
   ],
 };
+
+// =============================================================================
+// getPatientPage — paginated list, server-side search, loads 24 at a time.
+// Only fetches appointments for the current page (fast — no full-table scan).
+// =============================================================================
+
+export async function getPatientPage(params: {
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}): Promise<{
+  success: boolean;
+  patients: PatientIntelligenceRow[];
+  total: number;
+  page: number;
+  totalPages: number;
+  isDemo: boolean;
+  error?: string;
+}> {
+  const page     = params.page     ?? 0;
+  const pageSize = params.pageSize ?? 24;
+  const search   = params.search?.trim();
+
+  try {
+    const db = createSovereignClient();
+
+    // Build search filter once, apply to both count + row queries
+    const searchFilter = search
+      ? `first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`
+      : null;
+
+    let countQ = db.from('cliniko_patients').select('id', { count: 'exact', head: true });
+    let rowQ   = db
+      .from('cliniko_patients')
+      .select('id, cliniko_id, first_name, last_name, email, phone, date_of_birth, gender, referral_source, notes, occupation, emergency_contact, all_phones, address, created_in_cliniko_at')
+      .order('last_name', { ascending: true })
+      .range(page * pageSize, (page + 1) * pageSize - 1);
+
+    if (searchFilter) {
+      countQ = countQ.or(searchFilter);
+      rowQ   = rowQ.or(searchFilter);
+    }
+
+    const [{ count }, { data: rows, error }] = await Promise.all([countQ, rowQ]);
+    if (error) throw error;
+
+    const total = count ?? 0;
+
+    // No real patients → demo
+    if (total === 0 || !rows) {
+      const allDemo = search
+        ? DEMO_PATIENTS.filter(p =>
+            `${p.first_name} ${p.last_name}`.toLowerCase().includes(search.toLowerCase()) ||
+            (p.phone ?? '').includes(search) || (p.email ?? '').toLowerCase().includes(search.toLowerCase()))
+        : DEMO_PATIENTS;
+      const demoPage = allDemo.slice(page * pageSize, (page + 1) * pageSize);
+      return {
+        success: true, patients: demoPage,
+        total: allDemo.length, page,
+        totalPages: Math.ceil(allDemo.length / pageSize),
+        isDemo: true,
+      };
+    }
+
+    // Fetch appointments for ONLY this page's patients (tiny query — 24 IDs max)
+    const ids = rows.map(r => r.cliniko_id).filter(Boolean);
+    type ApptRow = { cliniko_patient_id: string | null; starts_at: string | null; appointment_type: string | null; status: string | null };
+    let appts: ApptRow[] = [];
+
+    if (ids.length > 0) {
+      const { data } = await db
+        .from('cliniko_appointments')
+        .select('cliniko_patient_id, starts_at, appointment_type, status')
+        .in('cliniko_patient_id', ids)
+        .order('starts_at', { ascending: false });
+      appts = (data ?? []) as ApptRow[];
+    }
+
+    const apptMap = new Map<string, ApptRow[]>();
+    for (const a of appts) {
+      const pid = String(a.cliniko_patient_id);
+      if (!apptMap.has(pid)) apptMap.set(pid, []);
+      apptMap.get(pid)!.push(a);
+    }
+
+    const now = new Date().toISOString();
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const patients: PatientIntelligenceRow[] = rows.map((r: any) => {
+      const patAppts    = apptMap.get(String(r.cliniko_id)) ?? [];
+      const past        = patAppts.filter(a => a.starts_at && a.starts_at < now);
+      const future      = patAppts.filter(a => a.starts_at && a.starts_at >= now);
+      const attended    = past.filter(a => ['arrived', 'booked', 'Attended', 'Booked'].includes(a.status ?? ''));
+      const cancelled   = past.filter(a => ['cancelled', 'did_not_arrive', 'Cancelled', 'Did Not Arrive'].includes(a.status ?? ''));
+      const totalVisits = attended.length;
+      const cancelRate  = past.length > 0 ? cancelled.length / past.length : 0;
+      const lastAppt    = past[0]?.starts_at ?? null;
+      const nextAppt    = future.length > 0 ? future[future.length - 1].starts_at : null;
+      const daysSince   = daysAgo(lastAppt);
+      const latestTreat = past[0]?.appointment_type ?? null;
+
+      const seen = new Set<string>();
+      const tags: string[] = [];
+      for (const a of past) {
+        const t = a.appointment_type?.split(/[\-–—]/)[0]?.trim();
+        if (t && !seen.has(t) && tags.length < 3) { seen.add(t); tags.push(t); }
+      }
+
+      const lifecycle  = computeLifecycle(totalVisits, daysSince, !!nextAppt);
+      const engagement = computeEngagement(totalVisits, daysSince, cancelRate);
+      const nba        = computeNextBestAction(lifecycle, latestTreat, daysSince, totalVisits);
+
+      return {
+        id: r.id, cliniko_id: r.cliniko_id,
+        first_name: r.first_name ?? '', last_name: r.last_name ?? '',
+        email: r.email ?? null, phone: r.phone ?? null,
+        date_of_birth: r.date_of_birth ?? null, gender: r.gender ?? null,
+        referral_source: r.referral_source ?? null, notes: r.notes ?? null,
+        occupation: r.occupation ?? null, emergency_contact: r.emergency_contact ?? null,
+        all_phones: (r.all_phones as PatientPhone[]) ?? [],
+        address: (r.address as PatientAddress) ?? null,
+        created_in_cliniko_at: r.created_in_cliniko_at ?? null,
+        lifecycle_stage: lifecycle, engagement_score: engagement,
+        total_visits: totalVisits, days_since_last_visit: daysSince,
+        last_appointment_at: lastAppt, next_appointment_at: nextAppt,
+        latest_treatment: latestTreat, treatment_tags: tags,
+        cancellation_rate: cancelRate, open_signals_count: 0,
+        has_agent_memories: false, next_best_action: nba, source: 'cliniko',
+      } satisfies PatientIntelligenceRow;
+    });
+
+    return {
+      success: true, patients, total, page,
+      totalPages: Math.ceil(total / pageSize),
+      isDemo: false,
+    };
+  } catch (err) {
+    console.error('[patients] getPatientPage error:', err);
+    return { success: false, patients: [], total: 0, page, totalPages: 0, isDemo: true, error: String(err) };
+  }
+}
 
 // =============================================================================
 // getPatientIntelligenceList — list with lifecycle + engagement computed

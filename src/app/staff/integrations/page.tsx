@@ -16,7 +16,7 @@ import {
   ArrowUpRight, type LucideIcon,
 } from 'lucide-react';
 import {
-  getClinikoStatus, saveClinikoConfig, triggerFullSync,
+  getClinikoStatus, saveClinikoConfig, triggerFullSync, clearAndResync,
   getSyncLogs, disconnectCliniko, getClinikoStats,
 } from '@/lib/actions/cliniko';
 import {
@@ -61,6 +61,7 @@ interface SyncMessage {
   message: string;
   patients?: number;
   appointments?: number;
+  invoices?: number;
 }
 
 type CatalogStatus = 'live' | 'pending' | 'planned';
@@ -326,14 +327,16 @@ function ClinikoConnectForm({ onConnected }: { onConnected: () => void }) {
 // =============================================================================
 
 function ClinikoConnectedPanel({
-  status, stats, syncLogs, syncing, syncMsg, onSync, onDisconnect,
+  status, stats, syncLogs, syncing, clearing, syncMsg, onSync, onClearResync, onDisconnect,
 }: {
   status: ClinikoStatus;
   stats: ClinikoStats | null;
   syncLogs: SyncLog[];
   syncing: boolean;
+  clearing: boolean;
   syncMsg: SyncMessage | null;
   onSync: () => void;
+  onClearResync: () => void;
   onDisconnect: () => void;
 }) {
   const displayLogs = syncLogs.filter(l => l.status !== 'started').slice(0, 6);
@@ -403,21 +406,29 @@ function ClinikoConnectedPanel({
 
       {/* Sync controls */}
       {!isFirstSync && (
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-[12px]" style={{ color: '#6E6688' }}>
             <Clock size={12} />
             {status.lastSyncAt ? `Last sync: ${timeSince(status.lastSyncAt)}` : 'No sync yet'}
             {status.lastSyncStatus === 'completed' && <span style={{ color: '#059669' }}> · Success</span>}
             {status.lastSyncStatus === 'partial'   && <span style={{ color: '#D97706' }}> · Partial</span>}
           </div>
-          <button onClick={onSync} disabled={syncing}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-[12px] font-medium transition-all disabled:opacity-30"
-            style={{ border: '1px solid #EBE5FF', color: '#524D66' }}
-            onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(138,108,255,0.05)')}
-            onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}>
-            {syncing ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-            {syncing ? 'Syncing…' : 'Sync Now'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={onSync} disabled={syncing || clearing}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-[12px] font-medium transition-all disabled:opacity-30"
+              style={{ border: '1px solid #EBE5FF', color: '#524D66' }}
+              onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(138,108,255,0.05)')}
+              onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}>
+              {syncing ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+              {syncing ? 'Syncing…' : 'Sync Now'}
+            </button>
+            <button onClick={onClearResync} disabled={syncing || clearing}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-[12px] font-semibold transition-all disabled:opacity-30"
+              style={{ backgroundColor: '#1A1035', color: '#FAF7F2' }}>
+              {clearing ? <Loader2 size={12} className="animate-spin" /> : <Database size={12} />}
+              {clearing ? 'Clearing & syncing…' : 'Clear & Full Sync'}
+            </button>
+          </div>
         </div>
       )}
 
@@ -465,6 +476,7 @@ export default function IntegrationsPage() {
   const [stats, setStats]           = useState<ClinikoStats | null>(null);
   const [syncLogs, setSyncLogs]     = useState<SyncLog[]>([]);
   const [syncing, setSyncing]       = useState(false);
+  const [clearing, setClearing]     = useState(false);
   const [syncMsg, setSyncMsg]       = useState<SyncMessage | null>(null);
 
   // ── Initial load ──
@@ -517,7 +529,7 @@ export default function IntegrationsPage() {
     });
   }, [refreshCliniko]);
 
-  // ── Trigger full sync ──
+  // ── Trigger incremental sync ──
   const handleSync = useCallback(async () => {
     setSyncing(true);
     setSyncMsg(null);
@@ -530,13 +542,31 @@ export default function IntegrationsPage() {
       patients: res.patients,
       appointments: res.appointments,
       message: res.success
-        ? res.pending
-          ? `Syncing… ${res.patients.toLocaleString()} patients · ${res.appointments.toLocaleString()} appointments imported so far. Click Sync Now again to continue.`
-          : `Sync complete — ${res.patients.toLocaleString()} patients · ${res.appointments.toLocaleString()} appointments imported.`
+        ? `Sync complete — ${res.patients.toLocaleString()} patients · ${res.appointments.toLocaleString()} appointments updated.`
         : res.error ?? 'Sync failed. Check your connection and try again.',
     });
 
     setSyncing(false);
+  }, [refreshCliniko]);
+
+  // ── Clear all cached data + full resync from Cliniko ──
+  const handleClearAndResync = useCallback(async () => {
+    setClearing(true);
+    setSyncMsg(null);
+
+    const res = await clearAndResync();
+    await refreshCliniko();
+
+    setSyncMsg({
+      success: res.success,
+      patients: res.patients,
+      appointments: res.appointments,
+      message: res.success
+        ? `Full sync complete — ${res.patients.toLocaleString()} patients · ${res.appointments.toLocaleString()} appointments · ${res.invoices.toLocaleString()} invoices imported.`
+        : res.error ?? 'Full sync failed. Check your connection and try again.',
+    });
+
+    setClearing(false);
   }, [refreshCliniko]);
 
   // ── Disconnect ──
@@ -605,7 +635,7 @@ export default function IntegrationsPage() {
           <div className="mb-6" style={{ borderTop: '1px solid #EBE5FF' }} />
 
           {clinikoStatus?.isConnected ? (
-            <ClinikoConnectedPanel status={clinikoStatus} stats={stats} syncLogs={syncLogs} syncing={syncing} syncMsg={syncMsg} onSync={handleSync} onDisconnect={handleDisconnect} />
+            <ClinikoConnectedPanel status={clinikoStatus} stats={stats} syncLogs={syncLogs} syncing={syncing} clearing={clearing} syncMsg={syncMsg} onSync={handleSync} onClearResync={handleClearAndResync} onDisconnect={handleDisconnect} />
           ) : (
             <ClinikoConnectForm onConnected={handleConnected} />
           )}
