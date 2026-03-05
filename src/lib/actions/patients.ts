@@ -429,7 +429,7 @@ export async function getPatientIntelligenceList(search?: string): Promise<{
       .from('cliniko_patients')
       .select('*')
       .order('last_name', { ascending: true })
-      .limit(200);
+      .limit(1000);
 
     if (search?.trim()) {
       const q = `%${search.trim()}%`;
@@ -485,8 +485,8 @@ export async function getPatientIntelligenceList(search?: string): Promise<{
       const patAppts = apptMap.get(r.cliniko_id) ?? [];
       const past   = patAppts.filter(a => a.starts_at && a.starts_at < now);
       const future = patAppts.filter(a => a.starts_at && a.starts_at >= now);
-      const attended    = past.filter(a => a.status === 'Attended' || a.status === 'Booked');
-      const cancelled   = past.filter(a => ['Cancelled', 'Did Not Arrive'].includes(a.status ?? ''));
+      const attended    = past.filter(a => ['arrived', 'booked', 'Attended', 'Booked'].includes(a.status ?? ''));
+      const cancelled   = past.filter(a => ['cancelled', 'did_not_arrive', 'Cancelled', 'Did Not Arrive'].includes(a.status ?? ''));
       const totalVisits = attended.length;
       const cancelRate  = past.length > 0 ? cancelled.length / past.length : 0;
       const lastAppt    = past[0]?.starts_at ?? null;
@@ -594,8 +594,8 @@ export async function getPatientHub(id: string): Promise<{
     const appts = apptRows ?? [];
     const past = appts.filter((a: any) => a.starts_at && a.starts_at < now);
     const future = appts.filter((a: any) => a.starts_at && a.starts_at >= now);
-    const attended = past.filter((a: any) => ['Attended', 'Booked'].includes(a.status ?? ''));
-    const cancelled = past.filter((a: any) => ['Cancelled', 'Did Not Arrive'].includes(a.status ?? ''));
+    const attended = past.filter((a: any) => ['arrived', 'booked', 'Attended', 'Booked'].includes(a.status ?? ''));
+    const cancelled = past.filter((a: any) => ['cancelled', 'did_not_arrive', 'Cancelled', 'Did Not Arrive'].includes(a.status ?? ''));
     const totalVisits = attended.length;
     const cancelRate = past.length > 0 ? cancelled.length / past.length : 0;
     const lastAppt = past[0]?.starts_at ?? null;
@@ -793,7 +793,7 @@ export async function getPatientStats() {
     const appts = appointmentsRes.data ?? [];
     const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
     const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
-    return { success: true as const, stats: { total, active_this_month: new Set(appts.map(a => a.cliniko_patient_id)).size, no_show_count: appts.filter(a => a.status === 'Did Not Arrive').length, upcoming_today: appts.filter(a => { if (!a.starts_at) return false; const d = new Date(a.starts_at); return d >= todayStart && d <= todayEnd; }).length } };
+    return { success: true as const, stats: { total, active_this_month: new Set(appts.map(a => a.cliniko_patient_id)).size, no_show_count: appts.filter(a => a.status === 'Did Not Arrive' || a.status === 'did_not_arrive').length, upcoming_today: appts.filter(a => { if (!a.starts_at) return false; const d = new Date(a.starts_at); return d >= todayStart && d <= todayEnd; }).length } };
   } catch (err) {
     return { success: false as const, error: String(err) };
   }

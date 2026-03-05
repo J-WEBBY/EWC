@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, X, SlidersHorizontal, ChevronRight, RefreshCw,
   Brain, Phone, Activity, TrendingUp, TrendingDown, Minus,
-  Zap, ChevronDown, Users, ArrowRight,
+  Zap, ChevronDown, Users, ArrowRight, ChevronLeft,
 } from 'lucide-react';
 import { getStaffProfile, getCurrentUser, type StaffProfile } from '@/lib/actions/staff-onboarding';
 import { StaffNav } from '@/components/staff-nav';
@@ -30,6 +30,7 @@ const LC_CFG: Record<LifecycleStage, { label: string; color: string; bg: string;
 };
 
 const LC_ORDER: LifecycleStage[] = ['lead', 'new', 'active', 'loyal', 'at_risk', 'lapsed'];
+const PAGE_SIZE = 24;
 
 const PRIO_COLOR: Record<string, string> = { high: '#DC2626', medium: '#D97706', low: '#059669' };
 
@@ -401,6 +402,7 @@ export default function PatientsPage() {
   const [search, setSearch]     = useState('');
   const [filters, setFilters]   = useState<FilterState>(DEFAULT_FILTERS);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [page, setPage]         = useState(0);
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -431,10 +433,17 @@ export default function PatientsPage() {
     return () => clearTimeout(t);
   }, [search, loadPatients]);
 
-  const setFilter = <K extends keyof FilterState>(key: K, val: FilterState[K]) =>
+  const setFilter = <K extends keyof FilterState>(key: K, val: FilterState[K]) => {
     setFilters(f => ({ ...f, [key]: val }));
+    setPage(0);
+  };
+
+  // Reset page when search changes
+  useEffect(() => { setPage(0); }, [search]);
 
   const filtered         = applyFilters(patients, filters);
+  const totalPages       = Math.ceil(filtered.length / PAGE_SIZE);
+  const pagePatients     = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const hasActiveFilters = JSON.stringify(filters) !== JSON.stringify(DEFAULT_FILTERS);
   const atRisk           = patients.filter(p => p.lifecycle_stage === 'at_risk' || p.lifecycle_stage === 'lapsed').length;
   const overdueRebook    = patients.filter(p => p.next_best_action?.urgency === 'high' && p.next_best_action.type === 'rebook').length;
@@ -677,7 +686,7 @@ export default function PatientsPage() {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.14 }}>
           <div className="px-6">
             <SectionLabel
-              label={`${filtered.length} patient${filtered.length !== 1 ? 's' : ''}`}
+              label={`${filtered.length} patient${filtered.length !== 1 ? 's' : ''}${totalPages > 1 ? ` · page ${page + 1} of ${totalPages}` : ''}`}
               right={
                 hasActiveFilters ? (
                   <span className="text-[8px] uppercase tracking-[0.20em] text-[#7C3AED]">
@@ -724,15 +733,94 @@ export default function PatientsPage() {
           ) : (
             <div>
               <AnimatePresence mode="popLayout">
-                {filtered.map((p, i) => (
+                {pagePatients.map((p, i) => (
                   <PatientRow
                     key={p.id}
                     patient={p}
-                    index={i}
+                    index={page * PAGE_SIZE + i}
                     onClick={() => router.push(`/staff/patients/${p.id}`)}
                   />
                 ))}
               </AnimatePresence>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <motion.div
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                  className="flex items-center justify-between px-6 py-4"
+                  style={{ borderTop: '1px solid #EBE5FF' }}
+                >
+                  <span className="text-[10px] text-[#8B84A0]">
+                    Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length}
+                  </span>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => { setPage(p => Math.max(0, p - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                      disabled={page === 0}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all"
+                      style={{
+                        border: '1px solid #EBE5FF',
+                        background: page === 0 ? 'transparent' : 'rgba(0,0,0,0.02)',
+                        color: page === 0 ? '#C4BFD6' : '#524D66',
+                        cursor: page === 0 ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      <ChevronLeft size={12} /> Previous
+                    </button>
+
+                    {/* Page number pills */}
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                        let pageNum: number;
+                        if (totalPages <= 7) {
+                          pageNum = i;
+                        } else if (page < 4) {
+                          pageNum = i < 5 ? i : i === 5 ? -1 : totalPages - 1;
+                        } else if (page >= totalPages - 4) {
+                          pageNum = i === 0 ? 0 : i === 1 ? -1 : totalPages - 7 + i;
+                        } else {
+                          pageNum = i === 0 ? 0 : i === 1 ? -1 : i === 5 ? -2 : i === 6 ? totalPages - 1 : page - 2 + i;
+                        }
+                        if (pageNum < 0) return (
+                          <span key={`ellipsis-${i}`} className="text-[10px] text-[#8B84A0] px-1">…</span>
+                        );
+                        return (
+                          <button
+                            key={pageNum}
+                            onClick={() => { setPage(pageNum); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                            className="w-7 h-7 rounded-lg text-[11px] font-semibold transition-all"
+                            style={pageNum === page
+                              ? { backgroundColor: '#1A1035', color: '#FFFFFF', border: '1px solid #1A1035' }
+                              : { backgroundColor: 'transparent', color: '#6E6688', border: '1px solid #EBE5FF' }
+                            }
+                          >
+                            {pageNum + 1}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <button
+                      onClick={() => { setPage(p => Math.min(totalPages - 1, p + 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                      disabled={page >= totalPages - 1}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all"
+                      style={{
+                        border: '1px solid #EBE5FF',
+                        background: page >= totalPages - 1 ? 'transparent' : 'rgba(0,0,0,0.02)',
+                        color: page >= totalPages - 1 ? '#C4BFD6' : '#524D66',
+                        cursor: page >= totalPages - 1 ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      Next <ChevronRight size={12} />
+                    </button>
+                  </div>
+
+                  <span className="text-[10px] text-[#8B84A0]">
+                    Page {page + 1} of {totalPages}
+                  </span>
+                </motion.div>
+              )}
             </div>
           )}
         </motion.div>
