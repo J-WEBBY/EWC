@@ -359,7 +359,7 @@ function ClinikoConnectedPanel({
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1.5 text-[11px]" style={{ color: '#8B84A0' }}>
-            <Activity size={11} /> Auto-sync every 5 min
+            <Activity size={11} /> Auto-sync daily at 2am
           </div>
           <button onClick={onDisconnect}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] transition-all"

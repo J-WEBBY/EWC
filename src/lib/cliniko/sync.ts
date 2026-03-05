@@ -137,6 +137,11 @@ export async function syncPatients(
       const rows = chunk.map((p: ClinikoPatient) => {
         // Extract exact string ID from self-link to avoid float64 precision loss
         const clinikoId = p.links?.self?.split('/').pop() ?? String(p.id);
+        // All phone numbers with type labels
+        const allPhones = (p.phone_numbers ?? []).map(ph => ({
+          number: ph.number,
+          type:   ph.phone_type,
+        }));
         return {
           cliniko_id:            clinikoId,
           first_name:            p.first_name,
@@ -154,6 +159,9 @@ export async function syncPatients(
             postcode: p.post_code,
             country:  p.country,
           },
+          occupation:            p.occupation ?? null,
+          emergency_contact:     p.emergency_contact ?? null,
+          all_phones:            allPhones,
           notes:                 p.notes,
           referral_source:       p.referral_source,
           created_in_cliniko_at: p.created_at,

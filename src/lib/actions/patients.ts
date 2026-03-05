@@ -16,6 +16,21 @@ export interface NextBestAction {
   days_until_due?: number;
 }
 
+export interface PatientPhone {
+  number: string;
+  type: string;
+}
+
+export interface PatientAddress {
+  line1:    string | null;
+  line2:    string | null;
+  line3:    string | null;
+  city:     string | null;
+  state:    string | null;
+  postcode: string | null;
+  country:  string | null;
+}
+
 export interface PatientIntelligenceRow {
   id: string;
   cliniko_id: number | null;
@@ -27,6 +42,10 @@ export interface PatientIntelligenceRow {
   gender: string | null;
   referral_source: string | null;
   notes: string | null;
+  occupation: string | null;
+  emergency_contact: string | null;
+  all_phones: PatientPhone[];
+  address: PatientAddress | null;
   created_in_cliniko_at: string | null;
   // Computed
   lifecycle_stage: LifecycleStage;
@@ -233,7 +252,7 @@ const DEMO_PATIENTS: PatientIntelligenceRow[] = [
     latest_treatment: 'Botox — Anti-Wrinkle', treatment_tags: ['Botox', 'Filler', 'Skin Booster'],
     cancellation_rate: 0, open_signals_count: 0, has_agent_memories: true,
     next_best_action: { type: 'referral_ask', title: 'Referral opportunity', description: '11 visits over 18 months — Sarah loves the clinic. Ideal time for a referral ask.', urgency: 'low' },
-    source: 'demo',
+    occupation: null, emergency_contact: null, all_phones: [], address: null, source: 'demo',
   },
   {
     id: 'demo-002', cliniko_id: null,
@@ -248,7 +267,7 @@ const DEMO_PATIENTS: PatientIntelligenceRow[] = [
     latest_treatment: 'B12 IV Drip', treatment_tags: ['B12', 'IV Therapy'],
     cancellation_rate: 0.25, open_signals_count: 1, has_agent_memories: true,
     next_best_action: { type: 'outreach', title: 'Re-engagement needed', description: '142 days since last B12 session — trending towards lapsed. A check-in call could recover this patient.', urgency: 'medium' },
-    source: 'demo',
+    occupation: null, emergency_contact: null, all_phones: [], address: null, source: 'demo',
   },
   {
     id: 'demo-003', cliniko_id: null,
@@ -263,7 +282,7 @@ const DEMO_PATIENTS: PatientIntelligenceRow[] = [
     latest_treatment: 'IV Therapy — Wellness Drip', treatment_tags: ['IV Therapy', 'Weight Management'],
     cancellation_rate: 0.14, open_signals_count: 0, has_agent_memories: false,
     next_best_action: { type: 'rebook', title: 'IV Therapy session due', description: '38 days since last Wellness Drip — approaching the 6-week window. Confirm their upcoming appointment.', urgency: 'low', days_until_due: 18 },
-    source: 'demo',
+    occupation: null, emergency_contact: null, all_phones: [], address: null, source: 'demo',
   },
   {
     id: 'demo-004', cliniko_id: null,
@@ -278,7 +297,7 @@ const DEMO_PATIENTS: PatientIntelligenceRow[] = [
     latest_treatment: 'Botox — Anti-Wrinkle Consultation', treatment_tags: ['Botox', 'Consultation'],
     cancellation_rate: 0, open_signals_count: 0, has_agent_memories: true,
     next_best_action: { type: 'followup', title: 'Post-treatment follow-up', description: '14 days since first Botox treatment. A follow-up call builds confidence and encourages rebooking.', urgency: 'medium' },
-    source: 'demo',
+    occupation: null, emergency_contact: null, all_phones: [], address: null, source: 'demo',
   },
   {
     id: 'demo-005', cliniko_id: null,
@@ -293,7 +312,7 @@ const DEMO_PATIENTS: PatientIntelligenceRow[] = [
     latest_treatment: null, treatment_tags: ['CoolSculpting'],
     cancellation_rate: 0, open_signals_count: 2, has_agent_memories: true,
     next_best_action: { type: 'book_first', title: 'Book first consultation', description: 'Priya enquired about CoolSculpting via Komal 8 days ago. Offer a free consultation to move her forward.', urgency: 'high' },
-    source: 'demo',
+    occupation: null, emergency_contact: null, all_phones: [], address: null, source: 'demo',
   },
   {
     id: 'demo-006', cliniko_id: null,
@@ -308,7 +327,7 @@ const DEMO_PATIENTS: PatientIntelligenceRow[] = [
     latest_treatment: 'Hair Loss Consultation', treatment_tags: ['Hair Loss', 'Consultation'],
     cancellation_rate: 0.33, open_signals_count: 0, has_agent_memories: false,
     next_best_action: { type: 'winback', title: 'Winback outreach', description: '271 days inactive. A personalised message about new treatments or an offer could re-engage Robert.', urgency: 'high' },
-    source: 'demo',
+    occupation: null, emergency_contact: null, all_phones: [], address: null, source: 'demo',
   },
   {
     id: 'demo-007', cliniko_id: null,
@@ -323,7 +342,7 @@ const DEMO_PATIENTS: PatientIntelligenceRow[] = [
     latest_treatment: 'Dermal Filler — Lips', treatment_tags: ['Filler', 'Skin Booster', 'Consultation'],
     cancellation_rate: 0, open_signals_count: 0, has_agent_memories: false,
     next_best_action: { type: 'rebook', title: 'Filler review due', description: 'Lip filler booked 55 days ago — review window at 6 months. Good time to confirm the next session.', urgency: 'low' },
-    source: 'demo',
+    occupation: null, emergency_contact: null, all_phones: [], address: null, source: 'demo',
   },
   {
     id: 'demo-008', cliniko_id: null,
@@ -338,7 +357,7 @@ const DEMO_PATIENTS: PatientIntelligenceRow[] = [
     latest_treatment: 'Full Face Rejuvenation', treatment_tags: ['Botox', 'Filler', 'Skin Booster', 'IV Therapy'],
     cancellation_rate: 0.05, open_signals_count: 0, has_agent_memories: true,
     next_best_action: { type: 'referral_ask', title: 'Referral opportunity', description: '18 visits over 2+ years. Charlotte is the clinic\'s strongest advocate — a referral programme offer would be very well received.', urgency: 'low' },
-    source: 'demo',
+    occupation: null, emergency_contact: null, all_phones: [], address: null, source: 'demo',
   },
   {
     id: 'demo-009', cliniko_id: null,
@@ -353,7 +372,7 @@ const DEMO_PATIENTS: PatientIntelligenceRow[] = [
     latest_treatment: 'Health Screening — Male MOT', treatment_tags: ['Health Screening'],
     cancellation_rate: 0, open_signals_count: 1, has_agent_memories: false,
     next_best_action: { type: 'followup', title: 'New patient follow-up overdue', description: 'Marcus has had 1 visit 62 days ago with no follow-up booked. Reach out to understand his experience and encourage a next step.', urgency: 'medium' },
-    source: 'demo',
+    occupation: null, emergency_contact: null, all_phones: [], address: null, source: 'demo',
   },
   {
     id: 'demo-010', cliniko_id: null,
@@ -368,7 +387,7 @@ const DEMO_PATIENTS: PatientIntelligenceRow[] = [
     latest_treatment: 'Hormone Therapy Consultation', treatment_tags: ['Hormone Therapy', 'Weight Management'],
     cancellation_rate: 0.2, open_signals_count: 0, has_agent_memories: false,
     next_best_action: { type: 'outreach', title: 'Re-engagement needed', description: 'Lisa was on a monthly plan — 118 days of silence is concerning. A personal outreach from the clinic could recover her.', urgency: 'medium' },
-    source: 'demo',
+    occupation: null, emergency_contact: null, all_phones: [], address: null, source: 'demo',
   },
 ];
 
@@ -500,6 +519,10 @@ export async function getPatientIntelligenceList(search?: string): Promise<{
         gender: r.gender ?? null,
         referral_source: r.referral_source ?? null,
         notes: r.notes ?? null,
+        occupation: r.occupation ?? null,
+        emergency_contact: r.emergency_contact ?? null,
+        all_phones: (r.all_phones as PatientPhone[]) ?? [],
+        address: (r.address as PatientAddress) ?? null,
         created_in_cliniko_at: r.created_in_cliniko_at ?? null,
         lifecycle_stage: lifecycle,
         engagement_score: engagement,
@@ -597,6 +620,10 @@ export async function getPatientHub(id: string): Promise<{
       email: r.email ?? null, phone: r.phone ?? null,
       date_of_birth: r.date_of_birth ?? null, gender: r.gender ?? null,
       referral_source: r.referral_source ?? null, notes: r.notes ?? null,
+      occupation: r.occupation ?? null,
+      emergency_contact: r.emergency_contact ?? null,
+      all_phones: (r.all_phones as PatientPhone[]) ?? [],
+      address: (r.address as PatientAddress) ?? null,
       created_in_cliniko_at: r.created_in_cliniko_at ?? null,
       lifecycle_stage: lifecycle, engagement_score: engagement,
       total_visits: totalVisits, days_since_last_visit: daysSince,

@@ -63,8 +63,11 @@ export interface ClinikoPatient {
   post_code: string | null;
   notes: string | null;
   referral_source: string | null;
-  occupation: string | null;
+  occupation:        string | null;
   emergency_contact: string | null;
+  old_reference_number?: string | null;
+  invoice_default_to?: string | null;
+  time_zone?: string | null;
   created_at: string;
   updated_at: string;
   links: { self: string };

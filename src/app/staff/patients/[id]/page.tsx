@@ -363,20 +363,59 @@ function OverviewTab({ patient }: { patient: PatientIntelligenceRow }) {
       <Panel>
         <PanelHeader title="Patient Details" />
         <div className="p-5 grid grid-cols-2 gap-x-8 gap-y-3.5">
+          {/* Primary contact */}
           {[
-            ['Phone', patient.phone ?? '—'], ['Email', patient.email ?? '—'],
-            ['Age', fmtAge(patient.date_of_birth)], ['Gender', patient.gender ?? '—'],
+            ['Email', patient.email ?? '—'],
+            ['Date of Birth', patient.date_of_birth ? `${fmtDate(patient.date_of_birth)} (${fmtAge(patient.date_of_birth)})` : '—'],
+            ['Gender', patient.gender ?? '—'],
             ['Patient Since', fmtDate(patient.created_in_cliniko_at)],
             ['Referral Source', patient.referral_source ?? '—'],
+            ['Occupation', patient.occupation ?? '—'],
             ['Cancel Rate', `${Math.round(patient.cancellation_rate * 100)}%`],
             ['Open Signals', String(patient.open_signals_count)],
           ].map(([l, v]) => (
             <div key={l}><p className="text-[8px] uppercase tracking-[0.22em] text-[#8B84A0] mb-0.5">{l}</p>
               <p className="text-[12px] font-semibold text-[#524D66]">{v}</p></div>
           ))}
+
+          {/* All phone numbers */}
+          {patient.all_phones && patient.all_phones.length > 0 && (
+            <div className="col-span-2 pt-3.5" style={{ borderTop: '1px solid #EBE5FF' }}>
+              <p className="text-[8px] uppercase tracking-[0.22em] text-[#8B84A0] mb-2">Phone Numbers</p>
+              <div className="flex flex-col gap-1.5">
+                {patient.all_phones.map((ph, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <span className="text-[9px] font-medium text-[#8B84A0] uppercase tracking-wide w-12 flex-shrink-0">{ph.type}</span>
+                    <a href={`tel:${ph.number}`} className="text-[12px] font-semibold text-[#524D66] hover:text-[#1A1035] transition-colors">{ph.number}</a>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Address */}
+          {patient.address && (patient.address.line1 || patient.address.city) && (
+            <div className="col-span-2 pt-3.5" style={{ borderTop: '1px solid #EBE5FF' }}>
+              <p className="text-[8px] uppercase tracking-[0.22em] text-[#8B84A0] mb-1">Address</p>
+              <p className="text-[12px] leading-relaxed text-[#524D66]">
+                {[patient.address.line1, patient.address.line2, patient.address.line3, patient.address.city, patient.address.postcode, patient.address.country]
+                  .filter(Boolean).join(', ')}
+              </p>
+            </div>
+          )}
+
+          {/* Emergency contact */}
+          {patient.emergency_contact && (
+            <div className="col-span-2 pt-3.5" style={{ borderTop: '1px solid #EBE5FF' }}>
+              <p className="text-[8px] uppercase tracking-[0.22em] text-[#8B84A0] mb-1">Emergency Contact</p>
+              <p className="text-[12px] font-semibold text-[#524D66]">{patient.emergency_contact}</p>
+            </div>
+          )}
+
+          {/* Notes */}
           {patient.notes && (
             <div className="col-span-2 pt-3.5" style={{ borderTop: '1px solid #EBE5FF' }}>
-              <p className="text-[8px] uppercase tracking-[0.22em] text-[#8B84A0] mb-1">Notes</p>
+              <p className="text-[8px] uppercase tracking-[0.22em] text-[#8B84A0] mb-1">Clinical Notes</p>
               <p className="text-[12px] leading-relaxed text-[#6E6688]">{patient.notes}</p>
             </div>
           )}
