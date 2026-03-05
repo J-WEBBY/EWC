@@ -11,7 +11,7 @@ import { ClinikoClient } from './client';
 import type {
   ClinikoPractitioner, ClinikoPatient,
   ClinikoAppointment, ClinikoInvoice,
-  SyncResult,
+  SyncResult, SyncCursor,
 } from './types';
 
 // =============================================================================
@@ -67,6 +67,49 @@ async function updateConfigStatus(
 }
 
 // =============================================================================
+// CURSOR HELPERS — resumable pagination across cron runs (Hobby plan friendly)
+// Cursor state stored in cliniko_config.settings.sync_cursor
+// =============================================================================
+
+async function readCursor(supabase: ReturnType<typeof createSovereignClient>): Promise<SyncCursor> {
+  const { data } = await supabase
+    .from('cliniko_config')
+    .select('settings')
+    .limit(1)
+    .single();
+  const cursor = (data?.settings as Record<string, unknown>)?.sync_cursor as SyncCursor | undefined;
+  return {
+    patients_next_url:     cursor?.patients_next_url     ?? null,
+    appointments_next_url: cursor?.appointments_next_url ?? null,
+    invoices_next_url:     cursor?.invoices_next_url     ?? null,
+  };
+}
+
+async function saveCursor(
+  supabase: ReturnType<typeof createSovereignClient>,
+  patch: Partial<SyncCursor>,
+): Promise<void> {
+  // Read existing settings first so we don't overwrite unrelated keys
+  const { data } = await supabase
+    .from('cliniko_config')
+    .select('settings')
+    .limit(1)
+    .single();
+  const existing = (data?.settings as Record<string, unknown>) ?? {};
+  const existingCursor = (existing.sync_cursor as SyncCursor | undefined) ?? {
+    patients_next_url: null, appointments_next_url: null, invoices_next_url: null,
+  };
+  await supabase.from('cliniko_config').update({
+    settings: { ...existing, sync_cursor: { ...existingCursor, ...patch } },
+  }).neq('id', '00000000-0000-0000-0000-000000000000');
+}
+
+// Returns true if any cursor is non-null (i.e. a sync is in progress / resumable)
+function hasPendingCursor(cursor: SyncCursor): boolean {
+  return !!(cursor.patients_next_url || cursor.appointments_next_url || cursor.invoices_next_url);
+}
+
+// =============================================================================
 // SYNC PRACTITIONERS
 // =============================================================================
 
@@ -117,16 +160,22 @@ export async function syncPatients(
   client: ClinikoClient,
   updatedSince?: string,
   cleanup = false,
+  // Resumable pagination: pass a saved next_url to continue a previous run.
+  // Pass a budgetMs to stop early and save a cursor for the next cron run.
+  resumeUrl?: string | null,
+  budgetMs?: number,
 ): Promise<SyncResult> {
   const start = Date.now();
-  // Timestamp recorded BEFORE upserts. After sync, any record with
-  // last_synced_at < syncStartedAt was not in Cliniko and is an orphan.
   const syncStartedAt = new Date().toISOString();
   await logSync('patients', 'started');
   const supabase = createSovereignClient();
 
   try {
-    const patients = await client.getPatients(updatedSince);
+    const params: Record<string, string> = updatedSince ? { updated_since: updatedSince } : {};
+    const { results: patients, nextUrl } = await client.paginateWithBudget<ClinikoPatient>(
+      '/patients', 'patients', params, resumeUrl, budgetMs,
+    );
+
     let synced = 0, failed = 0;
 
     // Batch upsert in chunks of 50
@@ -196,7 +245,12 @@ export async function syncPatients(
     }
 
     await logSync('patients', 'completed', synced, failed);
-    return { success: true, type: 'patients', records_synced: synced, records_failed: failed, duration_ms: Date.now() - start };
+    return {
+      success: true, type: 'patients', records_synced: synced, records_failed: failed,
+      duration_ms: Date.now() - start,
+      next_url: nextUrl,           // null = done, string = more pages pending
+      resumed: !!resumeUrl,
+    };
   } catch (err) {
     const msg = String(err);
     await logSync('patients', 'failed', 0, 0, msg);
@@ -212,6 +266,8 @@ export async function syncAppointments(
   client: ClinikoClient,
   updatedSince?: string,
   cleanup = false,
+  resumeUrl?: string | null,
+  budgetMs?: number,
 ): Promise<SyncResult> {
   const start = Date.now();
   const syncStartedAt = new Date().toISOString();
@@ -219,7 +275,16 @@ export async function syncAppointments(
   const supabase = createSovereignClient();
 
   try {
-    const appointments = await client.getAppointments(updatedSince);
+    const params: Record<string, string> = updatedSince ? { updated_since: updatedSince } : {};
+    const { results: rawAppointments, nextUrl } = await client.paginateWithBudget<ClinikoAppointment>(
+      '/appointments', 'appointments', params, resumeUrl, budgetMs,
+    );
+    // Enrich with extracted patient/practitioner IDs from links
+    const appointments = rawAppointments.map(a => ({
+      ...a,
+      patient_id:      (a.patient?.links?.self ?? '').match(/\/(\d+)$/)?.[1],
+      practitioner_id: (a.practitioner?.links?.self ?? '').match(/\/(\d+)$/)?.[1],
+    }));
     let synced = 0, failed = 0;
 
     const CHUNK = 50;
@@ -277,7 +342,12 @@ export async function syncAppointments(
     }
 
     await logSync('appointments', 'completed', synced, failed);
-    return { success: true, type: 'appointments', records_synced: synced, records_failed: failed, duration_ms: Date.now() - start };
+    return {
+      success: true, type: 'appointments', records_synced: synced, records_failed: failed,
+      duration_ms: Date.now() - start,
+      next_url: nextUrl,
+      resumed: !!resumeUrl,
+    };
   } catch (err) {
     const msg = String(err);
     await logSync('appointments', 'failed', 0, 0, msg);
@@ -292,13 +362,24 @@ export async function syncAppointments(
 export async function syncInvoices(
   client: ClinikoClient,
   updatedSince?: string,
+  resumeUrl?: string | null,
+  budgetMs?: number,
 ): Promise<SyncResult> {
   const start = Date.now();
   await logSync('invoices', 'started');
   const supabase = createSovereignClient();
 
   try {
-    const invoices = await client.getInvoices(updatedSince);
+    const params: Record<string, string> = updatedSince ? { updated_since: updatedSince } : {};
+    const { results: rawInvoices, nextUrl } = await client.paginateWithBudget<ClinikoInvoice>(
+      '/invoices', 'invoices', params, resumeUrl, budgetMs,
+    );
+    const invoices = rawInvoices.map(inv => ({
+      ...inv,
+      patient_id:      (inv.patient?.links?.self ?? '').match(/\/(\d+)$/)?.[1],
+      practitioner_id: (inv.practitioner?.links?.self ?? '').match(/\/(\d+)$/)?.[1],
+      appointment_id:  inv.appointment ? (inv.appointment.links?.self ?? '').match(/\/(\d+)$/)?.[1] : null,
+    }));
     let synced = 0, failed = 0;
 
     const CHUNK = 50;
@@ -341,7 +422,12 @@ export async function syncInvoices(
     await generateOverdueSignals(supabase);
 
     await logSync('invoices', 'completed', synced, failed);
-    return { success: true, type: 'invoices', records_synced: synced, records_failed: failed, duration_ms: Date.now() - start };
+    return {
+      success: true, type: 'invoices', records_synced: synced, records_failed: failed,
+      duration_ms: Date.now() - start,
+      next_url: nextUrl,
+      resumed: !!resumeUrl,
+    };
   } catch (err) {
     const msg = String(err);
     await logSync('invoices', 'failed', 0, 0, msg);
@@ -400,34 +486,68 @@ async function generateOverdueSignals(
 }
 
 // =============================================================================
-// FULL SYNC — runs all in sequence
+// FULL SYNC — runs all in sequence, with optional time budget for Hobby plan.
+//
+// budgetMs: when set, each entity gets an equal share of the budget and saves
+//   a cursor if it couldn't finish in time. The next cron run calls syncAll
+//   again; it reads the saved cursors and picks up where it left off.
+//   Set budgetMs=undefined (default) when running on Pro (300s available).
 // =============================================================================
 
 export async function syncAll(
   client: ClinikoClient,
   updatedSince?: string,
   cleanup = false,
-): Promise<{ results: SyncResult[]; success: boolean }> {
+  budgetMs?: number, // e.g. 45_000 for Hobby plan
+): Promise<{ results: SyncResult[]; success: boolean; pending: boolean }> {
+  const supabase = createSovereignClient();
   const results: SyncResult[] = [];
+
+  // On Hobby: read saved cursors so we can resume a partial sync.
+  const cursor = budgetMs ? await readCursor(supabase) : {
+    patients_next_url: null, appointments_next_url: null, invoices_next_url: null,
+  };
+
+  // Allocate budget per entity: practitioners get 5s, rest split equally.
+  // If budget not set, no limit (Pro mode).
+  const entityBudget = budgetMs ? Math.floor((budgetMs - 5000) / 3) : undefined;
 
   const practitioners = await syncPractitioners(client);
   results.push(practitioners);
 
-  const patients = await syncPatients(client, updatedSince, cleanup);
+  const patients = await syncPatients(client, updatedSince, cleanup, cursor.patients_next_url, entityBudget);
   results.push(patients);
 
-  const appointments = await syncAppointments(client, updatedSince, cleanup);
+  const appointments = await syncAppointments(client, updatedSince, cleanup, cursor.appointments_next_url, entityBudget);
   results.push(appointments);
 
-  const invoices = await syncInvoices(client, updatedSince);
+  const invoices = await syncInvoices(client, updatedSince, cursor.invoices_next_url, entityBudget);
   results.push(invoices);
 
-  const success = results.every(r => r.success);
-  await updateConfigStatus(
-    success,
-    success ? 'completed' : 'partial',
-    results.find(r => r.error)?.error,
-  );
+  // Save cursors for any entity that didn't finish (next_url != null)
+  if (budgetMs) {
+    await saveCursor(supabase, {
+      patients_next_url:     patients.next_url     ?? null,
+      appointments_next_url: appointments.next_url ?? null,
+      invoices_next_url:     invoices.next_url     ?? null,
+    });
+  }
 
-  return { results, success };
+  // pending=true means at least one entity still has pages to fetch
+  const pending = !!(patients.next_url || appointments.next_url || invoices.next_url);
+
+  const success = results.every(r => r.success);
+  // Only update last_sync_at when everything is fully done (no pending pages)
+  if (!pending) {
+    await updateConfigStatus(
+      success,
+      success ? 'completed' : 'partial',
+      results.find(r => r.error)?.error,
+    );
+  } else {
+    // Mark as in-progress so the UI shows the sync is continuing
+    await updateConfigStatus(true, 'in_progress');
+  }
+
+  return { results, success, pending };
 }

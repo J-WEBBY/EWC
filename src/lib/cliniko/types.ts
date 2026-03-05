@@ -250,4 +250,16 @@ export interface SyncResult {
   records_failed: number;
   error?: string;
   duration_ms: number;
+  // Set when a sync run hit its time budget and stopped mid-way.
+  // The cron will resume from this URL on the next run.
+  next_url?: string | null;
+  resumed?: boolean; // true when this run started from a saved cursor
+}
+
+// Cursor state persisted in cliniko_config.settings.sync_cursor
+// Enables resumable pagination across multiple cron runs (Hobby plan friendly).
+export interface SyncCursor {
+  patients_next_url:     string | null;
+  appointments_next_url: string | null;
+  invoices_next_url:     string | null;
 }

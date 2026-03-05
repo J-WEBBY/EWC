@@ -79,7 +79,7 @@ export class ClinikoClient {
   }
 
   // ---------------------------------------------------------------------------
-  // Paginator — follows links.next automatically
+  // Paginator — follows links.next automatically (unbounded, use with Pro 300s)
   // ---------------------------------------------------------------------------
 
   private async paginate<T>(
@@ -87,11 +87,35 @@ export class ClinikoClient {
     key: string,
     params: Record<string, string> = {},
   ): Promise<T[]> {
+    const { results } = await this.paginateWithBudget<T>(endpoint, key, params);
+    return results;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Budget paginator — fetches pages until budgetMs elapses, then stops.
+  // Returns { results, nextUrl } where nextUrl is the Cliniko "next" link for
+  // the first un-fetched page, or null if all pages were consumed.
+  //
+  // Use this for Hobby-plan cron jobs (60s limit):
+  //   budgetMs = 45_000 leaves 15s for upserts + overhead.
+  // Use startUrl to resume a previous partial run from its saved cursor.
+  // ---------------------------------------------------------------------------
+
+  async paginateWithBudget<T>(
+    endpoint: string,
+    key: string,
+    params: Record<string, string> = {},
+    startUrl?: string | null,
+    budgetMs?: number,       // undefined = no limit (Pro mode)
+  ): Promise<{ results: T[]; nextUrl: string | null }> {
     const results: T[] = [];
+    const deadline = budgetMs ? Date.now() + budgetMs : Infinity;
+
     const qs = new URLSearchParams({ per_page: String(PER_PAGE), ...params }).toString();
-    let url: string | null = `${this.baseUrl}${endpoint}?${qs}`;
+    let url: string | null = startUrl ?? `${this.baseUrl}${endpoint}?${qs}`;
 
     while (url) {
+      if (Date.now() >= deadline) break; // budget exhausted — return cursor
       // eslint-disable-next-line no-await-in-loop
       const resp: Record<string, unknown> = await this.request<Record<string, unknown>>(url);
       const page = (resp[key] as T[]) ?? [];
@@ -100,7 +124,7 @@ export class ClinikoClient {
       if (url) await delay(RATE_DELAY);
     }
 
-    return results;
+    return { results, nextUrl: url };
   }
 
   // ---------------------------------------------------------------------------
