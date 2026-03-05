@@ -6,8 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, Phone, Mail, MessageSquare, Mic, Bot, Zap,
   CalendarCheck, AlertTriangle, ChevronDown, ChevronRight,
-  Send, Sparkles, User, ArrowUpRight, ArrowDownLeft,
-  Loader2, CheckCircle2, X, MessageCircle, RefreshCw,
+  Send, Sparkles, ArrowUpRight, ArrowDownLeft,
+  Loader2, CheckCircle2, MessageCircle, RefreshCw,
 } from 'lucide-react';
 import { StaffNav } from '@/components/staff-nav';
 import {
@@ -16,7 +16,7 @@ import {
   type SendChannel, type DraftPurpose,
 } from '@/lib/actions/bridge';
 import {
-  getStaffProfile, getCurrentUser,
+  getStaffProfile,
   type StaffProfile,
 } from '@/lib/actions/staff-onboarding';
 
@@ -500,7 +500,7 @@ export default function BridgePage() {
   function toggleExpand(id: string) {
     setExpandedItems(prev => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) { next.delete(id); } else { next.add(id); }
       return next;
     });
   }
