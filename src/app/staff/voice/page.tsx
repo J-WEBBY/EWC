@@ -908,7 +908,7 @@ export default function ReceptionPage() {
                   {/* Today's call feed */}
                   <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #EBE5FF' }}>
                     <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: '1px solid #EBE5FF' }}>
-                      <SLabel>Today's calls</SLabel>
+                      <SLabel>Today&apos;s calls</SLabel>
                       <button onClick={() => setTab('calls')} className="text-[10px] font-semibold hover:opacity-70 transition-opacity" style={{ color: ACCENT }}>
                         View all
                       </button>
@@ -1436,7 +1436,7 @@ export default function ReceptionPage() {
                 <Sparkles size={16} style={{ color: ACCENT, flexShrink: 0, marginTop: 2 }} />
                 <div>
                   <p className="text-[12px] font-bold text-[#1A1035] mb-1">How Komal uses this knowledge</p>
-                  <p className="text-[11px] text-[#6E6688] leading-relaxed">When a caller asks about a treatment or policy, Komal searches this knowledge base in real time. The more complete each category, the more confident and accurate her answers. Sparse categories trigger a graceful fallback: "Let me have a specialist follow up with you on that."</p>
+                  <p className="text-[11px] text-[#6E6688] leading-relaxed">When a caller asks about a treatment or policy, Komal searches this knowledge base in real time. The more complete each category, the more confident and accurate her answers. Sparse categories trigger a graceful fallback: &ldquo;Let me have a specialist follow up with you on that.&rdquo;</p>
                 </div>
               </div>
             </div>
@@ -1526,7 +1526,7 @@ export default function ReceptionPage() {
                 </div>
                 <p className="text-[12px] text-[#6E6688] mb-3">Komal opens every call with this statement. Required by UK recording law.</p>
                 <div className="px-4 py-3 rounded-xl text-[11px] text-[#524D66] leading-relaxed" style={{ backgroundColor: '#ECFDF5', border: '1px solid #A7F3D0' }}>
-                  "This call may be recorded for quality and training purposes."
+                  &ldquo;This call may be recorded for quality and training purposes.&rdquo;
                 </div>
               </div>
 
