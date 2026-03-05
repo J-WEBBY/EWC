@@ -394,7 +394,7 @@ export async function syncInvoices(
         invoice_number:          inv.number,
         issue_date:              inv.issue_date,
         due_date:                inv.due_date,
-        status:                  inv.status?.toLowerCase() ?? 'draft',
+        status:                  (typeof inv.status === 'string' ? inv.status.toLowerCase() : 'draft'),
         amount:                  parseDecimal(inv.total),
         amount_outstanding:      parseDecimal(inv.outstanding_amount),
         amount_paid:             parseDecimal(inv.amount_paid),

@@ -451,17 +451,25 @@ export async function getPatientIntelligenceList(search?: string): Promise<{
       return { success: true, patients: filtered, total: filtered.length, isDemo: true };
     }
 
-    // Fetch appointments for all patients
+    // Fetch appointments for all patients — batched to avoid PostgREST URL limits.
+    // A single .in() with 9k+ IDs exceeds ~8KB URL limit and silently returns null.
     const ids = rows.map(r => r.cliniko_id);
-    const { data: appts } = await db
-      .from('cliniko_appointments')
-      .select('cliniko_patient_id, starts_at, appointment_type, status')
-      .in('cliniko_patient_id', ids)
-      .order('starts_at', { ascending: false });
+    const APPT_BATCH = 500; // ~500 IDs × ~10 chars = ~5KB per request — safe
+    type ApptRow = { cliniko_patient_id: string | null; starts_at: string | null; appointment_type: string | null; status: string | null };
+    const allAppts: ApptRow[] = [];
+    for (let i = 0; i < ids.length; i += APPT_BATCH) {
+      const batchIds = ids.slice(i, i + APPT_BATCH);
+      const { data: batch } = await db
+        .from('cliniko_appointments')
+        .select('cliniko_patient_id, starts_at, appointment_type, status')
+        .in('cliniko_patient_id', batchIds)
+        .order('starts_at', { ascending: false });
+      if (batch) allAppts.push(...(batch as ApptRow[]));
+    }
 
-    const apptMap = new Map<number, typeof appts>();
-    for (const a of appts ?? []) {
-      const pid = a.cliniko_patient_id as number;
+    const apptMap = new Map<string, ApptRow[]>();
+    for (const a of allAppts) {
+      const pid = String(a.cliniko_patient_id);
       if (!apptMap.has(pid)) apptMap.set(pid, []);
       apptMap.get(pid)!.push(a);
     }
@@ -484,7 +492,7 @@ export async function getPatientIntelligenceList(search?: string): Promise<{
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const patients: PatientIntelligenceRow[] = rows.map((r: any) => {
-      const patAppts = apptMap.get(r.cliniko_id) ?? [];
+      const patAppts = apptMap.get(String(r.cliniko_id)) ?? [];
       const past   = patAppts.filter(a => a.starts_at && a.starts_at < now);
       const future = patAppts.filter(a => a.starts_at && a.starts_at >= now);
       const attended    = past.filter(a => ['arrived', 'booked', 'Attended', 'Booked'].includes(a.status ?? ''));
