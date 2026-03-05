@@ -11,8 +11,9 @@ import { createSovereignClient } from '@/lib/supabase/service';
 import { ClinikoClient } from '@/lib/cliniko/client';
 import { syncAll, syncPatients, syncAppointments, syncInvoices } from '@/lib/cliniko/sync';
 
-// Hobby plan: max 60s. Pro plan: up to 300s.
-export const maxDuration = 60;
+// Vercel Pro: up to 300s. Hobby plan: max 60s.
+// Set to 300 — initial full sync of 9k+ patients + appointments requires it.
+export const maxDuration = 300;
 
 const SYNC_SECRET = process.env.SYNC_SECRET ?? 'ewc-sync-secret-change-me';
 const CRON_SECRET = process.env.CRON_SECRET ?? '';
@@ -100,11 +101,15 @@ export async function POST(req: NextRequest) {
   }
 
   let type: 'full' | 'patients' | 'appointments' | 'invoices' = 'full';
+  let forceFull = false;
   try {
-    const body = await req.json().catch(() => ({})) as { type?: string };
+    const body = await req.json().catch(() => ({})) as { type?: string; force_full?: boolean };
     if (['patients', 'appointments', 'invoices'].includes(body.type ?? '')) {
       type = body.type as typeof type;
     }
+    // force_full=true: ignore last_sync_at and re-fetch everything from Cliniko.
+    // Use this when initial sync was incomplete (e.g. timed out) to catch all records.
+    if (body.force_full === true) forceFull = true;
   } catch { /* use default full */ }
 
   const { client, config, error } = await loadClientAndConfig();
@@ -113,7 +118,8 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const updatedSince = config?.last_sync_at ?? undefined;
+    // If force_full, ignore last_sync_at so ALL Cliniko records are re-fetched.
+    const updatedSince = forceFull ? undefined : (config?.last_sync_at ?? undefined);
 
     if (type === 'full') {
       const { results, success } = await syncAll(client, updatedSince);

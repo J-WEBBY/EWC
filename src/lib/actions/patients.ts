@@ -425,11 +425,13 @@ export async function getPatientIntelligenceList(search?: string): Promise<{
   try {
     const db = createSovereignClient();
 
+    // Exclude raw_data (full Cliniko API payload) — not needed for the list view,
+    // and dramatically reduces payload size for large patient bases (9k+ records).
     let query = db
       .from('cliniko_patients')
-      .select('*')
+      .select('id, cliniko_id, first_name, last_name, email, phone, date_of_birth, gender, referral_source, notes, occupation, emergency_contact, all_phones, address, created_in_cliniko_at')
       .order('last_name', { ascending: true })
-      .limit(1000);
+      .limit(15000); // High enough for any realistic clinic size
 
     if (search?.trim()) {
       const q = `%${search.trim()}%`;
