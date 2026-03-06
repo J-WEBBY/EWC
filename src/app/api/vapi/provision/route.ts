@@ -30,21 +30,27 @@ const WEBHOOK_SECRET = process.env.VAPI_WEBHOOK_SECRET ?? '';
 const HAIKU_MODEL = 'claude-haiku-4-5-20251001';  // Komal — fast, voice latency critical
 
 // ---------------------------------------------------------------------------
-// Voice — Komal (Vapi native Clara).
-// Vapi-native voices are built directly into Vapi's pipeline with no external
-// TTS API hop — significantly lower latency than 11Labs (~30ms vs ~75ms).
+// Voice — Komal (ElevenLabs Charlotte, British).
+// eleven_turbo_v2_5 is ElevenLabs' lowest-latency model (~60ms TTFB).
+// Charlotte (XB0fDUnXU5powFXDhCwa) is a warm, professional British female voice.
 // ---------------------------------------------------------------------------
 
 const KOMAL_VOICE = {
-  provider: 'vapi',
-  voiceId:  'Clara',
+  provider:         '11labs',
+  voiceId:          'XB0fDUnXU5powFXDhCwa',  // Charlotte — British
+  model:            'eleven_turbo_v2_5',
+  stability:        0.5,
+  similarityBoost:  0.75,
+  style:            0.2,
+  useSpeakerBoost:  true,
 };
 
 const DEEPGRAM_TRANSCRIBER = {
   provider:    'deepgram',
   language:    'en-GB',
-  model:       'nova-2',
-  smartFormat: false,  // Disable formatting processing — LLM doesn't need punctuation
+  model:       'nova-2-phonecall',  // Phone-optimised model, better for call audio
+  smartFormat: false,               // Disable formatting — LLM doesn't need punctuation
+  endpointing: 100,                 // 100ms VAD timeout (default 300ms) — faster end-of-speech
 };
 
 // ---------------------------------------------------------------------------
@@ -182,14 +188,12 @@ export async function POST(req: NextRequest) {
       maxDurationSeconds:    600,
       startSpeakingPlan: {
         waitSeconds: 0.1,
-        smartEndpointingPlan: {
-          provider:     'livekit',
-          waitFunction: '200 + 2000 * x',
-        },
+        // No smartEndpointingPlan — the 200 + 2000*x formula was adding 2-3s latency.
+        // Flat transcription endpointing is faster and more predictable.
         transcriptionEndpointingPlan: {
-          onPunctuationSeconds:   0.1,
-          onNoPunctuationSeconds: 0.5,
-          onNumberSeconds:        0.3,
+          onPunctuationSeconds:   0.1,   // Caller ends on "." or "?" → respond in 100ms
+          onNoPunctuationSeconds: 0.3,   // Natural pause with no punctuation → 300ms
+          onNumberSeconds:        0.2,   // Caller reads out a number → 200ms
         },
       },
       stopSpeakingPlan: { numWords: 2, voiceSeconds: 0.1 },
