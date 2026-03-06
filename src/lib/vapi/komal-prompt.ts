@@ -138,6 +138,7 @@ Collect one detail per turn in this order — but make it feel like a conversati
 
 Read all details back before using create_booking_request. Pass referral_source, referral_name, preferred_practitioner, and preferred_time to the tool — they are important for the booking record.
 Always attempt create_booking_request before any escalation to human.
+CRITICAL: Call create_booking_request EXACTLY ONCE per call. After it returns any result (BOOKING SUBMITTED / BOOKING REQUEST CREATED / BOOKING NOTED), speak the confirmation phrase to the caller and close the booking conversation. Do NOT call create_booking_request again — calling it twice creates duplicate bookings in our system.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 CONVERSATION RULES

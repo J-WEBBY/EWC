@@ -17,8 +17,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { VAPI_TOOL_REGISTRY } from '@/lib/vapi/tool-registry';
 
-// Tier 1 tools get a 3s timeout; ask_agent manages its own 8s timeout
-const TIER1_TIMEOUT_MS = 3_000;
+// Tier 1 read tools: 3s timeout. Write tools (multi-step DB): 6s timeout. ask_agent: 8s (self-managed).
+const TIER1_TIMEOUT_MS  = 3_000;
+const WRITE_TIMEOUT_MS  = 6_000;
+const WRITE_TOOLS = new Set(['create_booking_request', 'capture_lead', 'log_call_concern', 'escalate_to_human']);
 
 const GENERIC_FALLBACK = "I wasn't able to get that information right now — let me have our team follow up with you shortly.";
 
@@ -62,12 +64,12 @@ async function executeWithTimeout(
     return handler(args);
   }
 
-  // Tier 1: wrap in 3s timeout
+  const timeoutMs = WRITE_TOOLS.has(toolName) ? WRITE_TIMEOUT_MS : TIER1_TIMEOUT_MS;
   return new Promise<string>((resolve) => {
     const timer = setTimeout(() => {
-      console.warn(`[vapi/tool] Tier 1 timeout on ${toolName}`);
+      console.warn(`[vapi/tool] Timeout (${timeoutMs}ms) on ${toolName}`);
       resolve(GENERIC_FALLBACK);
-    }, TIER1_TIMEOUT_MS);
+    }, timeoutMs);
 
     handler(args)
       .then(result => { clearTimeout(timer); resolve(result); })

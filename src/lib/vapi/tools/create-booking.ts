@@ -102,15 +102,16 @@ export async function createBookingRequest(args: {
         priority:      directBooking ? 'medium' : 'high',
         status:        'new',
         category:      'Booking',
-        response_mode: directBooking ? 'auto' : 'supervised',
         source_type:   'vapi_call',
-        action_log: [{
-          timestamp: now,
-          actor:     'automation:komal',
-          action:    'booking_requested',
-          note:      `${patient_name} | ${phone} | ${treatment} | ${preferred_date} | Ref: ${ref} | Direct: ${directBooking}`,
-        }],
         data: {
+          // response_mode + action_log stored in data (avoids schema dependency on migration 020)
+          response_mode: directBooking ? 'auto' : 'supervised',
+          action_log: [{
+            timestamp: now,
+            actor:     'automation:komal',
+            action:    'booking_requested',
+            note:      `${patient_name} | ${phone} | ${treatment} | ${preferred_date} | Ref: ${ref} | Direct: ${directBooking}`,
+          }],
           patient_name,
           phone,
           treatment,
@@ -327,13 +328,13 @@ export async function createBookingRequest(args: {
 
     // ── 6. Return message ─────────────────────────────────────────────────
     if (directBooking) {
-      return `Perfect, ${patient_name} — I have submitted your ${treatment} booking directly to our system. Your reference is ${ref}. We have your details on file${preferred_date ? ` and have noted your preference for ${preferred_date}` : ''}. You should receive a confirmation from us shortly. Is there anything else I can help with today?`;
+      return `BOOKING SUBMITTED. Reference: ${ref}. Patient: ${patient_name}. Treatment: ${treatment}. Date: ${preferred_date ?? 'TBC'}. Confirmation will follow. Now speak to the caller: "Perfect — I have got you all booked in. Your reference is ${ref}. You will receive a confirmation from us shortly. Thank you for calling Edgbaston Wellness Clinic."`;
     }
 
-    return `Brilliant — I have put in a booking request for you, ${patient_name}. Your reference is ${ref}. One of our team will confirm the appointment for your ${treatment}${preferred_date ? ` around ${preferred_date}` : ''}. We will give you a call back to confirm. Is there anything else I can help with today?`;
+    return `BOOKING REQUEST CREATED. Reference: ${ref}. Patient: ${patient_name}. Treatment: ${treatment}. Preferred: ${preferred_date ?? 'flexible'}. Staff will call ${phone} to confirm. Now speak to the caller: "Brilliant — I have put in your booking request. Your reference is ${ref}. One of our team will be in touch to confirm your appointment. Thank you for calling."`;
 
   } catch (err) {
     console.error('[vapi/create-booking] Error:', err);
-    return `Thank you ${patient_name}. I have noted your booking request for ${treatment}. Our team will call you back at ${phone} to confirm. Is there anything else I can help with?`;
+    return `BOOKING NOTED. Reference: ${ref}. Patient: ${patient_name}. Treatment: ${treatment}. Phone: ${phone}. Staff will follow up. Speak to the caller: "I have noted your booking request. One of our team will call you to confirm your appointment. Thank you for calling."`;
   }
 }
