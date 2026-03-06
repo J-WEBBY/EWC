@@ -30,18 +30,19 @@ const WEBHOOK_SECRET = process.env.VAPI_WEBHOOK_SECRET ?? '';
 const HAIKU_MODEL = 'claude-haiku-4-5-20251001';  // Komal — fast, voice latency critical
 
 // ---------------------------------------------------------------------------
-// Voice — Komal (ElevenLabs Charlotte, British).
+// Voice — Komal (ElevenLabs Alice, British).
 // eleven_turbo_v2_5 is ElevenLabs' lowest-latency model (~60ms TTFB).
-// Charlotte (XB0fDUnXU5powFXDhCwa) is a warm, professional British female voice.
+// Alice (Xb7hH8MSUJpSbSDYk0k2) — articulate, young British female. More natural
+// than Charlotte and lower latency under load.
 // ---------------------------------------------------------------------------
 
 const KOMAL_VOICE = {
   provider:         '11labs',
-  voiceId:          'XB0fDUnXU5powFXDhCwa',  // Charlotte — British
+  voiceId:          'Xb7hH8MSUJpSbSDYk0k2',  // Alice — articulate British female
   model:            'eleven_turbo_v2_5',
   stability:        0.5,
-  similarityBoost:  0.75,
-  style:            0.2,
+  similarityBoost:  0.8,
+  style:            0.15,
   useSpeakerBoost:  true,
 };
 
@@ -197,6 +198,12 @@ export async function POST(req: NextRequest) {
         },
       },
       stopSpeakingPlan: { numWords: 2, voiceSeconds: 0.1 },
+      // Phrases that trigger Vapi to end the call automatically.
+      endCallPhrases: [
+        'goodbye', 'bye', 'bye-bye', 'good bye', 'thanks bye', 'thank you goodbye',
+        'take care goodbye', 'have a wonderful day goodbye', 'cheers bye',
+        'speak soon', 'all the best', 'that\'s all I needed',
+      ],
       ...(WEBHOOK_URL ? { serverUrl: WEBHOOK_URL, serverUrlSecret: WEBHOOK_SECRET } : {}),
     };
 
