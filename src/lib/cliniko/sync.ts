@@ -224,8 +224,9 @@ export async function syncAppointments(
       const chunk = rawAppointments.slice(i, i + CHUNK);
 
       const rows = chunk.map((a: ClinikoAppointment) => {
-        const clinikoId = a.links?.self?.split('/').pop() ?? String(a.id);
-        const patientId = (a.patient?.links?.self ?? '').match(/\/(\d+)$/)?.[1];
+        const clinikoId      = a.links?.self?.split('/').pop() ?? String(a.id);
+        const patientId      = (a.patient?.links?.self      ?? '').match(/\/(\d+)$/)?.[1];
+        const practitionerId = (a.practitioner?.links?.self ?? '').match(/\/(\d+)$/)?.[1];
 
         let status = 'booked';
         if (a.cancelled_at)        status = 'cancelled';
@@ -233,20 +234,21 @@ export async function syncAppointments(
         else if (a.patient_arrived) status = 'arrived';
 
         return {
-          cliniko_id:              clinikoId,
-          cliniko_patient_id:      patientId ?? null,
-          appointment_type:        a.appointment_type_name ?? null,
-          practitioner_name:       null,
-          starts_at:               a.starts_at,
-          ends_at:                 a.ends_at,
-          duration_minutes:        a.duration_in_minutes,
+          cliniko_id:                clinikoId,
+          cliniko_patient_id:        patientId      ?? null,
+          cliniko_practitioner_id:   practitionerId ?? null,
+          appointment_type:          a.appointment_type_name ?? null,
+          practitioner_name:         null,
+          starts_at:                 a.starts_at,
+          ends_at:                   a.ends_at,
+          duration_minutes:          a.duration_in_minutes,
           status,
-          cancellation_reason:     a.cancellation_reason,
-          notes:                   a.notes,
-          invoice_status:          null,
-          room_name:               null,
-          last_synced_at:          new Date().toISOString(),
-          raw_data:                a,
+          cancellation_reason:       a.cancellation_reason,
+          notes:                     a.notes,
+          invoice_status:            null,
+          room_name:                 null,
+          last_synced_at:            new Date().toISOString(),
+          raw_data:                  a,
         };
       });
 

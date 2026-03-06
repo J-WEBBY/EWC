@@ -1,1369 +1,1049 @@
 'use client';
 
 // =============================================================================
-// Smart Calendar — Edgbaston Wellness Clinic
-// Premium operational calendar with compliance overlay, goal deadlines,
-// signal alerts, and AI-derived risk intelligence.
-//
-// Views: Month | Agenda
-// Intelligence: density heatmap, risk windows, deadline radar, pulse gauge
+// Appointments Command Centre — Edgbaston Wellness Clinic
+// Schedule (week grid) | List | Pending (Komal leads) | Team
+// Reads from cliniko_appointments cache. Writes confirmed bookings to Cliniko.
 // =============================================================================
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ChevronLeft, ChevronRight, Plus, X, Save, Check,
-  Calendar, AlignLeft, Shield, Target, Zap,
-  Clock, User, Layers, AlertTriangle, TrendingUp,
-  CheckCircle2, Circle, RefreshCw,
+  ChevronLeft, ChevronRight, Calendar, Clock, Phone, Mail,
+  X, RefreshCw, Users, List, CalendarDays, Inbox,
 } from 'lucide-react';
 import { StaffNav } from '@/components/staff-nav';
-import { getStaffProfile, getCurrentUser, type StaffProfile } from '@/lib/actions/staff-onboarding';
+import { getCurrentUser, getStaffProfile, type StaffProfile } from '@/lib/actions/staff-onboarding';
 import {
-  getCalendarData, createCalendarEvent, updateCalendarEvent,
-  deleteCalendarEvent, markEventComplete,
-  type CalendarEvent, type ComplianceCalItem,
-  type GoalCalItem, type SignalCalItem, type CalendarUser,
-} from '@/lib/actions/calendar';
+  getWeekAppointments, getPendingBookings, getPractitioners, getAppointmentTypes,
+  confirmBooking, dismissPendingBooking, updateAppointmentStatus,
+  type AppointmentRow, type PendingBooking, type PractitionerRow,
+  type AppointmentTypeRow, type ConfirmBookingParams,
+} from '@/lib/actions/appointments';
 
 // =============================================================================
-// TYPES
+// GRID CONSTANTS
 // =============================================================================
 
-type ViewMode = 'month' | 'agenda';
-
-interface DayData {
-  date:       string;           // YYYY-MM-DD
-  events:     CalendarEvent[];
-  compliance: ComplianceCalItem[];
-  goals:      GoalCalItem[];
-  signals:    SignalCalItem[];
-  density:    number;           // 0-10+ for heatmap
-}
-
-interface Filters {
-  compliance: boolean;
-  goals:      boolean;
-  signals:    boolean;
-  events:     boolean;
-}
-
-// =============================================================================
-// CONSTANTS
-// =============================================================================
-
-const EVENT_TYPE_COLOR: Record<string, string> = {
-  meeting:     '#0284C7',
-  training:    '#059669',
-  blocked:     '#DC2626',
-  note:        '#D97706',
-  deadline:    '#1A1035',
-  review:      '#EC4899',
-  appointment: '#0891B2',
-  inspection:  '#7C3AED',
-};
-
-const EVENT_TYPE_LABEL: Record<string, string> = {
-  meeting:     'Meeting',
-  training:    'Training',
-  blocked:     'Blocked',
-  note:        'Note',
-  deadline:    'Deadline',
-  review:      'Review',
-  appointment: 'Appointment',
-  inspection:  'Inspection',
-};
-
-const FREQ_LABEL: Record<string, string> = {
-  daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly',
-  quarterly: 'Quarterly', biannual: 'Biannual', annual: 'Annual', as_needed: 'As Needed',
-};
-
-const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-const MONTHS = [
-  'January','February','March','April','May','June',
-  'July','August','September','October','November','December',
-];
+const GRID_START_HOUR = 8;
+const GRID_END_HOUR   = 19;
+const HOUR_HEIGHT     = 64; // px per hour
+const HOURS           = Array.from({ length: GRID_END_HOUR - GRID_START_HOUR }, (_, i) => GRID_START_HOUR + i);
+const TOTAL_HOURS     = GRID_END_HOUR - GRID_START_HOUR;
+const DAY_LABELS      = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const MONTH_NAMES     = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 // =============================================================================
 // HELPERS
 // =============================================================================
 
-function isoDate(d: Date): string {
-  return d.toISOString().split('T')[0];
+function getWeekStart(d: Date): Date {
+  const r   = new Date(d);
+  const day = r.getDay();
+  r.setDate(r.getDate() + (day === 0 ? -6 : 1 - day));
+  r.setHours(0, 0, 0, 0);
+  return r;
 }
 
 function addDays(d: Date, n: number): Date {
-  const r = new Date(d); r.setDate(r.getDate() + n); return r;
+  const r = new Date(d);
+  r.setDate(r.getDate() + n);
+  return r;
 }
 
-function startOfMonth(year: number, month: number): Date {
-  return new Date(year, month - 1, 1);
+function fmtDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function daysInMonth(year: number, month: number): number {
-  return new Date(year, month, 0).getDate();
+function isToday(d: Date): boolean {
+  const n = new Date();
+  return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate();
 }
 
-// ISO weekday: 0=Mon … 6=Sun
-function isoWeekday(d: Date): number {
-  return (d.getDay() + 6) % 7;
+function timeToTop(isoString: string): number {
+  const d          = new Date(isoString);
+  const offsetMins = (d.getHours() - GRID_START_HOUR) * 60 + d.getMinutes();
+  return Math.max(0, offsetMins * (HOUR_HEIGHT / 60));
 }
 
-function shortDate(d: string): string {
-  const dt = new Date(d + 'T00:00:00');
-  return dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+function durationToHeight(minutes: number): number {
+  return Math.max(20, minutes * (HOUR_HEIGHT / 60));
 }
 
-function longDate(d: string): string {
-  const dt = new Date(d + 'T00:00:00');
-  return dt.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+function initials(name: string): string {
+  return name.split(' ').filter(Boolean).map(w => w[0]).join('').toUpperCase().slice(0, 2);
 }
 
-function daysUntil(d: string): number {
-  const now = new Date(); now.setHours(0,0,0,0);
-  const target = new Date(d + 'T00:00:00');
-  return Math.round((target.getTime() - now.getTime()) / 86400000);
+function formatRelativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1)  return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24)  return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
 }
 
-// Predict which dates a compliance task appears in a given month
-function predictComplianceDates(task: ComplianceCalItem, year: number, month: number): string[] {
-  if (task.next_due_date) {
-    const d = new Date(task.next_due_date + 'T00:00:00');
-    if (d.getFullYear() === year && d.getMonth() + 1 === month) return [task.next_due_date];
-    return [];
-  }
-
-  const pad = (n: number) => String(n).padStart(2, '0');
-  const firstOfMonth = `${year}-${pad(month)}-01`;
-
-  switch (task.frequency) {
-    case 'weekly': {
-      const dates: string[] = [];
-      const d = new Date(year, month - 1, 1);
-      while (d.getMonth() === month - 1) {
-        if (d.getDay() === 1) dates.push(isoDate(d)); // Monday
-        d.setDate(d.getDate() + 1);
-      }
-      return dates;
-    }
-    case 'daily': {
-      const dates: string[] = [];
-      const d = new Date(year, month - 1, 1);
-      while (d.getMonth() === month - 1) {
-        dates.push(isoDate(d));
-        d.setDate(d.getDate() + 1);
-      }
-      return dates;
-    }
-    case 'monthly':
-      return [firstOfMonth];
-    case 'quarterly':
-      return [1,4,7,10].includes(month) ? [firstOfMonth] : [];
-    case 'biannual':
-      return [4,10].includes(month) ? [firstOfMonth] : [];
-    case 'annual':
-      return month === 1 ? [firstOfMonth] : [];
-    default:
-      return [];
-  }
+function fmtTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 }
 
-// Heatmap background for a density score
-function heatBg(density: number): string {
-  if (density === 0) return 'transparent';
-  if (density <= 2)  return 'rgba(138,108,255,0.04)';
-  if (density <= 5)  return 'rgba(138,108,255,0.08)';
-  if (density <= 9)  return 'rgba(138,108,255,0.13)';
-  return 'rgba(138,108,255,0.20)';
+function fmtDateLong(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function fmtDateShort(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
 // =============================================================================
-// DESIGN PRIMITIVES
+// STATUS BADGE
 // =============================================================================
 
-function Panel({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return (
-    <div className={`rounded-2xl overflow-hidden ${className}`}
-      style={{ backgroundColor: '#FFFFFF', border: '1px solid #EBE5FF' }}>
-      {children}
-    </div>
-  );
-}
+const STATUS_STYLE: Record<string, { bg: string; color: string; label: string }> = {
+  booked:         { bg: '#0284C714', color: '#0284C7', label: 'Booked' },
+  arrived:        { bg: '#05966914', color: '#059669', label: 'Arrived' },
+  cancelled:      { bg: '#DC262614', color: '#DC2626', label: 'Cancelled' },
+  did_not_arrive: { bg: '#D9770614', color: '#D97706', label: 'DNA' },
+  pending:        { bg: '#6D28D914', color: '#6D28D9', label: 'Pending' },
+};
 
-function FilterChip({ label, active, color, icon: Icon, onClick }: {
-  label: string; active: boolean; color: string; icon: React.ElementType; onClick: () => void;
-}) {
+function StatusBadge({ status }: { status: string }) {
+  const s = STATUS_STYLE[status] ?? { bg: '#EBE5FF', color: '#6E6688', label: status };
   return (
-    <button onClick={onClick}
-      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.12em] transition-all"
-      style={{
-        backgroundColor: active ? color + '18' : '#F5F4FA',
-        border: `1px solid ${active ? color + '40' : '#EBE5FF'}`,
-        color: active ? color : '#8B84A0',
-      }}>
-      <Icon size={10} />
-      {label}
-    </button>
-  );
-}
-
-// Small colored chip shown inside day cells
-function EventChip({ label, color, completed }: { label: string; color: string; completed?: boolean }) {
-  return (
-    <div className="flex items-center gap-1 rounded-sm px-1 py-0.5 min-w-0"
-      style={{ borderLeft: `2px solid ${completed ? '#D1D5DB' : color}`, backgroundColor: color + '0D' }}>
-      <span className="text-[9px] font-medium truncate leading-tight"
-        style={{ color: completed ? '#9CA3AF' : color, textDecoration: completed ? 'line-through' : 'none' }}>
-        {label}
-      </span>
-    </div>
+    <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', background: s.bg, color: s.color, borderRadius: 5, padding: '2px 7px' }}>
+      {s.label}
+    </span>
   );
 }
 
 // =============================================================================
-// EVENT MODAL — Create / Edit
+// FORM FIELD
 // =============================================================================
 
-function EventModal({
-  date, event, users, currentUserId, onSave, onDelete, onClose,
-}: {
-  date: string;
-  event: CalendarEvent | null;
-  users: CalendarUser[];
-  currentUserId: string;
-  onSave: () => void;
-  onDelete: () => void;
-  onClose: () => void;
-}) {
-  const [form, setForm] = useState({
-    title:       event?.title ?? '',
-    description: event?.description ?? '',
-    event_type:  event?.event_type ?? 'meeting',
-    start_date:  event?.start_date ?? date,
-    end_date:    event?.end_date ?? '',
-    start_time:  event?.start_time ?? '',
-    end_time:    event?.end_time ?? '',
-    all_day:     event?.all_day ?? true,
-    assigned_to: event?.assigned_to ?? '',
-  });
-  const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-
-  async function handleSave() {
-    if (!form.title.trim()) return;
-    setSaving(true);
-    if (event) {
-      await updateCalendarEvent(event.id, {
-        title:       form.title,
-        description: form.description || undefined,
-        event_type:  form.event_type,
-        start_date:  form.start_date,
-        end_date:    form.end_date || null,
-        start_time:  form.all_day ? null : (form.start_time || null),
-        end_time:    form.all_day ? null : (form.end_time || null),
-        all_day:     form.all_day,
-        assigned_to: form.assigned_to || null,
-      });
-    } else {
-      await createCalendarEvent({
-        title:       form.title,
-        description: form.description || undefined,
-        event_type:  form.event_type,
-        start_date:  form.start_date,
-        end_date:    form.end_date || undefined,
-        start_time:  form.all_day ? undefined : (form.start_time || undefined),
-        end_time:    form.all_day ? undefined : (form.end_time || undefined),
-        all_day:     form.all_day,
-        assigned_to: form.assigned_to || null,
-        created_by:  currentUserId,
-      });
-    }
-    setSaving(false);
-    onSave();
-  }
-
-  async function handleDelete() {
-    if (!event) return;
-    setDeleting(true);
-    await deleteCalendarEvent(event.id);
-    setDeleting(false);
-    onDelete();
-  }
-
-  const inp = 'w-full rounded-lg px-3 py-2 text-[12px] focus:outline-none';
-  const inpStyle = { backgroundColor: '#FDFCFB', border: '1px solid #EBE5FF', color: '#1A1035' };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ backgroundColor: 'rgba(26,16,53,0.45)' }}
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 12 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        className="w-full max-w-md rounded-2xl p-6 shadow-2xl"
-        style={{ backgroundColor: '#FFFFFF', border: '1px solid #EBE5FF' }}>
-
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#8B84A0]">
-              {event ? 'Edit Event' : 'New Event'}
-            </p>
-            <p className="text-[13px] font-semibold text-[#1A1035] mt-0.5">{shortDate(form.start_date)}</p>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[#F5F4FA] transition-colors">
-            <X size={14} color="#8B84A0" />
-          </button>
-        </div>
-
-        <div className="space-y-4">
-          {/* Title */}
-          <div>
-            <label className="block text-[9px] text-[#8B84A0] mb-1.5 uppercase tracking-[0.14em]">Title *</label>
-            <input type="text" className={inp} style={inpStyle} placeholder="Event title…"
-              value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
-          </div>
-
-          {/* Type */}
-          <div>
-            <label className="block text-[9px] text-[#8B84A0] mb-1.5 uppercase tracking-[0.14em]">Type</label>
-            <div className="grid grid-cols-4 gap-1.5">
-              {Object.entries(EVENT_TYPE_LABEL).map(([k, v]) => (
-                <button key={k} onClick={() => setForm(f => ({ ...f, event_type: k as CalendarEvent['event_type'] }))}
-                  className="py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-[0.08em] transition-all"
-                  style={{
-                    backgroundColor: form.event_type === k ? EVENT_TYPE_COLOR[k] : '#F5F4FA',
-                    color: form.event_type === k ? '#FFFFFF' : '#8B84A0',
-                  }}>{v}</button>
-              ))}
-            </div>
-          </div>
-
-          {/* Dates */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[9px] text-[#8B84A0] mb-1.5 uppercase tracking-[0.14em]">Start Date</label>
-              <input type="date" className={inp} style={inpStyle}
-                value={form.start_date} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))} />
-            </div>
-            <div>
-              <label className="block text-[9px] text-[#8B84A0] mb-1.5 uppercase tracking-[0.14em]">End Date</label>
-              <input type="date" className={inp} style={inpStyle}
-                value={form.end_date} onChange={e => setForm(f => ({ ...f, end_date: e.target.value }))} />
-            </div>
-          </div>
-
-          {/* All-day toggle */}
-          <div className="flex items-center gap-3">
-            <button onClick={() => setForm(f => ({ ...f, all_day: !f.all_day }))}
-              className="flex items-center gap-2 text-[11px] text-[#6E6688]">
-              <div className="w-8 h-4 rounded-full transition-colors relative"
-                style={{ backgroundColor: form.all_day ? '#8A6CFF' : '#E5E7EB' }}>
-                <div className="w-3 h-3 rounded-full bg-white absolute top-0.5 transition-all"
-                  style={{ left: form.all_day ? '17px' : '2px' }} />
-              </div>
-              All day
-            </button>
-          </div>
-
-          {/* Times (only if not all-day) */}
-          {!form.all_day && (
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[9px] text-[#8B84A0] mb-1.5 uppercase tracking-[0.14em]">Start Time</label>
-                <input type="time" className={inp} style={inpStyle}
-                  value={form.start_time} onChange={e => setForm(f => ({ ...f, start_time: e.target.value }))} />
-              </div>
-              <div>
-                <label className="block text-[9px] text-[#8B84A0] mb-1.5 uppercase tracking-[0.14em]">End Time</label>
-                <input type="time" className={inp} style={inpStyle}
-                  value={form.end_time} onChange={e => setForm(f => ({ ...f, end_time: e.target.value }))} />
-              </div>
-            </div>
-          )}
-
-          {/* Assigned to */}
-          <div>
-            <label className="block text-[9px] text-[#8B84A0] mb-1.5 uppercase tracking-[0.14em]">Assigned To</label>
-            <select className={inp} style={inpStyle}
-              value={form.assigned_to} onChange={e => setForm(f => ({ ...f, assigned_to: e.target.value }))}>
-              <option value="">Unassigned</option>
-              {users.map(u => <option key={u.id} value={u.id}>{u.full_name}</option>)}
-            </select>
-          </div>
-
-          {/* Description */}
-          <div>
-            <label className="block text-[9px] text-[#8B84A0] mb-1.5 uppercase tracking-[0.14em]">Notes</label>
-            <textarea className={`${inp} resize-none h-16`} style={inpStyle} placeholder="Optional notes…"
-              value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
-          </div>
-        </div>
-
-        <div className="flex gap-3 mt-5">
-          {event && (
-            <button onClick={handleDelete} disabled={deleting}
-              className="px-3 py-2.5 rounded-xl text-[11px] font-bold border transition-colors disabled:opacity-50"
-              style={{ borderColor: '#FCA5A5', color: '#DC2626' }}>
-              {deleting ? '…' : 'Delete'}
-            </button>
-          )}
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-[12px] font-bold border"
-            style={{ borderColor: '#EBE5FF', color: '#6E6688' }}>Cancel</button>
-          <button onClick={handleSave} disabled={saving || !form.title.trim()}
-            className="flex-1 py-2.5 rounded-xl text-[12px] font-bold text-white disabled:opacity-50"
-            style={{ backgroundColor: '#8A6CFF' }}>
-            {saving ? 'Saving…' : event ? 'Update' : 'Create'}
-          </button>
-        </div>
-      </motion.div>
-    </div>
-  );
-}
-
-// =============================================================================
-// DAY CELL — used in month grid
-// =============================================================================
-
-function DayCell({
-  dayData, isToday, isCurrentMonth, isSelected, filters, onClick,
-}: {
-  dayData: DayData;
-  isToday: boolean;
-  isCurrentMonth: boolean;
-  isSelected: boolean;
-  filters: Filters;
-  onClick: () => void;
-}) {
-  const day = parseInt(dayData.date.split('-')[2]);
-
-  // Gather visible items in priority order
-  const visibleCompliance = filters.compliance ? dayData.compliance : [];
-  const visibleGoals      = filters.goals      ? dayData.goals      : [];
-  const visibleSignals    = filters.signals    ? dayData.signals    : [];
-  const visibleEvents     = filters.events     ? dayData.events     : [];
-
-  const allItems = [
-    ...visibleSignals.map(s  => ({ label: s.title, color: '#DC2626', type: 'signal' as const })),
-    ...visibleCompliance.map(c => ({ label: c.task_name, color: '#8A6CFF', type: 'compliance' as const })),
-    ...visibleGoals.map(g    => ({ label: g.title, color: '#059669', type: 'goal' as const })),
-    ...visibleEvents.map(e   => ({
-      label: e.title,
-      color: e.color ?? EVENT_TYPE_COLOR[e.event_type] ?? '#0284C7',
-      type: 'event' as const,
-      completed: e.status === 'completed',
-    })),
-  ];
-
-  const MAX_VISIBLE = 3;
-  const shown    = allItems.slice(0, MAX_VISIBLE);
-  const overflow = allItems.length - MAX_VISIBLE;
-  const density  = filters.compliance || filters.goals || filters.signals || filters.events
-    ? dayData.density : 0;
-
-  return (
-    <button onClick={onClick}
-      className="relative text-left p-1.5 transition-all min-h-[88px] w-full"
-      style={{
-        backgroundColor: isSelected
-          ? '#EBE5FF'
-          : isToday
-            ? 'rgba(138,108,255,0.06)'
-            : !isCurrentMonth
-              ? 'transparent'
-              : heatBg(density),
-        opacity: isCurrentMonth ? 1 : 0.4,
-        borderRadius: 8,
-      }}>
-
-      {/* Day number */}
-      <div className="flex items-start justify-between mb-1">
-        <span
-          className="text-[11px] font-bold leading-none w-5 h-5 flex items-center justify-center rounded-full"
-          style={{
-            backgroundColor: isToday ? '#8A6CFF' : 'transparent',
-            color: isToday ? '#FFFFFF' : isCurrentMonth ? '#1A1035' : '#C4B9FF',
-            fontWeight: isToday ? 700 : 600,
-          }}>
-          {day}
-        </span>
-        {density >= 5 && (
-          <span className="text-[8px] font-bold rounded-full w-4 h-4 flex items-center justify-center"
-            style={{ backgroundColor: density >= 8 ? '#FEE2E2' : '#FEF3C7', color: density >= 8 ? '#DC2626' : '#D97706' }}>
-            {density >= 10 ? '!' : density}
-          </span>
-        )}
-      </div>
-
-      {/* Event chips */}
-      <div className="space-y-0.5">
-        {shown.map((item, i) => (
-          <EventChip key={i} label={item.label} color={item.color}
-            completed={'completed' in item && item.completed} />
-        ))}
-        {overflow > 0 && (
-          <p className="text-[8px] text-[#8B84A0] font-medium pl-1">+{overflow} more</p>
-        )}
-      </div>
-    </button>
-  );
-}
-
-// =============================================================================
-// MONTH VIEW
-// =============================================================================
-
-function MonthView({
-  year, month, dayMap, filters, selectedDay, isAdmin, onSelectDay, onNewEvent,
-}: {
-  year: number; month: number;
-  dayMap: Record<string, DayData>;
-  filters: Filters;
-  selectedDay: string | null;
-  isAdmin: boolean;
-  onSelectDay: (d: string) => void;
-  onNewEvent: (d: string) => void;
-}) {
-  const todayStr = isoDate(new Date());
-  const first = startOfMonth(year, month);
-  const startOffset = isoWeekday(first); // 0=Mon
-  const totalDays = daysInMonth(year, month);
-  const totalCells = Math.ceil((startOffset + totalDays) / 7) * 7;
-
-  // Compute week density scores for risk-window indicator
-  const cells: Array<{ date: string; isCurrentMonth: boolean }> = [];
-  for (let i = 0; i < totalCells; i++) {
-    const d = addDays(first, i - startOffset);
-    cells.push({ date: isoDate(d), isCurrentMonth: d.getMonth() + 1 === month });
-  }
-
-  const weeks: Array<typeof cells> = [];
-  for (let w = 0; w < cells.length / 7; w++) weeks.push(cells.slice(w * 7, w * 7 + 7));
-
-  function weekDensity(weekCells: typeof cells): number {
-    return weekCells.reduce((sum, c) => sum + (dayMap[c.date]?.density ?? 0), 0);
-  }
-
+function FormField({ label, value, onChange, type = 'text' }: { label: string; value: string; onChange: (v: string) => void; type?: string }) {
   return (
     <div>
-      {/* Day headers */}
-      <div className="grid grid-cols-7 mb-1">
-        {DAYS_OF_WEEK.map(d => (
-          <div key={d} className="text-center py-2">
-            <span className="text-[9px] uppercase tracking-[0.2em] font-semibold text-[#8B84A0]">{d}</span>
-          </div>
-        ))}
-      </div>
-
-      {/* Week rows */}
-      <div className="space-y-0.5">
-        {weeks.map((week, wi) => {
-          const wd = weekDensity(week);
-          const isRiskWeek = wd >= 10;
-          return (
-            <div key={wi} className="relative grid grid-cols-7 gap-0.5">
-              {/* Risk week banner */}
-              {isRiskWeek && (
-                <div className="absolute -left-2 top-0 bottom-0 w-1 rounded-r-full"
-                  style={{ backgroundColor: wd >= 15 ? '#DC2626' : '#D97706' }} />
-              )}
-              {week.map(({ date, isCurrentMonth }) => {
-                const data: DayData = dayMap[date] ?? {
-                  date, events: [], compliance: [], goals: [], signals: [], density: 0,
-                };
-                return (
-                  <DayCell key={date}
-                    dayData={data}
-                    isToday={date === todayStr}
-                    isCurrentMonth={isCurrentMonth}
-                    isSelected={date === selectedDay}
-                    filters={filters}
-                    onClick={() => {
-                      if (!isCurrentMonth) return;
-                      onSelectDay(date);
-                    }}
-                  />
-                );
-              })}
-            </div>
-          );
-        })}
-      </div>
+      <label style={{ display: 'block', fontSize: 10, color: '#6E6688', marginBottom: 4 }}>{label}</label>
+      <input
+        type={type}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        style={{ width: '100%', padding: '9px 12px', border: '1px solid #EBE5FF', borderRadius: 8, fontSize: 11, color: '#1A1035', background: '#FAF7F2', outline: 'none', boxSizing: 'border-box' }}
+      />
     </div>
   );
 }
 
 // =============================================================================
-// AGENDA VIEW — next 90 days
+// APPOINTMENT BLOCK (week grid)
 // =============================================================================
 
-function AgendaView({
-  dayMap, filters, isAdmin, currentUserId, users, onRefresh,
-}: {
-  dayMap: Record<string, DayData>;
-  filters: Filters;
-  isAdmin: boolean;
-  currentUserId: string;
-  users: CalendarUser[];
-  onRefresh: () => void;
-}) {
-  const [editEvent, setEditEvent] = useState<CalendarEvent | null>(null);
-  const todayStr = isoDate(new Date());
+function ApptBlock({ appt, onClick }: { appt: AppointmentRow; onClick: () => void }) {
+  const top    = timeToTop(appt.starts_at);
+  const height = durationToHeight(appt.duration_minutes);
+  const isKomal = appt.source === 'komal';
 
-  // Gather all upcoming days with content
-  const futureDays = Object.keys(dayMap)
-    .filter(d => d >= todayStr)
-    .sort()
-    .slice(0, 90);
+  return (
+    <motion.button
+      initial={{ opacity: 0, scale: 0.97 }}
+      animate={{ opacity: 1, scale: 1 }}
+      whileHover={{ scale: 1.02, zIndex: 10 }}
+      onClick={onClick}
+      style={{
+        position:        'absolute',
+        left:            3,
+        right:           3,
+        top,
+        height,
+        backgroundColor: `${appt.practitioner_color}18`,
+        borderLeft:      `3px solid ${appt.practitioner_color}`,
+        borderRadius:    6,
+        padding:         '3px 6px',
+        cursor:          'pointer',
+        overflow:        'hidden',
+        zIndex:          1,
+        border:          'none',
+        textAlign:       'left',
+      }}
+    >
+      <div style={{ fontSize: 10, fontWeight: 700, color: appt.practitioner_color, lineHeight: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        {appt.patient_name}
+        {isKomal && (
+          <span style={{ marginLeft: 4, fontSize: 8, background: appt.practitioner_color, color: '#fff', borderRadius: 3, padding: '0 3px' }}>K</span>
+        )}
+      </div>
+      {height >= 32 && (
+        <div style={{ fontSize: 9, color: '#524D66', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {appt.appointment_type}
+        </div>
+      )}
+    </motion.button>
+  );
+}
 
-  const activeDays = futureDays.filter(d => {
-    const day = dayMap[d];
-    if (!day) return false;
-    const hasComp = filters.compliance && day.compliance.length > 0;
-    const hasGoal = filters.goals && day.goals.length > 0;
-    const hasSig  = filters.signals && day.signals.length > 0;
-    const hasEvt  = filters.events && day.events.length > 0;
-    return hasComp || hasGoal || hasSig || hasEvt;
+// =============================================================================
+// TYPES
+// =============================================================================
+
+type Tab = 'schedule' | 'list' | 'pending' | 'team';
+
+interface BookForm {
+  practitionerId: string;
+  apptTypeId:     string;
+  apptTypeName:   string;
+  duration:       number;
+  date:           string;
+  time:           string;
+  notes:          string;
+  firstName:      string;
+  lastName:       string;
+  phone:          string;
+  email:          string;
+}
+
+const EMPTY_FORM: BookForm = {
+  practitionerId: '',
+  apptTypeId:     '',
+  apptTypeName:   '',
+  duration:       30,
+  date:           '',
+  time:           '09:00',
+  notes:          '',
+  firstName:      '',
+  lastName:       '',
+  phone:          '',
+  email:          '',
+};
+
+// =============================================================================
+// PAGE
+// =============================================================================
+
+export default function CalendarPage() {
+  const [profile,       setProfile]       = useState<StaffProfile | null>(null);
+  const [userId,        setUserId]        = useState('');
+  const [brandColor,    setBrandColor]    = useState('#6D28D9');
+  const [tab,           setTab]           = useState<Tab>('schedule');
+  const [weekStart,     setWeekStart]     = useState<Date>(() => getWeekStart(new Date()));
+  const [appointments,  setAppointments]  = useState<AppointmentRow[]>([]);
+  const [pending,       setPending]       = useState<PendingBooking[]>([]);
+  const [practitioners, setPractitioners] = useState<PractitionerRow[]>([]);
+  const [apptTypes,     setApptTypes]     = useState<AppointmentTypeRow[]>([]);
+  const [isDemo,        setIsDemo]        = useState(false);
+  const [loading,       setLoading]       = useState(true);
+  const [filterPrac,    setFilterPrac]    = useState<string | null>(null);
+  const [selected,      setSelected]      = useState<AppointmentRow | null>(null);
+  const [bookingTarget, setBookingTarget] = useState<PendingBooking | null>(null);
+  const [bookForm,      setBookForm]      = useState<BookForm>(EMPTY_FORM);
+  const [bookLoading,   setBookLoading]   = useState(false);
+  const [bookError,     setBookError]     = useState<string | null>(null);
+  const [statusUpdating,setStatusUpdating]= useState<string | null>(null);
+
+  // Auth
+  useEffect(() => {
+    getCurrentUser().then(r => {
+      const uid = r.userId ?? '';
+      setUserId(uid);
+      if (!uid) return;
+      getStaffProfile('clinic', uid).then(res => {
+        if (res.success && res.data?.profile) {
+          setProfile(res.data.profile);
+          setBrandColor(res.data.profile.brandColor || '#6D28D9');
+        }
+      });
+    });
+  }, []);
+
+  // Load week
+  const loadWeek = useCallback(async (ws: Date) => {
+    setLoading(true);
+    const { appointments: appts, isDemo: demo } = await getWeekAppointments(fmtDate(ws));
+    setAppointments(appts);
+    setIsDemo(demo);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { loadWeek(weekStart); }, [weekStart, loadWeek]);
+
+  // Load supporting data once
+  useEffect(() => {
+    getPractitioners().then(setPractitioners);
+    getPendingBookings().then(r => setPending(r.bookings));
+    getAppointmentTypes().then(setApptTypes);
+  }, []);
+
+  const accentColor = brandColor;
+
+  // Filtered appointments
+  const filtered = filterPrac ? appointments.filter(a => a.practitioner_cliniko_id === filterPrac) : appointments;
+
+  // Group by day for week grid
+  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const byDay: Record<string, AppointmentRow[]> = {};
+  weekDays.forEach(d => { byDay[fmtDate(d)] = []; });
+  filtered.forEach(a => {
+    const day = a.starts_at.split('T')[0];
+    if (byDay[day]) byDay[day].push(a);
   });
 
-  if (activeDays.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 text-center">
-        <Calendar size={32} color="#C4B9FF" className="mb-3" />
-        <p className="text-[13px] font-semibold text-[#1A1035]">No upcoming items</p>
-        <p className="text-[11px] text-[#8B84A0] mt-1">Enable filters or add events to see them here.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      {activeDays.map(dateStr => {
-        const day = dayMap[dateStr]!;
-        const du = daysUntil(dateStr);
-        const isToday = dateStr === todayStr;
-
-        return (
-          <div key={dateStr}>
-            {/* Date header */}
-            <div className="flex items-center gap-3 mb-3">
-              <div className="flex-1 h-px" style={{ backgroundColor: '#EBE5FF' }} />
-              <div className="flex items-center gap-2">
-                {isToday && (
-                  <span className="text-[8px] font-bold uppercase tracking-[0.14em] px-2 py-0.5 rounded-full"
-                    style={{ backgroundColor: '#8A6CFF', color: '#FFFFFF' }}>Today</span>
-                )}
-                <span className="text-[11px] font-semibold text-[#1A1035]">{longDate(dateStr)}</span>
-                {du > 0 && !isToday && (
-                  <span className="text-[9px] text-[#8B84A0]">in {du}d</span>
-                )}
-                {du < 0 && (
-                  <span className="text-[9px] font-bold text-[#DC2626]">{Math.abs(du)}d overdue</span>
-                )}
-              </div>
-              <div className="flex-1 h-px" style={{ backgroundColor: '#EBE5FF' }} />
-            </div>
-
-            {/* Items */}
-            <div className="space-y-2">
-              {/* Signals */}
-              {filters.signals && day.signals.map(s => (
-                <div key={s.id} className="flex items-start gap-3 p-3 rounded-xl"
-                  style={{ backgroundColor: '#FFF1F2', border: '1px solid #FCA5A5' }}>
-                  <Zap size={12} color="#DC2626" className="mt-0.5 flex-shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-[11px] font-semibold text-[#DC2626] truncate">{s.title}</p>
-                    <p className="text-[9px] text-[#DC2626]/70 mt-0.5 uppercase tracking-[0.1em]">
-                      {s.priority} priority · {s.category}
-                    </p>
-                  </div>
-                </div>
-              ))}
-
-              {/* Compliance */}
-              {filters.compliance && day.compliance.map(c => (
-                <div key={c.id + dateStr} className="flex items-start gap-3 p-3 rounded-xl"
-                  style={{ backgroundColor: '#F5F3FF', border: '1px solid #DDD6FE' }}>
-                  <Shield size={12} color="#8A6CFF" className="mt-0.5 flex-shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-semibold text-[#1A1035] truncate">{c.task_name}</p>
-                    <p className="text-[9px] text-[#8B84A0] mt-0.5">
-                      {FREQ_LABEL[c.frequency] ?? c.frequency}
-                      {c.responsible_name && ` · ${c.responsible_name}`}
-                    </p>
-                  </div>
-                  <span className="text-[8px] font-bold uppercase tracking-[0.1em] px-2 py-0.5 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: '#EDE9FE', color: '#7C3AED' }}>
-                    Compliance
-                  </span>
-                </div>
-              ))}
-
-              {/* Goals */}
-              {filters.goals && day.goals.map(g => {
-                const pct = g.target_value > 0 ? Math.round((g.current_value / g.target_value) * 100) : 0;
-                return (
-                  <div key={g.id} className="flex items-start gap-3 p-3 rounded-xl"
-                    style={{ backgroundColor: '#F0FDF4', border: '1px solid #BBF7D0' }}>
-                    <Target size={12} color="#059669" className="mt-0.5 flex-shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[11px] font-semibold text-[#1A1035] truncate">{g.title}</p>
-                      <div className="flex items-center gap-2 mt-1.5">
-                        <div className="flex-1 h-1 rounded-full bg-[#D1FAE5]">
-                          <div className="h-1 rounded-full bg-[#059669] transition-all"
-                            style={{ width: `${Math.min(100, pct)}%` }} />
-                        </div>
-                        <span className="text-[9px] text-[#059669] font-semibold">{pct}%</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-
-              {/* Custom Events */}
-              {filters.events && day.events.map(e => {
-                const color = e.color ?? EVENT_TYPE_COLOR[e.event_type] ?? '#0284C7';
-                return (
-                  <div key={e.id} className="flex items-start gap-3 p-3 rounded-xl cursor-pointer transition-colors"
-                    onClick={() => isAdmin && setEditEvent(e)}
-                    style={{
-                      backgroundColor: color + '0D',
-                      border: `1px solid ${color}30`,
-                      opacity: e.status === 'completed' ? 0.6 : 1,
-                    }}>
-                    <div className="w-2.5 h-2.5 rounded-full mt-0.5 flex-shrink-0"
-                      style={{ backgroundColor: color }} />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[11px] font-semibold text-[#1A1035] truncate"
-                        style={{ textDecoration: e.status === 'completed' ? 'line-through' : 'none' }}>
-                        {e.title}
-                      </p>
-                      {e.description && (
-                        <p className="text-[9px] text-[#6E6688] mt-0.5 line-clamp-2">{e.description}</p>
-                      )}
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[8px] uppercase tracking-[0.1em] font-semibold"
-                          style={{ color }}>{EVENT_TYPE_LABEL[e.event_type]}</span>
-                        {!e.all_day && e.start_time && (
-                          <span className="text-[9px] text-[#8B84A0]">
-                            <Clock size={8} className="inline mr-0.5" />
-                            {e.start_time.slice(0,5)}{e.end_time ? `–${e.end_time.slice(0,5)}` : ''}
-                          </span>
-                        )}
-                        {e.assigned_name && (
-                          <span className="text-[9px] text-[#8B84A0]">
-                            <User size={8} className="inline mr-0.5" />{e.assigned_name}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    {e.status === 'completed'
-                      ? <CheckCircle2 size={14} color="#059669" className="flex-shrink-0 mt-0.5" />
-                      : <Circle size={14} color={color + '60'} className="flex-shrink-0 mt-0.5" />
-                    }
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })}
-
-      <AnimatePresence>
-        {editEvent && (
-          <EventModal
-            date={editEvent.start_date}
-            event={editEvent}
-            users={users}
-            currentUserId={currentUserId}
-            onSave={() => { setEditEvent(null); onRefresh(); }}
-            onDelete={() => { setEditEvent(null); onRefresh(); }}
-            onClose={() => setEditEvent(null)}
-          />
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-// =============================================================================
-// INTELLIGENCE SIDEBAR
-// =============================================================================
-
-function SmartSidebar({
-  dayMap, year, month, selectedDay, onSelectDay,
-}: {
-  dayMap: Record<string, DayData>;
-  year: number; month: number;
-  selectedDay: string | null;
-  onSelectDay: (d: string) => void;
-}) {
-  const todayStr = isoDate(new Date());
-
-  // Compute month stats
-  const monthDays = Object.values(dayMap);
-  const totalComplianceThisMonth = monthDays.reduce((s, d) => s + d.compliance.length, 0);
-  const totalEventsThisMonth     = monthDays.reduce((s, d) => s + d.events.length, 0);
-  const completedEvents          = monthDays.reduce((s, d) => s + d.events.filter(e => e.status === 'completed').length, 0);
-  const totalGoals               = monthDays.reduce((s, d) => s + d.goals.length, 0);
-  const totalSignals             = monthDays.reduce((s, d) => s + d.signals.length, 0);
-  const totalItems               = totalComplianceThisMonth + totalEventsThisMonth + totalGoals + totalSignals;
-
-  // This week data
-  const thisWeekDays = Object.keys(dayMap)
-    .filter(d => {
-      const target = new Date(d + 'T00:00:00');
-      const today  = new Date(todayStr + 'T00:00:00');
-      const monday = new Date(today); monday.setDate(today.getDate() - isoWeekday(today));
-      const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
-      return target >= monday && target <= sunday;
-    });
-  const weekCompliance = thisWeekDays.reduce((s, d) => s + (dayMap[d]?.compliance.length ?? 0), 0);
-  const weekEvents     = thisWeekDays.reduce((s, d) => s + (dayMap[d]?.events.length ?? 0), 0);
-  const weekGoals      = thisWeekDays.reduce((s, d) => s + (dayMap[d]?.goals.length ?? 0), 0);
-  const weekTotal      = weekCompliance + weekEvents + weekGoals;
-
-  // Risk windows: weeks in this month with density ≥ 10
-  const allKeys = Object.keys(dayMap).sort();
-  const weeks: Array<{ label: string; density: number; start: string }> = [];
-  const first = startOfMonth(year, month);
-  const startOffset = isoWeekday(first);
-  const cells: string[] = [];
-  for (let i = 0; i < 42; i++) {
-    const d = addDays(first, i - startOffset);
-    if (d.getMonth() + 1 === month) cells.push(isoDate(d));
-  }
-  for (let w = 0; w < 6; w++) {
-    const wc = cells.slice(w * 7, w * 7 + 7);
-    if (wc.length === 0) break;
-    const density = wc.reduce((s, d) => s + (dayMap[d]?.density ?? 0), 0);
-    if (density >= 6 && wc[0]) {
-      const dt = new Date(wc[0] + 'T00:00:00');
-      weeks.push({
-        label: `Wk of ${dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`,
-        density,
-        start: wc[0],
-      });
+  // Status update
+  const handleStatusUpdate = async (appt: AppointmentRow, status: 'arrived' | 'cancelled') => {
+    setStatusUpdating(appt.id);
+    const r = await updateAppointmentStatus(appt.id, status);
+    if (r.success) {
+      setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, status } : a));
+      if (selected?.id === appt.id) setSelected(prev => prev ? { ...prev, status } : null);
     }
-  }
+    setStatusUpdating(null);
+  };
 
-  // Next 5 upcoming deadlines (all types)
-  const upcoming: Array<{ date: string; label: string; color: string; type: string }> = [];
-  for (const d of allKeys.filter(d => d >= todayStr).slice(0, 60)) {
-    const day = dayMap[d];
-    if (!day) continue;
-    for (const c of day.compliance) upcoming.push({ date: d, label: c.task_name, color: '#8A6CFF', type: 'Compliance' });
-    for (const g of day.goals)      upcoming.push({ date: d, label: g.title, color: '#059669', type: 'Goal' });
-    for (const e of day.events.filter(e => e.status !== 'completed'))
-      upcoming.push({ date: d, label: e.title, color: EVENT_TYPE_COLOR[e.event_type] ?? '#0284C7', type: EVENT_TYPE_LABEL[e.event_type] });
-    if (upcoming.length >= 5) break;
-  }
+  // Dismiss pending
+  const handleDismiss = async (b: PendingBooking) => {
+    if (b.id.startsWith('sig-demo')) { setPending(prev => prev.filter(p => p.id !== b.id)); return; }
+    const r = await dismissPendingBooking(b.id);
+    if (r.success) setPending(prev => prev.filter(p => p.id !== b.id));
+  };
 
-  // Selected day items
-  const selectedData = selectedDay ? dayMap[selectedDay] : null;
+  // Open booking modal
+  const openBooking = (b: PendingBooking) => {
+    const parts     = (b.patient_name || '').split(' ');
+    const firstName = parts[0] ?? '';
+    const lastName  = parts.slice(1).join(' ');
+    setBookForm({
+      ...EMPTY_FORM,
+      practitionerId: practitioners[0]?.cliniko_id ?? '',
+      notes:          b.notes ?? '',
+      firstName,
+      lastName,
+      phone:          b.patient_phone ?? '',
+      email:          b.patient_email ?? '',
+    });
+    setBookError(null);
+    setBookingTarget(b);
+  };
 
-  // Pulse %
-  const pulsePct = totalItems > 0 ? Math.round(((totalEventsThisMonth - completedEvents + totalComplianceThisMonth) / totalItems) * 100) : 100;
+  // Confirm booking
+  const handleConfirmBooking = async () => {
+    if (!bookingTarget) return;
+    if (!bookForm.practitionerId || !bookForm.apptTypeId || !bookForm.date || !bookForm.time) {
+      setBookError('Please fill in all required fields.');
+      return;
+    }
+    setBookLoading(true);
+    setBookError(null);
+
+    const startsAt = new Date(`${bookForm.date}T${bookForm.time}:00`).toISOString();
+    const params: ConfirmBookingParams = {
+      signalId:              bookingTarget.id,
+      practitionerClinikoId: bookForm.practitionerId,
+      appointmentTypeId:     bookForm.apptTypeId,
+      appointmentTypeName:   bookForm.apptTypeName,
+      durationMinutes:       bookForm.duration,
+      startsAt,
+      notes:                 bookForm.notes || undefined,
+      ...(bookingTarget.existing_cliniko_id
+        ? { existingClinikoId: bookingTarget.existing_cliniko_id }
+        : { newPatient: { first_name: bookForm.firstName, last_name: bookForm.lastName, phone: bookForm.phone || undefined, email: bookForm.email || undefined } }
+      ),
+    };
+
+    const result = await confirmBooking(params);
+    setBookLoading(false);
+
+    if (result.success) {
+      setPending(prev => prev.filter(p => p.id !== bookingTarget.id));
+      setBookingTarget(null);
+      loadWeek(weekStart);
+    } else {
+      setBookError(result.error ?? 'Booking failed. Please try again.');
+    }
+  };
+
+  // Week label
+  const weekEnd    = addDays(weekStart, 6);
+  const weekLabel  = weekStart.getMonth() === weekEnd.getMonth()
+    ? `${MONTH_NAMES[weekStart.getMonth()]} ${weekStart.getDate()}–${weekEnd.getDate()}, ${weekStart.getFullYear()}`
+    : `${MONTH_NAMES[weekStart.getMonth()]} ${weekStart.getDate()} – ${MONTH_NAMES[weekEnd.getMonth()]} ${weekEnd.getDate()}, ${weekStart.getFullYear()}`;
+
+  // ============================================================================
+  // RENDER
+  // ============================================================================
 
   return (
-    <div className="space-y-4">
-      {/* Month Pulse */}
-      <Panel>
-        <div className="px-4 py-3" style={{ borderBottom: '1px solid #EBE5FF' }}>
-          <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#8B84A0]">Month Pulse</p>
-        </div>
-        <div className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <p className="text-[28px] font-black tracking-[-0.02em] text-[#1A1035] leading-none">{pulsePct}%</p>
-              <p className="text-[9px] text-[#8B84A0] mt-1">Capacity utilised</p>
-            </div>
-            <div className="text-right">
-              <p className="text-[11px] font-semibold text-[#1A1035]">{totalItems}</p>
-              <p className="text-[9px] text-[#8B84A0]">Total items</p>
-            </div>
-          </div>
-          <div className="h-1.5 rounded-full bg-[#F5F4FA]">
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${Math.min(100, pulsePct)}%` }}
-              transition={{ duration: 0.8, ease: 'easeOut' }}
-              className="h-1.5 rounded-full"
-              style={{ backgroundColor: pulsePct >= 80 ? '#DC2626' : pulsePct >= 60 ? '#D97706' : '#8A6CFF' }}
-            />
-          </div>
-          <div className="grid grid-cols-3 gap-2 mt-3">
-            {[
-              { label: 'Compliance', count: totalComplianceThisMonth, color: '#8A6CFF' },
-              { label: 'Events', count: totalEventsThisMonth, color: '#0284C7' },
-              { label: 'Signals', count: totalSignals, color: '#DC2626' },
-            ].map(({ label, count, color }) => (
-              <div key={label} className="text-center rounded-lg p-2" style={{ backgroundColor: '#FDFCFB' }}>
-                <p className="text-[16px] font-black" style={{ color }}>{count}</p>
-                <p className="text-[8px] text-[#8B84A0] uppercase tracking-[0.1em]">{label}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </Panel>
+    <div style={{ minHeight: '100vh', background: '#FAF7F2' }}>
+      {profile && <StaffNav profile={profile} userId={userId} brandColor={brandColor} currentPath="Schedule" />}
 
-      {/* This Week */}
-      <Panel>
-        <div className="px-4 py-3" style={{ borderBottom: '1px solid #EBE5FF' }}>
-          <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#8B84A0]">This Week</p>
-        </div>
-        <div className="p-4 space-y-2">
-          {[
-            { label: 'Compliance tasks', count: weekCompliance, color: '#8A6CFF', icon: Shield },
-            { label: 'Events & meetings', count: weekEvents, color: '#0284C7', icon: Calendar },
-            { label: 'Goal deadlines', count: weekGoals, color: '#059669', icon: Target },
-          ].map(({ label, count, color, icon: Icon }) => (
-            <div key={label} className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Icon size={10} color={color} />
-                <span className="text-[11px] text-[#6E6688]">{label}</span>
-              </div>
-              <span className="text-[11px] font-bold" style={{ color: count > 0 ? color : '#C4B9FF' }}>{count}</span>
-            </div>
-          ))}
-          <div className="mt-2 pt-2" style={{ borderTop: '1px solid #EBE5FF' }}>
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-[#1A1035]">Total this week</span>
-              <span className="text-[13px] font-black text-[#1A1035]">{weekTotal}</span>
-            </div>
-          </div>
-        </div>
-      </Panel>
+      <div style={{ paddingLeft: 240, paddingRight: 32, paddingTop: 32, paddingBottom: 64 }}>
 
-      {/* Risk Windows */}
-      {weeks.length > 0 && (
-        <Panel>
-          <div className="px-4 py-3" style={{ borderBottom: '1px solid #EBE5FF' }}>
-            <div className="flex items-center gap-1.5">
-              <AlertTriangle size={10} color="#D97706" />
-              <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#8B84A0]">Risk Windows</p>
+        {/* ── HEADER ── */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, borderBottom: '1px solid #EBE5FF', paddingBottom: 20 }}>
+          <div>
+            <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.28em', fontWeight: 600, color: '#8B84A0', marginBottom: 6 }}>
+              Appointments
             </div>
+            <h1 style={{ fontSize: 38, fontWeight: 900, letterSpacing: '-0.035em', color: '#1A1035', margin: 0, lineHeight: 1 }}>
+              Schedule
+            </h1>
+            {isDemo && (
+              <div style={{ marginTop: 8, fontSize: 10, color: '#D97706', background: '#D9770614', border: '1px solid #D9770640', borderRadius: 6, padding: '3px 10px', display: 'inline-block' }}>
+                Demo data — connect Cliniko to see real appointments
+              </div>
+            )}
           </div>
-          <div className="p-4 space-y-2">
-            {weeks.map(w => (
-              <button key={w.start} onClick={() => onSelectDay(w.start)}
-                className="w-full flex items-center justify-between p-2 rounded-lg transition-colors text-left"
-                style={{ backgroundColor: w.density >= 15 ? '#FFF1F2' : '#FFFBEB', border: `1px solid ${w.density >= 15 ? '#FCA5A5' : '#FDE68A'}` }}>
-                <span className="text-[11px] font-semibold" style={{ color: w.density >= 15 ? '#DC2626' : '#D97706' }}>{w.label}</span>
-                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
-                  style={{ backgroundColor: w.density >= 15 ? '#DC2626' : '#D97706', color: '#FFFFFF' }}>
-                  {w.density} items
-                </span>
+
+          {/* Week navigator */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button
+              onClick={() => setWeekStart(getWeekStart(new Date()))}
+              style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid #EBE5FF', background: 'transparent', fontSize: 11, fontWeight: 600, color: '#524D66', cursor: 'pointer' }}
+            >
+              Today
+            </button>
+            <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #EBE5FF', borderRadius: 10, overflow: 'hidden' }}>
+              <button onClick={() => setWeekStart(d => addDays(d, -7))} style={{ padding: '8px 10px', border: 'none', background: 'transparent', cursor: 'pointer', color: '#524D66', display: 'flex' }}>
+                <ChevronLeft size={14} />
               </button>
-            ))}
-          </div>
-        </Panel>
-      )}
-
-      {/* Upcoming Deadlines */}
-      {upcoming.length > 0 && (
-        <Panel>
-          <div className="px-4 py-3" style={{ borderBottom: '1px solid #EBE5FF' }}>
-            <div className="flex items-center gap-1.5">
-              <TrendingUp size={10} color="#8A6CFF" />
-              <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#8B84A0]">Upcoming Deadlines</p>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#1A1035', padding: '0 10px', whiteSpace: 'nowrap' }}>
+                {weekLabel}
+              </span>
+              <button onClick={() => setWeekStart(d => addDays(d, 7))} style={{ padding: '8px 10px', border: 'none', background: 'transparent', cursor: 'pointer', color: '#524D66', display: 'flex' }}>
+                <ChevronRight size={14} />
+              </button>
             </div>
+            <button
+              onClick={() => loadWeek(weekStart)}
+              style={{ padding: 8, borderRadius: 8, border: '1px solid #EBE5FF', background: 'transparent', cursor: 'pointer', color: '#524D66', display: 'flex' }}
+            >
+              <RefreshCw size={14} />
+            </button>
           </div>
-          <div className="p-4 space-y-2.5">
-            {upcoming.map((item, i) => {
-              const du = daysUntil(item.date);
-              return (
-                <button key={i} onClick={() => onSelectDay(item.date)}
-                  className="w-full flex items-start gap-2.5 text-left group">
-                  <div className="w-0.5 h-full rounded-full flex-shrink-0 mt-0.5" style={{ backgroundColor: item.color, minHeight: 28 }} />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-semibold text-[#1A1035] truncate group-hover:text-[#8A6CFF] transition-colors">
-                      {item.label}
-                    </p>
-                    <p className="text-[9px] text-[#8B84A0]">{shortDate(item.date)} · {item.type}</p>
-                  </div>
-                  <span className="text-[9px] font-bold flex-shrink-0"
-                    style={{ color: du <= 3 ? '#DC2626' : du <= 7 ? '#D97706' : '#8B84A0' }}>
-                    {du === 0 ? 'Today' : du === 1 ? 'Tomorrow' : `${du}d`}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </Panel>
-      )}
+        </div>
 
-      {/* Selected Day Detail */}
-      <AnimatePresence>
-        {selectedData && (
-          <motion.div key={selectedData.date}
-            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}>
-            <Panel>
-              <div className="px-4 py-3" style={{ borderBottom: '1px solid #EBE5FF' }}>
-                <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#8B84A0]">
-                  {shortDate(selectedDay!)}
-                </p>
-              </div>
-              <div className="p-4 space-y-2">
-                {selectedData.compliance.length === 0 && selectedData.goals.length === 0 &&
-                 selectedData.events.length === 0 && selectedData.signals.length === 0 && (
-                  <p className="text-[11px] text-[#8B84A0] text-center py-2">Nothing scheduled</p>
-                )}
-                {selectedData.signals.map(s => (
-                  <div key={s.id} className="flex items-center gap-2">
-                    <Zap size={10} color="#DC2626" className="flex-shrink-0" />
-                    <p className="text-[11px] text-[#DC2626] truncate flex-1">{s.title}</p>
-                  </div>
-                ))}
-                {selectedData.compliance.map(c => (
-                  <div key={c.id} className="flex items-center gap-2">
-                    <Shield size={10} color="#8A6CFF" className="flex-shrink-0" />
-                    <p className="text-[11px] text-[#1A1035] truncate flex-1">{c.task_name}</p>
-                  </div>
-                ))}
-                {selectedData.goals.map(g => (
-                  <div key={g.id} className="flex items-center gap-2">
-                    <Target size={10} color="#059669" className="flex-shrink-0" />
-                    <p className="text-[11px] text-[#1A1035] truncate flex-1">{g.title}</p>
-                  </div>
-                ))}
-                {selectedData.events.map(e => {
-                  const color = e.color ?? EVENT_TYPE_COLOR[e.event_type] ?? '#0284C7';
+        {/* ── TABS + FILTER ── */}
+        <div style={{ display: 'flex', alignItems: 'flex-end', marginBottom: 24, borderBottom: '1px solid #EBE5FF' }}>
+          {([
+            { key: 'schedule', label: 'Schedule',                  Icon: CalendarDays },
+            { key: 'list',     label: 'List',                      Icon: List         },
+            { key: 'pending',  label: `Pending (${pending.length})`, Icon: Inbox      },
+            { key: 'team',     label: 'Team',                      Icon: Users        },
+          ] as const).map(t => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '10px 18px',
+                border: 'none',
+                borderBottom: tab === t.key ? `2px solid ${accentColor}` : '2px solid transparent',
+                background: 'transparent',
+                cursor: 'pointer',
+                fontSize: 12,
+                fontWeight: tab === t.key ? 700 : 500,
+                color: tab === t.key ? accentColor : '#6E6688',
+                transition: 'all 0.2s',
+                marginBottom: -1,
+              }}
+            >
+              <t.Icon size={13} />
+              {t.label}
+            </button>
+          ))}
+
+          {/* Practitioner filter (schedule + list only) */}
+          {(tab === 'schedule' || tab === 'list') && practitioners.length > 0 && (
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, paddingBottom: 10 }}>
+              <span style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.2em', color: '#8B84A0', fontWeight: 600 }}>Filter</span>
+              <button
+                onClick={() => setFilterPrac(null)}
+                style={{ padding: '3px 8px', borderRadius: 12, border: `1px solid ${!filterPrac ? accentColor : '#EBE5FF'}`, background: !filterPrac ? `${accentColor}14` : 'transparent', fontSize: 10, fontWeight: 600, color: !filterPrac ? accentColor : '#6E6688', cursor: 'pointer' }}
+              >
+                All
+              </button>
+              {practitioners.map(p => (
+                <button
+                  key={p.cliniko_id}
+                  onClick={() => setFilterPrac(filterPrac === p.cliniko_id ? null : p.cliniko_id)}
+                  style={{ padding: '3px 10px', borderRadius: 12, border: `1px solid ${filterPrac === p.cliniko_id ? p.color : '#EBE5FF'}`, background: filterPrac === p.cliniko_id ? `${p.color}18` : 'transparent', fontSize: 10, fontWeight: 600, color: filterPrac === p.cliniko_id ? p.color : '#6E6688', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}
+                >
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: p.color, display: 'inline-block' }} />
+                  {p.name.split(' ')[0]}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ── TAB CONTENT ── */}
+        <AnimatePresence mode="wait">
+
+          {/* ═══ SCHEDULE ═══ */}
+          {tab === 'schedule' && (
+            <motion.div key="schedule" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+              <div style={{ display: 'flex', border: '1px solid #EBE5FF', borderRadius: 16, overflow: 'hidden', background: '#fff' }}>
+
+                {/* Time column */}
+                <div style={{ width: 52, flexShrink: 0, borderRight: '1px solid #EBE5FF' }}>
+                  <div style={{ height: 50, borderBottom: '1px solid #EBE5FF' }} />
+                  {HOURS.map(h => (
+                    <div key={h} style={{ height: HOUR_HEIGHT, borderBottom: '1px solid #EBE5FF10', display: 'flex', alignItems: 'flex-start', paddingTop: 4, justifyContent: 'flex-end', paddingRight: 8 }}>
+                      <span style={{ fontSize: 9, color: '#8B84A0', fontWeight: 500 }}>
+                        {h === 12 ? '12pm' : h < 12 ? `${h}am` : `${h - 12}pm`}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Day columns */}
+                {weekDays.map((day, di) => {
+                  const dayKey  = fmtDate(day);
+                  const dayAppts = byDay[dayKey] ?? [];
+                  const todayCol = isToday(day);
                   return (
-                    <div key={e.id} className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                      <p className="text-[11px] text-[#1A1035] truncate flex-1">{e.title}</p>
-                      {!e.all_day && e.start_time && (
-                        <span className="text-[9px] text-[#8B84A0] flex-shrink-0">{e.start_time.slice(0,5)}</span>
-                      )}
+                    <div key={dayKey} style={{ flex: 1, minWidth: 0, borderRight: di < 6 ? '1px solid #EBE5FF' : 'none' }}>
+                      {/* Day header */}
+                      <div style={{ height: 50, borderBottom: '1px solid #EBE5FF', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: todayCol ? `${accentColor}08` : 'transparent' }}>
+                        <span style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.15em', color: todayCol ? accentColor : '#8B84A0', fontWeight: 700 }}>
+                          {DAY_LABELS[di]}
+                        </span>
+                        <span style={{ fontSize: 16, fontWeight: todayCol ? 900 : 600, color: todayCol ? accentColor : '#1A1035', lineHeight: 1.2 }}>
+                          {day.getDate()}
+                        </span>
+                      </div>
+
+                      {/* Grid + appointments */}
+                      <div style={{ position: 'relative', height: TOTAL_HOURS * HOUR_HEIGHT }}>
+                        {/* Hour lines */}
+                        {HOURS.map((_, hi) => (
+                          <div key={hi} style={{ position: 'absolute', left: 0, right: 0, top: hi * HOUR_HEIGHT, height: HOUR_HEIGHT, borderBottom: '1px solid #EBE5FF20', pointerEvents: 'none' }}>
+                            <div style={{ position: 'absolute', left: 0, right: 0, top: HOUR_HEIGHT / 2, height: 1, background: '#EBE5FF30' }} />
+                          </div>
+                        ))}
+
+                        {/* Current time indicator */}
+                        {todayCol && (() => {
+                          const now         = new Date();
+                          const offsetMins  = (now.getHours() - GRID_START_HOUR) * 60 + now.getMinutes();
+                          if (offsetMins < 0 || offsetMins > TOTAL_HOURS * 60) return null;
+                          const topPx = offsetMins * (HOUR_HEIGHT / 60);
+                          return (
+                            <div style={{ position: 'absolute', left: 0, right: 0, top: topPx, zIndex: 20, display: 'flex', alignItems: 'center', pointerEvents: 'none' }}>
+                              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#DC2626', flexShrink: 0, marginLeft: -4 }} />
+                              <div style={{ flex: 1, height: 1, background: '#DC2626' }} />
+                            </div>
+                          );
+                        })()}
+
+                        {/* Appointment blocks */}
+                        {loading ? null : dayAppts.map(appt => (
+                          <ApptBlock key={appt.id} appt={appt} onClick={() => setSelected(appt)} />
+                        ))}
+
+                        {/* Loading shimmer */}
+                        {loading && (
+                          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, #FAF7F2 0%, transparent 100%)', opacity: 0.6 }} />
+                        )}
+                      </div>
                     </div>
                   );
                 })}
               </div>
-            </Panel>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-// =============================================================================
-// MAIN PAGE
-// =============================================================================
-
-export default function SmartCalendarPage() {
-  const [profile, setProfile]     = useState<StaffProfile | null>(null);
-  const [userId, setUserId]       = useState('');
-  const [brandColor, setBrandColor] = useState('#8A6CFF');
-  const [isAdmin, setIsAdmin]     = useState(false);
-  const [loading, setLoading]     = useState(true);
-
-  // Calendar state
-  const today = new Date();
-  const [view, setView]           = useState<ViewMode>('month');
-  const [year, setYear]           = useState(today.getFullYear());
-  const [month, setMonth]         = useState(today.getMonth() + 1);
-  const [selectedDay, setSelectedDay] = useState<string | null>(isoDate(today));
-  const [filters, setFilters]     = useState<Filters>({ compliance: true, goals: true, signals: true, events: true });
-  const [showNewEvent, setShowNewEvent] = useState(false);
-  const [newEventDate, setNewEventDate] = useState(isoDate(today));
-
-  // Raw data
-  const [calData, setCalData] = useState<{
-    events: CalendarEvent[];
-    compliance: ComplianceCalItem[];
-    goals: GoalCalItem[];
-    signals: SignalCalItem[];
-    users: CalendarUser[];
-  }>({ events: [], compliance: [], goals: [], signals: [], users: [] });
-
-  // Compute date range for current view (3 months)
-  const dateRange = useMemo(() => {
-    const from = new Date(year, month - 2, 1); // 1 month before
-    const to   = new Date(year, month + 1, 0); // 1 month after
-    return { from: isoDate(from), to: isoDate(to) };
-  }, [year, month]);
-
-  const loadData = useCallback(async () => {
-    const data = await getCalendarData(dateRange.from, dateRange.to);
-    setCalData(data);
-  }, [dateRange]);
-
-  // Auth + initial load
-  useEffect(() => {
-    (async () => {
-      const user = await getCurrentUser();
-      if (!user.userId) { setLoading(false); return; }
-      setUserId(user.userId);
-      const pRes = await getStaffProfile('clinic', user.userId);
-      if (!pRes.success || !pRes.data?.profile) { setLoading(false); return; }
-      const p = pRes.data.profile;
-      setProfile(p);
-      setBrandColor(p.brandColor || '#8A6CFF');
-      setIsAdmin(p.isAdmin);
-      await loadData();
-      setLoading(false);
-    })();
-  }, [loadData]);
-
-  // Reload when month changes
-  useEffect(() => {
-    if (!loading) loadData();
-  }, [year, month]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Build dayMap from raw data
-  const dayMap = useMemo((): Record<string, DayData> => {
-    const map: Record<string, DayData> = {};
-
-    // Helper to ensure entry exists
-    const ensure = (d: string) => {
-      if (!map[d]) map[d] = { date: d, events: [], compliance: [], goals: [], signals: [], density: 0 };
-    };
-
-    // Compliance tasks — predict dates for current month view
-    for (const c of calData.compliance) {
-      const dates = predictComplianceDates(c, year, month);
-      for (const d of dates) {
-        ensure(d);
-        map[d]!.compliance.push(c);
-        map[d]!.density += 2;
-      }
-    }
-
-    // Goals
-    for (const g of calData.goals) {
-      ensure(g.due_date);
-      map[g.due_date]!.goals.push(g);
-      map[g.due_date]!.density += 1;
-    }
-
-    // Signals
-    for (const s of calData.signals) {
-      const d = s.created_at.split('T')[0];
-      ensure(d);
-      map[d]!.signals.push(s);
-      map[d]!.density += (s.priority === 'critical' ? 4 : 3);
-    }
-
-    // Events
-    for (const e of calData.events) {
-      ensure(e.start_date);
-      map[e.start_date]!.events.push(e);
-      map[e.start_date]!.density += 1;
-    }
-
-    return map;
-  }, [calData, year, month]);
-
-  function prevMonth() {
-    if (month === 1) { setYear(y => y - 1); setMonth(12); }
-    else setMonth(m => m - 1);
-  }
-  function nextMonth() {
-    if (month === 12) { setYear(y => y + 1); setMonth(1); }
-    else setMonth(m => m + 1);
-  }
-  function goToday() {
-    const now = new Date();
-    setYear(now.getFullYear());
-    setMonth(now.getMonth() + 1);
-    setSelectedDay(isoDate(now));
-  }
-
-  function toggleFilter(key: keyof Filters) {
-    setFilters(f => ({ ...f, [key]: !f[key] }));
-  }
-
-  function handleSelectDay(d: string) {
-    setSelectedDay(prev => prev === d ? null : d);
-  }
-
-  function handleNewEvent(d: string) {
-    setNewEventDate(d);
-    setShowNewEvent(true);
-  }
-
-  if (loading) return (
-    <div className="min-h-screen bg-[#FAF7F2] flex items-center justify-center">
-      <div className="text-[12px] text-[#9CA3AF] uppercase tracking-[0.2em]">Loading calendar…</div>
-    </div>
-  );
-
-  if (!profile) return (
-    <div className="min-h-screen bg-[#FAF7F2] flex items-center justify-center">
-      <div className="text-[12px] text-[#6B7280]">Unable to load profile.</div>
-    </div>
-  );
-
-  // Layer legend items
-  const filterItems = [
-    { key: 'compliance' as const, label: 'Compliance', color: '#8A6CFF', icon: Shield },
-    { key: 'goals' as const,      label: 'Goals',      color: '#059669', icon: Target },
-    { key: 'signals' as const,    label: 'Signals',    color: '#DC2626', icon: Zap },
-    { key: 'events' as const,     label: 'Events',     color: '#0284C7', icon: Calendar },
-  ];
-
-  return (
-    <div className="min-h-screen bg-[#FAF7F2] text-[#1A1035]">
-      <StaffNav profile={profile} userId={userId} brandColor={brandColor} currentPath="Calendar" />
-
-      <div style={{ paddingLeft: 'var(--nav-w, 240px)', transition: 'padding-left 0.32s ease' }}>
-        <div className="max-w-[1400px] mx-auto px-6 py-6">
-
-          {/* ── Header ─────────────────────────────────────────────────── */}
-          <div className="flex items-start justify-between mb-5">
-            <div>
-              <p className="text-[9px] uppercase tracking-[0.28em] font-semibold text-[#8B84A0] mb-1">
-                Operational Calendar
-              </p>
-              <h1 className="text-[28px] font-black tracking-[-0.02em] text-[#1A1035] leading-none">
-                Smart Calendar
-              </h1>
-            </div>
-            {isAdmin && (
-              <button onClick={() => { setNewEventDate(selectedDay ?? isoDate(today)); setShowNewEvent(true); }}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[11px] font-bold text-white transition-all hover:opacity-90"
-                style={{ backgroundColor: brandColor }}>
-                <Plus size={13} />
-                New Event
-              </button>
-            )}
-          </div>
-
-          {/* ── Nav controls ───────────────────────────────────────────── */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              {/* Month nav */}
-              <div className="flex items-center gap-1 rounded-xl p-1" style={{ backgroundColor: '#FFFFFF', border: '1px solid #EBE5FF' }}>
-                <button onClick={prevMonth} className="p-1.5 rounded-lg hover:bg-[#F5F4FA] transition-colors">
-                  <ChevronLeft size={14} color="#8B84A0" />
-                </button>
-                <span className="text-[13px] font-bold text-[#1A1035] px-3 min-w-[140px] text-center">
-                  {MONTHS[month - 1]} {year}
-                </span>
-                <button onClick={nextMonth} className="p-1.5 rounded-lg hover:bg-[#F5F4FA] transition-colors">
-                  <ChevronRight size={14} color="#8B84A0" />
-                </button>
-              </div>
-              <button onClick={goToday}
-                className="px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-colors"
-                style={{ backgroundColor: '#FFFFFF', border: '1px solid #EBE5FF', color: '#6E6688' }}>
-                Today
-              </button>
-              <button onClick={loadData}
-                className="p-1.5 rounded-xl transition-colors"
-                style={{ backgroundColor: '#FFFFFF', border: '1px solid #EBE5FF' }}>
-                <RefreshCw size={13} color="#8B84A0" />
-              </button>
-            </div>
-
-            {/* View switcher */}
-            <div className="flex items-center gap-1 rounded-xl p-1" style={{ backgroundColor: '#FFFFFF', border: '1px solid #EBE5FF' }}>
-              {([['month', 'Month', Calendar], ['agenda', 'Agenda', AlignLeft]] as const).map(([v, label, Icon]) => (
-                <button key={v} onClick={() => setView(v)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all"
-                  style={{
-                    backgroundColor: view === v ? brandColor : 'transparent',
-                    color: view === v ? '#FFFFFF' : '#8B84A0',
-                  }}>
-                  <Icon size={11} />
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* ── Layer filters ──────────────────────────────────────────── */}
-          <div className="flex items-center gap-2 mb-5">
-            <Layers size={11} color="#8B84A0" />
-            <span className="text-[9px] uppercase tracking-[0.2em] font-semibold text-[#8B84A0] mr-1">Layers:</span>
-            {filterItems.map(({ key, label, color, icon }) => (
-              <FilterChip key={key} label={label} active={filters[key]} color={color} icon={icon}
-                onClick={() => toggleFilter(key)} />
-            ))}
-          </div>
-
-          {/* ── Main layout ────────────────────────────────────────────── */}
-          <div className="grid grid-cols-12 gap-5">
-
-            {/* ── Calendar area ─── */}
-            <div className="col-span-12 lg:col-span-8">
-              <Panel className="p-4">
-                <AnimatePresence mode="wait">
-                  {view === 'month' ? (
-                    <motion.div key="month"
-                      initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 8 }}
-                      transition={{ duration: 0.2 }}>
-                      <MonthView
-                        year={year} month={month}
-                        dayMap={dayMap}
-                        filters={filters}
-                        selectedDay={selectedDay}
-                        isAdmin={isAdmin}
-                        onSelectDay={handleSelectDay}
-                        onNewEvent={handleNewEvent}
-                      />
-                    </motion.div>
-                  ) : (
-                    <motion.div key="agenda"
-                      initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -8 }}
-                      transition={{ duration: 0.2 }}>
-                      <AgendaView
-                        dayMap={dayMap}
-                        filters={filters}
-                        isAdmin={isAdmin}
-                        currentUserId={userId}
-                        users={calData.users}
-                        onRefresh={loadData}
-                      />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </Panel>
 
               {/* Legend */}
-              <div className="flex items-center gap-5 mt-3 px-1">
-                {filterItems.map(({ key, label, color }) => (
-                  <div key={key} className="flex items-center gap-1.5">
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
-                    <span className="text-[9px] text-[#8B84A0] uppercase tracking-[0.1em]">{label}</span>
-                  </div>
-                ))}
-                <div className="flex items-center gap-1.5">
-                  <div className="w-5 h-2 rounded-sm" style={{ background: 'linear-gradient(90deg, rgba(138,108,255,0.04), rgba(138,108,255,0.18))' }} />
-                  <span className="text-[9px] text-[#8B84A0] uppercase tracking-[0.1em]">Density heatmap</span>
+              {practitioners.length > 0 && (
+                <div style={{ display: 'flex', gap: 16, marginTop: 12, padding: '8px 0' }}>
+                  {practitioners.map(p => (
+                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.color, display: 'inline-block' }} />
+                      <span style={{ fontSize: 10, color: '#6E6688' }}>{p.name}</span>
+                    </div>
+                  ))}
                 </div>
-              </div>
-            </div>
+              )}
+            </motion.div>
+          )}
 
-            {/* ── Intelligence Sidebar ─── */}
-            <div className="col-span-12 lg:col-span-4">
-              <SmartSidebar
-                dayMap={dayMap}
-                year={year} month={month}
-                selectedDay={selectedDay}
-                onSelectDay={handleSelectDay}
-              />
-            </div>
-          </div>
-        </div>
+          {/* ═══ LIST ═══ */}
+          {tab === 'list' && (
+            <motion.div key="list" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+              <div style={{ border: '1px solid #EBE5FF', borderRadius: 16, overflow: 'hidden' }}>
+                {/* Table header */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.6fr 1fr 120px 90px', gap: 12, padding: '12px 20px', background: '#FAF7F2', borderBottom: '1px solid #EBE5FF' }}>
+                  {['Patient', 'Treatment', 'Practitioner', 'Date & Time', 'Status'].map(h => (
+                    <span key={h} style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.2em', fontWeight: 600, color: '#8B84A0' }}>{h}</span>
+                  ))}
+                </div>
+
+                {loading ? (
+                  <div style={{ padding: 40, textAlign: 'center', color: '#8B84A0', fontSize: 12 }}>Loading appointments...</div>
+                ) : filtered.length === 0 ? (
+                  <div style={{ padding: 60, textAlign: 'center', color: '#8B84A0', fontSize: 12 }}>No appointments this week</div>
+                ) : (
+                  <AnimatePresence>
+                    {filtered.map((appt, i) => (
+                      <motion.div
+                        key={appt.id}
+                        initial={{ opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.025 }}
+                        onClick={() => setSelected(appt)}
+                        style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.6fr 1fr 120px 90px', gap: 12, padding: '14px 20px', borderBottom: i < filtered.length - 1 ? '1px solid #EBE5FF' : 'none', cursor: 'pointer', transition: 'background 0.15s' }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = `${accentColor}06`; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                      >
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: '#1A1035' }}>{appt.patient_name}</div>
+                          {appt.patient_phone && <div style={{ fontSize: 10, color: '#6E6688', marginTop: 1 }}>{appt.patient_phone}</div>}
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 11, color: '#524D66' }}>{appt.appointment_type}</div>
+                          {appt.source === 'komal' && (
+                            <span style={{ fontSize: 9, background: '#6D28D914', color: '#6D28D9', borderRadius: 4, padding: '1px 5px', fontWeight: 600 }}>Komal</span>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: appt.practitioner_color, flexShrink: 0 }} />
+                          <span style={{ fontSize: 11, color: '#524D66' }}>{appt.practitioner_name}</span>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 600, color: '#1A1035' }}>{fmtDateShort(appt.starts_at)}</div>
+                          <div style={{ fontSize: 10, color: '#6E6688' }}>{fmtTime(appt.starts_at)}</div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                          <StatusBadge status={appt.status} />
+                        </div>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {/* ═══ PENDING ═══ */}
+          {tab === 'pending' && (
+            <motion.div key="pending" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+              {pending.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: 80, color: '#8B84A0', fontSize: 13 }}>
+                  <Inbox size={32} color="#C4BEDD" style={{ display: 'block', margin: '0 auto 12px' }} />
+                  No pending bookings
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 16 }}>
+                  <AnimatePresence>
+                    {pending.map((b, i) => (
+                      <motion.div
+                        key={b.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.94 }}
+                        transition={{ delay: i * 0.05 }}
+                        style={{ border: '1px solid #EBE5FF', borderRadius: 16, padding: 20 }}
+                      >
+                        {/* Card header */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                          <div>
+                            <div style={{ fontSize: 14, fontWeight: 800, color: '#1A1035', marginBottom: 4 }}>{b.patient_name}</div>
+                            <div style={{ display: 'flex', gap: 5 }}>
+                              <span style={{ fontSize: 9, background: '#6D28D914', color: '#6D28D9', borderRadius: 4, padding: '2px 7px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                                {b.source === 'komal' ? 'Komal' : 'Staff'}
+                              </span>
+                              {b.existing_cliniko_id && (
+                                <span style={{ fontSize: 9, background: '#05966914', color: '#059669', borderRadius: 4, padding: '2px 7px', fontWeight: 700 }}>Existing patient</span>
+                              )}
+                            </div>
+                          </div>
+                          <span style={{ fontSize: 10, color: '#8B84A0', flexShrink: 0, marginLeft: 8 }}>{formatRelativeTime(b.created_at)}</span>
+                        </div>
+
+                        {/* Details */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
+                          {b.treatment_interest && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <Calendar size={11} color="#8B84A0" />
+                              <span style={{ fontSize: 11, color: '#524D66' }}>{b.treatment_interest}</span>
+                            </div>
+                          )}
+                          {b.patient_phone && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <Phone size={11} color="#8B84A0" />
+                              <span style={{ fontSize: 11, color: '#524D66' }}>{b.patient_phone}</span>
+                            </div>
+                          )}
+                          {b.patient_email && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <Mail size={11} color="#8B84A0" />
+                              <span style={{ fontSize: 11, color: '#524D66' }}>{b.patient_email}</span>
+                            </div>
+                          )}
+                          {b.preferred_date && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <Clock size={11} color="#8B84A0" />
+                              <span style={{ fontSize: 11, color: '#524D66' }}>Preferred: {b.preferred_date}</span>
+                            </div>
+                          )}
+                          {b.notes && (
+                            <div style={{ fontSize: 10, color: '#6E6688', background: '#F5F3FF', borderRadius: 8, padding: '7px 10px', lineHeight: 1.55 }}>
+                              {b.notes}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Actions */}
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button
+                            onClick={() => openBooking(b)}
+                            style={{ flex: 1, padding: '9px 14px', borderRadius: 10, border: 'none', background: accentColor, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                          >
+                            Review &amp; Book
+                          </button>
+                          <button
+                            onClick={() => handleDismiss(b)}
+                            style={{ padding: '9px 12px', borderRadius: 10, border: '1px solid #EBE5FF', background: 'transparent', fontSize: 11, color: '#6E6688', cursor: 'pointer' }}
+                          >
+                            Dismiss
+                          </button>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* ═══ TEAM ═══ */}
+          {tab === 'team' && (
+            <motion.div key="team" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+                <AnimatePresence>
+                  {practitioners.map((p, i) => {
+                    const pracAppts = appointments.filter(a => a.practitioner_cliniko_id === p.cliniko_id);
+                    const todayStr  = fmtDate(new Date());
+                    const todayCount = pracAppts.filter(a => a.starts_at.startsWith(todayStr)).length;
+                    const weekCount  = pracAppts.length;
+                    const nextAppt   = pracAppts.find(a => new Date(a.starts_at) > new Date());
+                    return (
+                      <motion.div
+                        key={p.id}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.07 }}
+                        style={{ border: `1px solid ${p.color}30`, borderLeft: `4px solid ${p.color}`, borderRadius: 16, padding: 20 }}
+                      >
+                        {/* Practitioner header */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                          <div style={{ width: 44, height: 44, borderRadius: '50%', background: `${p.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, color: p.color, flexShrink: 0 }}>
+                            {p.initials}
+                          </div>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: 14, fontWeight: 800, color: '#1A1035', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
+                            {p.email && <div style={{ fontSize: 10, color: '#6E6688', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.email}</div>}
+                          </div>
+                        </div>
+
+                        {/* KPI strip */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+                          <div style={{ background: `${p.color}0c`, borderRadius: 10, padding: '10px 14px' }}>
+                            <div style={{ fontSize: 22, fontWeight: 900, color: p.color }}>{todayCount}</div>
+                            <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#8B84A0', marginTop: 2 }}>Today</div>
+                          </div>
+                          <div style={{ background: '#FAF7F2', borderRadius: 10, padding: '10px 14px', border: '1px solid #EBE5FF' }}>
+                            <div style={{ fontSize: 22, fontWeight: 900, color: '#1A1035' }}>{weekCount}</div>
+                            <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#8B84A0', marginTop: 2 }}>This week</div>
+                          </div>
+                        </div>
+
+                        {/* Next appointment */}
+                        {nextAppt ? (
+                          <div style={{ background: '#FAF7F2', borderRadius: 10, padding: '10px 14px', border: '1px solid #EBE5FF', marginBottom: 12 }}>
+                            <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#8B84A0', marginBottom: 4 }}>Next</div>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: '#1A1035' }}>{nextAppt.patient_name}</div>
+                            <div style={{ fontSize: 10, color: '#524D66' }}>{nextAppt.appointment_type}</div>
+                            <div style={{ fontSize: 10, color: '#6E6688', marginTop: 2 }}>{fmtTime(nextAppt.starts_at)} — {fmtDateShort(nextAppt.starts_at)}</div>
+                          </div>
+                        ) : (
+                          <div style={{ textAlign: 'center', fontSize: 10, color: '#8B84A0', padding: '10px 0', marginBottom: 12 }}>No upcoming appointments</div>
+                        )}
+
+                        <button
+                          onClick={() => { setFilterPrac(p.cliniko_id); setTab('schedule'); }}
+                          style={{ width: '100%', padding: '8px 14px', borderRadius: 10, border: `1px solid ${p.color}40`, background: `${p.color}0c`, fontSize: 10, fontWeight: 700, color: p.color, cursor: 'pointer' }}
+                        >
+                          View Schedule
+                        </button>
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
+              </div>
+            </motion.div>
+          )}
+
+        </AnimatePresence>
       </div>
 
-      {/* ── Event Modal ───────────────────────────────────────────────── */}
+      {/* ══════════════════════════════════════════════
+          APPOINTMENT DETAIL PANEL (slide-in)
+      ══════════════════════════════════════════════ */}
       <AnimatePresence>
-        {showNewEvent && (
-          <EventModal
-            date={newEventDate}
-            event={null}
-            users={calData.users}
-            currentUserId={userId}
-            onSave={() => { setShowNewEvent(false); loadData(); }}
-            onDelete={() => { setShowNewEvent(false); loadData(); }}
-            onClose={() => setShowNewEvent(false)}
-          />
+        {selected && (
+          <>
+            <motion.div
+              key="overlay"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              style={{ position: 'fixed', inset: 0, background: 'rgba(26,16,53,0.2)', zIndex: 40 }}
+              onClick={() => setSelected(null)}
+            />
+            <motion.div
+              key="panel"
+              initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 28, stiffness: 280 }}
+              style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: 380, background: '#fff', zIndex: 50, boxShadow: '-8px 0 40px rgba(26,16,53,0.12)', overflowY: 'auto' }}
+            >
+              {/* Panel header */}
+              <div style={{ padding: '20px 24px', borderBottom: '1px solid #EBE5FF', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: '#fff', zIndex: 1 }}>
+                <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.25em', fontWeight: 600, color: '#8B84A0' }}>Appointment Details</div>
+                <button onClick={() => setSelected(null)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#8B84A0', display: 'flex' }}>
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div style={{ padding: '24px' }}>
+                {/* Practitioner strip */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', background: `${selected.practitioner_color}0c`, borderRadius: 12, borderLeft: `3px solid ${selected.practitioner_color}`, marginBottom: 20 }}>
+                  <div style={{ width: 34, height: 34, borderRadius: '50%', background: `${selected.practitioner_color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: selected.practitioner_color, flexShrink: 0 }}>
+                    {initials(selected.practitioner_name)}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#1A1035' }}>{selected.practitioner_name}</div>
+                    <div style={{ fontSize: 10, color: '#6E6688', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selected.appointment_type}</div>
+                  </div>
+                  {selected.source === 'komal' && (
+                    <span style={{ marginLeft: 'auto', fontSize: 9, background: '#6D28D914', color: '#6D28D9', borderRadius: 4, padding: '2px 8px', fontWeight: 700, flexShrink: 0 }}>Komal</span>
+                  )}
+                </div>
+
+                {/* Patient */}
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.25em', fontWeight: 600, color: '#8B84A0', marginBottom: 8 }}>Patient</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: '#1A1035', marginBottom: 6 }}>{selected.patient_name}</div>
+                  {selected.patient_phone && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
+                      <Phone size={11} color="#8B84A0" />
+                      <span style={{ fontSize: 11, color: '#524D66' }}>{selected.patient_phone}</span>
+                    </div>
+                  )}
+                  {selected.patient_email && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                      <Mail size={11} color="#8B84A0" />
+                      <span style={{ fontSize: 11, color: '#524D66' }}>{selected.patient_email}</span>
+                    </div>
+                  )}
+                  {selected.patient_db_id && (
+                    <a href={`/staff/patients/${selected.patient_db_id}`} style={{ display: 'inline-block', marginTop: 8, fontSize: 10, color: accentColor, fontWeight: 700, textDecoration: 'none' }}>
+                      View patient record &rarr;
+                    </a>
+                  )}
+                </div>
+
+                {/* Details */}
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.25em', fontWeight: 600, color: '#8B84A0', marginBottom: 8 }}>Details</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Calendar size={12} color="#8B84A0" />
+                      <span style={{ fontSize: 11, color: '#524D66' }}>{fmtDateLong(selected.starts_at)}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Clock size={12} color="#8B84A0" />
+                      <span style={{ fontSize: 11, color: '#524D66' }}>{fmtTime(selected.starts_at)} &mdash; {selected.duration_minutes} min</span>
+                    </div>
+                    <StatusBadge status={selected.status} />
+                  </div>
+                </div>
+
+                {/* Notes */}
+                {selected.notes && (
+                  <div style={{ marginBottom: 20 }}>
+                    <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.25em', fontWeight: 600, color: '#8B84A0', marginBottom: 8 }}>Notes</div>
+                    <div style={{ fontSize: 11, color: '#524D66', lineHeight: 1.65, background: '#FAF7F2', borderRadius: 8, padding: '10px 14px' }}>{selected.notes}</div>
+                  </div>
+                )}
+
+                {/* Actions */}
+                {selected.status === 'booked' && (
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      onClick={() => handleStatusUpdate(selected, 'arrived')}
+                      disabled={statusUpdating === selected.id}
+                      style={{ flex: 1, padding: '10px 14px', borderRadius: 10, border: 'none', background: '#059669', color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', opacity: statusUpdating === selected.id ? 0.7 : 1 }}
+                    >
+                      {statusUpdating === selected.id ? 'Updating...' : 'Mark Arrived'}
+                    </button>
+                    <button
+                      onClick={() => handleStatusUpdate(selected, 'cancelled')}
+                      disabled={statusUpdating === selected.id}
+                      style={{ padding: '10px 14px', borderRadius: 10, border: '1px solid #EBE5FF', background: 'transparent', fontSize: 11, color: '#DC2626', cursor: 'pointer' }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* ══════════════════════════════════════════════
+          BOOKING MODAL
+      ══════════════════════════════════════════════ */}
+      <AnimatePresence>
+        {bookingTarget && (
+          <>
+            <motion.div
+              key="modal-overlay"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              style={{ position: 'fixed', inset: 0, background: 'rgba(26,16,53,0.45)', zIndex: 60 }}
+              onClick={() => !bookLoading && setBookingTarget(null)}
+            />
+            <motion.div
+              key="modal"
+              initial={{ opacity: 0, scale: 0.96, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              transition={{ type: 'spring', damping: 24, stiffness: 300 }}
+              style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 520, maxHeight: '90vh', overflowY: 'auto', background: '#fff', borderRadius: 20, zIndex: 70, boxShadow: '0 24px 80px rgba(26,16,53,0.22)' }}
+            >
+              {/* Modal header */}
+              <div style={{ padding: '24px 28px 18px', borderBottom: '1px solid #EBE5FF', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.25em', fontWeight: 600, color: '#8B84A0', marginBottom: 4 }}>Confirm Booking</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: '#1A1035' }}>{bookingTarget.patient_name}</div>
+                  {bookingTarget.treatment_interest && (
+                    <div style={{ fontSize: 11, color: '#6E6688', marginTop: 2 }}>{bookingTarget.treatment_interest}</div>
+                  )}
+                </div>
+                <button onClick={() => !bookLoading && setBookingTarget(null)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#8B84A0', display: 'flex', padding: 4 }}>
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div style={{ padding: '20px 28px 28px' }}>
+
+                {/* New patient fields */}
+                {!bookingTarget.existing_cliniko_id && (
+                  <div style={{ marginBottom: 20 }}>
+                    <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.25em', fontWeight: 600, color: '#8B84A0', marginBottom: 10 }}>New Patient</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                      <FormField label="First name *" value={bookForm.firstName} onChange={v => setBookForm(f => ({ ...f, firstName: v }))} />
+                      <FormField label="Last name *" value={bookForm.lastName} onChange={v => setBookForm(f => ({ ...f, lastName: v }))} />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                      <FormField label="Phone" value={bookForm.phone} onChange={v => setBookForm(f => ({ ...f, phone: v }))} />
+                      <FormField label="Email" value={bookForm.email} onChange={v => setBookForm(f => ({ ...f, email: v }))} type="email" />
+                    </div>
+                  </div>
+                )}
+
+                {bookingTarget.existing_cliniko_id && (
+                  <div style={{ marginBottom: 20, padding: '10px 14px', background: '#05966910', borderRadius: 10, border: '1px solid #05966930', fontSize: 11, color: '#059669', fontWeight: 600 }}>
+                    Existing patient — record will be linked automatically
+                  </div>
+                )}
+
+                {/* Appointment fields */}
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.25em', fontWeight: 600, color: '#8B84A0', marginBottom: 10 }}>Appointment</div>
+
+                  <div style={{ marginBottom: 10 }}>
+                    <label style={{ display: 'block', fontSize: 10, color: '#6E6688', marginBottom: 4 }}>Treatment *</label>
+                    <select
+                      value={bookForm.apptTypeId}
+                      onChange={e => {
+                        const t = apptTypes.find(at => at.id === e.target.value);
+                        setBookForm(f => ({ ...f, apptTypeId: e.target.value, apptTypeName: t?.name ?? '', duration: t?.duration_minutes ?? 30 }));
+                      }}
+                      style={{ width: '100%', padding: '9px 12px', border: '1px solid #EBE5FF', borderRadius: 8, fontSize: 11, color: '#1A1035', background: '#FAF7F2', outline: 'none' }}
+                    >
+                      <option value="">Select treatment...</option>
+                      {apptTypes.map(t => (
+                        <option key={t.id} value={t.id}>{t.name} ({t.duration_minutes} min)</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div style={{ marginBottom: 10 }}>
+                    <label style={{ display: 'block', fontSize: 10, color: '#6E6688', marginBottom: 4 }}>Practitioner *</label>
+                    <select
+                      value={bookForm.practitionerId}
+                      onChange={e => setBookForm(f => ({ ...f, practitionerId: e.target.value }))}
+                      style={{ width: '100%', padding: '9px 12px', border: '1px solid #EBE5FF', borderRadius: 8, fontSize: 11, color: '#1A1035', background: '#FAF7F2', outline: 'none' }}
+                    >
+                      <option value="">Select practitioner...</option>
+                      {practitioners.map(p => (
+                        <option key={p.cliniko_id} value={p.cliniko_id}>{p.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 10, color: '#6E6688', marginBottom: 4 }}>Date *</label>
+                      <input
+                        type="date"
+                        value={bookForm.date}
+                        onChange={e => setBookForm(f => ({ ...f, date: e.target.value }))}
+                        style={{ width: '100%', padding: '9px 12px', border: '1px solid #EBE5FF', borderRadius: 8, fontSize: 11, color: '#1A1035', background: '#FAF7F2', outline: 'none', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 10, color: '#6E6688', marginBottom: 4 }}>Time *</label>
+                      <input
+                        type="time"
+                        value={bookForm.time}
+                        onChange={e => setBookForm(f => ({ ...f, time: e.target.value }))}
+                        style={{ width: '100%', padding: '9px 12px', border: '1px solid #EBE5FF', borderRadius: 8, fontSize: 11, color: '#1A1035', background: '#FAF7F2', outline: 'none', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: 10, color: '#6E6688', marginBottom: 4 }}>Notes</label>
+                    <textarea
+                      value={bookForm.notes}
+                      onChange={e => setBookForm(f => ({ ...f, notes: e.target.value }))}
+                      rows={3}
+                      style={{ width: '100%', padding: '9px 12px', border: '1px solid #EBE5FF', borderRadius: 8, fontSize: 11, color: '#1A1035', background: '#FAF7F2', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                </div>
+
+                {bookError && (
+                  <div style={{ padding: '10px 14px', background: '#DC262614', border: '1px solid #DC262630', borderRadius: 8, fontSize: 11, color: '#DC2626', marginBottom: 16 }}>
+                    {bookError}
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button
+                    onClick={handleConfirmBooking}
+                    disabled={bookLoading}
+                    style={{ flex: 1, padding: '11px 20px', borderRadius: 10, border: 'none', background: bookLoading ? '#8B84A0' : accentColor, color: '#fff', fontSize: 12, fontWeight: 700, cursor: bookLoading ? 'not-allowed' : 'pointer' }}
+                  >
+                    {bookLoading ? 'Booking...' : 'Confirm & Push to Cliniko'}
+                  </button>
+                  <button
+                    onClick={() => !bookLoading && setBookingTarget(null)}
+                    style={{ padding: '11px 20px', borderRadius: 10, border: '1px solid #EBE5FF', background: 'transparent', fontSize: 12, color: '#6E6688', cursor: 'pointer' }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
     </div>
