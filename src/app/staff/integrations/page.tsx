@@ -289,7 +289,7 @@ function ClinikoConnectForm({ onConnected }: { onConnected: () => void }) {
       </p>
       <div className="space-y-2">
         <label className="text-[8px] uppercase tracking-[0.28em] font-semibold" style={{ color: '#96989B' }}>Cliniko API Key</label>
-        <div className="flex items-center gap-2 px-3 py-3 rounded-xl transition-colors" style={{ border: '1px solid #D4E2FF', backgroundColor: 'white' }}>
+        <div className="flex items-center gap-2 px-3 py-3 rounded-xl transition-colors" style={{ border: '1px solid #EBE5FF', backgroundColor: '#FAF7F2' }}>
           <input
             type={showKey ? 'text' : 'password'}
             value={apiKey}

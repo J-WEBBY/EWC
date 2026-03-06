@@ -241,13 +241,13 @@ function ConversationItem({
           <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 flex-shrink-0 transition-opacity">
             <button
               onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
-              className="p-1 rounded hover:bg-white text-[#5A6475] hover:text-[#3D4451]"
+              className="p-1 rounded hover:bg-[#F0EDE6] text-[#5A6475] hover:text-[#3D4451]"
             >
               <Pencil size={11} />
             </button>
             <button
               onClick={(e) => onDelete(conv.id, e)}
-              className="p-1 rounded hover:bg-white text-[#5A6475] hover:text-red-400/60"
+              className="p-1 rounded hover:bg-[#F0EDE6] text-[#5A6475] hover:text-red-400/60"
             >
               <Trash2 size={11} />
             </button>
@@ -369,7 +369,7 @@ function SignalConfirmationCard({
           </button>
           <button
             onClick={() => onReject(signal.id)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium text-[#5A6475] hover:text-[#3D4451] bg-[#FAF9F5] hover:bg-white transition-all"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium text-[#5A6475] hover:text-[#3D4451] bg-[#FAF9F5] hover:bg-[#F0EDE6] transition-all"
           >
             <XCircle size={12} /> Dismiss
           </button>
@@ -1075,7 +1075,7 @@ export default function ChatPage() {
                       }}
                       placeholder="e.g. Budget review, Welfare query..."
                       maxLength={100}
-                      className="flex-1 bg-transparent text-[13px] text-[#181D23] placeholder-white/20 outline-none"
+                      className="flex-1 bg-transparent text-[13px] text-[#181D23] placeholder-[#8B84A0]/60 outline-none"
                     />
                     <button
                       onClick={() => handleConfirmName(pendingTitle)}
@@ -1128,7 +1128,7 @@ export default function ChatPage() {
                         setInput(prompt.label);
                         textareaRef.current?.focus();
                       }}
-                      className="text-left px-3 py-2.5 rounded-lg text-[11px] text-[#5A6475] bg-white border border-[#D4E2FF] hover:bg-[#FAF9F5] hover:text-[#3D4451] transition-all flex items-center gap-2"
+                      className="text-left px-3 py-2.5 rounded-lg text-[11px] text-[#5A6475] bg-[#FAF7F2] border border-[#EBE5FF] hover:bg-[#FAF9F5] hover:text-[#3D4451] transition-all flex items-center gap-2"
                     >
                       <prompt.icon size={13} className="flex-shrink-0 text-[#5A6475]" />
                       {prompt.label}
@@ -1149,7 +1149,7 @@ export default function ChatPage() {
               >
                 {msg.role === 'assistant' && (
                   <div className="max-w-[85%]">
-                    <div className="bg-white border border-[#D4E2FF] rounded-2xl rounded-tl-md px-5 py-4">
+                    <div className="bg-[#FAF7F2] border border-[#EBE5FF] rounded-2xl rounded-tl-md px-5 py-4">
                       <div className="text-[13px] text-[#3D4451] leading-[1.7] prose prose-slate prose-sm max-w-none prose-p:my-2.5 prose-li:my-1 prose-ul:my-2.5 prose-ol:my-2.5 prose-headings:text-[#181D23] prose-headings:text-[14px] prose-headings:font-semibold prose-headings:mt-5 prose-headings:mb-2 prose-h2:text-[15px] prose-h2:mt-6 prose-h2:mb-2.5 prose-h2:pb-1 prose-h2:border-b prose-h2:border-[#D4E2FF] prose-strong:text-[#181D23] prose-code:text-emerald-400/80 prose-code:text-[12px] prose-code:bg-[#F8FAFF] prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-hr:my-4 prose-hr:border-[#D4E2FF] first:prose-headings:mt-0">
                         <ReactMarkdown>{msg.content}</ReactMarkdown>
                       </div>
@@ -1180,7 +1180,7 @@ export default function ChatPage() {
                 className="flex items-start mb-5"
               >
                 <div className="max-w-[85%]">
-                  <div className="bg-white border border-[#D4E2FF] rounded-2xl rounded-tl-md px-5 py-4 min-w-[60px]">
+                  <div className="bg-[#FAF7F2] border border-[#EBE5FF] rounded-2xl rounded-tl-md px-5 py-4 min-w-[60px]">
                     {activeToolCall && (
                       <div className="flex items-center gap-2 mb-3 text-[11px] px-2.5 py-1.5 rounded-lg" style={{ background: `${brandColor}08`, color: brandColor }}>
                         <Loader2 size={12} className="animate-spin" />
@@ -1300,7 +1300,7 @@ export default function ChatPage() {
                 }}
                 placeholder={inputPlaceholder}
                 rows={1}
-                className="flex-1 bg-transparent text-[13px] text-[#181D23] placeholder-white/20 outline-none resize-none leading-relaxed"
+                className="flex-1 bg-transparent text-[13px] text-[#181D23] placeholder-[#8B84A0]/60 outline-none resize-none leading-relaxed"
                 style={{ maxHeight: 200 }}
                 disabled={sending}
               />

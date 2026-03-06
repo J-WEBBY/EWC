@@ -147,7 +147,7 @@ function ReportCard({ report, onDownload }: { report: Report; onDownload: (id: s
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
-      className="bg-white border border-[#D4E2FF] rounded-xl p-5 flex items-start gap-4"
+      className="bg-[#FAF7F2] border border-[#EBE5FF] rounded-xl p-5 flex items-start gap-4"
     >
       <div className="w-9 h-9 rounded-lg bg-[#F8FAFF] border border-[#D4E2FF] flex items-center justify-center flex-shrink-0">
         <Icon size={16} className={meta.color} />
@@ -284,10 +284,10 @@ export default function ReportsPage() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.06 }}
                   onClick={() => setActiveCategory(cat)}
-                  className={`bg-white border rounded-xl p-5 cursor-pointer transition-all ${
+                  className={`bg-[#FAF7F2] border rounded-xl p-5 cursor-pointer transition-all ${
                     activeCategory === cat
-                      ? 'border-[#181D23] ring-1 ring-[#181D23]/10'
-                      : 'border-[#D4E2FF] hover:border-[#A8C4FF]'
+                      ? 'border-[#1A1035] ring-1 ring-[#1A1035]/10'
+                      : 'border-[#EBE5FF] hover:border-[#D5CCFF]'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-3">
@@ -309,7 +309,7 @@ export default function ReportsPage() {
                 onClick={() => setActiveCategory(tab.id)}
                 className={`px-4 py-2 rounded-lg text-[13px] transition-colors ${
                   activeCategory === tab.id
-                    ? 'bg-white text-[#181D23] font-medium border border-[#D4E2FF]'
+                    ? 'bg-[#EBE5FF]/40 text-[#1A1035] font-medium border border-[#D5CCFF]'
                     : 'text-[#5A6475] hover:text-[#3D4451]'
                 }`}
               >

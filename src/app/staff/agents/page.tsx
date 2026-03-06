@@ -124,7 +124,7 @@ function AgentCard({
       layout
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-2xl overflow-hidden"
+      className="bg-[#FAF7F2] rounded-2xl overflow-hidden"
       style={{ border: `1px solid ${c}22`, borderLeft: `3px solid ${c}` }}
     >
       {/* Collapsed header */}
@@ -270,7 +270,7 @@ function AutomationCard({ automation, onToggle, onRunNow }: {
 
   return (
     <motion.div layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-      className="bg-white border border-[#D4E2FF] rounded-xl overflow-hidden">
+      className="bg-[#FAF7F2] border border-[#EBE5FF] rounded-xl overflow-hidden">
       <div className="p-5">
         <div className="flex items-start gap-4">
           <div className="w-9 h-9 rounded-lg bg-[#FAF9F5] border border-[#D4E2FF] flex items-center justify-center flex-shrink-0">
@@ -290,7 +290,7 @@ function AutomationCard({ automation, onToggle, onRunNow }: {
                 <button
                   onClick={handleRun}
                   disabled={running}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium bg-[#FAF9F5] border border-[#D4E2FF] text-[#3D4451] hover:bg-white transition-colors disabled:opacity-40"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium bg-[#FAF9F5] border border-[#D4E2FF] text-[#3D4451] hover:bg-[#F5F2FD] transition-colors disabled:opacity-40"
                 >
                   {running ? (
                     <motion.div className="w-3 h-3 rounded-full border border-[#3D4451]/40 border-t-transparent"
@@ -445,7 +445,7 @@ export default function AgentsPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-2.5 rounded-xl bg-white border border-[#D4E2FF] text-[12px] text-[#181D23] shadow-lg"
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-2.5 rounded-xl bg-[#FAF7F2] border border-[#EBE5FF] text-[12px] text-[#181D23] shadow-lg"
           >
             {autoRunNotice}
           </motion.div>
@@ -467,7 +467,7 @@ export default function AgentsPage() {
             <button
               onClick={() => userId && loadData(userId, true)}
               disabled={refreshing}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] text-[#5A6475] bg-white border border-[#D4E2FF] hover:border-[#A8C4FF] transition-colors"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] text-[#5A6475] bg-[#FAF7F2] border border-[#EBE5FF] hover:border-[#A8C4FF] transition-colors"
             >
               <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
               Refresh
@@ -524,7 +524,7 @@ export default function AgentsPage() {
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.06 }}
-                    className="bg-white border border-[#D4E2FF] rounded-xl p-5 flex flex-col gap-3"
+                    className="bg-[#FAF7F2] border border-[#EBE5FF] rounded-xl p-5 flex flex-col gap-3"
                   >
                     <div className="flex items-center justify-between">
                       <span className="text-[11px] uppercase tracking-[0.15em] text-[#5A6475] font-medium">{card.label}</span>
@@ -537,7 +537,7 @@ export default function AgentsPage() {
 
               {/* Agent list */}
               {agents.length === 0 ? (
-                <div className="bg-white border border-[#D4E2FF] rounded-xl py-16 text-center">
+                <div className="bg-[#FAF7F2] border border-[#EBE5FF] rounded-xl py-16 text-center">
                   <Bot size={24} className="mx-auto mb-3 text-[#96989B]" />
                   <p className="text-[13px] text-[#5A6475]">No agents configured</p>
                   <p className="text-[11px] text-[#96989B] mt-1">Run migration 014 to seed the three agents.</p>
@@ -575,7 +575,7 @@ export default function AgentsPage() {
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.06 }}
-                    className="bg-white border border-[#D4E2FF] rounded-xl p-5 flex flex-col gap-3"
+                    className="bg-[#FAF7F2] border border-[#EBE5FF] rounded-xl p-5 flex flex-col gap-3"
                   >
                     <div className="flex items-center justify-between">
                       <span className="text-[11px] uppercase tracking-[0.15em] text-[#5A6475] font-medium">{card.label}</span>

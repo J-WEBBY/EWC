@@ -348,7 +348,7 @@ function SignalCard({
                     onChange={e => setAriaQuestion(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') handleAskAria(); }}
                     placeholder="Ask about this signal..."
-                    className="flex-1 bg-white border border-[#D4E2FF] rounded-lg px-3 py-2 text-[12px] text-[#3D4451] placeholder:text-[#96989B] outline-none focus:border-[#A8C4FF] transition-colors"
+                    className="flex-1 bg-[#FAF7F2] border border-[#EBE5FF] rounded-lg px-3 py-2 text-[12px] text-[#3D4451] placeholder:text-[#96989B] outline-none focus:border-[#A8C4FF] transition-colors"
                   />
                   <button
                     onClick={handleAskAria}
@@ -389,7 +389,7 @@ function SignalCard({
                       <button
                         onClick={() => { setBusy('approve'); onApprove(signal.id); }}
                         disabled={busy !== null}
-                        className="flex items-center justify-center gap-2 w-full py-2 rounded-lg text-[12px] font-medium border border-[#A8C4FF] bg-[#FAF9F5] hover:bg-white transition-colors disabled:opacity-30 text-[#181D23]"
+                        className="flex items-center justify-center gap-2 w-full py-2 rounded-lg text-[12px] font-medium border border-[#A8C4FF] bg-[#FAF9F5] hover:bg-[#F5F2FD] transition-colors disabled:opacity-30 text-[#181D23]"
                       >
                         <CheckCircle2 size={12} className="text-green-400" />
                         Approve Signal
@@ -412,7 +412,7 @@ function SignalCard({
                         onChange={e => setNoteText(e.target.value)}
                         placeholder="Add a note (optional)..."
                         rows={3}
-                        className="w-full bg-white border border-[#D4E2FF] rounded-lg px-3 py-2 text-[12px] text-[#3D4451] placeholder:text-[#5A6475] resize-none outline-none focus:border-[#A8C4FF] transition-colors mb-3"
+                        className="w-full bg-[#FAF7F2] border border-[#EBE5FF] rounded-lg px-3 py-2 text-[12px] text-[#3D4451] placeholder:text-[#5A6475] resize-none outline-none focus:border-[#A8C4FF] transition-colors mb-3"
                       />
 
                       {signal.response_mode !== 'auto' && (
@@ -420,7 +420,7 @@ function SignalCard({
                           <button
                             onClick={handleResolve}
                             disabled={busy !== null}
-                            className="flex items-center justify-center gap-2 w-full py-2 rounded-lg text-[12px] font-medium border border-[#A8C4FF] bg-[#FAF9F5] hover:bg-white transition-colors disabled:opacity-30 text-[#181D23]"
+                            className="flex items-center justify-center gap-2 w-full py-2 rounded-lg text-[12px] font-medium border border-[#A8C4FF] bg-[#FAF9F5] hover:bg-[#F5F2FD] transition-colors disabled:opacity-30 text-[#181D23]"
                           >
                             <CheckCircle2 size={12} className="text-green-400" />
                             Mark Resolved
@@ -498,7 +498,7 @@ function CreatePanel({ onClose, onCreated, tenantId }: {
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 20 }}
       transition={{ duration: 0.2 }}
-      className="absolute right-0 top-0 bottom-0 w-80 bg-white border-l border-[#D4E2FF] z-20 flex flex-col shadow-xl"
+      className="absolute right-0 top-0 bottom-0 w-80 bg-[#FAF7F2] border-l border-[#EBE5FF] z-20 flex flex-col shadow-xl"
     >
       <div className="p-5 border-b border-[#D4E2FF] flex items-center justify-between">
         <p className="text-[13px] font-medium text-[#181D23]">New Signal</p>
@@ -514,7 +514,7 @@ function CreatePanel({ onClose, onCreated, tenantId }: {
             value={title}
             onChange={e => setTitle(e.target.value)}
             placeholder="Signal title..."
-            className="w-full bg-white border border-[#D4E2FF] rounded-lg px-3 py-2 text-[13px] text-[#181D23] placeholder:text-[#5A6475] outline-none focus:border-[#A8C4FF] transition-colors"
+            className="w-full bg-[#FAF7F2] border border-[#EBE5FF] rounded-lg px-3 py-2 text-[13px] text-[#181D23] placeholder:text-[#5A6475] outline-none focus:border-[#A8C4FF] transition-colors"
           />
         </div>
 
@@ -525,7 +525,7 @@ function CreatePanel({ onClose, onCreated, tenantId }: {
             onChange={e => setDesc(e.target.value)}
             placeholder="What needs attention..."
             rows={3}
-            className="w-full bg-white border border-[#D4E2FF] rounded-lg px-3 py-2 text-[13px] text-[#181D23] placeholder:text-[#5A6475] resize-none outline-none focus:border-[#A8C4FF] transition-colors"
+            className="w-full bg-[#FAF7F2] border border-[#EBE5FF] rounded-lg px-3 py-2 text-[13px] text-[#181D23] placeholder:text-[#5A6475] resize-none outline-none focus:border-[#A8C4FF] transition-colors"
           />
         </div>
 
@@ -535,7 +535,7 @@ function CreatePanel({ onClose, onCreated, tenantId }: {
             <select
               value={priority}
               onChange={e => setPriority(e.target.value as SignalPriority)}
-              className="w-full bg-white border border-[#D4E2FF] rounded-lg px-3 py-2 text-[12px] text-[#3D4451] outline-none"
+              className="w-full bg-[#FAF7F2] border border-[#EBE5FF] rounded-lg px-3 py-2 text-[12px] text-[#3D4451] outline-none"
             >
               <option value="low">Low</option>
               <option value="medium">Medium</option>
@@ -549,7 +549,7 @@ function CreatePanel({ onClose, onCreated, tenantId }: {
             <select
               value={mode}
               onChange={e => setMode(e.target.value as ResponseMode)}
-              className="w-full bg-white border border-[#D4E2FF] rounded-lg px-3 py-2 text-[12px] text-[#3D4451] outline-none"
+              className="w-full bg-[#FAF7F2] border border-[#EBE5FF] rounded-lg px-3 py-2 text-[12px] text-[#3D4451] outline-none"
             >
               <option value="auto">Auto</option>
               <option value="agentic">Agentic</option>
@@ -564,7 +564,7 @@ function CreatePanel({ onClose, onCreated, tenantId }: {
           <select
             value={category}
             onChange={e => setCategory(e.target.value)}
-            className="w-full bg-white border border-[#D4E2FF] rounded-lg px-3 py-2 text-[12px] text-[#3D4451] outline-none"
+            className="w-full bg-[#FAF7F2] border border-[#EBE5FF] rounded-lg px-3 py-2 text-[12px] text-[#3D4451] outline-none"
           >
             <option value="operations">Operations</option>
             <option value="governance">Governance / Compliance</option>
@@ -598,7 +598,7 @@ function StatCell({ label, value, color, sub, Icon }: {
   sub?: string; Icon?: LucideIcon;
 }) {
   return (
-    <div className="bg-white border border-[#D4E2FF] rounded-xl p-4 flex flex-col gap-2">
+    <div className="bg-[#FAF7F2] border border-[#EBE5FF] rounded-xl p-4 flex flex-col gap-2">
       <div className="flex items-center justify-between">
         <span className="text-[10px] uppercase tracking-[0.14em] text-[#5A6475] font-medium">{label}</span>
         {Icon && <Icon size={12} className="text-[#96989B]" />}
@@ -787,7 +787,7 @@ export default function SignalsPage() {
             </button>
             <button
               onClick={() => setShowCreate(s => !s)}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#A8C4FF] bg-[#FAF9F5] text-[12px] font-medium text-[#3D4451] hover:bg-white hover:text-[#181D23] transition-colors"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#A8C4FF] bg-[#FAF9F5] text-[12px] font-medium text-[#3D4451] hover:bg-[#F5F2FD] hover:text-[#1A1035] transition-colors"
             >
               <Plus size={12} /> New Signal
             </button>
@@ -823,7 +823,7 @@ export default function SignalsPage() {
               </div>
               <div className="space-y-2">
                 {pending.map(p => (
-                  <div key={p.id} className="flex items-center gap-4 p-3 rounded-lg bg-white border border-[#D4E2FF]">
+                  <div key={p.id} className="flex items-center gap-4 p-3 rounded-lg bg-[#FAF7F2] border border-[#EBE5FF]">
                     <div className="w-1 self-stretch rounded-full" style={{ background: PRIO_COLOR[p.priority] }} />
                     <div className="flex-1 min-w-0">
                       <p className="text-[13px] font-medium text-[#181D23]">{p.title}</p>
@@ -866,7 +866,7 @@ export default function SignalsPage() {
             <select
               value={priorityFilter}
               onChange={e => setPriorityFilter(e.target.value as SignalPriority | '')}
-              className="bg-white border border-[#D4E2FF] rounded-lg px-3 py-1.5 text-[12px] text-[#3D4451] outline-none"
+              className="bg-[#FAF7F2] border border-[#EBE5FF] rounded-lg px-3 py-1.5 text-[12px] text-[#3D4451] outline-none"
             >
               <option value="">All priorities</option>
               <option value="critical">Critical</option>
@@ -881,7 +881,7 @@ export default function SignalsPage() {
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Search signals..."
-                className="bg-white border border-[#D4E2FF] rounded-lg pl-8 pr-3 py-1.5 text-[12px] text-[#3D4451] placeholder:text-[#5A6475] outline-none focus:border-[#A8C4FF] transition-colors w-44"
+                className="bg-[#FAF7F2] border border-[#EBE5FF] rounded-lg pl-8 pr-3 py-1.5 text-[12px] text-[#3D4451] placeholder:text-[#5A6475] outline-none focus:border-[#A8C4FF] transition-colors w-44"
               />
             </div>
           </div>

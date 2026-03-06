@@ -70,7 +70,7 @@ function StatCard({ label, value, icon: Icon, sub }: {
   label: string; value: number | string; icon: LucideIcon; sub?: string;
 }) {
   return (
-    <div className="bg-white border border-[#D4E2FF] rounded-xl p-5 flex flex-col gap-3">
+    <div className="bg-[#FAF7F2] border border-[#EBE5FF] rounded-xl p-5 flex flex-col gap-3">
       <div className="flex items-center justify-between">
         <span className="text-[11px] uppercase tracking-[0.15em] text-[#5A6475] font-medium">{label}</span>
         <Icon size={14} className="text-[#5A6475]" />
@@ -109,7 +109,7 @@ function AutomationCard({ automation, onToggle, onRunNow }: {
       layout
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white border border-[#D4E2FF] rounded-xl overflow-hidden"
+      className="bg-[#FAF7F2] border border-[#EBE5FF] rounded-xl overflow-hidden"
     >
       <div className="p-5">
         <div className="flex items-start gap-4">
@@ -324,7 +324,7 @@ function AriaCommandPanel({ aiName, onClose }: { aiName: string; onClose: () => 
 
           {sending && (
             <div className="flex justify-start">
-              <div className="px-4 py-3 rounded-xl bg-white border border-[#D4E2FF]">
+              <div className="px-4 py-3 rounded-xl bg-[#FAF7F2] border border-[#EBE5FF]">
                 <div className="flex gap-1">
                   {[0, 1, 2].map(i => (
                     <motion.div
@@ -350,7 +350,7 @@ function AriaCommandPanel({ aiName, onClose }: { aiName: string; onClose: () => 
                 <button
                   key={ex}
                   onClick={() => send(ex)}
-                  className="w-full text-left text-[11px] text-[#5A6475] px-3 py-2 rounded-lg bg-white border border-[#D4E2FF] hover:bg-[#F8FAFF] hover:text-[#3D4451] transition-all truncate"
+                  className="w-full text-left text-[11px] text-[#5A6475] px-3 py-2 rounded-lg bg-[#FAF7F2] border border-[#EBE5FF] hover:bg-[#F8FAFF] hover:text-[#3D4451] transition-all truncate"
                 >
                   {ex}
                 </button>
@@ -363,7 +363,7 @@ function AriaCommandPanel({ aiName, onClose }: { aiName: string; onClose: () => 
         <div className="px-4 pb-4 pt-2 border-t border-[#D4E2FF]">
           <div className="flex gap-2">
             <input
-              className="flex-1 bg-[#FAF9F5] border border-[#D4E2FF] rounded-lg px-3.5 py-2.5 text-[13px] text-[#181D23] placeholder-white/20 outline-none focus:border-[#A8C4FF] transition-colors"
+              className="flex-1 bg-[#FAF7F2] border border-[#EBE5FF] rounded-lg px-3.5 py-2.5 text-[13px] text-[#1A1035] placeholder-[#8B84A0]/60 outline-none focus:border-[#D5CCFF] transition-colors"
               placeholder={`Command ${aiName}…`}
               value={input}
               onChange={e => setInput(e.target.value)}
@@ -488,7 +488,7 @@ export default function AutomationsPage() {
             initial={{ opacity: 0, y: -16 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -16 }}
-            className="fixed top-14 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-lg text-[13px] font-medium flex items-center gap-2 bg-white border border-white/[0.12] text-[#181D23] backdrop-blur-sm"
+            className="fixed top-14 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-lg text-[13px] font-medium flex items-center gap-2 bg-[#FAF7F2] border border-[#EBE5FF] text-[#1A1035] shadow-md"
           >
             <Play size={11} className="text-[#3D4451]" />
             {runNotice}

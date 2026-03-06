@@ -63,7 +63,7 @@ function StatCard({ label, value, icon: Icon }: { label: string; value: number |
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white border border-[#D4E2FF] rounded-xl p-5 flex flex-col gap-3"
+      className="bg-[#FAF7F2] border border-[#EBE5FF] rounded-xl p-5 flex flex-col gap-3"
     >
       <div className="flex items-center justify-between">
         <span className="text-[11px] uppercase tracking-[0.15em] text-[#5A6475] font-medium">{label}</span>
@@ -284,7 +284,7 @@ function AddDocumentPanel({
       animate={{ x: 0 }}
       exit={{ x: '100%' }}
       transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-      className="fixed top-0 right-0 h-full w-[520px] bg-white border-l border-[#D4E2FF] z-50 flex flex-col shadow-xl"
+      className="fixed top-0 right-0 h-full w-[520px] bg-[#FAF7F2] border-l border-[#EBE5FF] z-50 flex flex-col shadow-xl"
     >
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-5 border-b border-[#D4E2FF] flex-shrink-0">
@@ -553,7 +553,7 @@ export default function KnowledgeBasePage() {
                 <button
                   onClick={() => userId && loadData(userId, true)}
                   disabled={refreshing}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] text-[#5A6475] bg-white border border-[#D4E2FF] hover:bg-[#FAF9F5] transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] text-[#5A6475] bg-[#FAF7F2] border border-[#EBE5FF] hover:bg-[#FAF9F5] transition-colors"
                 >
                   <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
                   Refresh
@@ -585,7 +585,7 @@ export default function KnowledgeBasePage() {
             transition={{ delay: 0.15 }}
             className="flex items-center gap-3 mb-6 flex-wrap"
           >
-            <div className="flex items-center gap-2 flex-1 min-w-[200px] px-3.5 py-2.5 bg-white border border-[#D4E2FF] rounded-xl">
+            <div className="flex items-center gap-2 flex-1 min-w-[200px] px-3.5 py-2.5 bg-[#FAF7F2] border border-[#EBE5FF] rounded-xl">
               <Search size={14} className="text-[#96989B] flex-shrink-0" />
               <input
                 type="text"
@@ -598,7 +598,7 @@ export default function KnowledgeBasePage() {
             <button
               onClick={() => setActiveCat(null)}
               className={`px-3.5 py-2.5 rounded-xl text-[12px] border transition-colors whitespace-nowrap ${
-                !activeCat ? 'bg-[#181D23] text-white border-[#181D23]' : 'bg-white border-[#D4E2FF] text-[#5A6475] hover:border-[#181D23] hover:text-[#181D23]'
+                !activeCat ? 'bg-[#1A1035] text-[#FAF7F2] border-[#1A1035]' : 'bg-[#FAF7F2] border-[#EBE5FF] text-[#524D66] hover:border-[#1A1035] hover:text-[#1A1035]'
               }`}
             >
               All
@@ -608,7 +608,7 @@ export default function KnowledgeBasePage() {
                 key={cat.id}
                 onClick={() => setActiveCat(cat.id)}
                 className={`px-3.5 py-2.5 rounded-xl text-[12px] border transition-colors whitespace-nowrap ${
-                  activeCat === cat.id ? 'bg-[#181D23] text-white border-[#181D23]' : 'bg-white border-[#D4E2FF] text-[#5A6475] hover:border-[#181D23] hover:text-[#181D23]'
+                  activeCat === cat.id ? 'bg-[#1A1035] text-[#FAF7F2] border-[#1A1035]' : 'bg-[#FAF7F2] border-[#EBE5FF] text-[#524D66] hover:border-[#1A1035] hover:text-[#1A1035]'
                 }`}
               >
                 {cat.name}
@@ -621,7 +621,7 @@ export default function KnowledgeBasePage() {
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="bg-white border border-[#D4E2FF] rounded-xl px-5 py-2"
+            className="bg-[#FAF7F2] border border-[#EBE5FF] rounded-xl px-5 py-2"
           >
             {filtered.length === 0 ? (
               <div className="py-12 text-center">

@@ -639,9 +639,9 @@ function TrainingMatrixTab({
             <tbody>
               {matrix.map((row, ri) => (
                 <tr key={row.user_id} style={{ borderBottom: '1px solid #D4E2FF' }}
-                  className={ri % 2 === 0 ? 'bg-white' : 'bg-[#FDFCFB]'}>
+                  className={ri % 2 === 0 ? 'bg-[#FAF7F2]' : 'bg-[#F5F0E8]'}>
                   <td className="sticky left-0 z-10 px-4 py-3 whitespace-nowrap"
-                    style={{ backgroundColor: ri % 2 === 0 ? '#FFFFFF' : '#FDFCFB' }}>
+                    style={{ backgroundColor: ri % 2 === 0 ? '#FAF7F2' : '#F5F0E8' }}>
                     <p className="font-bold text-[#181D23]">{row.full_name}</p>
                     <p className="text-[9px] text-[#96989B]">{row.role_name}</p>
                   </td>

@@ -160,7 +160,7 @@ function TranscriptViewer({ transcript }: { transcript: { role: 'komal' | 'patie
               {line.role === 'komal' ? 'K' : 'P'}
             </div>
             <div className="px-2.5 py-1.5 rounded-lg" style={{ maxWidth: '85%',
-              backgroundColor: line.role === 'komal' ? 'rgba(124,58,237,0.06)' : 'white',
+              backgroundColor: line.role === 'komal' ? 'rgba(124,58,237,0.06)' : '#FAF7F2',
               border: '1px solid #D4E2FF' }}>
               <p className="text-[10px] leading-relaxed" style={{ color: line.role === 'komal' ? '#3D4451' : '#5A6475' }}>{line.text}</p>
             </div>
@@ -249,7 +249,7 @@ function MessageBubble({ item }: { item: TimelineItem }) {
         </div>
         <div className="px-3 py-2.5 rounded-2xl text-[11px] leading-relaxed"
           style={{
-            backgroundColor: isOut ? 'rgba(0,88,230,0.08)' : 'white',
+            backgroundColor: isOut ? 'rgba(0,88,230,0.08)' : '#FAF7F2',
             color:           isOut ? '#181D23' : '#3D4451',
             border:          `1px solid ${isOut ? '#A8C4FF' : '#D4E2FF'}`,
             borderBottomRightRadius: isOut ? '4px' : '16px',
@@ -408,7 +408,7 @@ export default function BridgePage() {
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3" style={{ color: '#96989B' }} />
             <input
               className="w-full pl-7 pr-3 py-2 rounded-lg text-[11px] focus:outline-none"
-              style={{ backgroundColor: 'white', border: '1px solid #D4E2FF', color: '#181D23' }}
+              style={{ backgroundColor: '#FAF7F2', border: '1px solid #EBE5FF', color: '#1A1035' }}
               placeholder="Search patients…"
               value={search}
               onChange={e => setSearch(e.target.value)}
@@ -571,7 +571,7 @@ export default function BridgePage() {
               <div>
                 <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-2" style={{ color: '#96989B' }}>Purpose</p>
                 <select className="w-full px-3 py-2.5 rounded-xl text-[11px] focus:outline-none appearance-none"
-                  style={{ backgroundColor: 'white', border: '1px solid #D4E2FF', color: '#181D23' }}
+                  style={{ backgroundColor: '#FAF7F2', border: '1px solid #EBE5FF', color: '#1A1035' }}
                   value={compose.purpose}
                   onChange={e => setCompose(c => ({ ...c, purpose: e.target.value as DraftPurpose, body: '' }))}>
                   {(Object.entries(PURPOSE_LABELS) as [DraftPurpose, string][]).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
@@ -590,9 +590,9 @@ export default function BridgePage() {
                 </div>
                 <textarea
                   className="w-full px-3 py-2.5 rounded-xl text-[11px] leading-relaxed resize-none focus:outline-none transition-colors"
-                  style={{ backgroundColor: 'white', border: '1px solid #D4E2FF', color: '#181D23', minHeight: compose.channel === 'email' ? '120px' : '80px' }}
-                  onFocus={e => (e.target.style.borderColor = '#A8C4FF')}
-                  onBlur={e  => (e.target.style.borderColor = '#D4E2FF')}
+                  style={{ backgroundColor: '#FAF7F2', border: '1px solid #EBE5FF', color: '#1A1035', minHeight: compose.channel === 'email' ? '120px' : '80px' }}
+                  onFocus={e => (e.target.style.borderColor = '#D5CCFF')}
+                  onBlur={e  => (e.target.style.borderColor = '#EBE5FF')}
                   placeholder={compose.channel === 'email' ? 'Subject: …\n\nMessage body…' : 'Type your message…'}
                   value={compose.body}
                   onChange={e => setCompose(c => ({ ...c, body: e.target.value }))}

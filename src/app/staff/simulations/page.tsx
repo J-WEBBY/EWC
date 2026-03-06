@@ -743,7 +743,7 @@ export default function SimulationsPage() {
           <div className="flex items-center gap-4">
             <button
               onClick={() => router.push('/staff/dashboard')}
-              className="p-2 rounded-lg bg-white border border-[#D4E2FF] hover:bg-[#FAF9F5] transition-colors"
+              className="p-2 rounded-lg bg-[#FAF7F2] border border-[#EBE5FF] hover:bg-[#FAF9F5] transition-colors"
             >
               <ArrowLeft className="w-4 h-4 text-[#3D4451]" />
             </button>
@@ -784,7 +784,7 @@ export default function SimulationsPage() {
             <button
               onClick={() => setShowHistory(!showHistory)}
               className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors ${
-                showHistory ? 'bg-[#F5F2EB] text-[#181D23]' : 'bg-white border border-[#D4E2FF] text-[#3D4451] hover:bg-[#FAF9F5]'
+                showHistory ? 'bg-[#F5F2EB] text-[#181D23]' : 'bg-[#FAF7F2] border border-[#EBE5FF] text-[#3D4451] hover:bg-[#FAF9F5]'
               }`}
             >
               <History className="w-3.5 h-3.5" />

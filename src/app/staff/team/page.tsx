@@ -287,7 +287,7 @@ Action items:\n${actionList || 'None recorded'}`;
           </div>
           <div className="flex gap-2">
             <input className="flex-1 px-3 py-2 rounded-xl text-[11px] focus:outline-none"
-              style={{ border: '1px solid #D4E2FF', backgroundColor: 'white', color: '#181D23' }}
+              style={{ border: '1px solid #EBE5FF', backgroundColor: '#FAF7F2', color: '#1A1035' }}
               placeholder="Add agenda item…"
               value={agendaInput}
               onChange={e => setAgendaInput(e.target.value)}
@@ -304,7 +304,7 @@ Action items:\n${actionList || 'None recorded'}`;
         <div>
           <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-3" style={{ color: '#96989B' }}>Meeting Notes</p>
           <textarea className="w-full px-3 py-2.5 rounded-xl text-[11px] leading-relaxed resize-none focus:outline-none"
-            style={{ border: '1px solid #D4E2FF', backgroundColor: 'white', color: '#181D23', height: '140px' }}
+            style={{ border: '1px solid #EBE5FF', backgroundColor: '#FAF7F2', color: '#1A1035', height: '140px' }}
             placeholder="Type notes here…"
             value={notes}
             onChange={e => setNotes(e.target.value)}
@@ -326,19 +326,19 @@ Action items:\n${actionList || 'None recorded'}`;
           </div>
           <div className="flex gap-2">
             <input className="flex-1 px-3 py-2 rounded-xl text-[11px] focus:outline-none"
-              style={{ border: '1px solid #D4E2FF', backgroundColor: 'white', color: '#181D23' }}
+              style={{ border: '1px solid #EBE5FF', backgroundColor: '#FAF7F2', color: '#1A1035' }}
               placeholder="Action item…"
               value={actionInput.text}
               onChange={e => setActionInput(a => ({ ...a, text: e.target.value }))}
             />
             <input className="w-28 px-3 py-2 rounded-xl text-[11px] focus:outline-none"
-              style={{ border: '1px solid #D4E2FF', backgroundColor: 'white', color: '#181D23' }}
+              style={{ border: '1px solid #EBE5FF', backgroundColor: '#FAF7F2', color: '#1A1035' }}
               placeholder="Assignee"
               value={actionInput.assignee}
               onChange={e => setActionInput(a => ({ ...a, assignee: e.target.value }))}
             />
             <input className="w-24 px-3 py-2 rounded-xl text-[11px] focus:outline-none"
-              style={{ border: '1px solid #D4E2FF', backgroundColor: 'white', color: '#181D23' }}
+              style={{ border: '1px solid #EBE5FF', backgroundColor: '#FAF7F2', color: '#1A1035' }}
               placeholder="Due date"
               value={actionInput.due}
               onChange={e => setActionInput(a => ({ ...a, due: e.target.value }))}
@@ -575,7 +575,7 @@ export default function TeamPage() {
           <>
             {/* Compose */}
             <div className="px-6 py-4 flex-shrink-0" style={{ borderBottom: '1px solid #D4E2FF' }}>
-              <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #D4E2FF', backgroundColor: 'white' }}>
+              <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #EBE5FF', backgroundColor: '#FAF7F2' }}>
                 <input
                   className="w-full px-4 pt-3.5 pb-0 text-[12px] font-semibold bg-transparent focus:outline-none"
                   style={{ color: '#181D23', borderBottom: '1px solid #D4E2FF' }}

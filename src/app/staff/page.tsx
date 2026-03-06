@@ -511,7 +511,7 @@ export default function StaffOnboardingPage() {
               </div>
 
               {/* Profile card */}
-              <div className="bg-white border border-[#D4E2FF] rounded-2xl p-6 space-y-5">
+              <div className="bg-[#FAF7F2] border border-[#EBE5FF] rounded-2xl p-6 space-y-5">
                 <div className="flex items-center gap-4">
                   <div
                     className="w-14 h-14 rounded-xl flex items-center justify-center text-xl font-bold text-black flex-shrink-0"
@@ -664,7 +664,7 @@ export default function StaffOnboardingPage() {
                                   initial={{ opacity: 0, y: 10 }}
                                   animate={{ opacity: 1, y: 0 }}
                                   transition={{ delay: i * 0.08 }}
-                                  className="bg-white border border-[#D4E2FF] rounded-xl p-4 hover:bg-[#F8FAFF] hover:border-white/[0.12] transition-all"
+                                  className="bg-[#FAF7F2] border border-[#EBE5FF] rounded-xl p-4 hover:bg-[#F8FAFF] hover:border-[#D5CCFF] transition-all"
                                 >
                                   <div className="flex items-start gap-3">
                                     <div
@@ -800,7 +800,7 @@ export default function StaffOnboardingPage() {
                 </button>
                 <button
                   onClick={() => { setPhase('agents'); }}
-                  className="px-6 h-12 rounded-xl text-[13px] text-[#5A6475] bg-white border border-[#D4E2FF] hover:border-white/[0.12] transition-all"
+                  className="px-6 h-12 rounded-xl text-[13px] text-[#5A6475] bg-[#FAF7F2] border border-[#EBE5FF] hover:border-[#D5CCFF] transition-all"
                 >
                   Skip
                 </button>
@@ -847,7 +847,7 @@ export default function StaffOnboardingPage() {
                           initial={{ opacity: 0, y: 15 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: i * 0.1 }}
-                          className="bg-white border border-[#D4E2FF] rounded-xl p-5 space-y-4 hover:border-white/[0.12] transition-all"
+                          className="bg-[#FAF7F2] border border-[#EBE5FF] rounded-xl p-5 space-y-4 hover:border-[#D5CCFF] transition-all"
                         >
                           <div className="flex items-start gap-3">
                             <div
@@ -909,7 +909,7 @@ export default function StaffOnboardingPage() {
                           initial={{ opacity: 0, y: 15 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: (industryAgents.length + i) * 0.1 }}
-                          className="bg-white border rounded-xl p-5 space-y-4 transition-all"
+                          className="bg-[#FAF7F2] border rounded-xl p-5 space-y-4 transition-all"
                           style={{ borderColor: `${c}15` }}
                         >
                           <div className="flex items-start gap-3">

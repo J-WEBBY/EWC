@@ -303,11 +303,11 @@ export function ChatPanel({
             )}
             <div className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-[12px] leading-relaxed ${
               msg.role === 'user'
-                ? 'bg-white/[0.07] text-[#181D23] rounded-tr-md'
-                : 'bg-white border border-[#D4E2FF] text-[#181D23] rounded-tl-md'
+                ? 'bg-[#EBE5FF]/30 text-[#181D23] rounded-tr-md'
+                : 'bg-[#FAF7F2] border border-[#EBE5FF] text-[#181D23] rounded-tl-md'
             }`}>
               {msg.role === 'assistant' ? (
-                <div className="prose prose-slate prose-sm max-w-none [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:ml-3 [&_li]:mb-0.5 [&_code]:text-[11px] [&_code]:bg-white [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_strong]:text-[#181D23]">
+                <div className="prose prose-slate prose-sm max-w-none [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:ml-3 [&_li]:mb-0.5 [&_code]:text-[11px] [&_code]:bg-[#EBE5FF]/50 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_strong]:text-[#181D23]">
                   <ReactMarkdown>{msg.content}</ReactMarkdown>
                 </div>
               ) : (
@@ -325,7 +325,7 @@ export function ChatPanel({
               <motion.div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: c }}
                 animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 1, repeat: Infinity }} />
             </div>
-            <div className="max-w-[85%] rounded-2xl rounded-tl-md px-3.5 py-2.5 bg-white border border-[#D4E2FF]">
+            <div className="max-w-[85%] rounded-2xl rounded-tl-md px-3.5 py-2.5 bg-[#FAF7F2] border border-[#EBE5FF]">
               {activeToolCall && (
                 <p className="text-[10px] text-[#5A6475] italic mb-1.5 flex items-center gap-1.5">
                   <Loader2 size={10} className="animate-spin" /> {activeToolCall}
@@ -347,7 +347,7 @@ export function ChatPanel({
 
       {/* ── Input ── */}
       <div className="flex-shrink-0 px-4 pb-4 pt-2 border-t border-[#D4E2FF]">
-        <div className="flex items-end gap-2 px-3 py-2 rounded-xl border border-[#D4E2FF] bg-white focus-within:border-white/[0.18] transition-colors">
+        <div className="flex items-end gap-2 px-3 py-2 rounded-xl border border-[#EBE5FF] bg-[#FAF7F2] focus-within:border-[#D5CCFF] transition-colors">
           <textarea
             ref={textareaRef}
             value={input}
@@ -361,7 +361,7 @@ export function ChatPanel({
             }}
             placeholder={`Message ${currentAgentName}...`}
             rows={1}
-            className="flex-1 bg-transparent text-[12px] text-[#181D23] placeholder-white/20 outline-none resize-none leading-relaxed"
+            className="flex-1 bg-transparent text-[12px] text-[#181D23] placeholder-[#8B84A0]/70 outline-none resize-none leading-relaxed"
             style={{ maxHeight: 120 }}
           />
           <button

@@ -56,9 +56,9 @@ function SectionCard({
       whileHover={isAvailable ? { y: -2 } : undefined}
       whileTap={isAvailable ? { scale: 0.99 } : undefined}
       onClick={isAvailable ? () => router.push(`${section.href}?userId=${userId}`) : undefined}
-      className={`bg-white border border-[#D4E2FF] rounded-2xl p-6 flex flex-col gap-4 transition-all ${
+      className={`bg-[#FAF7F2] border border-[#EBE5FF] rounded-2xl p-6 flex flex-col gap-4 transition-all ${
         isAvailable
-          ? 'cursor-pointer hover:bg-[#F8FAFF] hover:border-white/[0.12]'
+          ? 'cursor-pointer hover:bg-[#F5F2FD] hover:border-[#D5CCFF]'
           : 'opacity-50 cursor-default'
       }`}
     >
