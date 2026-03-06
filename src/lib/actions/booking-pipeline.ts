@@ -70,7 +70,7 @@ export interface ClinikoPractitionerRow {
   title: string | null;
   designation: string | null;
   email: string | null;
-  active: boolean;
+  is_active: boolean;
 }
 
 export interface AvailableSlot {
@@ -341,7 +341,7 @@ export async function getPractitioners(): Promise<ClinikoPractitionerRow[]> {
   const { data } = await db
     .from('cliniko_practitioners')
     .select('*')
-    .eq('active', true)
+    .eq('is_active', true)
     .order('last_name');
 
   if (!data || data.length === 0) {
@@ -349,7 +349,7 @@ export async function getPractitioners(): Promise<ClinikoPractitionerRow[]> {
     return [
       { id: 'demo-1', cliniko_id: 'default', first_name: 'Suresh', last_name: 'Ganata',
         full_name: 'Suresh Ganata', title: 'Dr', designation: 'Medical Director',
-        email: null, active: true },
+        email: null, is_active: true },
     ];
   }
 
@@ -509,52 +509,144 @@ export async function getAvailableSlots(
   return slots;
 }
 
+// Format a HH:MM time string into voice-natural English: "9am", "10:30am", "2pm"
+function formatTimeVoice(time: string): string {
+  const [hStr, mStr] = time.split(':');
+  const h = parseInt(hStr, 10);
+  const m = parseInt(mStr, 10);
+  const period = h >= 12 ? 'pm' : 'am';
+  const h12    = h > 12 ? h - 12 : h === 0 ? 12 : h;
+  return m === 0 ? `${h12}${period}` : `${h12}:${mStr}${period}`;
+}
+
+// Get time-of-day bucket from natural preference word
+function timeOfDayFilter(preferredTime: string): (slot: AvailableSlot) => boolean {
+  const lower = preferredTime.toLowerCase();
+  if (lower.includes('morning'))   return s => parseInt(s.start_time, 10) < 12;
+  if (lower.includes('afternoon')) return s => parseInt(s.start_time, 10) >= 12 && parseInt(s.start_time, 10) < 17;
+  if (lower.includes('evening'))   return s => parseInt(s.start_time, 10) >= 17;
+  if (lower.includes('after')) {
+    // e.g. "after 2pm" → parse hour
+    const m = lower.match(/after\s+(\d+)/);
+    const h = m ? parseInt(m[1], 10) : 0;
+    return s => parseInt(s.start_time, 10) >= h;
+  }
+  if (lower.includes('before')) {
+    const m = lower.match(/before\s+(\d+)/);
+    const h = m ? parseInt(m[1], 10) : 24;
+    return s => parseInt(s.start_time, 10) < h;
+  }
+  // Specific time ("10:30", "10am") — find closest
+  const timeMatch = lower.match(/(\d{1,2})(?::(\d{2}))?(?:am|pm)?/);
+  if (timeMatch) {
+    let h = parseInt(timeMatch[1], 10);
+    if (lower.includes('pm') && h < 12) h += 12;
+    return s => parseInt(s.start_time, 10) >= h && parseInt(s.start_time, 10) < h + 2;
+  }
+  return () => true; // no filter
+}
+
+// Advance a YYYY-MM-DD date by N days, skipping weekends
+function nextWorkingDay(dateStr: string, skip = 1): string {
+  const d = new Date(dateStr + 'T12:00:00');
+  let added = 0;
+  while (added < skip) {
+    d.setDate(d.getDate() + 1);
+    if (d.getDay() !== 0 && d.getDay() !== 6) added++;
+  }
+  return d.toISOString().split('T')[0];
+}
+
 // Formatted availability string for Komal to speak
+// Checks preferred date first, then up to 2 further working days if nothing found.
 export async function getAvailabilitySummary(
   preferredDate?: string,
   preferredPractitioner?: string,
   treatment?: string,
+  preferredTime?: string,
 ): Promise<string> {
   try {
-    // Parse date — default to tomorrow if not given
+    // 1. Resolve starting date
     let targetDate: string;
     if (preferredDate) {
-      // Try to parse natural language date — basic handling
       const d = parseNaturalDate(preferredDate);
-      targetDate = d ?? getNextWeekday(1); // default Monday
+      targetDate = d ?? getNextWeekday(1);
     } else {
       targetDate = getNextWeekday(1);
     }
 
-    // Resolve practitioner ID if a name was given
+    // 2. Resolve practitioner
     const db = createSovereignClient();
     let practId: string | undefined;
+    let practName: string | undefined;
     if (preferredPractitioner) {
       const { data: practs } = await db
         .from('cliniko_practitioners')
         .select('cliniko_id, full_name')
         .ilike('full_name', `%${preferredPractitioner}%`)
         .limit(1);
-      practId = practs?.[0]?.cliniko_id;
+      if (practs?.[0]) {
+        practId   = practs[0].cliniko_id;
+        practName = practs[0].full_name;
+      }
     }
 
-    const slots = await getAvailableSlots(targetDate, practId);
+    // 3. Time-of-day filter function
+    const timeFilter = preferredTime ? timeOfDayFilter(preferredTime) : () => true;
 
-    if (slots.length === 0) {
-      return `We don't have availability on ${formatDate(targetDate)}. Shall I check another day — perhaps the day after?`;
+    // 4. Search up to 3 working days for available slots
+    const treatNote   = treatment ? ` for ${treatment}` : '';
+    const practNote   = practName ? ` with ${practName}` : '';
+    const results: { date: string; slots: AvailableSlot[] }[] = [];
+    let checkDate = targetDate;
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      // skip weekends
+      const dow = new Date(checkDate + 'T12:00:00').getDay();
+      if (dow === 0 || dow === 6) {
+        checkDate = nextWorkingDay(checkDate);
+        continue;
+      }
+      const slots = (await getAvailableSlots(checkDate, practId)).filter(timeFilter);
+      if (slots.length > 0) results.push({ date: checkDate, slots });
+      checkDate = nextWorkingDay(checkDate);
     }
 
-    // Give first 3 slots as options
-    const options = slots.slice(0, 3)
-      .map(s => `${s.start_time}${s.practitioner_name ? ` with ${s.practitioner_name}` : ''}`)
-      .join(', or ');
+    // 5. No slots found anywhere
+    if (results.length === 0) {
+      const timeHint = preferredTime ? ` ${preferredTime}` : '';
+      const altDate  = nextWorkingDay(targetDate);
+      return `I'm afraid we don't have any${timeHint} availability${treatNote}${practNote} on ${formatDate(targetDate)}. The next available slot would be on ${formatDate(altDate)} — shall I take your details and have the team confirm the exact time?`;
+    }
 
-    const treatNote = treatment ? ` for ${treatment}` : '';
-    return `We have availability${treatNote} on ${formatDate(targetDate)} — I can see ${options}. Which of those works for you?`;
+    // 6. Build natural-language offer — show 3 options across up to 2 days
+    const offered: string[] = [];
+    for (const { date, slots } of results) {
+      const dayLabel = date === targetDate ? 'that day' : formatDate(date);
+      const times    = slots.slice(0, 3).map(s => formatTimeVoice(s.start_time));
+      if (times.length === 1) {
+        offered.push(`${formatTimeVoice(slots[0].start_time)} on ${dayLabel}`);
+      } else {
+        offered.push(`${times.slice(0, -1).join(', ')} or ${times[times.length - 1]} on ${dayLabel}`);
+      }
+      if (offered.length >= 2) break; // cap at 2 days of options
+    }
+
+    const { date: firstDate, slots: firstSlots } = results[0];
+    const dayPhrase = firstDate === targetDate
+      ? `on ${formatDate(targetDate)}`
+      : `— the soonest I have is ${formatDate(firstDate)}`;
+
+    if (results.length === 1 && firstSlots.length <= 2) {
+      const times = firstSlots.map(s => formatTimeVoice(s.start_time)).join(' or ');
+      return `We have ${times}${practNote} available${treatNote} ${dayPhrase}. Does either of those suit you?`;
+    }
+
+    return `We have slots available${treatNote}${practNote} — I can offer ${offered.join(', or ')}. Which of those works best for you?`;
 
   } catch (err) {
     console.error('[booking-pipeline] getAvailabilitySummary error:', err);
-    return 'Let me check our diary — shall I take your details and have someone confirm the exact time with you today?';
+    return 'Let me check our diary — shall I take your details and have the team confirm the exact time with you today?';
   }
 }
 
@@ -592,6 +684,27 @@ export async function getCallHistory(limit = 50): Promise<CallRecord[]> {
     .limit(limit);
 
   return (data ?? []) as CallRecord[];
+}
+
+/** Fetch all Komal call records associated with a specific phone number. */
+export async function getPatientCallHistory(phone: string): Promise<CallRecord[]> {
+  if (!phone) return [];
+  const db = createSovereignClient();
+  const { data } = await db
+    .from('signals')
+    .select('id, title, description, status, priority, created_at, data')
+    .eq('source_type', 'vapi_call')
+    .order('created_at', { ascending: false })
+    .limit(100);
+
+  const norm = phone.replace(/\s/g, '');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return ((data ?? []) as any[]).filter(r => {
+    const d = r.data as Record<string, string> | null;
+    const cn = (d?.caller_number ?? '').replace(/\s/g, '');
+    const pp = (d?.patient_phone ?? '').replace(/\s/g, '');
+    return cn === norm || pp === norm || cn.endsWith(norm) || norm.endsWith(cn);
+  }) as CallRecord[];
 }
 
 export async function getCallStats(): Promise<{
@@ -691,7 +804,7 @@ async function getDefaultPractitionerClinikoId(): Promise<string | null> {
   const { data } = await db
     .from('cliniko_practitioners')
     .select('cliniko_id')
-    .eq('active', true)
+    .eq('is_active', true)
     .limit(1);
   return data?.[0]?.cliniko_id ?? null;
 }

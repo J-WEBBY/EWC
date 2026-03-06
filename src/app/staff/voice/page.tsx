@@ -33,6 +33,7 @@ import {
 import { getKnowledgeBase, type KnowledgeStats } from '@/lib/actions/knowledge';
 import {
   getBookingRequests, confirmBookingRequest, dismissBookingRequest,
+  getCallStats, getCallHistory, type CallRecord,
 } from '@/lib/actions/booking-pipeline';
 
 // =============================================================================
@@ -513,6 +514,8 @@ export default function ReceptionPage() {
   const [demoTools,     setDemoTools]     = useState<string[]>([]);
   const [whisper,       setWhisper]       = useState('');
   const [whisperSent,   setWhisperSent]   = useState(false);
+  const [callStats,     setCallStats]     = useState<{ total: number; today: number; booked: number; leads: number; missed: number; avg_duration: number } | null>(null);
+  const [recentActivity, setRecentActivity] = useState<CallRecord[]>([]);
 
   // Identity
   const [identity,      setIdentity]      = useState<ExtendedIdentity>({
@@ -581,6 +584,15 @@ export default function ReceptionPage() {
     getKnowledgeBase('clinic')
       .then(res => { if (res.success && res.data) setKbStats(res.data.stats); })
       .finally(() => setKbLoading(false));
+  }, [tab]);
+
+  // ---------- live tab: call stats from signals ──
+  useEffect(() => {
+    if (tab !== 'live') return;
+    Promise.all([getCallStats(), getCallHistory(10)]).then(([stats, recent]) => {
+      setCallStats(stats);
+      setRecentActivity(recent);
+    }).catch(console.error);
   }, [tab]);
 
   // ---------- pending bookings ----------
@@ -874,22 +886,75 @@ export default function ReceptionPage() {
 
                     <div className="p-6">
                       {!demoActive ? (
-                        /* Idle state */
-                        <div className="flex flex-col items-center py-8">
-                          <PulseOrb active={isKomalLive} />
-                          <div className="mt-5 text-center">
-                            <p className="text-[13px] font-bold text-[#181D23] mb-1">
-                              {isKomalLive ? 'Monitoring — ready to receive' : 'Not deployed'}
+                        /* Idle state — real data */
+                        <div className="flex gap-6">
+                          {/* Status orb */}
+                          <div className="flex flex-col items-center">
+                            <PulseOrb active={isKomalLive} />
+                            <p className="text-[12px] font-bold text-[#181D23] mt-3">
+                              {isKomalLive ? 'Ready' : 'Not deployed'}
                             </p>
-                            <p className="text-[11px] text-[#96989B]">
-                              {isKomalLive
-                                ? 'Komal is active and listening. Live call data will appear here.'
-                                : 'Deploy Komal in the Settings tab to go live.'}
+                            <p className="text-[10px] text-[#96989B] text-center mt-1 max-w-[120px]">
+                              {isKomalLive ? 'Monitoring live channel' : 'Go to Settings → Deploy'}
                             </p>
                             {!isKomalLive && (
-                              <button onClick={() => setTab('settings')} className="mt-3 text-[11px] font-bold hover:opacity-70 transition-opacity" style={{ color: ACCENT }}>
-                                Deploy now →
+                              <button onClick={() => setTab('settings')} className="mt-2 text-[10px] font-bold hover:opacity-70 transition-opacity" style={{ color: ACCENT }}>
+                                Deploy →
                               </button>
+                            )}
+                          </div>
+
+                          {/* Activity feed */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-3">
+                              <p className="text-[8px] uppercase tracking-[0.2em] font-semibold text-[#96989B]">Recent Call Activity</p>
+                              {callStats && (
+                                <div className="flex items-center gap-3">
+                                  {[
+                                    { l: 'Total', v: callStats.total, c: ACCENT },
+                                    { l: 'Booked', v: callStats.booked, c: '#059669' },
+                                    { l: 'Leads', v: callStats.leads, c: '#0284C7' },
+                                  ].map(s => (
+                                    <span key={s.l} className="text-[10px] font-bold" style={{ color: s.c }}>
+                                      {s.v} <span className="font-normal text-[#96989B]">{s.l}</span>
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            {recentActivity.length === 0 ? (
+                              <div className="flex flex-col items-center justify-center py-8 rounded-xl" style={{ border: '1px dashed #D4E2FF' }}>
+                                <p className="text-[12px] text-[#96989B]">No call activity yet</p>
+                                <p className="text-[10px] text-[#B0A8C8] mt-1">Komal call records will appear here after the first call</p>
+                                <button onClick={() => setDemoActive(true)} className="mt-3 text-[10px] font-bold hover:opacity-70 transition-opacity" style={{ color: ACCENT }}>
+                                  <Sparkles size={10} className="inline mr-1" /> Preview demo call
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #D4E2FF' }}>
+                                {recentActivity.slice(0, 6).map((r, i) => {
+                                  const outcome = (r.data.outcome ?? 'unknown') as CallOutcome;
+                                  const outcfg  = OUTCOME_CFG[outcome] ?? OUTCOME_CFG.unknown;
+                                  const dur     = r.data.duration_seconds;
+                                  return (
+                                    <motion.div key={r.id} initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.04 }}
+                                      className="flex items-center gap-3 px-4 py-2.5 transition-all hover:bg-[#F8FAFF]"
+                                      style={{ borderBottom: i < Math.min(recentActivity.length - 1, 5) ? '1px solid #D4E2FF' : 'none' }}>
+                                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: outcfg.color }} />
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-[11px] font-semibold text-[#181D23] truncate">{r.data.caller_name ?? r.data.caller_number ?? 'Unknown caller'}</p>
+                                        <p className="text-[10px] text-[#96989B] truncate">{r.title}</p>
+                                      </div>
+                                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded flex-shrink-0"
+                                        style={{ backgroundColor: outcfg.bg, color: outcfg.color }}>
+                                        {outcfg.label}
+                                      </span>
+                                      {dur && <span className="text-[9px] text-[#96989B] flex-shrink-0">{fmtDuration(dur)}</span>}
+                                      <span className="text-[9px] text-[#96989B] flex-shrink-0">{fmtRelative(r.created_at)}</span>
+                                    </motion.div>
+                                  );
+                                })}
+                              </div>
                             )}
                           </div>
                         </div>

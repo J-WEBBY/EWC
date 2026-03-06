@@ -26,6 +26,9 @@ import {
   type TreatmentLog, type PatientPlan, type PlanPhase, type AddTreatmentLogInput,
 } from '@/lib/actions/patient-hub';
 import {
+  getPatientCallHistory, type CallRecord,
+} from '@/lib/actions/booking-pipeline';
+import {
   getClinicalRecord, getSOAPNotes, getPatientConsents, getClinicalPhotos,
   addSOAPNote, updateSOAPNote, signOffSOAPNote, addPatientConsent, updateConsentStatus,
   getVitalsHistory, generateAINotesDraft, generateClinicalSummary,
@@ -885,6 +888,7 @@ type CommEntry = {
   id: string; type: 'call' | 'note' | 'signal' | 'event';
   date: string; title: string; sub?: string; color: string;
   transcript?: { role: 'agent' | 'patient'; text: string }[];
+  callRecord?: CallRecord;
 };
 
 const DEMO_TRANSCRIPT = [
@@ -898,6 +902,7 @@ const DEMO_TRANSCRIPT = [
 function CommunicationsTab({ patient, timeline }: { patient: PatientIntelligenceRow; timeline: TimelineEvent[] }) {
   const [notes, setNotes]             = useState<PatientNote[]>([]);
   const [signals, setSignals]         = useState<PatientSignal[]>([]);
+  const [callRecords, setCallRecords] = useState<CallRecord[]>([]);
   const [noteInput, setNoteInput]     = useState('');
   const [saving, setSaving]           = useState(false);
   const [saved, setSaved]             = useState(false);
@@ -908,6 +913,7 @@ function CommunicationsTab({ patient, timeline }: { patient: PatientIntelligence
     if (!patient.cliniko_id) return;
     getPatientNotes(patient.cliniko_id).then(setNotes);
     getPatientSignalList(patient.phone).then(setSignals);
+    if (patient.phone) getPatientCallHistory(patient.phone).then(setCallRecords);
   }, [patient.cliniko_id, patient.phone]);
 
   const handleAddNote = async () => {
@@ -923,15 +929,32 @@ function CommunicationsTab({ patient, timeline }: { patient: PatientIntelligence
     setSaving(false);
   };
 
-  const calls = timeline.filter(e => e.type === 'komal_call');
+  // Komal call records (from vapi_call signals, real data takes priority over timeline)
+  const komalCallIds = new Set(callRecords.map(c => c.id));
+  const timelineCalls = timeline.filter(e => e.type === 'komal_call' && !komalCallIds.has(e.id));
+
+  // Non-vapi signals (exclude those already shown as callRecords)
+  const nonCallSignals = signals.filter(s => s.source_type !== 'vapi_call');
 
   const allComms: CommEntry[] = [
-    ...calls.map(c => ({
-      id: c.id, type: 'call' as const, date: c.date, title: c.title, sub: c.description ?? undefined, color: '#0058E6',
-      transcript: DEMO_TRANSCRIPT,
-    })),
+    // Real Komal call records with rich metadata
+    ...callRecords.map(c => {
+      const dur    = c.data.duration_seconds;
+      const durStr = dur ? `${Math.floor(dur / 60)}m ${dur % 60}s` : null;
+      const tools  = c.data.tools_used?.join(', ') ?? null;
+      const sub    = [
+        c.data.direction === 'outbound' ? 'Outbound' : 'Inbound',
+        durStr,
+        c.data.outcome ? `Outcome: ${c.data.outcome.replace(/_/g, ' ')}` : null,
+        c.data.agent_consulted ? `Agent: ${c.data.agent_consulted}` : null,
+        tools ? `Tools: ${tools}` : null,
+      ].filter(Boolean).join(' · ');
+      return { id: c.id, type: 'call' as const, date: c.created_at, title: c.title, sub, color: '#0058E6', callRecord: c };
+    }),
+    // Timeline Komal call events not already in callRecords
+    ...timelineCalls.map(c => ({ id: c.id, type: 'call' as const, date: c.date, title: c.title, sub: c.description ?? undefined, color: '#0058E6' })),
     ...notes.map(n => ({ id: n.id, type: 'note' as const, date: n.created_at, title: 'Staff Note', sub: n.content, color: '#0284C7' })),
-    ...signals.map(s => ({ id: s.id, type: 'signal' as const, date: s.created_at, title: s.title, sub: s.description ?? undefined, color: PRIO_COLOR[s.priority] ?? '#6B7280' })),
+    ...nonCallSignals.map(s => ({ id: s.id, type: 'signal' as const, date: s.created_at, title: s.title, sub: s.description ?? undefined, color: PRIO_COLOR[s.priority] ?? '#6B7280' })),
     ...timeline.filter(e => e.type !== 'komal_call').map(e => ({ id: e.id, type: 'event' as const, date: e.date, title: e.title, sub: e.description ?? undefined, color: EV_CFG[e.type]?.color ?? '#6B7280' })),
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
@@ -1046,25 +1069,70 @@ function CommunicationsTab({ patient, timeline }: { patient: PatientIntelligence
                 </div>
 
                 <div className="p-4 space-y-3" ref={transcriptRef} style={{ maxHeight: 480, overflowY: 'auto' }}>
-                  {selectedComm.type === 'call' && selectedComm.transcript ? (
-                    selectedComm.transcript.map((line, i) => (
-                      <motion.div key={i} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
-                        className={`flex ${line.role === 'agent' ? 'justify-start' : 'justify-end'}`}>
-                        <div className="max-w-[88%]" style={{ maxWidth: '88%' }}>
-                          <p className="text-[9px] font-semibold mb-1 px-1" style={{ color: line.role === 'agent' ? '#0058E6' : '#96989B' }}>
-                            {line.role === 'agent' ? 'Komal' : patient.first_name}
-                          </p>
-                          <div className="px-3.5 py-2.5 rounded-2xl text-[12px] leading-relaxed"
-                            style={{
-                              backgroundColor: line.role === 'agent' ? '#F5F3FF' : '#181D23',
-                              color: line.role === 'agent' ? '#181D23' : '#FFFFFF',
-                              borderRadius: line.role === 'agent' ? '4px 18px 18px 18px' : '18px 4px 18px 18px',
-                            }}>
-                            {line.text}
-                          </div>
+                  {selectedComm.type === 'call' ? (
+                    selectedComm.callRecord ? (
+                      // Real Komal call — show metadata
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            { label: 'Direction',  val: selectedComm.callRecord.data.direction ?? '—' },
+                            { label: 'Duration',   val: selectedComm.callRecord.data.duration_seconds ? `${Math.floor(selectedComm.callRecord.data.duration_seconds / 60)}m ${selectedComm.callRecord.data.duration_seconds % 60}s` : '—' },
+                            { label: 'Outcome',    val: (selectedComm.callRecord.data.outcome ?? '—').replace(/_/g, ' ') },
+                            { label: 'Mode',       val: (selectedComm.callRecord.data.mode_detected ?? '—') },
+                          ].map(kv => (
+                            <div key={kv.label} className="p-3 rounded-xl" style={{ backgroundColor: '#F5F3FF', border: '1px solid #EDE9FE' }}>
+                              <p className="text-[8px] uppercase tracking-[0.2em] font-semibold text-[#96989B] mb-0.5">{kv.label}</p>
+                              <p className="text-[12px] font-semibold text-[#181D23] capitalize">{kv.val}</p>
+                            </div>
+                          ))}
                         </div>
-                      </motion.div>
-                    ))
+                        {selectedComm.callRecord.data.tools_used && selectedComm.callRecord.data.tools_used.length > 0 && (
+                          <div className="p-3 rounded-xl" style={{ backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE' }}>
+                            <p className="text-[8px] uppercase tracking-[0.2em] font-semibold text-[#0284C7] mb-1.5">Tools Used</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {selectedComm.callRecord.data.tools_used.map(t => (
+                                <span key={t} className="text-[9px] px-2 py-0.5 rounded font-semibold" style={{ backgroundColor: '#0284C715', color: '#0284C7' }}>{t.replace(/_/g, ' ')}</span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {selectedComm.callRecord.data.agent_consulted && (
+                          <div className="p-3 rounded-xl" style={{ backgroundColor: '#D97706' + '0D', border: '1px solid ' + '#D97706' + '25' }}>
+                            <p className="text-[8px] uppercase tracking-[0.2em] font-semibold mb-0.5" style={{ color: '#D97706' }}>Agent Consulted</p>
+                            <p className="text-[12px] font-semibold text-[#181D23] capitalize">{selectedComm.callRecord.data.agent_consulted}</p>
+                          </div>
+                        )}
+                        {selectedComm.callRecord.data.recording_url && (
+                          <a href={selectedComm.callRecord.data.recording_url} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-[11px] font-semibold transition-all"
+                            style={{ backgroundColor: '#0058E60D', border: '1px solid #0058E625', color: '#0058E6' }}>
+                            <Mic2 size={13} /> Listen to Recording
+                          </a>
+                        )}
+                        <div className="p-3 rounded-xl text-center" style={{ backgroundColor: '#F9F7FF', border: '1px solid #D4E2FF' }}>
+                          <p className="text-[10px] text-[#96989B]">Full transcript will appear here once Vapi transcript retrieval is configured.</p>
+                        </div>
+                      </div>
+                    ) : selectedComm.transcript ? (
+                      selectedComm.transcript.map((line, i) => (
+                        <motion.div key={i} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
+                          className={`flex ${line.role === 'agent' ? 'justify-start' : 'justify-end'}`}>
+                          <div className="max-w-[88%]" style={{ maxWidth: '88%' }}>
+                            <p className="text-[9px] font-semibold mb-1 px-1" style={{ color: line.role === 'agent' ? '#0058E6' : '#96989B' }}>
+                              {line.role === 'agent' ? 'Komal' : patient.first_name}
+                            </p>
+                            <div className="px-3.5 py-2.5 rounded-2xl text-[12px] leading-relaxed"
+                              style={{ backgroundColor: line.role === 'agent' ? '#F5F3FF' : '#181D23', color: line.role === 'agent' ? '#181D23' : '#FFFFFF', borderRadius: line.role === 'agent' ? '4px 18px 18px 18px' : '18px 4px 18px 18px' }}>
+                              {line.text}
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))
+                    ) : (
+                      <div className="p-3 rounded-xl text-center" style={{ backgroundColor: '#F9F7FF', border: '1px solid #D4E2FF' }}>
+                        <p className="text-[10px] text-[#96989B]">No call details available.</p>
+                      </div>
+                    )
                   ) : selectedComm.type === 'note' ? (
                     <div className="p-4 rounded-xl" style={{ backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE' }}>
                       <p className="text-[9px] uppercase tracking-[0.22em] text-[#0284C7] font-semibold mb-2">Staff Note</p>
@@ -1080,11 +1148,6 @@ function CommunicationsTab({ patient, timeline }: { patient: PatientIntelligence
                     </div>
                   )}
 
-                  {selectedComm.type === 'call' && (
-                    <div className="p-3 rounded-xl text-center" style={{ backgroundColor: '#F9F7FF', border: '1px solid #D4E2FF' }}>
-                      <p className="text-[10px] text-[#96989B]">Live transcript will appear here once Komal is provisioned and a call is completed.</p>
-                    </div>
-                  )}
                 </div>
               </Panel>
             </motion.div>
