@@ -3918,7 +3918,7 @@ export default function PatientHubPage() {
   void [Activity, BarChart2, CreditCard, Package, Users, Flag, UserIcon, Target, Shield, FileText];
 
   return (
-    <div className="min-h-screen pl-[240px]" style={{ backgroundColor: '#F8FAFF' }}>
+    <div className="min-h-screen nav-offset" style={{ backgroundColor: '#F8FAFF' }}>
       {profile && <StaffNav profile={profile} userId={userId} brandColor={brandColor} currentPath="Patients" />}
 
       {loading ? (

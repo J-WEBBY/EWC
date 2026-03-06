@@ -57,6 +57,16 @@ body {
 }
 
 /* =============================================================================
+   NAV-AWARE LAYOUT
+   Pages use .nav-offset instead of pl-[240px] so they respond to nav collapse.
+   --nav-w is set on :root by StaffNav (240px expanded, 60px collapsed).
+   ============================================================================= */
+.nav-offset {
+  padding-left: var(--nav-w, 240px);
+  transition: padding-left 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* =============================================================================
    DARK MODE — applied to pages that opt into dark theme via .theme-dark wrapper.
    Uses EWC navy dark (#0D1420) instead of pure black. Blue-tinted, premium.
    ============================================================================= */

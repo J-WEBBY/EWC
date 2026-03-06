@@ -111,19 +111,6 @@ const KB_CATEGORIES = [
   { key: 'contraindications',   label: 'Safety',       color: '#1D4ED8', desc: 'Contraindications and precautions' },
 ] as const;
 
-const DEMO_TRANSCRIPT: TranscriptLine[] = [
-  { speaker: 'komal',  text: 'Hello, thank you for calling Edgbaston Wellness Clinic. This call may be recorded for quality and training. My name is Komal — how can I help you today?' },
-  { speaker: 'caller', text: 'Hi, I\'ve been thinking about Botox for a while. I\'m not sure where to start.' },
-  { speaker: 'komal',  text: 'Absolutely, I can help with that. Our patients love the natural results they get — Dr Ganata has been delivering this for years. Are you thinking about a specific area, like the forehead or around the eyes?' },
-  { speaker: 'caller', text: 'Mostly my forehead. What\'s the price range?' },
-  { speaker: 'komal',  text: 'Before I give you numbers, can I ask — have you had any anti-wrinkle treatment before, or would this be your first time?' },
-  { speaker: 'caller', text: 'First time, yes.' },
-  { speaker: 'komal',  text: 'Perfect. For new patients we always start with a free consultation with Dr Ganata. He\'ll assess exactly what you need — no pressure at all. Treatments start from £200 for one area. Shall I check availability for that free consultation?' },
-  { speaker: 'caller', text: 'That sounds great actually. Yes please.' },
-];
-
-const DEMO_TOOLS_FIRED = ['identify_caller', 'get_clinic_info', 'search_knowledge_base', 'ask_agent(orion)', 'create_booking_request'];
-
 const OUTCOME_CFG: Record<CallOutcome, { label: string; color: string; bg: string }> = {
   booked:    { label: 'Booked',    color: '#059669', bg: '#ECFDF5' },
   lead:      { label: 'Lead',      color: '#0058E6', bg: '#F5F3FF' },
@@ -509,13 +496,9 @@ export default function ReceptionPage() {
   const [bookingMsg,       setBookingMsg]       = useState<{ id: string; text: string; ok: boolean } | null>(null);
 
   // Live tab
-  const [demoActive,    setDemoActive]    = useState(false);
-  const [demoStep,      setDemoStep]      = useState(0);
-  const [demoTools,     setDemoTools]     = useState<string[]>([]);
-  const [whisper,       setWhisper]       = useState('');
-  const [whisperSent,   setWhisperSent]   = useState(false);
   const [callStats,     setCallStats]     = useState<{ total: number; today: number; booked: number; leads: number; missed: number; avg_duration: number } | null>(null);
   const [recentActivity, setRecentActivity] = useState<CallRecord[]>([]);
+  const [liveRefresh,   setLiveRefresh]   = useState(0); // increment to trigger re-fetch
 
   // Identity
   const [identity,      setIdentity]      = useState<ExtendedIdentity>({
@@ -586,14 +569,16 @@ export default function ReceptionPage() {
       .finally(() => setKbLoading(false));
   }, [tab]);
 
-  // ---------- live tab: call stats from signals ──
+  // ---------- live tab: call stats from signals + Vapi refresh ──
   useEffect(() => {
     if (tab !== 'live') return;
     Promise.all([getCallStats(), getCallHistory(10)]).then(([stats, recent]) => {
       setCallStats(stats);
       setRecentActivity(recent);
     }).catch(console.error);
-  }, [tab]);
+    // Also refresh Vapi calls to detect in-progress calls
+    refreshCalls();
+  }, [tab, liveRefresh, refreshCalls]);
 
   // ---------- pending bookings ----------
   useEffect(() => {
@@ -636,24 +621,6 @@ export default function ReceptionPage() {
     finally { setBookingBusy(null); }
   };
 
-  // ---------- demo call animation ----------
-  useEffect(() => {
-    if (!demoActive) { setDemoStep(0); setDemoTools([]); return; }
-    const stepInterval = setInterval(() => {
-      setDemoStep(s => {
-        if (s >= DEMO_TRANSCRIPT.length - 1) { clearInterval(stepInterval); return s; }
-        return s + 1;
-      });
-    }, 3200);
-    const toolInterval = setInterval(() => {
-      setDemoTools(prev => {
-        const next = DEMO_TOOLS_FIRED[prev.length];
-        return next ? [...prev, next] : prev;
-      });
-    }, 2400);
-    return () => { clearInterval(stepInterval); clearInterval(toolInterval); };
-  }, [demoActive]);
-
   // ---------- handlers ----------
   const handleSaveIdentity = async (andProvision = false) => {
     setIdentityBusy(true); setIdentitySaved(false); setIdentityError(null);
@@ -694,12 +661,6 @@ export default function ReceptionPage() {
     setRedlineInput('');
   };
 
-  const handleWhisperSend = () => {
-    if (!whisper.trim()) return;
-    setWhisperSent(true);
-    setTimeout(() => { setWhisperSent(false); setWhisper(''); }, 2500);
-  };
-
   const openChatWithContext = (context?: string) => {
     const url = `/staff/chat?agentKey=primary_agent${context ? `&context=${encodeURIComponent(context)}` : ''}`;
     router.push(url);
@@ -725,12 +686,13 @@ export default function ReceptionPage() {
     return matchFilter && matchSearch;
   });
 
-  const isKomalLive = vapiConnected === true && komalStatus?.provisioned === true;
+  const isKomalLive  = vapiConnected === true && komalStatus?.provisioned === true;
+  const activeCall   = calls.find(c => c.status === 'in-progress' || c.status === 'ringing');
 
   // ---------- loading ----------
   if (!profile) {
     return (
-      <div className="min-h-screen pl-[240px] flex items-center justify-center" style={{ backgroundColor: '#F8FAFF' }}>
+      <div className="min-h-screen nav-offset flex items-center justify-center" style={{ backgroundColor: '#F8FAFF' }}>
         <motion.div animate={{ opacity: [0.2, 0.5, 0.2] }} transition={{ duration: 1.8, repeat: Infinity }}
           className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: ACCENT }} />
       </div>
@@ -751,7 +713,7 @@ export default function ReceptionPage() {
   ];
 
   return (
-    <div className="min-h-screen pl-[240px]" style={{ backgroundColor: '#F8FAFF' }}>
+    <div className="min-h-screen nav-offset" style={{ backgroundColor: '#F8FAFF' }}>
       <StaffNav profile={profile} userId={profile.userId ?? ''} brandColor={profile.brandColor ?? ACCENT} currentPath="Receptionist" />
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
@@ -859,11 +821,11 @@ export default function ReceptionPage() {
                     {/* Monitor header */}
                     <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #D4E2FF' }}>
                       <div className="flex items-center gap-2">
-                        <Radio size={13} style={{ color: demoActive ? '#059669' : '#96989B' }} />
+                        <Radio size={13} style={{ color: activeCall ? '#059669' : isKomalLive ? ACCENT : '#96989B' }} />
                         <span className="text-[11px] font-bold text-[#181D23]">
-                          {demoActive ? 'Active Call' : 'Monitoring'}
+                          {activeCall ? 'Call in Progress' : 'Live Monitor'}
                         </span>
-                        {demoActive && (
+                        {activeCall && (
                           <motion.span className="text-[9px] font-bold px-2 py-0.5 rounded-full"
                             style={{ backgroundColor: '#ECFDF5', color: '#059669' }}
                             animate={{ opacity: [1, 0.5, 1] }} transition={{ duration: 1.2, repeat: Infinity }}>
@@ -871,31 +833,57 @@ export default function ReceptionPage() {
                           </motion.span>
                         )}
                       </div>
-                      {demoActive ? (
-                        <button onClick={() => { setDemoActive(false); setDemoStep(0); setDemoTools([]); }}
-                          className="flex items-center gap-1 text-[10px] font-semibold text-[#DC2626] hover:opacity-70 transition-opacity">
-                          <PhoneOff size={11} /> End Demo
-                        </button>
-                      ) : (
-                        <button onClick={() => setDemoActive(true)}
-                          className="flex items-center gap-1 text-[10px] font-semibold hover:opacity-70 transition-opacity" style={{ color: ACCENT }}>
-                          <Sparkles size={11} /> Preview live call
-                        </button>
-                      )}
+                      <button onClick={() => setLiveRefresh(n => n + 1)}
+                        className="flex items-center gap-1 text-[10px] font-semibold hover:opacity-70 transition-opacity" style={{ color: ACCENT }}>
+                        <RefreshCw size={11} /> Refresh
+                      </button>
                     </div>
 
                     <div className="p-6">
-                      {!demoActive ? (
-                        /* Idle state — real data */
+                      {activeCall ? (
+                        /* Real active call — from Vapi */
+                        <div>
+                          <div className="flex items-center gap-3 mb-5 p-4 rounded-xl"
+                            style={{ backgroundColor: '#ECFDF5', border: '1px solid #A7F3D0' }}>
+                            <motion.div
+                              className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-[14px]"
+                              style={{ backgroundColor: '#059669' }}
+                              animate={{ scale: [1, 1.05, 1] }} transition={{ duration: 1.5, repeat: Infinity }}>
+                              <Phone size={18} />
+                            </motion.div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[13px] font-bold text-[#181D23]">
+                                {activeCall.customer?.name ?? activeCall.customer?.number ?? 'Unknown caller'}
+                              </p>
+                              {activeCall.customer?.name && activeCall.customer?.number && (
+                                <p className="text-[11px] text-[#5A6475]">{activeCall.customer.number}</p>
+                              )}
+                              <p className="text-[10px] text-[#059669] font-semibold mt-0.5">
+                                {activeCall.status === 'ringing' ? 'Ringing...' : 'Connected'}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => { setSelectedCall(activeCall); setTab('calls'); }}
+                              className="px-3 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1.5 transition-all hover:opacity-90"
+                              style={{ backgroundColor: `${ACCENT}15`, color: ACCENT }}>
+                              <Eye size={11} /> View details
+                            </button>
+                          </div>
+                          <div className="text-center py-4 text-[11px] text-[#96989B]">
+                            Live transcript available after call ends. View full details in the Calls tab.
+                          </div>
+                        </div>
+                      ) : (
+                        /* Idle state — real activity data */
                         <div className="flex gap-6">
                           {/* Status orb */}
-                          <div className="flex flex-col items-center">
+                          <div className="flex flex-col items-center flex-shrink-0">
                             <PulseOrb active={isKomalLive} />
                             <p className="text-[12px] font-bold text-[#181D23] mt-3">
-                              {isKomalLive ? 'Ready' : 'Not deployed'}
+                              {isKomalLive ? 'Monitoring' : 'Not deployed'}
                             </p>
                             <p className="text-[10px] text-[#96989B] text-center mt-1 max-w-[120px]">
-                              {isKomalLive ? 'Monitoring live channel' : 'Go to Settings → Deploy'}
+                              {isKomalLive ? 'Komal is live and ready' : 'Go to Settings → Deploy'}
                             </p>
                             {!isKomalLive && (
                               <button onClick={() => setTab('settings')} className="mt-2 text-[10px] font-bold hover:opacity-70 transition-opacity" style={{ color: ACCENT }}>
@@ -924,11 +912,9 @@ export default function ReceptionPage() {
                             </div>
                             {recentActivity.length === 0 ? (
                               <div className="flex flex-col items-center justify-center py-8 rounded-xl" style={{ border: '1px dashed #D4E2FF' }}>
+                                <Headphones size={22} style={{ color: '#D4E2FF', marginBottom: 8 }} />
                                 <p className="text-[12px] text-[#96989B]">No call activity yet</p>
-                                <p className="text-[10px] text-[#B0A8C8] mt-1">Komal call records will appear here after the first call</p>
-                                <button onClick={() => setDemoActive(true)} className="mt-3 text-[10px] font-bold hover:opacity-70 transition-opacity" style={{ color: ACCENT }}>
-                                  <Sparkles size={10} className="inline mr-1" /> Preview demo call
-                                </button>
+                                <p className="text-[10px] text-[#B0B8C8] mt-1">Komal call records appear here after the first call</p>
                               </div>
                             ) : (
                               <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #D4E2FF' }}>
@@ -937,8 +923,9 @@ export default function ReceptionPage() {
                                   const outcfg  = OUTCOME_CFG[outcome] ?? OUTCOME_CFG.unknown;
                                   const dur     = r.data.duration_seconds;
                                   return (
-                                    <motion.div key={r.id} initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.04 }}
-                                      className="flex items-center gap-3 px-4 py-2.5 transition-all hover:bg-[#F8FAFF]"
+                                    <motion.button key={r.id} initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.04 }}
+                                      onClick={() => setTab('calls')}
+                                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-all hover:bg-[#F8FAFF]"
                                       style={{ borderBottom: i < Math.min(recentActivity.length - 1, 5) ? '1px solid #D4E2FF' : 'none' }}>
                                       <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: outcfg.color }} />
                                       <div className="flex-1 min-w-0">
@@ -951,85 +938,11 @@ export default function ReceptionPage() {
                                       </span>
                                       {dur && <span className="text-[9px] text-[#96989B] flex-shrink-0">{fmtDuration(dur)}</span>}
                                       <span className="text-[9px] text-[#96989B] flex-shrink-0">{fmtRelative(r.created_at)}</span>
-                                    </motion.div>
+                                    </motion.button>
                                   );
                                 })}
                               </div>
                             )}
-                          </div>
-                        </div>
-                      ) : (
-                        /* Active call demo */
-                        <div>
-                          {/* Caller card */}
-                          <div className="flex items-center gap-3 mb-5 p-3 rounded-xl" style={{ backgroundColor: '#ECFDF5', border: '1px solid #A7F3D0' }}>
-                            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#059669', color: '#fff', fontSize: 14, fontWeight: 900 }}>S</div>
-                            <div>
-                              <p className="text-[12px] font-bold text-[#181D23]">Sarah Mitchell — existing patient</p>
-                              <p className="text-[10px] text-[#5A6475]">07711 234 501 · Last visit: 3 weeks ago</p>
-                            </div>
-                            <div className="ml-auto flex items-center gap-2">
-                              <motion.span className="text-[10px] font-bold text-[#059669]"
-                                animate={{ opacity: [1, 0.5, 1] }} transition={{ duration: 1, repeat: Infinity }}>
-                                0:42
-                              </motion.span>
-                              <button className="px-3 py-1.5 rounded-lg text-[10px] font-bold text-white transition-all hover:opacity-90"
-                                style={{ backgroundColor: '#DC2626' }}>
-                                Intercept
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Live transcript */}
-                          <div className="mb-4 max-h-[220px] overflow-y-auto space-y-3">
-                            <AnimatePresence>
-                              {DEMO_TRANSCRIPT.slice(0, demoStep + 1).map((l, i) => (
-                                <motion.div key={i}
-                                  initial={{ opacity: 0, x: l.speaker === 'komal' ? 10 : -10 }}
-                                  animate={{ opacity: 1, x: 0 }}
-                                  className={`flex gap-2 ${l.speaker === 'komal' ? 'flex-row-reverse' : ''}`}>
-                                  <div className="w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center text-[8px] font-bold mt-0.5"
-                                    style={{ backgroundColor: l.speaker === 'komal' ? `${ACCENT}20` : '#F0F9FF', color: l.speaker === 'komal' ? ACCENT : '#0891B2' }}>
-                                    {l.speaker === 'komal' ? 'K' : 'S'}
-                                  </div>
-                                  <div className="max-w-[78%] px-3 py-2 rounded-xl text-[11px] leading-relaxed"
-                                    style={{
-                                      backgroundColor: l.speaker === 'komal' ? `${ACCENT}08` : '#F0F9FF',
-                                      color: '#181D23',
-                                      borderRadius: l.speaker === 'komal' ? '10px 3px 10px 10px' : '3px 10px 10px 10px',
-                                    }}>
-                                    {l.text}
-                                  </div>
-                                </motion.div>
-                              ))}
-                            </AnimatePresence>
-                          </div>
-
-                          {/* Tool activations */}
-                          {demoTools.length > 0 && (
-                            <div>
-                              <p className="text-[8px] uppercase tracking-[0.2em] font-semibold text-[#96989B] mb-2">Tools activated</p>
-                              <div className="flex flex-wrap gap-1.5">
-                                {demoTools.map((t, i) => <ToolBadge key={t} label={t} delay={0} />)}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Whisper */}
-                          <div className="mt-4 flex gap-2">
-                            <input
-                              value={whisper}
-                              onChange={e => setWhisper(e.target.value)}
-                              onKeyDown={e => e.key === 'Enter' && handleWhisperSend()}
-                              placeholder="Whisper to Komal — caller can't hear this..."
-                              className="flex-1 px-3 py-2 rounded-xl text-[11px] outline-none transition-all"
-                              style={{ border: `1px solid ${ACCENT}40`, backgroundColor: `${ACCENT}04`, color: '#181D23' }} />
-                            <button onClick={handleWhisperSend}
-                              className="px-3 py-2 rounded-xl text-[10px] font-bold flex items-center gap-1 transition-all hover:opacity-90"
-                              style={{ backgroundColor: `${ACCENT}15`, color: ACCENT }}>
-                              {whisperSent ? <Check size={12} /> : <Mic size={12} />}
-                              {whisperSent ? 'Sent' : 'Whisper'}
-                            </button>
                           </div>
                         </div>
                       )}

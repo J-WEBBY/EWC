@@ -591,7 +591,7 @@ export default function LearningPage() {
         />
       )}
 
-      <div style={{ paddingLeft: 240 }}>
+      <div style={{ paddingLeft: 'var(--nav-w, 240px)', transition: 'padding-left 0.32s ease' }}>
         {/* Header */}
         <div style={{ padding: '48px 48px 0', borderBottom: `1px solid ${BORDER}` }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 32 }}>

@@ -478,7 +478,7 @@ export default function PatientsPage() {
   }, {});
 
   return (
-    <div className="min-h-screen pl-[240px]" style={{ backgroundColor: '#F8FAFF' }}>
+    <div className="min-h-screen nav-offset" style={{ backgroundColor: '#F8FAFF' }}>
       {profile && <StaffNav profile={profile} userId={userId} brandColor={brandColor} currentPath="Patients" />}
       <div className="max-w-[1440px] mx-auto">
 

@@ -756,14 +756,14 @@ export default function SignalsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen pl-[240px] bg-[#F8FAFF] flex items-center justify-center">
+      <div className="min-h-screen nav-offset bg-[#F8FAFF] flex items-center justify-center">
         <div className="w-5 h-5 border border-[#A8C4FF] border-t-[#0058E6] rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen pl-[240px]">
+    <div className="min-h-screen nav-offset">
       {profile && <StaffNav profile={profile} userId={userId} brandColor={brandColor} currentPath="Signals" />}
 
       <div className="max-w-[1400px] mx-auto px-6 py-10">

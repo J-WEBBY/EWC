@@ -630,7 +630,7 @@ export default function DashboardPage() {
 
   if (loading || !profile) {
     return (
-      <div className="min-h-screen pl-[240px] bg-[#F8FAFF] flex items-center justify-center">
+      <div className="min-h-screen nav-offset bg-[#F8FAFF] flex items-center justify-center">
         <motion.div
           animate={{ scale: [0.8, 1.2, 0.8], opacity: [0.2, 0.6, 0.2] }}
           transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
@@ -650,7 +650,7 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="min-h-screen pl-[240px]">
+    <div className="min-h-screen nav-offset">
 
       {/* ── Ambient ──────────────────────────────────────── */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">

@@ -721,7 +721,7 @@ export default function SimulationsPage() {
   // ── Loading state ──────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-screen pl-[240px] bg-[#F8FAFF] flex items-center justify-center">
+      <div className="min-h-screen nav-offset bg-[#F8FAFF] flex items-center justify-center">
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
@@ -733,7 +733,7 @@ export default function SimulationsPage() {
   }
 
   return (
-    <div className="min-h-screen pl-[240px] relative overflow-hidden">
+    <div className="min-h-screen nav-offset relative overflow-hidden">
       {profile && <StaffNav profile={profile} userId={userId || ''} brandColor={brandColor} currentPath="Simulations" />}
       <NeuralGrid color={brandColor} />
 

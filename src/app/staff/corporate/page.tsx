@@ -355,7 +355,7 @@ export default function CorporatePage() {
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#F8FAFF' }}>
       {profile && <StaffNav profile={profile} userId={userId} brandColor={accentColor} currentPath="Corporate" />}
-      <main style={{ paddingLeft: 240, minHeight: '100vh' }}>
+      <main style={{ paddingLeft: 'var(--nav-w, 240px)', minHeight: '100vh' }}>
         <div style={{ padding: '40px 40px 0', borderBottom: '1px solid #D4E2FF' }}>
           <div style={{ paddingBottom: 24 }}>
             <p style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.28em', color: '#96989B', marginBottom: 6 }}>Growth</p>

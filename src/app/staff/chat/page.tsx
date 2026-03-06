@@ -854,7 +854,7 @@ export default function ChatPage() {
   // ── Loading ───────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-screen pl-[240px] bg-[#F8FAFF] flex items-center justify-center">
+      <div className="min-h-screen nav-offset bg-[#F8FAFF] flex items-center justify-center">
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
@@ -868,7 +868,7 @@ export default function ChatPage() {
   const dateGroups = groupConversationsByDate(conversations);
 
   return (
-    <div className="h-screen pl-[240px] bg-[#F8FAFF] text-[#181D23] flex overflow-hidden relative">
+    <div className="h-screen nav-offset bg-[#F8FAFF] text-[#181D23] flex overflow-hidden relative">
       {profile && <StaffNav profile={profile} userId={userId || ''} brandColor={brandColor} currentPath="Chat" />}
       <NeuralGrid color={brandColor} />
 

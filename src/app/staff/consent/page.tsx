@@ -514,7 +514,7 @@ export default function ConsentPage() {
     <div style={{ minHeight: '100vh', backgroundColor: '#F8FAFF' }}>
       {profile && <StaffNav profile={profile} userId={userId} brandColor={accentColor} currentPath="Consent & Forms" />}
 
-      <main style={{ paddingLeft: 240, minHeight: '100vh' }}>
+      <main style={{ paddingLeft: 'var(--nav-w, 240px)', minHeight: '100vh' }}>
         {/* ── Header ── */}
         <div style={{ padding: '40px 40px 0', borderBottom: '1px solid #D4E2FF' }}>
           <div style={{ paddingBottom: 24 }}>

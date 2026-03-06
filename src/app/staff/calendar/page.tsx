@@ -568,7 +568,7 @@ export default function SmartCalendarPage() {
     <div style={{ minHeight: '100vh', background: C.bg }}>
       {profile && <StaffNav profile={profile} userId={userId} brandColor={brandColor} currentPath="Calendar" />}
 
-      <div style={{ paddingLeft: 240, paddingRight: 0, paddingTop: 0 }}>
+      <div style={{ paddingLeft: 'var(--nav-w, 240px)', paddingRight: 0, paddingTop: 0, transition: 'padding-left 0.32s cubic-bezier(0.4,0,0.2,1)' }}>
         <div style={{ display: 'flex', minHeight: '100vh' }}>
 
           {/* ════════════════════════════════════════
@@ -992,7 +992,7 @@ export default function SmartCalendarPage() {
                     </div>
 
                     {/* Overview sidebar */}
-                    <div style={panel({ padding: 20 })}>
+                    <div style={panel({ padding: 20, background: 'rgba(255,255,255,0.7)' })}>
                       <Lbl>Schedule overview</Lbl>
                       <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 10 }}>
                         {practitioners.map(p => {

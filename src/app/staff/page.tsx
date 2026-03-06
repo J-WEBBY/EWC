@@ -340,7 +340,7 @@ export default function StaffOnboardingPage() {
   // ─── Loading state ───
   if (!profile) {
     return (
-      <div className="min-h-screen pl-[240px] bg-[#F8FAFF] flex items-center justify-center">
+      <div className="min-h-screen nav-offset bg-[#F8FAFF] flex items-center justify-center">
         <motion.div
           animate={{ opacity: [0.3, 0.6, 0.3] }}
           transition={{ duration: 2, repeat: Infinity }}
@@ -391,7 +391,7 @@ export default function StaffOnboardingPage() {
   // ==========================================================================
 
   return (
-    <div className="min-h-screen pl-[240px] relative overflow-hidden">
+    <div className="min-h-screen nav-offset relative overflow-hidden">
 
       {/* Background layers */}
       <div className="absolute inset-0 bg-gradient-to-br from-[#050505] via-black to-[#030303]" />
