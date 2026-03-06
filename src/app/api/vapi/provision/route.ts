@@ -19,7 +19,7 @@ import { createSovereignClient } from '@/lib/supabase/service';
 
 const VAPI_BASE   = 'https://api.vapi.ai';
 const PRIVATE_KEY = process.env.VAPI_PRIVATE_KEY ?? '';
-const APP_URL     = process.env.NEXT_PUBLIC_APP_URL ?? '';
+const APP_URL     = (process.env.NEXT_PUBLIC_APP_URL ?? '').trim().replace(/\/$/, '');
 const WEBHOOK_URL = APP_URL ? `${APP_URL}/api/vapi/webhook` : undefined;
 const WEBHOOK_SECRET = process.env.VAPI_WEBHOOK_SECRET ?? '';
 
@@ -47,7 +47,7 @@ const KOMAL_VOICE = {
 
 const DEEPGRAM_TRANSCRIBER = {
   provider:    'deepgram',
-  language:    'en-GB',
+  language:    'en',                // nova-2-phonecall only supports 'en' or 'en-US'
   model:       'nova-2-phonecall',  // Phone-optimised model, better for call audio
   smartFormat: false,               // Disable formatting — LLM doesn't need punctuation
   endpointing: 100,                 // 100ms VAD timeout (default 300ms) — faster end-of-speech
