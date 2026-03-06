@@ -31,6 +31,9 @@ import {
   type VapiCall, type ReceptionistIdentity,
 } from '@/lib/actions/vapi';
 import { getKnowledgeBase, type KnowledgeStats } from '@/lib/actions/knowledge';
+import {
+  getBookingRequests, confirmBookingRequest, dismissBookingRequest,
+} from '@/lib/actions/booking-pipeline';
 
 // =============================================================================
 // TYPES
@@ -39,6 +42,26 @@ import { getKnowledgeBase, type KnowledgeStats } from '@/lib/actions/knowledge';
 type Tab = 'live' | 'calls' | 'intelligence' | 'identity' | 'knowledge' | 'settings';
 type CallFilter = 'all' | 'inbound' | 'outbound' | 'missed';
 type CallOutcome = 'booked' | 'lead' | 'concern' | 'escalated' | 'missed' | 'unknown';
+type CallsView = 'history' | 'pending';
+
+interface BookingRequest {
+  id: string;
+  caller_name: string | null;
+  caller_phone: string | null;
+  service: string | null;
+  service_detail: string | null;
+  preferred_date: string | null;
+  preferred_time: string | null;
+  preferred_practitioner: string | null;
+  referral_source: string | null;
+  referral_name: string | null;
+  call_notes: string | null;
+  status: string;
+  cliniko_appointment_id: string | null;
+  cliniko_error: string | null;
+  created_at: string;
+  confirmed_at: string | null;
+}
 
 interface PersonalitySettings {
   warmth: number;
@@ -474,9 +497,15 @@ export default function ReceptionPage() {
   const [vapiConnected, setVapiConnected] = useState<boolean | null>(null);
 
   // Calls tab
-  const [callFilter,    setCallFilter]    = useState<CallFilter>('all');
-  const [callSearch,    setCallSearch]    = useState('');
-  const [selectedCall,  setSelectedCall]  = useState<VapiCall | null>(null);
+  const [callsView,        setCallsView]        = useState<CallsView>('history');
+  const [callFilter,       setCallFilter]       = useState<CallFilter>('all');
+  const [callSearch,       setCallSearch]       = useState('');
+  const [selectedCall,     setSelectedCall]     = useState<VapiCall | null>(null);
+  const [pendingBookings,  setPendingBookings]  = useState<BookingRequest[]>([]);
+  const [pendingLoading,   setPendingLoading]   = useState(false);
+  const [selectedBooking,  setSelectedBooking]  = useState<BookingRequest | null>(null);
+  const [bookingBusy,      setBookingBusy]      = useState<string | null>(null);
+  const [bookingMsg,       setBookingMsg]       = useState<{ id: string; text: string; ok: boolean } | null>(null);
 
   // Live tab
   const [demoActive,    setDemoActive]    = useState(false);
@@ -553,6 +582,47 @@ export default function ReceptionPage() {
       .then(res => { if (res.success && res.data) setKbStats(res.data.stats); })
       .finally(() => setKbLoading(false));
   }, [tab]);
+
+  // ---------- pending bookings ----------
+  useEffect(() => {
+    if (tab !== 'calls' || callsView !== 'pending') return;
+    setPendingLoading(true);
+    getBookingRequests('pending')
+      .then(rows => { setPendingBookings(rows as BookingRequest[]); })
+      .catch(console.error)
+      .finally(() => setPendingLoading(false));
+  }, [tab, callsView]);
+
+  const handleConfirmBooking = async (id: string) => {
+    setBookingBusy(id);
+    try {
+      const res = await confirmBookingRequest(id);
+      if (res.success) {
+        setBookingMsg({ id, text: 'Confirmed and synced to Cliniko', ok: true });
+        setPendingBookings(prev => prev.filter(b => b.id !== id));
+        if (selectedBooking?.id === id) setSelectedBooking(null);
+      } else {
+        setBookingMsg({ id, text: res.error ?? 'Confirmation failed', ok: false });
+      }
+    } catch (err) {
+      setBookingMsg({ id, text: String(err), ok: false });
+    } finally {
+      setBookingBusy(null);
+      setTimeout(() => setBookingMsg(null), 4000);
+    }
+  };
+
+  const handleDismissBooking = async (id: string) => {
+    setBookingBusy(id);
+    try {
+      const res = await dismissBookingRequest(id, 'cancelled');
+      if (res.success) {
+        setPendingBookings(prev => prev.filter(b => b.id !== id));
+        if (selectedBooking?.id === id) setSelectedBooking(null);
+      }
+    } catch (err) { console.error(err); }
+    finally { setBookingBusy(null); }
+  };
 
   // ---------- demo call animation ----------
   useEffect(() => {
@@ -970,53 +1040,204 @@ export default function ReceptionPage() {
           {tab === 'calls' && (
             <div className="flex h-[calc(100vh-120px)]">
 
-              {/* Call list */}
+              {/* Left panel */}
               <div className="w-[360px] flex-shrink-0 flex flex-col" style={{ borderRight: '1px solid #D4E2FF' }}>
 
-                {/* Filter bar */}
-                <div className="px-4 py-3 space-y-2" style={{ borderBottom: '1px solid #D4E2FF' }}>
-                  <div className="relative">
-                    <Search size={11} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#96989B]" />
-                    <input
-                      value={callSearch}
-                      onChange={e => setCallSearch(e.target.value)}
-                      placeholder="Search calls..."
-                      className="w-full pl-8 pr-3 py-2 rounded-xl text-[11px] outline-none"
-                      style={{ border: '1px solid #D4E2FF', backgroundColor: 'transparent', color: '#181D23' }} />
-                  </div>
-                  <div className="flex gap-1">
-                    {(['all', 'inbound', 'outbound', 'missed'] as CallFilter[]).map(f => (
-                      <button key={f} onClick={() => setCallFilter(f)}
-                        className="px-2.5 py-1 rounded-lg text-[10px] font-semibold capitalize transition-all"
-                        style={{
-                          backgroundColor: callFilter === f ? ACCENT : 'transparent',
-                          color: callFilter === f ? '#fff' : '#96989B',
-                          border: callFilter === f ? 'none' : '1px solid #D4E2FF',
-                        }}>
-                        {f}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* List */}
-                <div className="flex-1 overflow-y-auto">
-                  {callsLoading ? (
-                    <div className="flex items-center justify-center py-12">
-                      <Loader2 size={18} className="animate-spin" style={{ color: ACCENT }} />
-                    </div>
-                  ) : filteredCalls.length === 0 ? (
-                    <div className="text-center py-12 text-[12px] text-[#96989B]">No calls found</div>
-                  ) : filteredCalls.map(c => (
-                    <CallListItem key={c.id} call={c} selected={selectedCall?.id === c.id} onClick={() => setSelectedCall(c)} />
+                {/* View switcher */}
+                <div className="flex px-4 pt-3 gap-1" style={{ borderBottom: '1px solid #D4E2FF' }}>
+                  {([
+                    { key: 'history', label: 'Call History' },
+                    { key: 'pending', label: `Pending Bookings${pendingBookings.length > 0 ? ` (${pendingBookings.length})` : ''}` },
+                  ] as { key: CallsView; label: string }[]).map(v => (
+                    <button key={v.key} onClick={() => { setCallsView(v.key); setSelectedCall(null); setSelectedBooking(null); }}
+                      className="px-3 py-2 text-[10px] font-semibold transition-all relative"
+                      style={{ color: callsView === v.key ? ACCENT : '#96989B' }}>
+                      {v.label}
+                      {callsView === v.key && (
+                        <motion.div layoutId="calls-sub-tab" className="absolute bottom-0 left-0 right-0 h-[2px] rounded-t-full"
+                          style={{ backgroundColor: ACCENT }} />
+                      )}
+                    </button>
                   ))}
                 </div>
+
+                {callsView === 'history' ? (
+                  <>
+                    {/* Filter bar */}
+                    <div className="px-4 py-3 space-y-2" style={{ borderBottom: '1px solid #D4E2FF' }}>
+                      <div className="relative">
+                        <Search size={11} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#96989B]" />
+                        <input
+                          value={callSearch}
+                          onChange={e => setCallSearch(e.target.value)}
+                          placeholder="Search calls..."
+                          className="w-full pl-8 pr-3 py-2 rounded-xl text-[11px] outline-none"
+                          style={{ border: '1px solid #D4E2FF', backgroundColor: 'transparent', color: '#181D23' }} />
+                      </div>
+                      <div className="flex gap-1">
+                        {(['all', 'inbound', 'outbound', 'missed'] as CallFilter[]).map(f => (
+                          <button key={f} onClick={() => setCallFilter(f)}
+                            className="px-2.5 py-1 rounded-lg text-[10px] font-semibold capitalize transition-all"
+                            style={{
+                              backgroundColor: callFilter === f ? ACCENT : 'transparent',
+                              color: callFilter === f ? '#fff' : '#96989B',
+                              border: callFilter === f ? 'none' : '1px solid #D4E2FF',
+                            }}>
+                            {f}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex-1 overflow-y-auto">
+                      {callsLoading ? (
+                        <div className="flex items-center justify-center py-12">
+                          <Loader2 size={18} className="animate-spin" style={{ color: ACCENT }} />
+                        </div>
+                      ) : filteredCalls.length === 0 ? (
+                        <div className="text-center py-12 text-[12px] text-[#96989B]">No calls found</div>
+                      ) : filteredCalls.map(c => (
+                        <CallListItem key={c.id} call={c} selected={selectedCall?.id === c.id} onClick={() => setSelectedCall(c)} />
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  /* Pending bookings list */
+                  <div className="flex-1 overflow-y-auto">
+                    {pendingLoading ? (
+                      <div className="flex items-center justify-center py-12">
+                        <Loader2 size={18} className="animate-spin" style={{ color: ACCENT }} />
+                      </div>
+                    ) : pendingBookings.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-12 gap-2 text-[#96989B]">
+                        <Check size={22} style={{ opacity: 0.3 }} />
+                        <p className="text-[12px]">No pending bookings</p>
+                      </div>
+                    ) : pendingBookings.map(b => {
+                      const selected = selectedBooking?.id === b.id;
+                      return (
+                        <motion.button key={b.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                          onClick={() => setSelectedBooking(b)}
+                          className="w-full flex items-start gap-3 px-4 py-3 text-left transition-all"
+                          style={{
+                            backgroundColor: selected ? `${ACCENT}08` : 'transparent',
+                            borderBottom: '1px solid #D4E2FF',
+                            borderLeft: selected ? `2px solid ${ACCENT}` : '2px solid transparent',
+                          }}>
+                          <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
+                            style={{ backgroundColor: '#FFFBEB', border: '1px solid #D4E2FF' }}>
+                            <Phone size={12} style={{ color: '#D8A600' }} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                              <span className="text-[12px] font-semibold text-[#181D23] truncate">{b.caller_name ?? 'Unknown'}</span>
+                              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full uppercase" style={{ backgroundColor: '#FFFBEB', color: '#D8A600' }}>Pending</span>
+                            </div>
+                            <p className="text-[11px] text-[#96989B] truncate">{b.service ?? '—'}{b.service_detail ? ` · ${b.service_detail}` : ''}</p>
+                            <p className="text-[10px] text-[#96989B] mt-0.5">{b.preferred_date ?? '—'}{b.preferred_time ? ` · ${b.preferred_time}` : ''}</p>
+                          </div>
+                        </motion.button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
-              {/* Call detail */}
+              {/* Detail panel */}
               <div className="flex-1 overflow-y-auto">
                 <AnimatePresence mode="wait">
-                  {!selectedCall ? (
+                  {/* ── Pending booking detail ─────────────────────────── */}
+                  {callsView === 'pending' && selectedBooking ? (
+                    <motion.div key={`bk-${selectedBooking.id}`} initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
+                      className="p-8 max-w-[780px]">
+                      <div className="flex items-start justify-between mb-6">
+                        <div>
+                          <h2 className="text-[22px] font-black tracking-[-0.03em] text-[#181D23] mb-1">
+                            {selectedBooking.caller_name ?? 'Unknown caller'}
+                          </h2>
+                          {selectedBooking.caller_phone && (
+                            <p className="text-[12px] text-[#5A6475]">{selectedBooking.caller_phone}</p>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleDismissBooking(selectedBooking.id)}
+                            disabled={bookingBusy === selectedBooking.id}
+                            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-bold transition-all hover:opacity-80"
+                            style={{ border: '1px solid #D4E2FF', color: '#96989B', backgroundColor: 'transparent' }}>
+                            {bookingBusy === selectedBooking.id ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />}
+                            Dismiss
+                          </button>
+                          <button
+                            onClick={() => handleConfirmBooking(selectedBooking.id)}
+                            disabled={bookingBusy === selectedBooking.id}
+                            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-bold transition-all hover:opacity-90"
+                            style={{ backgroundColor: '#059669', color: '#fff' }}>
+                            {bookingBusy === selectedBooking.id ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                            Confirm & Sync to Cliniko
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Action message */}
+                      {bookingMsg?.id === selectedBooking.id && (
+                        <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+                          className="mb-4 px-4 py-3 rounded-xl text-[12px] font-medium"
+                          style={{
+                            backgroundColor: bookingMsg.ok ? '#ECFDF5' : '#FFF1F2',
+                            color: bookingMsg.ok ? '#059669' : '#DC2626',
+                            border: `1px solid ${bookingMsg.ok ? '#86EFAC' : '#FECDD3'}`,
+                          }}>
+                          {bookingMsg.text}
+                        </motion.div>
+                      )}
+
+                      {/* Booking details grid */}
+                      <div className="grid grid-cols-2 gap-3 mb-6">
+                        {[
+                          { label: 'Treatment',     value: selectedBooking.service ?? '—' },
+                          { label: 'Detail',         value: selectedBooking.service_detail ?? '—' },
+                          { label: 'Preferred Date', value: selectedBooking.preferred_date ?? '—' },
+                          { label: 'Preferred Time', value: selectedBooking.preferred_time ?? '—' },
+                          { label: 'Practitioner',   value: selectedBooking.preferred_practitioner ?? 'No preference' },
+                          { label: 'Referral',       value: selectedBooking.referral_source ? `${selectedBooking.referral_source}${selectedBooking.referral_name ? ` (${selectedBooking.referral_name})` : ''}` : '—' },
+                        ].map(m => (
+                          <div key={m.label} className="p-3 rounded-xl" style={{ border: '1px solid #D4E2FF' }}>
+                            <SLabel>{m.label}</SLabel>
+                            <p className="text-[12px] font-semibold text-[#181D23]">{m.value}</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Notes */}
+                      {selectedBooking.call_notes && (
+                        <div className="p-4 rounded-xl mb-5" style={{ backgroundColor: `${ACCENT}06`, border: `1px solid ${ACCENT}20` }}>
+                          <SLabel>Call Notes</SLabel>
+                          <p className="text-[12px] text-[#3D4451] leading-relaxed">{selectedBooking.call_notes}</p>
+                        </div>
+                      )}
+
+                      {/* Cliniko error */}
+                      {selectedBooking.cliniko_error && (
+                        <div className="p-4 rounded-xl" style={{ backgroundColor: '#FFF1F2', border: '1px solid #FECDD3' }}>
+                          <SLabel>Cliniko Error</SLabel>
+                          <p className="text-[12px] text-[#DC2626]">{selectedBooking.cliniko_error}</p>
+                        </div>
+                      )}
+
+                      <p className="text-[10px] text-[#96989B] mt-6">
+                        Received {fmtRelative(selectedBooking.created_at)}
+                      </p>
+                    </motion.div>
+
+                  ) : callsView === 'pending' ? (
+                    <motion.div key="pending-empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                      className="h-full flex flex-col items-center justify-center gap-3 text-[#96989B]">
+                      <Phone size={32} style={{ opacity: 0.3 }} />
+                      <p className="text-[13px]">Select a booking request to review</p>
+                    </motion.div>
+
+                  /* ── Call detail ─────────────────────────────────────── */
+                  ) : !selectedCall ? (
                     <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                       className="h-full flex flex-col items-center justify-center gap-3 text-[#96989B]">
                       <Headphones size={32} style={{ opacity: 0.3 }} />

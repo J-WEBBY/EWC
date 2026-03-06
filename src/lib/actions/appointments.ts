@@ -37,12 +37,16 @@ export interface AppointmentRow {
 }
 
 export interface PendingBooking {
-  id: string;                   // signal id
+  id: string;                   // signal id (used by confirmBooking/dismiss)
+  booking_request_id: string | null; // booking_requests.id if sourced from that table
   patient_name: string;
   patient_phone: string | null;
   patient_email: string | null;
   treatment_interest: string | null;
   preferred_date: string | null;
+  preferred_time: string | null;
+  preferred_practitioner: string | null;
+  referral_source: string | null;
   notes: string | null;
   source: 'komal' | 'staff';
   created_at: string;
@@ -153,52 +157,37 @@ function buildDemoWeek(weekStart: Date): AppointmentRow[] {
 
 const DEMO_PENDING: PendingBooking[] = [
   {
-    id: 'sig-demo-001',
-    patient_name: 'Priya Verma',
-    patient_phone: '07890 123 456',
-    patient_email: 'priya.v@gmail.com',
-    treatment_interest: 'CoolSculpting — Abdomen',
-    preferred_date: 'Next week, any morning',
+    id: 'sig-demo-001', booking_request_id: null,
+    patient_name: 'Priya Verma', patient_phone: '07890 123 456', patient_email: 'priya.v@gmail.com',
+    treatment_interest: 'CoolSculpting · Abdomen',
+    preferred_date: 'Next week, any morning', preferred_time: 'morning',
+    preferred_practitioner: null, referral_source: 'social_media',
     notes: 'Price-sensitive. Interested in package deals. Komal consulted Orion on objection handling.',
-    source: 'komal',
-    created_at: new Date(Date.now() - 2 * 3600000).toISOString(),
-    existing_patient_db_id: null,
-    existing_cliniko_id: null,
-    is_auto_booked: false,
-    cliniko_appointment_id: null,
-    reference: 'BK-KXYZ1',
+    source: 'komal', created_at: new Date(Date.now() - 2 * 3600000).toISOString(),
+    existing_patient_db_id: null, existing_cliniko_id: null,
+    is_auto_booked: false, cliniko_appointment_id: null, reference: 'BK-KXYZ1',
   },
   {
-    id: 'sig-demo-002',
-    patient_name: 'James Whitfield',
-    patient_phone: '07712 890 901',
-    patient_email: null,
+    id: 'sig-demo-002', booking_request_id: null,
+    patient_name: 'James Whitfield', patient_phone: '07712 890 901', patient_email: null,
     treatment_interest: 'Botox — Free Consultation',
-    preferred_date: 'This Friday afternoon',
+    preferred_date: 'This Friday afternoon', preferred_time: 'afternoon',
+    preferred_practitioner: 'Dr Suresh Ganata', referral_source: 'client_referral',
     notes: 'First-time caller. Very keen. Requested 10am or 11am slot.',
-    source: 'komal',
-    created_at: new Date(Date.now() - 45 * 60000).toISOString(),
-    existing_patient_db_id: null,
-    existing_cliniko_id: null,
-    is_auto_booked: false,
-    cliniko_appointment_id: null,
-    reference: 'BK-KXYZ2',
+    source: 'komal', created_at: new Date(Date.now() - 45 * 60000).toISOString(),
+    existing_patient_db_id: null, existing_cliniko_id: null,
+    is_auto_booked: false, cliniko_appointment_id: null, reference: 'BK-KXYZ2',
   },
   {
-    id: 'sig-demo-003',
-    patient_name: 'Amara Osei',
-    patient_phone: '07823 456 789',
-    patient_email: 'amara.osei@outlook.com',
+    id: 'sig-demo-003', booking_request_id: null,
+    patient_name: 'Amara Osei', patient_phone: '07823 456 789', patient_email: 'amara.osei@outlook.com',
     treatment_interest: 'IV Therapy — Energy Boost',
-    preferred_date: 'Tomorrow afternoon',
+    preferred_date: 'Tomorrow afternoon', preferred_time: 'after 2pm',
+    preferred_practitioner: null, referral_source: 'returning',
     notes: 'Existing Botox patient. Komal identified via identify_caller. Enquiring about IV therapy as next treatment.',
-    source: 'komal',
-    created_at: new Date(Date.now() - 4 * 3600000).toISOString(),
-    existing_patient_db_id: 'demo-001',
-    existing_cliniko_id: 'existing-001',
-    is_auto_booked: false,
-    cliniko_appointment_id: null,
-    reference: 'BK-KXYZ3',
+    source: 'komal', created_at: new Date(Date.now() - 4 * 3600000).toISOString(),
+    existing_patient_db_id: 'demo-001', existing_cliniko_id: 'existing-001',
+    is_auto_booked: false, cliniko_appointment_id: null, reference: 'BK-KXYZ3',
   },
 ];
 
@@ -289,6 +278,41 @@ export async function getPendingBookings(): Promise<{
   try {
     const db = createSovereignClient();
 
+    // Primary: booking_requests table (richer data — referral, practitioner, time)
+    const { data: brData } = await db
+      .from('booking_requests')
+      .select('id, signal_id, caller_name, caller_phone, caller_email, service, service_detail, preferred_date, preferred_time, preferred_practitioner, referral_source, call_notes, status, created_at, cliniko_appointment_id')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+
+    if (brData && brData.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const bookings: PendingBooking[] = brData.map((br: any) => ({
+        id:                     br.signal_id ?? br.id,
+        booking_request_id:     br.id,
+        patient_name:           br.caller_name ?? 'Unknown',
+        patient_phone:          br.caller_phone ?? null,
+        patient_email:          br.caller_email ?? null,
+        treatment_interest:     br.service
+          ? `${br.service}${br.service_detail ? ` · ${br.service_detail}` : ''}`
+          : null,
+        preferred_date:         br.preferred_date ?? null,
+        preferred_time:         br.preferred_time ?? null,
+        preferred_practitioner: br.preferred_practitioner ?? null,
+        referral_source:        br.referral_source ?? null,
+        notes:                  br.call_notes ?? null,
+        source:                 'komal' as const,
+        created_at:             br.created_at,
+        existing_patient_db_id: null,
+        existing_cliniko_id:    null,
+        is_auto_booked:         false,
+        cliniko_appointment_id: br.cliniko_appointment_id ?? null,
+        reference:              null,
+      }));
+      return { bookings, isDemo: false };
+    }
+
+    // Fallback: signals table (pre-041 or if booking_requests not populated)
     const { data, error } = await db
       .from('signals')
       .select('id, title, description, category, status, created_at, data, action_log')
@@ -312,11 +336,15 @@ export async function getPendingBookings(): Promise<{
 
       return {
         id:                     sig.id,
+        booking_request_id:     null,
         patient_name:           patName || 'Unknown',
         patient_phone:          patPhone || null,
         patient_email:          patEmail,
         treatment_interest:     treatment || null,
         preferred_date:         prefDate || null,
+        preferred_time:         null,
+        preferred_practitioner: null,
+        referral_source:        null,
         notes:                  d.notes ? String(d.notes) : null,
         source:                 'komal' as const,
         created_at:             sig.created_at,
@@ -478,13 +506,19 @@ export async function confirmBooking(params: ConfirmBookingParams): Promise<{
 }
 
 // =============================================================================
-// dismissPendingBooking — mark a signal as dismissed (not a fit)
+// dismissPendingBooking — mark signal (and booking_request if exists) as dismissed
 // =============================================================================
 
-export async function dismissPendingBooking(signalId: string): Promise<{ success: boolean }> {
+export async function dismissPendingBooking(
+  signalId: string,
+  bookingRequestId?: string | null,
+): Promise<{ success: boolean }> {
   try {
     const db = createSovereignClient();
     await db.from('signals').update({ status: 'dismissed' }).eq('id', signalId);
+    if (bookingRequestId) {
+      await db.from('booking_requests').update({ status: 'cancelled' }).eq('id', bookingRequestId);
+    }
     return { success: true };
   } catch {
     return { success: false };

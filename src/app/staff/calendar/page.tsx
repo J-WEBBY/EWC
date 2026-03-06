@@ -13,7 +13,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronLeft, ChevronRight, Plus, X, Search,
-  Clock, Phone, Mail, Users, List, CalendarDays,
+  Clock, Phone, Mail, Users, User, List, CalendarDays,
   Inbox, Brain, Target, Shield,
   ArrowRight, FileText, Check, RefreshCw,
 } from 'lucide-react';
@@ -420,7 +420,7 @@ export default function SmartCalendarPage() {
 
   const handleDismiss = async (b: PendingBooking) => {
     if (b.id.startsWith('sig-demo')) { setPending(prev => prev.filter(p => p.id !== b.id)); return; }
-    const r = await dismissPendingBooking(b.id);
+    const r = await dismissPendingBooking(b.id, b.booking_request_id);
     if (r.success) setPending(prev => prev.filter(p => p.id !== b.id));
   };
 
@@ -798,7 +798,11 @@ export default function SmartCalendarPage() {
                               {b.treatment_interest && <Row icon={<CalendarDays size={11} />} text={b.treatment_interest} />}
                               {b.patient_phone && <Row icon={<Phone size={11} />} text={b.patient_phone} />}
                               {b.patient_email && <Row icon={<Mail size={11} />} text={b.patient_email} />}
-                              {b.preferred_date && <Row icon={<Clock size={11} />} text={`Preferred: ${b.preferred_date}`} />}
+                              {(b.preferred_date || b.preferred_time) && (
+                                <Row icon={<Clock size={11} />} text={[b.preferred_date, b.preferred_time].filter(Boolean).join(' · ')} />
+                              )}
+                              {b.preferred_practitioner && <Row icon={<User size={11} />} text={`With: ${b.preferred_practitioner}`} />}
+                              {b.referral_source && <Row icon={<ArrowRight size={11} />} text={`Via: ${b.referral_source.replace(/_/g, ' ')}`} />}
                               {b.notes && <div style={{ fontSize: 10, color: C.ter, background: `${accentColor}08`, borderRadius: 8, padding: '7px 10px', lineHeight: 1.55 }}>{b.notes}</div>}
                             </div>
                             <div style={{ display: 'flex', gap: 8 }}>

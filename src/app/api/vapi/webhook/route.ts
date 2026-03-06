@@ -16,6 +16,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createSovereignClient } from '@/lib/supabase/service';
+import { createBookingRequest } from '@/lib/actions/booking-pipeline';
 
 // ---------------------------------------------------------------------------
 // Vapi payload types
@@ -349,6 +350,53 @@ export async function POST(req: NextRequest) {
           },
         })
       ));
+    }
+
+    // -----------------------------------------------------------------------
+    // 3. Booking request — extract booking tool call arguments and store in
+    //    booking_requests staging table for staff to confirm.
+    //    Triggered when Komal fires create_booking_request during the call.
+    // -----------------------------------------------------------------------
+
+    if (toolsUsed.includes('create_booking_request')) {
+      // Find the create_booking_request tool call and extract its arguments
+      const bookingCall = callMessages
+        .flatMap(m => m.toolCalls ?? [])
+        .find(tc => tc.function?.name === 'create_booking_request');
+
+      if (bookingCall) {
+        try {
+          const args = JSON.parse(bookingCall.function.arguments ?? '{}') as {
+            patient_name?: string;
+            phone?: string;
+            email?: string;
+            treatment?: string;
+            preferred_date?: string;
+            preferred_time?: string;
+            preferred_practitioner?: string;
+            referral_source?: string;
+            referral_name?: string;
+            notes?: string;
+          };
+
+          await createBookingRequest({
+            caller_name:            args.patient_name ?? call.customer?.name ?? caller,
+            caller_phone:           args.phone ?? call.customer?.number ?? undefined,
+            caller_email:           args.email ?? undefined,
+            service:                args.treatment ?? undefined,
+            preferred_date:         args.preferred_date ?? undefined,
+            preferred_time:         args.preferred_time ?? undefined,
+            preferred_practitioner: args.preferred_practitioner ?? undefined,
+            referral_source:        args.referral_source ?? undefined,
+            referral_name:          args.referral_name ?? undefined,
+            vapi_call_id:           call.id,
+            call_notes:             args.notes ?? undefined,
+            call_summary:           summary || undefined,
+          });
+        } catch (bookingErr) {
+          console.error('[vapi-webhook] Failed to create booking request:', bookingErr);
+        }
+      }
     }
 
     return NextResponse.json({ received: true });

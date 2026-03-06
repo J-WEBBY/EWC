@@ -95,6 +95,37 @@ export function buildKomalToolDefinitions(appUrl: string): object[] {
     {
       type: 'function',
       function: {
+        name: 'check_appointment_slots',
+        description: 'Check for available appointment slots. Call when the caller asks about availability, what times are free, or before confirming a booking date.',
+        parameters: {
+          type: 'object',
+          properties: {
+            treatment:               { type: 'string', description: 'Treatment or service (e.g. "Botox", "IV therapy")' },
+            preferred_date:          { type: 'string', description: 'Requested date or time window (e.g. "next Tuesday", "Thursday morning")' },
+            preferred_practitioner:  { type: 'string', description: 'Practitioner name preference if the caller expressed one' },
+          },
+        },
+      },
+      server: { url: serverUrl },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'get_patient_history',
+        description: 'Retrieve a patient\'s appointment history. Use after identify_caller returns an existing patient ID.',
+        parameters: {
+          type: 'object',
+          properties: {
+            patient_id: { type: 'string', description: 'The Cliniko patient ID returned by identify_caller' },
+          },
+          required: ['patient_id'],
+        },
+      },
+      server: { url: serverUrl },
+    },
+    {
+      type: 'function',
+      function: {
         name: 'capture_lead',
         description: 'Store a new lead when a caller is interested but not ready to book. Creates a follow-up task for the team.',
         parameters: {
@@ -116,15 +147,24 @@ export function buildKomalToolDefinitions(appUrl: string): object[] {
       type: 'function',
       function: {
         name: 'create_booking_request',
-        description: 'Create a booking request when a caller wants to book an appointment.',
+        description: 'Create a booking request when a caller wants to book an appointment. Collect name, treatment, date, time, contact number, referral source, and practitioner preference before calling this.',
         parameters: {
           type: 'object',
           properties: {
-            patient_name:   { type: 'string', description: 'Patient full name' },
-            phone:          { type: 'string', description: 'Phone number for confirmation' },
-            treatment:      { type: 'string', description: 'Treatment to book' },
-            preferred_date: { type: 'string', description: 'Preferred date or time window' },
-            notes:          { type: 'string', description: 'Special requirements or notes' },
+            patient_name:            { type: 'string', description: 'Patient full name' },
+            phone:                   { type: 'string', description: 'Phone number for confirmation callback' },
+            treatment:               { type: 'string', description: 'Treatment to book (e.g. "Botox", "CoolSculpting", "IV therapy")' },
+            preferred_date:          { type: 'string', description: 'Preferred date as spoken (e.g. "next Monday", "15 April")' },
+            preferred_time:          { type: 'string', description: 'Preferred time of day (e.g. "morning", "after 2pm", "10:30")' },
+            service_detail:          { type: 'string', description: 'Specific detail about the treatment (e.g. "forehead and crow\'s feet" for Botox)' },
+            preferred_practitioner:  { type: 'string', description: 'Practitioner preference expressed by the caller, or null if no preference' },
+            referral_source:         {
+              type: 'string',
+              enum: ['online', 'client_referral', 'practitioner_referral', 'social_media', 'walk_in', 'returning', 'other'],
+              description: 'How the caller heard about the clinic',
+            },
+            referral_name:           { type: 'string', description: 'Name of the person or platform that referred them (if applicable)' },
+            notes:                   { type: 'string', description: 'Allergies, medications, previous treatments, or other clinical notes' },
           },
           required: ['patient_name', 'phone', 'treatment', 'preferred_date'],
         },
