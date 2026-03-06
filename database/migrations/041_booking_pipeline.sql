@@ -33,7 +33,8 @@ CREATE TABLE IF NOT EXISTS cliniko_practitioners (
 );
 
 CREATE INDEX IF NOT EXISTS idx_cp_cliniko_id ON cliniko_practitioners(cliniko_id);
-CREATE INDEX IF NOT EXISTS idx_cp_active     ON cliniko_practitioners(active);
+-- existing table uses is_active (column added by earlier sync migration)
+CREATE INDEX IF NOT EXISTS idx_cp_is_active  ON cliniko_practitioners(is_active);
 
 -- =============================================================================
 -- 2. PRACTITIONER WORKING HOURS

@@ -168,7 +168,7 @@ export async function createBookingRequest(args: {
             .from('cliniko_practitioners')
             .select('cliniko_id')
             .ilike('full_name', `%${preferred_practitioner}%`)
-            .eq('active', true)
+            .eq('is_active', true)
             .limit(1);
           if (namedPract && namedPract.length > 0) {
             clinikoPractitionerId = String(namedPract[0].cliniko_id);
@@ -178,7 +178,7 @@ export async function createBookingRequest(args: {
           const { data: practRows } = await db
             .from('cliniko_practitioners')
             .select('cliniko_id')
-            .eq('active', true)
+            .eq('is_active', true)
             .limit(1);
           if (!practRows || practRows.length === 0) return;
           clinikoPractitionerId = String(practRows[0].cliniko_id);
