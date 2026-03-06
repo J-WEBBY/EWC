@@ -166,6 +166,11 @@ function inferAgentMode(
 // Route handler
 // ---------------------------------------------------------------------------
 
+// Health check — Vapi may GET the webhook URL to verify reachability
+export async function GET() {
+  return NextResponse.json({ ok: true, service: 'komal-webhook' });
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json() as VapiWebhookPayload;
@@ -290,14 +295,14 @@ export async function POST(req: NextRequest) {
     await supabase.from('signals').insert({
       title:         signalTitle,
       description:   summary || `${direction} call with ${caller}. Duration: ${duration}s. Ended: ${call.endedReason ?? 'normal'}. Outcome: ${outcome}.`,
-      signal_type:   agentMode === 'orion' ? 'patient_acquisition' : agentMode === 'aria' ? 'patient_retention' : 'voice',
+      signal_type:   'task',           // Only valid values: task/event/alert/objective/insight
       priority:      signalPriority,
       category:      signalCategory,
       status:        signalStatus,
-      response_mode: responseMode,
       source_type:   'vapi_call',
-      action_log:    actionLog,
+      tags:          [direction, agentMode, outcome].filter(Boolean),
       data: {
+        // Call metadata
         vapi_call_id:     call.id,
         caller_number:    call.customer?.number,
         caller_name:      call.customer?.name,
@@ -306,11 +311,14 @@ export async function POST(req: NextRequest) {
         ended_reason:     call.endedReason,
         recording_url:    message.artifact?.recordingUrl,
         success:          succeeded,
-        // Tool intelligence
+        // Intelligence
         tools_used:       toolsUsed,
         agent_consulted:  agentConsulted,
         mode_detected:    agentMode,
         outcome,
+        response_mode:    responseMode,
+        // Action log stored in data (no action_log column in schema)
+        action_log:       actionLog,
       },
     });
 

@@ -167,7 +167,8 @@ export async function POST(req: NextRequest) {
     const cleaned = await cleanupOldAssistants(assistantList);
 
     // 3. Komal — single assistant, 8 tools (7 direct + ask_agent)
-    const komalTools = buildKomalToolDefinitions(APP_URL);
+    // Pass webhook secret so Vapi includes x-vapi-secret on every tool call.
+    const komalTools = buildKomalToolDefinitions(APP_URL, WEBHOOK_SECRET || undefined);
     const komalPayload = {
       name:           'Komal — EWC Receptionist',
       firstMessage:   savedIdentity.firstMessage ?? 'Hello, thank you for calling Edgbaston Wellness Clinic. This call may be recorded for quality and training purposes. My name is Komal — how can I help you today?',
@@ -184,20 +185,18 @@ export async function POST(req: NextRequest) {
       transcriber:           DEEPGRAM_TRANSCRIBER,
       recordingEnabled:      true,
       backchannelingEnabled: true,
-      responseDelaySeconds:  0,
-      silenceTimeoutSeconds: 10,  // End call after 10s of true silence (shorter = more natural)
-      maxDurationSeconds:    600,
+      responseDelaySeconds:  0.3,        // Small delay — lets caller finish before Komal responds
+      silenceTimeoutSeconds: 59,         // Vapi dashboard setting
+      maxDurationSeconds:    814,        // Vapi dashboard setting
       startSpeakingPlan: {
-        waitSeconds: 0.1,
-        // No smartEndpointingPlan — the 200 + 2000*x formula was adding 2-3s latency.
-        // Flat transcription endpointing is faster and more predictable.
+        waitSeconds: 0.3,                // Wait 300ms before starting to speak (was 0.1 — too fast)
         transcriptionEndpointingPlan: {
-          onPunctuationSeconds:   0.1,   // Caller ends on "." or "?" → respond in 100ms
-          onNoPunctuationSeconds: 0.3,   // Natural pause with no punctuation → 300ms
-          onNumberSeconds:        0.2,   // Caller reads out a number → 200ms
+          onPunctuationSeconds:   0.1,   // Caller ends sentence → respond in 100ms
+          onNoPunctuationSeconds: 0.6,   // Natural mid-sentence pause → wait 600ms before responding (was 0.3)
+          onNumberSeconds:        0.3,   // Caller reads a number → 300ms
         },
       },
-      stopSpeakingPlan: { numWords: 2, voiceSeconds: 0.1 },
+      stopSpeakingPlan: { numWords: 1, voiceSeconds: 0.1, backoffSeconds: 1 },  // Vapi dashboard settings
       // Phrases that trigger Vapi to end the call automatically.
       endCallPhrases: [
         'goodbye', 'bye', 'bye-bye', 'good bye', 'thanks bye', 'thank you goodbye',

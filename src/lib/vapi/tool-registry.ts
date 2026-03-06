@@ -38,8 +38,13 @@ export const VAPI_TOOL_REGISTRY: Record<string, ToolHandler> = {
 // Per-tool server.url routes all calls to /api/vapi/tool.
 // ---------------------------------------------------------------------------
 
-export function buildKomalToolDefinitions(appUrl: string): object[] {
+export function buildKomalToolDefinitions(appUrl: string, toolSecret?: string): object[] {
   const serverUrl = `${appUrl}/api/vapi/tool`;
+  // If VAPI_WEBHOOK_SECRET is set, pass it in each tool's server config so Vapi
+  // includes x-vapi-secret on tool calls — the route validates this header.
+  const serverCfg = (url: string) =>
+    toolSecret ? { url, secret: toolSecret } : { url };
+
   return [
     // ── TIER 1: Direct tools (150–300ms) ─────────────────────────────────────
     {
@@ -55,7 +60,7 @@ export function buildKomalToolDefinitions(appUrl: string): object[] {
           },
         },
       },
-      server: { url: serverUrl },
+      server: serverCfg(serverUrl),
     },
     {
       type: 'function',
@@ -74,7 +79,7 @@ export function buildKomalToolDefinitions(appUrl: string): object[] {
           required: ['topic'],
         },
       },
-      server: { url: serverUrl },
+      server: serverCfg(serverUrl),
     },
     {
       type: 'function',
@@ -90,7 +95,7 @@ export function buildKomalToolDefinitions(appUrl: string): object[] {
           required: ['query'],
         },
       },
-      server: { url: serverUrl },
+      server: serverCfg(serverUrl),
     },
     {
       type: 'function',
@@ -106,7 +111,7 @@ export function buildKomalToolDefinitions(appUrl: string): object[] {
           },
         },
       },
-      server: { url: serverUrl },
+      server: serverCfg(serverUrl),
     },
     {
       type: 'function',
@@ -121,7 +126,7 @@ export function buildKomalToolDefinitions(appUrl: string): object[] {
           required: ['patient_id'],
         },
       },
-      server: { url: serverUrl },
+      server: serverCfg(serverUrl),
     },
     {
       type: 'function',
@@ -141,7 +146,7 @@ export function buildKomalToolDefinitions(appUrl: string): object[] {
           required: ['name', 'phone', 'treatment_interest'],
         },
       },
-      server: { url: serverUrl },
+      server: serverCfg(serverUrl),
     },
     {
       type: 'function',
@@ -169,7 +174,7 @@ export function buildKomalToolDefinitions(appUrl: string): object[] {
           required: ['patient_name', 'phone', 'treatment', 'preferred_date'],
         },
       },
-      server: { url: serverUrl },
+      server: serverCfg(serverUrl),
     },
     {
       type: 'function',
@@ -188,7 +193,7 @@ export function buildKomalToolDefinitions(appUrl: string): object[] {
           required: ['concern_type', 'description', 'severity'],
         },
       },
-      server: { url: serverUrl },
+      server: serverCfg(serverUrl),
     },
     {
       type: 'function',
@@ -206,7 +211,7 @@ export function buildKomalToolDefinitions(appUrl: string): object[] {
           required: ['reason', 'urgency'],
         },
       },
-      server: { url: serverUrl },
+      server: serverCfg(serverUrl),
     },
     // ── TIER 2: Specialist brain (400–600ms Haiku) ────────────────────────────
     {
@@ -228,7 +233,7 @@ export function buildKomalToolDefinitions(appUrl: string): object[] {
           required: ['agent', 'question'],
         },
       },
-      server: { url: serverUrl },
+      server: serverCfg(serverUrl),
     },
   ];
 }
