@@ -703,8 +703,8 @@ export default function ReceptionPage() {
   // ==========================================================================
 
   const TAB_CFG: { key: Tab; label: string; icon: React.ElementType }[] = [
-    { key: 'live',         label: 'Live',         icon: Radio         },
     { key: 'calls',        label: 'Calls',        icon: Phone         },
+    { key: 'live',         label: 'Live',         icon: Radio         },
     { key: 'intelligence', label: 'Intelligence', icon: Brain         },
     { key: 'identity',     label: 'Identity',     icon: User          },
     { key: 'knowledge',    label: 'Knowledge',    icon: BookOpen      },
@@ -926,37 +926,8 @@ export default function ReceptionPage() {
                   </div>
                 </div>
 
-                {/* ── Right Column: Today feed + Missed Queue ─────────── */}
+                {/* ── Right Column: Missed Queue ─────────────────────── */}
                 <div className="col-span-2 space-y-5">
-
-                  {/* Today's call feed */}
-                  <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #D4E2FF' }}>
-                    <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: '1px solid #D4E2FF' }}>
-                      <SLabel>Today&apos;s calls</SLabel>
-                      <button onClick={() => setTab('calls')} className="text-[10px] font-semibold hover:opacity-70 transition-opacity" style={{ color: ACCENT }}>
-                        View all
-                      </button>
-                    </div>
-                    <div className="max-h-[220px] overflow-y-auto">
-                      {todayCalls.length === 0 ? (
-                        <div className="text-center py-8 text-[12px] text-[#96989B]">No calls yet today</div>
-                      ) : todayCalls.slice(0, 8).map(c => {
-                        const t = getCallType(c);
-                        const o = getCallOutcome(c);
-                        const Icon = t === 'missed' ? PhoneMissed : t === 'outbound' ? PhoneCall : Phone;
-                        return (
-                          <button key={c.id} onClick={() => { setSelectedCall(c); setTab('calls'); }}
-                            className="w-full flex items-center gap-3 px-5 py-2.5 transition-all text-left hover:bg-[#F8FAFF]"
-                            style={{ borderBottom: '1px solid #D4E2FF' }}>
-                            <Icon size={11} style={{ color: t === 'missed' ? '#DC2626' : ACCENT }} className="flex-shrink-0" />
-                            <span className="text-[11px] text-[#181D23] flex-1 truncate">{c.customer?.name ?? c.customer?.number ?? 'Unknown'}</span>
-                            <OutcomeBadge outcome={o} />
-                            <span className="text-[10px] text-[#96989B] flex-shrink-0">{fmtTime(c.startedAt)}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
 
                   {/* Missed call recovery */}
                   {todayMissed.length > 0 && (
@@ -1248,77 +1219,10 @@ export default function ReceptionPage() {
 
                   /* ── Call detail ─────────────────────────────────────── */
                   ) : !selectedCall ? (
-                    <motion.div key="live-monitor" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                      className="p-8">
-                      {/* Live Monitor */}
-                      <div className="rounded-2xl overflow-hidden mb-6" style={{ border: '1px solid #D4E2FF' }}>
-                        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #D4E2FF' }}>
-                          <div className="flex items-center gap-2">
-                            <Radio size={13} style={{ color: activeCall ? '#059669' : isKomalLive ? ACCENT : '#96989B' }} />
-                            <span className="text-[11px] font-bold text-[#181D23]">
-                              {activeCall ? 'Call in Progress' : 'Live Monitor'}
-                            </span>
-                            {activeCall && (
-                              <motion.span className="text-[9px] font-bold px-2 py-0.5 rounded-full"
-                                style={{ backgroundColor: '#ECFDF5', color: '#059669' }}
-                                animate={{ opacity: [1, 0.5, 1] }} transition={{ duration: 1.2, repeat: Infinity }}>
-                                LIVE
-                              </motion.span>
-                            )}
-                          </div>
-                          <button onClick={() => setLiveRefresh(n => n + 1)}
-                            className="flex items-center gap-1 text-[10px] font-semibold hover:opacity-70 transition-opacity" style={{ color: ACCENT }}>
-                            <RefreshCw size={11} /> Refresh
-                          </button>
-                        </div>
-                        <div className="p-6 flex gap-6 items-start">
-                          <div className="flex flex-col items-center flex-shrink-0">
-                            <PulseOrb active={isKomalLive} />
-                            <p className="text-[12px] font-bold text-[#181D23] mt-3">
-                              {isKomalLive ? 'Monitoring' : 'Not deployed'}
-                            </p>
-                            <p className="text-[10px] text-[#96989B] text-center mt-1 max-w-[110px]">
-                              {isKomalLive ? 'Komal is live and ready' : 'Go to Settings → Deploy'}
-                            </p>
-                            {!isKomalLive && (
-                              <button onClick={() => setTab('settings')} className="mt-2 text-[10px] font-bold hover:opacity-70 transition-opacity" style={{ color: ACCENT }}>
-                                Deploy →
-                              </button>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[8px] uppercase tracking-[0.2em] font-semibold text-[#96989B] mb-3">Recent Call Activity</p>
-                            {recentActivity.length === 0 ? (
-                              <div className="flex flex-col items-center justify-center py-8 rounded-xl text-center" style={{ border: '1px dashed #D4E2FF' }}>
-                                <Headphones size={22} style={{ color: '#D4E2FF', marginBottom: 8 }} />
-                                <p className="text-[12px] text-[#96989B]">No call activity yet</p>
-                              </div>
-                            ) : (
-                              <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #D4E2FF' }}>
-                                {recentActivity.slice(0, 5).map((r, i) => {
-                                  const outcome = (r.data.outcome ?? 'unknown') as CallOutcome;
-                                  const outcfg  = OUTCOME_CFG[outcome] ?? OUTCOME_CFG.unknown;
-                                  return (
-                                    <div key={r.id} className="flex items-center gap-3 px-4 py-2.5"
-                                      style={{ borderBottom: i < Math.min(recentActivity.length - 1, 4) ? '1px solid #D4E2FF' : 'none' }}>
-                                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: outcfg.color }} />
-                                      <div className="flex-1 min-w-0">
-                                        <p className="text-[11px] font-semibold text-[#181D23] truncate">{r.data.caller_name ?? r.data.caller_number ?? 'Unknown'}</p>
-                                        <p className="text-[10px] text-[#96989B] truncate">{r.title}</p>
-                                      </div>
-                                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded flex-shrink-0"
-                                        style={{ backgroundColor: outcfg.bg, color: outcfg.color }}>{outcfg.label}</span>
-                                      {r.data.duration_seconds && <span className="text-[9px] text-[#96989B]">{fmtDuration(r.data.duration_seconds)}</span>}
-                                      <span className="text-[9px] text-[#96989B]">{fmtRelative(r.created_at)}</span>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <p className="text-center text-[12px] text-[#96989B]">Select a call from the list to view details</p>
+                    <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                      className="h-full flex flex-col items-center justify-center gap-3 text-[#96989B]">
+                      <Headphones size={32} style={{ opacity: 0.3 }} />
+                      <p className="text-[13px]">Select a call to review</p>
                     </motion.div>
                   ) : (
                     <motion.div key={selectedCall.id} initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
