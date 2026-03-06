@@ -50,8 +50,8 @@ function statusIcon(s: KnowledgeDocument['processing_status']): LucideIcon {
 }
 
 function statusColor(s: KnowledgeDocument['processing_status']): string {
-  if (s === 'completed') return 'text-[#524D66]';
-  return 'text-[#8B84A0]';
+  if (s === 'completed') return 'text-[#3D4451]';
+  return 'text-[#96989B]';
 }
 
 // =============================================================================
@@ -63,13 +63,13 @@ function StatCard({ label, value, icon: Icon }: { label: string; value: number |
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white border border-[#EBE5FF] rounded-xl p-5 flex flex-col gap-3"
+      className="bg-white border border-[#D4E2FF] rounded-xl p-5 flex flex-col gap-3"
     >
       <div className="flex items-center justify-between">
-        <span className="text-[11px] uppercase tracking-[0.15em] text-[#6E6688] font-medium">{label}</span>
-        <Icon size={14} className="text-[#6E6688]" />
+        <span className="text-[11px] uppercase tracking-[0.15em] text-[#5A6475] font-medium">{label}</span>
+        <Icon size={14} className="text-[#5A6475]" />
       </div>
-      <p className="text-[28px] font-semibold tracking-tight text-[#1A1035] leading-none">{value}</p>
+      <p className="text-[28px] font-semibold tracking-tight text-[#181D23] leading-none">{value}</p>
     </motion.div>
   );
 }
@@ -89,29 +89,29 @@ function DocumentRow({ doc, onDelete }: { doc: KnowledgeDocument; onDelete: (id:
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, height: 0, marginBottom: 0 }}
       transition={{ duration: 0.18 }}
-      className="flex items-start gap-4 py-3.5 border-b border-[#EBE5FF] last:border-0"
+      className="flex items-start gap-4 py-3.5 border-b border-[#D4E2FF] last:border-0"
     >
-      <FileText size={15} className="text-[#8B84A0] mt-0.5 flex-shrink-0" />
+      <FileText size={15} className="text-[#96989B] mt-0.5 flex-shrink-0" />
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5">
-          <p className="text-[13px] font-medium text-[#1A1035] truncate">{doc.title || doc.file_name}</p>
+          <p className="text-[13px] font-medium text-[#181D23] truncate">{doc.title || doc.file_name}</p>
           <SIcon size={11} className={statusColor(doc.processing_status)} />
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           {doc.category && (
-            <span className="text-[11px] text-[#6E6688] uppercase tracking-[0.1em]">{doc.category.name}</span>
+            <span className="text-[11px] text-[#5A6475] uppercase tracking-[0.1em]">{doc.category.name}</span>
           )}
           {doc.chunk_count > 0 && (
-            <span className="text-[11px] text-[#8B84A0]">{doc.chunk_count} chunks</span>
+            <span className="text-[11px] text-[#96989B]">{doc.chunk_count} chunks</span>
           )}
-          <span className="text-[11px] text-[#8B84A0]">{fmtBytes(doc.file_size_bytes)}</span>
-          <span className="text-[11px] text-[#8B84A0]">{relativeTime(doc.created_at)}</span>
+          <span className="text-[11px] text-[#96989B]">{fmtBytes(doc.file_size_bytes)}</span>
+          <span className="text-[11px] text-[#96989B]">{relativeTime(doc.created_at)}</span>
         </div>
         {doc.tags.length > 0 && (
           <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
             {doc.tags.slice(0, 4).map(t => (
-              <span key={t} className="text-[10px] px-1.5 py-0.5 bg-[#F5F3FF] border border-[#EBE5FF] rounded-md text-[#6E6688]">{t}</span>
+              <span key={t} className="text-[10px] px-1.5 py-0.5 bg-[#F5F3FF] border border-[#D4E2FF] rounded-md text-[#5A6475]">{t}</span>
             ))}
           </div>
         )}
@@ -123,7 +123,7 @@ function DocumentRow({ doc, onDelete }: { doc: KnowledgeDocument; onDelete: (id:
         className="p-1.5 rounded-lg hover:bg-[#FAF9F5] transition-colors disabled:opacity-30"
         title="Delete document"
       >
-        <Trash2 size={13} className="text-[#8B84A0]" />
+        <Trash2 size={13} className="text-[#96989B]" />
       </button>
     </motion.div>
   );
@@ -225,23 +225,23 @@ function AddDocumentPanel({
     <div className="space-y-4">
       {/* Title */}
       <div>
-        <label className="block text-[11px] uppercase tracking-[0.15em] text-[#6E6688] font-medium mb-2">Title *</label>
+        <label className="block text-[11px] uppercase tracking-[0.15em] text-[#5A6475] font-medium mb-2">Title *</label>
         <input
           type="text"
           value={fields.title}
           onChange={e => updateField('title', e.target.value)}
           placeholder="e.g. Post-Treatment Care Guidelines"
-          className="w-full px-3.5 py-2.5 bg-[#FAF9F5] border border-[#EBE5FF] rounded-xl text-[13px] text-[#1A1035] placeholder:text-[#8B84A0] outline-none focus:border-[#1A1035] transition-colors"
+          className="w-full px-3.5 py-2.5 bg-[#FAF9F5] border border-[#D4E2FF] rounded-xl text-[13px] text-[#181D23] placeholder:text-[#96989B] outline-none focus:border-[#181D23] transition-colors"
         />
       </div>
 
       {/* Category */}
       <div>
-        <label className="block text-[11px] uppercase tracking-[0.15em] text-[#6E6688] font-medium mb-2">Category</label>
+        <label className="block text-[11px] uppercase tracking-[0.15em] text-[#5A6475] font-medium mb-2">Category</label>
         <select
           value={fields.categoryId}
           onChange={e => updateField('categoryId', e.target.value)}
-          className="w-full px-3.5 py-2.5 bg-[#FAF9F5] border border-[#EBE5FF] rounded-xl text-[13px] text-[#1A1035] outline-none focus:border-[#1A1035] transition-colors"
+          className="w-full px-3.5 py-2.5 bg-[#FAF9F5] border border-[#D4E2FF] rounded-xl text-[13px] text-[#181D23] outline-none focus:border-[#181D23] transition-colors"
         >
           <option value="">— No category —</option>
           {categories.map(cat => (
@@ -252,27 +252,27 @@ function AddDocumentPanel({
 
       {/* Description */}
       <div>
-        <label className="block text-[11px] uppercase tracking-[0.15em] text-[#6E6688] font-medium mb-2">Description</label>
+        <label className="block text-[11px] uppercase tracking-[0.15em] text-[#5A6475] font-medium mb-2">Description</label>
         <input
           type="text"
           value={fields.description}
           onChange={e => updateField('description', e.target.value)}
           placeholder="Brief summary of this document"
-          className="w-full px-3.5 py-2.5 bg-[#FAF9F5] border border-[#EBE5FF] rounded-xl text-[13px] text-[#1A1035] placeholder:text-[#8B84A0] outline-none focus:border-[#1A1035] transition-colors"
+          className="w-full px-3.5 py-2.5 bg-[#FAF9F5] border border-[#D4E2FF] rounded-xl text-[13px] text-[#181D23] placeholder:text-[#96989B] outline-none focus:border-[#181D23] transition-colors"
         />
       </div>
 
       {/* Tags */}
       <div>
-        <label className="block text-[11px] uppercase tracking-[0.15em] text-[#6E6688] font-medium mb-2">
-          Tags <span className="normal-case tracking-normal text-[#8B84A0]">(comma-separated)</span>
+        <label className="block text-[11px] uppercase tracking-[0.15em] text-[#5A6475] font-medium mb-2">
+          Tags <span className="normal-case tracking-normal text-[#96989B]">(comma-separated)</span>
         </label>
         <input
           type="text"
           value={fields.tagsInput}
           onChange={e => updateField('tagsInput', e.target.value)}
           placeholder="e.g. botox, aftercare, protocols"
-          className="w-full px-3.5 py-2.5 bg-[#FAF9F5] border border-[#EBE5FF] rounded-xl text-[13px] text-[#1A1035] placeholder:text-[#8B84A0] outline-none focus:border-[#1A1035] transition-colors"
+          className="w-full px-3.5 py-2.5 bg-[#FAF9F5] border border-[#D4E2FF] rounded-xl text-[13px] text-[#181D23] placeholder:text-[#96989B] outline-none focus:border-[#181D23] transition-colors"
         />
       </div>
     </div>
@@ -284,29 +284,29 @@ function AddDocumentPanel({
       animate={{ x: 0 }}
       exit={{ x: '100%' }}
       transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-      className="fixed top-0 right-0 h-full w-[520px] bg-white border-l border-[#EBE5FF] z-50 flex flex-col shadow-xl"
+      className="fixed top-0 right-0 h-full w-[520px] bg-white border-l border-[#D4E2FF] z-50 flex flex-col shadow-xl"
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-5 border-b border-[#EBE5FF] flex-shrink-0">
+      <div className="flex items-center justify-between px-6 py-5 border-b border-[#D4E2FF] flex-shrink-0">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.18em] text-[#8B84A0] mb-0.5">Knowledge Base</p>
-          <h2 className="text-[16px] font-semibold text-[#1A1035]">Add Document</h2>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-[#96989B] mb-0.5">Knowledge Base</p>
+          <h2 className="text-[16px] font-semibold text-[#181D23]">Add Document</h2>
         </div>
         <button onClick={onClose} className="p-2 rounded-lg hover:bg-[#FAF9F5] transition-colors">
-          <X size={16} className="text-[#6E6688]" />
+          <X size={16} className="text-[#5A6475]" />
         </button>
       </div>
 
       {/* Mode tabs */}
-      <div className="flex border-b border-[#EBE5FF] flex-shrink-0">
+      <div className="flex border-b border-[#D4E2FF] flex-shrink-0">
         {(['paste', 'upload'] as InputMode[]).map(m => (
           <button
             key={m}
             onClick={() => { setMode(m); setError(''); }}
             className={`flex-1 py-3 text-[12px] font-medium transition-colors border-b-2 ${
               mode === m
-                ? 'border-[#1A1035] text-[#1A1035]'
-                : 'border-transparent text-[#8B84A0] hover:text-[#6E6688]'
+                ? 'border-[#181D23] text-[#181D23]'
+                : 'border-transparent text-[#96989B] hover:text-[#5A6475]'
             }`}
           >
             {m === 'paste' ? 'Paste Text' : 'Upload File'}
@@ -321,15 +321,15 @@ function AddDocumentPanel({
         {/* Mode-specific input */}
         {mode === 'paste' ? (
           <div>
-            <label className="block text-[11px] uppercase tracking-[0.15em] text-[#6E6688] font-medium mb-2">Content *</label>
+            <label className="block text-[11px] uppercase tracking-[0.15em] text-[#5A6475] font-medium mb-2">Content *</label>
             <textarea
               value={content}
               onChange={e => setContent(e.target.value)}
               placeholder="Paste the full document text here. Separate sections with blank lines for best chunking results."
               rows={12}
-              className="w-full px-3.5 py-2.5 bg-[#FAF9F5] border border-[#EBE5FF] rounded-xl text-[13px] text-[#1A1035] placeholder:text-[#8B84A0] outline-none focus:border-[#1A1035] transition-colors resize-none font-mono"
+              className="w-full px-3.5 py-2.5 bg-[#FAF9F5] border border-[#D4E2FF] rounded-xl text-[13px] text-[#181D23] placeholder:text-[#96989B] outline-none focus:border-[#181D23] transition-colors resize-none font-mono"
             />
-            <p className="text-[11px] text-[#8B84A0] mt-1.5">
+            <p className="text-[11px] text-[#96989B] mt-1.5">
               {content.length > 0
                 ? `${content.length} chars · ~${Math.ceil(content.length / 500)} chunks estimated`
                 : 'Text will be split into searchable chunks automatically.'}
@@ -337,7 +337,7 @@ function AddDocumentPanel({
           </div>
         ) : (
           <div>
-            <label className="block text-[11px] uppercase tracking-[0.15em] text-[#6E6688] font-medium mb-2">File *</label>
+            <label className="block text-[11px] uppercase tracking-[0.15em] text-[#5A6475] font-medium mb-2">File *</label>
 
             {/* Drop zone */}
             <div
@@ -347,10 +347,10 @@ function AddDocumentPanel({
               onClick={() => fileRef.current?.click()}
               className={`relative cursor-pointer rounded-xl border-2 border-dashed transition-colors py-10 px-6 text-center ${
                 dragOver
-                  ? 'border-[#1A1035] bg-[#F5F3FF]'
+                  ? 'border-[#181D23] bg-[#F5F3FF]'
                   : file
-                  ? 'border-[#1A1035] bg-[#FAF9F5]'
-                  : 'border-[#D5CCFF] bg-[#FAF9F5] hover:border-[#1A1035]'
+                  ? 'border-[#181D23] bg-[#FAF9F5]'
+                  : 'border-[#A8C4FF] bg-[#FAF9F5] hover:border-[#181D23]'
               }`}
             >
               <input
@@ -363,30 +363,30 @@ function AddDocumentPanel({
 
               {file ? (
                 <div className="flex flex-col items-center gap-2">
-                  <FileUp size={22} className="text-[#1A1035]" />
-                  <p className="text-[13px] font-medium text-[#1A1035]">{file.name}</p>
-                  <p className="text-[11px] text-[#8B84A0]">{fmtBytes(file.size)}</p>
+                  <FileUp size={22} className="text-[#181D23]" />
+                  <p className="text-[13px] font-medium text-[#181D23]">{file.name}</p>
+                  <p className="text-[11px] text-[#96989B]">{fmtBytes(file.size)}</p>
                   <button
                     type="button"
                     onClick={e => { e.stopPropagation(); setFile(null); }}
-                    className="text-[11px] text-[#6E6688] underline mt-1"
+                    className="text-[11px] text-[#5A6475] underline mt-1"
                   >
                     Remove
                   </button>
                 </div>
               ) : (
                 <div className="flex flex-col items-center gap-2">
-                  <Upload size={22} className="text-[#8B84A0]" />
-                  <p className="text-[13px] font-medium text-[#524D66]">Drop file here or click to browse</p>
-                  <p className="text-[11px] text-[#8B84A0]">PDF, TXT, MD, CSV — max 5 MB</p>
+                  <Upload size={22} className="text-[#96989B]" />
+                  <p className="text-[13px] font-medium text-[#3D4451]">Drop file here or click to browse</p>
+                  <p className="text-[11px] text-[#96989B]">PDF, TXT, MD, CSV — max 5 MB</p>
                 </div>
               )}
             </div>
 
             {/* Supported formats note */}
-            <div className="mt-3 flex items-start gap-2 p-3 bg-[#FAF9F5] border border-[#EBE5FF] rounded-xl">
-              <AlertCircle size={13} className="text-[#8B84A0] mt-0.5 flex-shrink-0" />
-              <p className="text-[11px] text-[#6E6688] leading-relaxed">
+            <div className="mt-3 flex items-start gap-2 p-3 bg-[#FAF9F5] border border-[#D4E2FF] rounded-xl">
+              <AlertCircle size={13} className="text-[#96989B] mt-0.5 flex-shrink-0" />
+              <p className="text-[11px] text-[#5A6475] leading-relaxed">
                 Text is extracted automatically and split into searchable chunks. Aria and the other agents will be able to reference this content immediately after upload.
               </p>
             </div>
@@ -402,18 +402,18 @@ function AddDocumentPanel({
       </form>
 
       {/* Footer */}
-      <div className="px-6 py-4 border-t border-[#EBE5FF] flex items-center justify-between gap-3 flex-shrink-0">
+      <div className="px-6 py-4 border-t border-[#D4E2FF] flex items-center justify-between gap-3 flex-shrink-0">
         <button
           type="button"
           onClick={onClose}
-          className="px-4 py-2 rounded-lg text-[13px] text-[#6E6688] border border-[#EBE5FF] hover:bg-[#FAF9F5] transition-colors"
+          className="px-4 py-2 rounded-lg text-[13px] text-[#5A6475] border border-[#D4E2FF] hover:bg-[#FAF9F5] transition-colors"
         >
           Cancel
         </button>
         <button
           onClick={handleSubmit as unknown as React.MouseEventHandler<HTMLButtonElement>}
           disabled={submitting || !canSubmit}
-          className="flex items-center gap-2 px-5 py-2 rounded-lg text-[13px] font-medium bg-[#1A1035] text-white hover:bg-[#2A1F50] transition-colors disabled:opacity-40"
+          className="flex items-center gap-2 px-5 py-2 rounded-lg text-[13px] font-medium bg-[#181D23] text-white hover:bg-[#2A1F50] transition-colors disabled:opacity-40"
         >
           {submitting ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
           {submitting
@@ -445,7 +445,7 @@ export default function KnowledgeBasePage() {
   const [activeCat, setActiveCat]   = useState<string | null>(null);
   const [addPanelOpen, setAddPanel] = useState(false);
 
-  const brandColor = profile?.brandColor || '#1A1035';
+  const brandColor = profile?.brandColor || '#181D23';
 
   const loadData = useCallback(async (uid: string, silent = false) => {
     if (!silent) setLoading(true); else setRefreshing(true);
@@ -496,11 +496,11 @@ export default function KnowledgeBasePage() {
 
   if (loading || !profile) {
     return (
-      <div className="min-h-screen pl-[240px] bg-[#FAF7F2] flex items-center justify-center">
+      <div className="min-h-screen pl-[240px] bg-[#F8FAFF] flex items-center justify-center">
         <motion.div
           animate={{ opacity: [0.2, 0.5, 0.2] }}
           transition={{ duration: 1.8, repeat: Infinity }}
-          className="w-1.5 h-1.5 rounded-full bg-[#D5CCFF]"
+          className="w-1.5 h-1.5 rounded-full bg-[#A8C4FF]"
         />
       </div>
     );
@@ -545,22 +545,22 @@ export default function KnowledgeBasePage() {
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[11px] uppercase tracking-[0.18em] text-[#8B84A0] mb-2">Knowledge Base</p>
-                <h1 className="text-[26px] font-semibold tracking-tight text-[#1A1035]">Document Library</h1>
-                <p className="text-[13px] text-[#6E6688] mt-1">Clinic protocols, procedures and reference documents powering Aria.</p>
+                <p className="text-[11px] uppercase tracking-[0.18em] text-[#96989B] mb-2">Knowledge Base</p>
+                <h1 className="text-[26px] font-semibold tracking-tight text-[#181D23]">Document Library</h1>
+                <p className="text-[13px] text-[#5A6475] mt-1">Clinic protocols, procedures and reference documents powering Aria.</p>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => userId && loadData(userId, true)}
                   disabled={refreshing}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] text-[#6E6688] bg-white border border-[#EBE5FF] hover:bg-[#FAF9F5] transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] text-[#5A6475] bg-white border border-[#D4E2FF] hover:bg-[#FAF9F5] transition-colors"
                 >
                   <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
                   Refresh
                 </button>
                 <button
                   onClick={() => setAddPanel(true)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] font-medium bg-[#1A1035] text-white hover:bg-[#2A1F50] transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] font-medium bg-[#181D23] text-white hover:bg-[#2A1F50] transition-colors"
                 >
                   <Plus size={13} />
                   Add Document
@@ -585,20 +585,20 @@ export default function KnowledgeBasePage() {
             transition={{ delay: 0.15 }}
             className="flex items-center gap-3 mb-6 flex-wrap"
           >
-            <div className="flex items-center gap-2 flex-1 min-w-[200px] px-3.5 py-2.5 bg-white border border-[#EBE5FF] rounded-xl">
-              <Search size={14} className="text-[#8B84A0] flex-shrink-0" />
+            <div className="flex items-center gap-2 flex-1 min-w-[200px] px-3.5 py-2.5 bg-white border border-[#D4E2FF] rounded-xl">
+              <Search size={14} className="text-[#96989B] flex-shrink-0" />
               <input
                 type="text"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Search documents…"
-                className="flex-1 bg-transparent text-[13px] text-[#1A1035] placeholder:text-[#8B84A0] outline-none"
+                className="flex-1 bg-transparent text-[13px] text-[#181D23] placeholder:text-[#96989B] outline-none"
               />
             </div>
             <button
               onClick={() => setActiveCat(null)}
               className={`px-3.5 py-2.5 rounded-xl text-[12px] border transition-colors whitespace-nowrap ${
-                !activeCat ? 'bg-[#1A1035] text-white border-[#1A1035]' : 'bg-white border-[#EBE5FF] text-[#6E6688] hover:border-[#1A1035] hover:text-[#1A1035]'
+                !activeCat ? 'bg-[#181D23] text-white border-[#181D23]' : 'bg-white border-[#D4E2FF] text-[#5A6475] hover:border-[#181D23] hover:text-[#181D23]'
               }`}
             >
               All
@@ -608,7 +608,7 @@ export default function KnowledgeBasePage() {
                 key={cat.id}
                 onClick={() => setActiveCat(cat.id)}
                 className={`px-3.5 py-2.5 rounded-xl text-[12px] border transition-colors whitespace-nowrap ${
-                  activeCat === cat.id ? 'bg-[#1A1035] text-white border-[#1A1035]' : 'bg-white border-[#EBE5FF] text-[#6E6688] hover:border-[#1A1035] hover:text-[#1A1035]'
+                  activeCat === cat.id ? 'bg-[#181D23] text-white border-[#181D23]' : 'bg-white border-[#D4E2FF] text-[#5A6475] hover:border-[#181D23] hover:text-[#181D23]'
                 }`}
               >
                 {cat.name}
@@ -621,16 +621,16 @@ export default function KnowledgeBasePage() {
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="bg-white border border-[#EBE5FF] rounded-xl px-5 py-2"
+            className="bg-white border border-[#D4E2FF] rounded-xl px-5 py-2"
           >
             {filtered.length === 0 ? (
               <div className="py-12 text-center">
-                <BookOpen size={24} className="mx-auto mb-3 text-[#8B84A0]" />
-                <p className="text-[13px] text-[#6E6688]">
+                <BookOpen size={24} className="mx-auto mb-3 text-[#96989B]" />
+                <p className="text-[13px] text-[#5A6475]">
                   {search || activeCat ? 'No documents match your filter' : 'No documents added yet'}
                 </p>
                 {!search && !activeCat && (
-                  <p className="text-[12px] text-[#8B84A0] mt-1">
+                  <p className="text-[12px] text-[#96989B] mt-1">
                     Click &quot;Add Document&quot; to upload clinic protocols and procedures.
                   </p>
                 )}
@@ -646,13 +646,13 @@ export default function KnowledgeBasePage() {
         </main>
 
         {/* ── SIDEBAR ── */}
-        <aside className="w-[240px] flex-shrink-0 px-6 py-10 border-l border-[#EBE5FF]">
+        <aside className="w-[240px] flex-shrink-0 px-6 py-10 border-l border-[#D4E2FF]">
 
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="mb-8">
-            <h3 className="text-[11px] uppercase tracking-[0.18em] text-[#8B84A0] font-medium mb-3">Categories</h3>
+            <h3 className="text-[11px] uppercase tracking-[0.18em] text-[#96989B] font-medium mb-3">Categories</h3>
             <div className="space-y-1">
               {categories.length === 0 ? (
-                <p className="text-[12px] text-[#6E6688] px-2">No categories</p>
+                <p className="text-[12px] text-[#5A6475] px-2">No categories</p>
               ) : (
                 categories.map(cat => {
                   const count = documents.filter(d => d.category_id === cat.id).length;
@@ -661,11 +661,11 @@ export default function KnowledgeBasePage() {
                       key={cat.id}
                       onClick={() => setActiveCat(activeCat === cat.id ? null : cat.id)}
                       className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[12px] transition-colors text-left ${
-                        activeCat === cat.id ? 'bg-[#1A1035] text-white' : 'text-[#6E6688] hover:bg-[#FAF9F5] hover:text-[#524D66]'
+                        activeCat === cat.id ? 'bg-[#181D23] text-white' : 'text-[#5A6475] hover:bg-[#FAF9F5] hover:text-[#3D4451]'
                       }`}
                     >
                       <span className="truncate">{cat.name}</span>
-                      <span className={`text-[10px] ml-2 flex-shrink-0 ${activeCat === cat.id ? 'text-white/60' : 'text-[#8B84A0]'}`}>{count}</span>
+                      <span className={`text-[10px] ml-2 flex-shrink-0 ${activeCat === cat.id ? 'text-white/60' : 'text-[#96989B]'}`}>{count}</span>
                     </button>
                   );
                 })
@@ -675,29 +675,29 @@ export default function KnowledgeBasePage() {
 
           {/* How agents use the KB */}
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }} className="mb-8">
-            <h3 className="text-[11px] uppercase tracking-[0.18em] text-[#8B84A0] font-medium mb-3">Agent Access</h3>
+            <h3 className="text-[11px] uppercase tracking-[0.18em] text-[#96989B] font-medium mb-3">Agent Access</h3>
             <div className="space-y-2">
               {[
                 { name: 'EWC', key: 'primary_agent', desc: 'Orchestration & ops' },
                 { name: 'Orion', key: 'sales_agent', desc: 'Patient acquisition' },
                 { name: 'Aria', key: 'crm_agent', desc: 'Patient retention' },
               ].map(a => (
-                <div key={a.key} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#FAF9F5] border border-[#EBE5FF]">
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#1A1035] flex-shrink-0" />
+                <div key={a.key} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#FAF9F5] border border-[#D4E2FF]">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#181D23] flex-shrink-0" />
                   <div className="min-w-0">
-                    <p className="text-[12px] font-medium text-[#1A1035]">{a.name}</p>
-                    <p className="text-[10px] text-[#8B84A0] truncate">{a.desc}</p>
+                    <p className="text-[12px] font-medium text-[#181D23]">{a.name}</p>
+                    <p className="text-[10px] text-[#96989B] truncate">{a.desc}</p>
                   </div>
                 </div>
               ))}
-              <p className="text-[11px] text-[#8B84A0] px-1 pt-1 leading-relaxed">
+              <p className="text-[11px] text-[#96989B] px-1 pt-1 leading-relaxed">
                 All agents search this library in real time when answering questions.
               </p>
             </div>
           </motion.div>
 
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}>
-            <h3 className="text-[11px] uppercase tracking-[0.18em] text-[#8B84A0] font-medium mb-3">Quick Actions</h3>
+            <h3 className="text-[11px] uppercase tracking-[0.18em] text-[#96989B] font-medium mb-3">Quick Actions</h3>
             <div className="space-y-1">
               {[
                 { label: 'Ask Aria about KB', href: `/staff/chat?userId=${userId}` },
@@ -706,7 +706,7 @@ export default function KnowledgeBasePage() {
                 <button
                   key={a.label}
                   onClick={() => router.push(a.href)}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-[12px] text-[#6E6688] hover:text-[#524D66] hover:bg-[#FAF9F5] transition-all text-left"
+                  className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-[12px] text-[#5A6475] hover:text-[#3D4451] hover:bg-[#FAF9F5] transition-all text-left"
                 >
                   <Tag size={12} className="flex-shrink-0" />
                   {a.label}

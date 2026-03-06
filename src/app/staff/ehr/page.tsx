@@ -20,11 +20,11 @@ import {
 // DESIGN TOKENS
 // =============================================================================
 
-const ARIA = '#0D9488';   // clinical agent accent
+const ARIA = '#00A693';   // clinical agent accent
 const RISK_COLORS: Record<string, { color: string; bg: string; border: string }> = {
   critical: { color: '#DC2626', bg: '#FFF1F2', border: '#FECDD3' },
   high:     { color: '#DC2626', bg: '#FFF1F2', border: '#FECDD3' },
-  medium:   { color: '#D97706', bg: '#FFFBEB', border: '#FDE68A' },
+  medium:   { color: '#D8A600', bg: '#FFFBEB', border: '#FDE68A' },
   low:      { color: '#059669', bg: '#ECFDF5', border: '#A7F3D0' },
 };
 
@@ -55,7 +55,7 @@ function fmtRelative(iso: string): string {
 function Panel({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
     <div className={`rounded-2xl overflow-hidden ${className}`}
-      style={{ backgroundColor: '#FFFFFF', border: '1px solid #EBE5FF' }}>
+      style={{ backgroundColor: '#FFFFFF', border: '1px solid #D4E2FF' }}>
       {children}
     </div>
   );
@@ -63,9 +63,9 @@ function Panel({ children, className = '' }: { children: React.ReactNode; classN
 
 function PanelHeader({ title, badge, action }: { title: string; badge?: number; action?: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid #EBE5FF' }}>
+    <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid #D4E2FF' }}>
       <div className="flex items-center gap-2">
-        <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#8B84A0]">{title}</p>
+        <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#96989B]">{title}</p>
         {badge !== undefined && badge > 0 && (
           <span className="inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold text-white"
             style={{ backgroundColor: '#DC2626' }}>{badge}</span>
@@ -79,19 +79,19 @@ function PanelHeader({ title, badge, action }: { title: string; badge?: number; 
 function KPICard({ label, value, sub, accent, icon: Icon }: {
   label: string; value: string | number; sub?: string; accent?: string; icon: React.ElementType;
 }) {
-  const c = accent ?? '#6D28D9';
+  const c = accent ?? '#0058E6';
   return (
-    <div className="rounded-2xl p-5" style={{ backgroundColor: '#FFFFFF', border: '1px solid #EBE5FF' }}>
+    <div className="rounded-2xl p-5" style={{ backgroundColor: '#FFFFFF', border: '1px solid #D4E2FF' }}>
       <div className="flex items-start justify-between mb-3">
-        <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#8B84A0]">{label}</p>
+        <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#96989B]">{label}</p>
         <div className="w-7 h-7 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${c}14` }}>
           <Icon size={13} style={{ color: c }} />
         </div>
       </div>
-      <p className="text-[32px] font-black tracking-[-0.04em] leading-none" style={{ color: '#1A1035' }}>
+      <p className="text-[32px] font-black tracking-[-0.04em] leading-none" style={{ color: '#181D23' }}>
         {typeof value === 'number' ? value.toLocaleString() : value}
       </p>
-      {sub && <p className="text-[11px] text-[#8B84A0] mt-1.5">{sub}</p>}
+      {sub && <p className="text-[11px] text-[#96989B] mt-1.5">{sub}</p>}
     </div>
   );
 }
@@ -110,9 +110,9 @@ function EmptyState({ title, sub }: { title: string; sub?: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 gap-2">
       <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#F5F3FF' }}>
-        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#D5CCFF' }} />
+        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#A8C4FF' }} />
       </div>
-      <p className="text-[12px] font-semibold text-[#8B84A0]">{title}</p>
+      <p className="text-[12px] font-semibold text-[#96989B]">{title}</p>
       {sub && <p className="text-[11px] text-[#B0A8C8] text-center max-w-xs">{sub}</p>}
     </div>
   );
@@ -157,9 +157,9 @@ function OverviewTab({
 
       {/* KPI Strip */}
       <div className="grid grid-cols-3 lg:grid-cols-5 gap-4">
-        <KPICard label="Clinical Records" value={stats.total_clinical_records} sub="patients with EHR" accent="#0D9488" icon={FileText} />
-        <KPICard label="SOAP Notes" value={stats.total_soap_notes} sub={`${stats.pending_sign_off} pending sign-off`} accent="#6D28D9" icon={PenTool} />
-        <KPICard label="Consents" value={stats.total_consents} sub={`${stats.pending_consents} pending`} accent="#D97706" icon={ClipboardList} />
+        <KPICard label="Clinical Records" value={stats.total_clinical_records} sub="patients with EHR" accent="#00A693" icon={FileText} />
+        <KPICard label="SOAP Notes" value={stats.total_soap_notes} sub={`${stats.pending_sign_off} pending sign-off`} accent="#0058E6" icon={PenTool} />
+        <KPICard label="Consents" value={stats.total_consents} sub={`${stats.pending_consents} pending`} accent="#D8A600" icon={ClipboardList} />
         <KPICard label="Clinical Photos" value={stats.total_photos} sub="before/after/progress" accent="#0284C7" icon={Camera} />
         <KPICard label="Risk Flagged" value={stats.patients_with_risk_flags} sub={`${stats.high_risk_patients} high/critical`} accent="#DC2626" icon={AlertTriangle} />
       </div>
@@ -170,7 +170,7 @@ function OverviewTab({
         {/* Sign-off queue */}
         <Panel>
           <PanelHeader title="SOAP Notes Pending Sign-Off" badge={stats.pending_sign_off} />
-          <div className="divide-y" style={{ borderColor: '#EBE5FF' }}>
+          <div className="divide-y" style={{ borderColor: '#D4E2FF' }}>
             {pendingSignOff.length === 0 ? (
               <EmptyState title="All notes signed off" sub="No SOAP notes awaiting review" />
             ) : pendingSignOff.map((item) => (
@@ -183,20 +183,20 @@ function OverviewTab({
               >
                 <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
                   style={{ backgroundColor: '#F5F3FF' }}>
-                  <span className="text-[10px] font-bold text-[#8B84A0]">
+                  <span className="text-[10px] font-bold text-[#96989B]">
                     {item.first_name.charAt(0)}{item.last_name.charAt(0)}
                   </span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[12px] font-semibold text-[#1A1035] truncate">{item.first_name} {item.last_name}</p>
-                  <p className="text-[10px] text-[#8B84A0] truncate">{item.appointment_type ?? 'Consultation'} · {fmtDateShort(item.appointment_date)}</p>
+                  <p className="text-[12px] font-semibold text-[#181D23] truncate">{item.first_name} {item.last_name}</p>
+                  <p className="text-[10px] text-[#96989B] truncate">{item.appointment_type ?? 'Consultation'} · {fmtDateShort(item.appointment_date)}</p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <span className="px-2 py-0.5 rounded-full text-[9px] font-semibold"
-                    style={{ backgroundColor: '#FFFBEB', color: '#D97706', border: '1px solid #FDE68A' }}>
+                    style={{ backgroundColor: '#FFFBEB', color: '#D8A600', border: '1px solid #FDE68A' }}>
                     Pending Review
                   </span>
-                  <ChevronRight size={12} className="text-[#8B84A0]" />
+                  <ChevronRight size={12} className="text-[#96989B]" />
                 </div>
               </motion.button>
             ))}
@@ -206,7 +206,7 @@ function OverviewTab({
         {/* Pending consents */}
         <Panel>
           <PanelHeader title="Consents Awaiting Completion" badge={stats.pending_consents} />
-          <div className="divide-y" style={{ borderColor: '#EBE5FF' }}>
+          <div className="divide-y" style={{ borderColor: '#D4E2FF' }}>
             {pendingConsents.length === 0 ? (
               <EmptyState title="No pending consents" sub="All consent forms completed" />
             ) : pendingConsents.map((item) => (
@@ -221,19 +221,19 @@ function OverviewTab({
                   style={{ backgroundColor: item.has_red_flags ? '#FFF1F2' : '#F5F3FF' }}>
                   {item.has_red_flags
                     ? <AlertCircle size={12} color="#DC2626" />
-                    : <span className="text-[10px] font-bold text-[#8B84A0]">{item.first_name.charAt(0)}{item.last_name.charAt(0)}</span>
+                    : <span className="text-[10px] font-bold text-[#96989B]">{item.first_name.charAt(0)}{item.last_name.charAt(0)}</span>
                   }
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[12px] font-semibold text-[#1A1035] truncate">{item.first_name} {item.last_name}</p>
-                  <p className="text-[10px] text-[#8B84A0] truncate">{item.treatment_name ?? item.consent_type} · {fmtRelative(item.created_at)}</p>
+                  <p className="text-[12px] font-semibold text-[#181D23] truncate">{item.first_name} {item.last_name}</p>
+                  <p className="text-[10px] text-[#96989B] truncate">{item.treatment_name ?? item.consent_type} · {fmtRelative(item.created_at)}</p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   {item.has_red_flags && (
                     <span className="px-2 py-0.5 rounded-full text-[9px] font-bold"
                       style={{ backgroundColor: '#FFF1F2', color: '#DC2626', border: '1px solid #FECDD3' }}>FLAGS</span>
                   )}
-                  <ChevronRight size={12} className="text-[#8B84A0]" />
+                  <ChevronRight size={12} className="text-[#96989B]" />
                 </div>
               </motion.button>
             ))}
@@ -244,7 +244,7 @@ function OverviewTab({
       {/* Risk Flagged Patients */}
       <Panel>
         <PanelHeader title="Risk Flagged Patients" badge={stats.high_risk_patients} />
-        <div className="divide-y" style={{ borderColor: '#EBE5FF' }}>
+        <div className="divide-y" style={{ borderColor: '#D4E2FF' }}>
           {flagged.length === 0 ? (
             <EmptyState title="No risk flags" sub="All patients cleared for treatment" />
           ) : flagged.map((pat) => (
@@ -256,21 +256,21 @@ function OverviewTab({
             >
               <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
                 style={{ backgroundColor: RISK_COLORS[pat.overall_risk_level]?.bg ?? '#F5F3FF' }}>
-                <span className="text-[11px] font-bold" style={{ color: RISK_COLORS[pat.overall_risk_level]?.color ?? '#8B84A0' }}>
+                <span className="text-[11px] font-bold" style={{ color: RISK_COLORS[pat.overall_risk_level]?.color ?? '#96989B' }}>
                   {pat.first_name.charAt(0)}{pat.last_name.charAt(0)}
                 </span>
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-0.5">
-                  <p className="text-[12px] font-semibold text-[#1A1035]">{pat.first_name} {pat.last_name}</p>
+                  <p className="text-[12px] font-semibold text-[#181D23]">{pat.first_name} {pat.last_name}</p>
                   <RiskBadge level={pat.overall_risk_level} />
                 </div>
-                <p className="text-[10px] text-[#8B84A0] truncate">
+                <p className="text-[10px] text-[#96989B] truncate">
                   {pat.risk_flags[0]?.message ?? 'Risk flag recorded'}
                   {pat.allergies.length > 0 && ` · Allergies: ${pat.allergies.map(a => a.name).join(', ')}`}
                 </p>
               </div>
-              <ChevronRight size={12} className="text-[#8B84A0] flex-shrink-0" />
+              <ChevronRight size={12} className="text-[#96989B] flex-shrink-0" />
             </motion.button>
           ))}
         </div>
@@ -279,7 +279,7 @@ function OverviewTab({
       {/* CQC Compliance Strip */}
       <Panel>
         <PanelHeader title="CQC Compliance Indicators" />
-        <div className="grid grid-cols-4 divide-x" style={{ borderColor: '#EBE5FF' }}>
+        <div className="grid grid-cols-4 divide-x" style={{ borderColor: '#D4E2FF' }}>
           {[
             { label: 'Consent Rate', value: stats.total_consents > 0 ? `${Math.round((stats.total_consents - stats.pending_consents) / stats.total_consents * 100)}%` : '—', ok: true },
             { label: 'Sign-Off Queue', value: stats.pending_sign_off, ok: stats.pending_sign_off < 5 },
@@ -294,8 +294,8 @@ function OverviewTab({
                   : <AlertCircle size={11} color="#DC2626" />}
               </div>
               <div>
-                <p className="text-[8px] uppercase tracking-[0.24em] font-semibold text-[#8B84A0]">{m.label}</p>
-                <p className="text-[20px] font-black tracking-[-0.03em] text-[#1A1035] leading-tight">{m.value}</p>
+                <p className="text-[8px] uppercase tracking-[0.24em] font-semibold text-[#96989B]">{m.label}</p>
+                <p className="text-[20px] font-black tracking-[-0.03em] text-[#181D23] leading-tight">{m.value}</p>
               </div>
             </div>
           ))}
@@ -317,7 +317,7 @@ function SOAPNotesTab({ pendingSignOff, onNavigateToPatient }: {
     <div className="space-y-6">
       <Panel>
         <PanelHeader title="SOAP Notes — Pending Sign-Off" badge={pendingSignOff.length} />
-        <div className="divide-y" style={{ borderColor: '#EBE5FF' }}>
+        <div className="divide-y" style={{ borderColor: '#D4E2FF' }}>
           {pendingSignOff.length === 0 ? (
             <EmptyState title="No notes pending review" sub="All SOAP notes have been signed off" />
           ) : pendingSignOff.map((item) => (
@@ -332,18 +332,18 @@ function SOAPNotesTab({ pendingSignOff, onNavigateToPatient }: {
                 <PenTool size={14} style={{ color: ARIA }} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-semibold text-[#1A1035]">{item.first_name} {item.last_name}</p>
-                <p className="text-[11px] text-[#8B84A0]">
+                <p className="text-[13px] font-semibold text-[#181D23]">{item.first_name} {item.last_name}</p>
+                <p className="text-[11px] text-[#96989B]">
                   {item.appointment_type ?? 'Consultation'} · {fmtDate(item.appointment_date)} · By {item.authored_by}
                 </p>
               </div>
               <div className="flex items-center gap-3 flex-shrink-0">
-                <span className="text-[10px] text-[#8B84A0]">{fmtRelative(item.created_at)}</span>
+                <span className="text-[10px] text-[#96989B]">{fmtRelative(item.created_at)}</span>
                 <span className="px-2.5 py-1 rounded-full text-[9px] font-bold"
-                  style={{ backgroundColor: '#FFFBEB', color: '#D97706', border: '1px solid #FDE68A' }}>
+                  style={{ backgroundColor: '#FFFBEB', color: '#D8A600', border: '1px solid #FDE68A' }}>
                   PENDING REVIEW
                 </span>
-                <ChevronRight size={13} className="text-[#8B84A0]" />
+                <ChevronRight size={13} className="text-[#96989B]" />
               </div>
             </motion.button>
           ))}
@@ -358,7 +358,7 @@ function SOAPNotesTab({ pendingSignOff, onNavigateToPatient }: {
           </div>
           <div>
             <p className="text-[11px] font-bold mb-1" style={{ color: ARIA }}>Aria — AI Note Drafting</p>
-            <p className="text-[11px] text-[#524D66] leading-relaxed">
+            <p className="text-[11px] text-[#3D4451] leading-relaxed">
               When creating SOAP notes in a patient&apos;s Clinical Record tab, Aria can generate a structured draft
               based on appointment type, treatment history, and clinical context — saving practitioners 5–10 minutes
               per note. Use the &quot;Generate AI Draft&quot; button when opening a new note from any patient&apos;s record.
@@ -389,14 +389,14 @@ function ConsentsTab({ pendingConsents, stats, onNavigateToPatient }: {
       <div className="grid grid-cols-4 gap-4">
         <KPICard label="Total Consents" value={stats.total_consents} sub="across all patients" accent={ARIA} icon={ClipboardList} />
         <KPICard label="Consent Rate" value={`${consentRate}%`} sub="patients consented" accent="#059669" icon={CheckCircle} />
-        <KPICard label="Pending" value={stats.pending_consents} sub="awaiting completion" accent="#D97706" icon={Clock} />
+        <KPICard label="Pending" value={stats.pending_consents} sub="awaiting completion" accent="#D8A600" icon={Clock} />
         <KPICard label="Red Flags" value={stats.consents_with_flags} sub="flagged pre-screening" accent="#DC2626" icon={AlertTriangle} />
       </div>
 
       {/* Pending consent list */}
       <Panel>
         <PanelHeader title="Awaiting Completion" badge={stats.pending_consents} />
-        <div className="divide-y" style={{ borderColor: '#EBE5FF' }}>
+        <div className="divide-y" style={{ borderColor: '#D4E2FF' }}>
           {pendingConsents.length === 0 ? (
             <EmptyState title="No pending consents" sub="All consent forms completed" />
           ) : pendingConsents.map((item) => (
@@ -413,8 +413,8 @@ function ConsentsTab({ pendingConsents, stats, onNavigateToPatient }: {
                   : <ClipboardList size={14} style={{ color: ARIA }} />}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-semibold text-[#1A1035]">{item.first_name} {item.last_name}</p>
-                <p className="text-[11px] text-[#8B84A0]">
+                <p className="text-[13px] font-semibold text-[#181D23]">{item.first_name} {item.last_name}</p>
+                <p className="text-[11px] text-[#96989B]">
                   {item.treatment_name ?? item.consent_type} · Requested {fmtRelative(item.created_at)}
                 </p>
               </div>
@@ -426,10 +426,10 @@ function ConsentsTab({ pendingConsents, stats, onNavigateToPatient }: {
                   </span>
                 )}
                 <span className="px-2.5 py-1 rounded-full text-[9px] font-semibold"
-                  style={{ backgroundColor: '#FFFBEB', color: '#D97706', border: '1px solid #FDE68A' }}>
+                  style={{ backgroundColor: '#FFFBEB', color: '#D8A600', border: '1px solid #FDE68A' }}>
                   PENDING
                 </span>
-                <ChevronRight size={13} className="text-[#8B84A0]" />
+                <ChevronRight size={13} className="text-[#96989B]" />
               </div>
             </motion.button>
           ))}
@@ -439,10 +439,10 @@ function ConsentsTab({ pendingConsents, stats, onNavigateToPatient }: {
       {/* CQC Compliance Note */}
       <div className="rounded-2xl p-5" style={{ backgroundColor: '#F5F3FF', border: '1px solid #DDD6FE' }}>
         <div className="flex items-start gap-3">
-          <Shield size={15} style={{ color: '#6D28D9', flexShrink: 0, marginTop: 1 }} />
+          <Shield size={15} style={{ color: '#0058E6', flexShrink: 0, marginTop: 1 }} />
           <div>
-            <p className="text-[11px] font-bold text-[#6D28D9] mb-1">CQC Section 4 — Consent Compliance</p>
-            <p className="text-[11px] text-[#524D66] leading-relaxed">
+            <p className="text-[11px] font-bold text-[#0058E6] mb-1">CQC Section 4 — Consent Compliance</p>
+            <p className="text-[11px] text-[#3D4451] leading-relaxed">
               All treatment consents are logged with version number, collection method, timestamp, and pre-screening flags.
               Consents with red flags require practitioner review before treatment proceeds. Digital consent forms
               are retained indefinitely. Physical signature scans are stored in clinical photos.
@@ -480,7 +480,7 @@ function PhotosTab() {
               ].map(item => (
                 <li key={item} className="flex items-start gap-2">
                   <CheckCircle size={10} style={{ color: ARIA, marginTop: 2, flexShrink: 0 }} />
-                  <span className="text-[11px] text-[#524D66]">{item}</span>
+                  <span className="text-[11px] text-[#3D4451]">{item}</span>
                 </li>
               ))}
             </ul>
@@ -505,13 +505,13 @@ function IntelligenceTab({ stats }: { stats: EHRStats }) {
     },
     {
       icon: ClipboardList,
-      color: '#D97706',
+      color: '#D8A600',
       title: 'Consent Completion Gap',
       body: `${stats.pending_consents} consent forms outstanding. ${stats.consents_with_flags > 0 ? `${stats.consents_with_flags} have red flags requiring practitioner review.` : 'No flagged consents at this time.'} Auto-send consent forms 48h pre-treatment via Komal or SMS.`,
     },
     {
       icon: PenTool,
-      color: '#6D28D9',
+      color: '#0058E6',
       title: 'SOAP Note Workflow',
       body: `${stats.pending_sign_off} SOAP notes awaiting sign-off. Establish a daily sign-off routine: practitioners review and countersign all notes before end of clinic day. Aria can generate AI drafts to accelerate documentation by up to 60%.`,
     },
@@ -530,21 +530,21 @@ function IntelligenceTab({ stats }: { stats: EHRStats }) {
           <Brain size={15} style={{ color: ARIA }} />
         </div>
         <div>
-          <p className="text-[13px] font-bold text-[#1A1035]">Aria — Clinical Intelligence</p>
-          <p className="text-[10px] text-[#8B84A0]">EHR analysis, risk monitoring, compliance insights</p>
+          <p className="text-[13px] font-bold text-[#181D23]">Aria — Clinical Intelligence</p>
+          <p className="text-[10px] text-[#96989B]">EHR analysis, risk monitoring, compliance insights</p>
         </div>
       </div>
 
       {insights.map(insight => (
-        <div key={insight.title} className="rounded-2xl p-5" style={{ backgroundColor: '#FFFFFF', border: '1px solid #EBE5FF' }}>
+        <div key={insight.title} className="rounded-2xl p-5" style={{ backgroundColor: '#FFFFFF', border: '1px solid #D4E2FF' }}>
           <div className="flex items-start gap-4">
             <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
               style={{ backgroundColor: `${insight.color}14` }}>
               <insight.icon size={14} style={{ color: insight.color }} />
             </div>
             <div className="flex-1">
-              <p className="text-[12px] font-bold text-[#1A1035] mb-1">{insight.title}</p>
-              <p className="text-[11px] text-[#524D66] leading-relaxed">{insight.body}</p>
+              <p className="text-[12px] font-bold text-[#181D23] mb-1">{insight.title}</p>
+              <p className="text-[11px] text-[#3D4451] leading-relaxed">{insight.body}</p>
             </div>
           </div>
         </div>
@@ -565,8 +565,8 @@ function IntelligenceTab({ stats }: { stats: EHRStats }) {
                 <f.icon size={11} style={{ color: ARIA }} />
               </div>
               <div>
-                <p className="text-[11px] font-semibold text-[#1A1035]">{f.label}</p>
-                <p className="text-[10px] text-[#8B84A0] leading-snug">{f.desc}</p>
+                <p className="text-[11px] font-semibold text-[#181D23]">{f.label}</p>
+                <p className="text-[10px] text-[#96989B] leading-snug">{f.desc}</p>
               </div>
             </div>
           ))}
@@ -585,7 +585,7 @@ export default function EHRPage() {
   const searchParams = useSearchParams();
   const [profile, setProfile]               = useState<StaffProfile | null>(null);
   const [userId, setUserId]                 = useState('');
-  const [brandColor, setBrandColor]         = useState('#8A6CFF');
+  const [brandColor, setBrandColor]         = useState('#0058E6');
   const [activeTab, setActiveTab]           = useState<Tab>((searchParams?.get('tab') as Tab) ?? 'overview');
 
   const [stats, setStats]                   = useState<EHRStats | null>(null);
@@ -608,7 +608,7 @@ export default function EHRPage() {
         getPendingConsentsList(),
         getPendingSignOffList(),
       ]);
-      if (p.success && p.data?.profile) { setProfile(p.data.profile); setBrandColor(p.data.profile.brandColor || '#8A6CFF'); }
+      if (p.success && p.data?.profile) { setProfile(p.data.profile); setBrandColor(p.data.profile.brandColor || '#0058E6'); }
       setStats(s.data);
       setIsDemo(s.isDemo);
       setFlagged(fl);
@@ -634,28 +634,28 @@ export default function EHRPage() {
 
   if (!profile) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#FAF7F2' }}>
-        <Loader2 size={20} className="animate-spin text-[#8B84A0]" />
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#F8FAFF' }}>
+        <Loader2 size={20} className="animate-spin text-[#96989B]" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#FAF7F2' }}>
+    <div className="min-h-screen" style={{ backgroundColor: '#F8FAFF' }}>
       <StaffNav profile={profile} userId={userId} brandColor={brandColor} currentPath="EHR Hub" />
       <div style={{ paddingLeft: 'var(--nav-w, 240px)', transition: 'padding-left 0.3s' }}>
         <div className="max-w-[1200px] mx-auto px-8 py-8">
 
           {/* Page Header */}
-          <div className="flex items-start justify-between mb-7" style={{ borderBottom: '1px solid #EBE5FF', paddingBottom: 24 }}>
+          <div className="flex items-start justify-between mb-7" style={{ borderBottom: '1px solid #D4E2FF', paddingBottom: 24 }}>
             <div>
               <div className="flex items-center gap-2 mb-1.5">
-                <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#8B84A0]">Clinical</p>
-                <span className="text-[8px] text-[#D5CCFF]">/</span>
+                <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#96989B]">Clinical</p>
+                <span className="text-[8px] text-[#A8C4FF]">/</span>
                 <p className="text-[8px] uppercase tracking-[0.28em] font-semibold" style={{ color: ARIA }}>EHR Hub</p>
               </div>
-              <h1 className="text-[32px] font-black tracking-[-0.035em] text-[#1A1035] leading-none">Electronic Health Records</h1>
-              <p className="text-[12px] text-[#8B84A0] mt-1.5">Clinical documentation, consent management, risk monitoring</p>
+              <h1 className="text-[32px] font-black tracking-[-0.035em] text-[#181D23] leading-none">Electronic Health Records</h1>
+              <p className="text-[12px] text-[#96989B] mt-1.5">Clinical documentation, consent management, risk monitoring</p>
             </div>
             <div className="flex items-center gap-3">
               {isDemo && (
@@ -668,7 +668,7 @@ export default function EHRPage() {
                 onClick={refresh}
                 disabled={loading}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl text-[11px] font-semibold transition-all"
-                style={{ backgroundColor: '#1A1035', color: '#EBF0FF' }}
+                style={{ backgroundColor: '#181D23', color: '#EBF0FF' }}
               >
                 <RefreshCw size={11} className={loading ? 'animate-spin' : ''} />
                 Refresh
@@ -677,7 +677,7 @@ export default function EHRPage() {
           </div>
 
           {/* Tab Bar */}
-          <div className="flex items-center gap-0 mb-7" style={{ borderBottom: '1px solid #EBE5FF' }}>
+          <div className="flex items-center gap-0 mb-7" style={{ borderBottom: '1px solid #D4E2FF' }}>
             {TABS.map(tab => {
               const Icon = tab.icon;
               const active = activeTab === tab.id;
@@ -687,7 +687,7 @@ export default function EHRPage() {
                   onClick={() => setActiveTab(tab.id)}
                   className="flex items-center gap-2 px-5 py-3 transition-all text-[12px] font-medium"
                   style={{
-                    color: active ? ARIA : '#8B84A0',
+                    color: active ? ARIA : '#96989B',
                     borderBottom: `2px solid ${active ? ARIA : 'transparent'}`,
                     marginBottom: -1,
                   }}

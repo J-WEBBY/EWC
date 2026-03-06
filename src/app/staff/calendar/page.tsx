@@ -120,17 +120,17 @@ function buildMonthGrid(year: number, month: number): (Date | null)[] {
 // =============================================================================
 
 const C = {
-  bg:        '#FAF7F2',
-  navy:      '#1A1035',
-  sec:       '#524D66',
-  ter:       '#6E6688',
-  muted:     '#8B84A0',
-  border:    '#EBE5FF',
-  borderAcc: '#D5CCFF',
-  appt:      '#6D28D9',   // appointment dots / blocks
-  comply:    '#D97706',   // compliance
+  bg:        '#F8FAFF',
+  navy:      '#181D23',
+  sec:       '#3D4451',
+  ter:       '#5A6475',
+  muted:     '#96989B',
+  border:    '#D4E2FF',
+  borderAcc: '#A8C4FF',
+  appt:      '#0058E6',   // appointment dots / blocks
+  comply:    '#D8A600',   // compliance
   goal:      '#DC2626',   // goal deadlines
-  signal:    '#0D9488',   // signals
+  signal:    '#00A693',   // signals
   komal:     '#059669',   // Komal/AI source
 };
 
@@ -148,8 +148,8 @@ const STATUS_CFG: Record<string, { bg: string; color: string; label: string }> =
   booked:         { bg: '#0284C714', color: '#0284C7', label: 'Booked'    },
   arrived:        { bg: '#05966914', color: '#059669', label: 'Arrived'   },
   cancelled:      { bg: '#DC262614', color: '#DC2626', label: 'Cancelled' },
-  did_not_arrive: { bg: '#D9770614', color: '#D97706', label: 'DNA'       },
-  pending:        { bg: '#6D28D914', color: '#6D28D9', label: 'Pending'   },
+  did_not_arrive: { bg: '#D8A60014', color: '#D8A600', label: 'DNA'       },
+  pending:        { bg: '#0058E614', color: '#0058E6', label: 'Pending'   },
 };
 
 function StatusBadge({ status }: { status: string }) {

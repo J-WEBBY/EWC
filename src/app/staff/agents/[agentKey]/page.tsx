@@ -84,7 +84,7 @@ interface AgentConfig {
 const AGENT_CONFIG: Record<string, AgentConfig> = {
   primary_agent: {
     displayName: 'EWC',
-    color: '#6D28D9',
+    color: '#0058E6',
     role: 'Primary Agent',
     tagline: 'Full clinic context. Every signal. Every patient.',
     capabilities: [
@@ -104,7 +104,7 @@ const AGENT_CONFIG: Record<string, AgentConfig> = {
   },
   sales_agent: {
     displayName: 'Orion',
-    color: '#D97706',
+    color: '#D8A600',
     role: 'Patient Acquisition',
     tagline: 'Pipeline intelligence, conversions, and revenue growth.',
     capabilities: [
@@ -123,7 +123,7 @@ const AGENT_CONFIG: Record<string, AgentConfig> = {
   },
   crm_agent: {
     displayName: 'Aria',
-    color: '#0D9488',
+    color: '#00A693',
     role: 'Patient Retention',
     tagline: 'Re-engagement, follow-ups, and loyalty intelligence.',
     capabilities: [
@@ -144,7 +144,7 @@ const AGENT_CONFIG: Record<string, AgentConfig> = {
 
 const DEFAULT_CONFIG: AgentConfig = {
   displayName: '',
-  color: '#524D66',
+  color: '#3D4451',
   role: 'AI Agent',
   tagline: 'Clinic intelligence at your service.',
   capabilities: [],
@@ -212,7 +212,7 @@ const TOOL_LABELS: Record<string, string> = {
 
 const PRIORITY_COLOR: Record<string, string> = {
   critical: '#DC2626',
-  high:     '#D97706',
+  high:     '#D8A600',
   medium:   '#2563EB',
   low:      '#6B7280',
 };
@@ -721,10 +721,10 @@ export default function AgentChatPage() {
   // ── Loading screen ─────────────────────────────────────────────────────────
   if (loading || !profile) {
     return (
-      <div className="min-h-screen bg-[#FAF7F2] flex flex-col items-center justify-center gap-5">
+      <div className="min-h-screen bg-[#F8FAFF] flex flex-col items-center justify-center gap-5">
         <AgentOrb color={color} size={56} active />
         <div className="flex flex-col items-center gap-1.5">
-          <p className="text-[15px] font-semibold text-[#1A1035] tracking-tight">
+          <p className="text-[15px] font-semibold text-[#181D23] tracking-tight">
             {cfg.displayName || agentKey}
           </p>
           <div className="flex items-center gap-1.5">
@@ -750,10 +750,10 @@ export default function AgentChatPage() {
     <>
       <StaffNav profile={profile} userId={userId} brandColor={color} currentPath="Agents" />
 
-      <div className="fixed inset-0 left-[240px] flex bg-[#FAF7F2]">
+      <div className="fixed inset-0 left-[240px] flex bg-[#F8FAFF]">
 
         {/* ── LEFT PANEL ──────────────────────────────────────────── */}
-        <div className="relative w-[272px] flex-shrink-0 border-r border-[#EBE5FF] flex flex-col overflow-hidden">
+        <div className="relative w-[272px] flex-shrink-0 border-r border-[#D4E2FF] flex flex-col overflow-hidden">
           <div className="absolute inset-0 pointer-events-none" style={{ backgroundColor: color, opacity: 0.03 }} />
 
           <div className="relative z-10 flex flex-col flex-1 min-h-0">
@@ -762,14 +762,14 @@ export default function AgentChatPage() {
             <div className="px-5 pt-6 pb-2 flex items-center justify-between flex-shrink-0">
               <button
                 onClick={() => router.push(`/staff/agents?userId=${userId}`)}
-                className="flex items-center gap-1.5 text-[11px] text-[#6E6688] hover:text-[#524D66] transition-colors"
+                className="flex items-center gap-1.5 text-[11px] text-[#5A6475] hover:text-[#3D4451] transition-colors"
               >
                 <ArrowLeft size={11} /> All Agents
               </button>
               <div className="flex items-center gap-1.5">
                 <motion.div className="w-1.5 h-1.5 rounded-full bg-[#4ade80]"
                   animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 2, repeat: Infinity }} />
-                <span className="text-[10px] text-[#6E6688]">Active</span>
+                <span className="text-[10px] text-[#5A6475]">Active</span>
               </div>
             </div>
 
@@ -777,11 +777,11 @@ export default function AgentChatPage() {
             <div className="flex flex-col items-center px-5 pt-4 pb-4 flex-shrink-0">
               <AgentOrb color={color} size={44} active={sending} />
               <div className="mt-3 text-center">
-                <h1 className="text-[20px] font-semibold tracking-tight text-[#1A1035] leading-none">{agentName}</h1>
+                <h1 className="text-[20px] font-semibold tracking-tight text-[#181D23] leading-none">{agentName}</h1>
                 <p className="text-[10px] uppercase tracking-[0.18em] font-medium mt-2" style={{ color: `${color}BB` }}>
                   {cfg.role}
                 </p>
-                <p className="text-[12px] text-[#6E6688] mt-2 leading-relaxed italic max-w-[200px] mx-auto">
+                <p className="text-[12px] text-[#5A6475] mt-2 leading-relaxed italic max-w-[200px] mx-auto">
                   &ldquo;{cfg.tagline}&rdquo;
                 </p>
               </div>
@@ -790,17 +790,17 @@ export default function AgentChatPage() {
             {/* Stats */}
             {agent && (
               <div className="mx-4 mb-4 grid grid-cols-2 gap-2 flex-shrink-0">
-                <div className="rounded-xl border border-[#EBE5FF] bg-white/70 p-3 text-center">
-                  <p className="text-[20px] font-semibold text-[#1A1035] leading-none tracking-tight">
+                <div className="rounded-xl border border-[#D4E2FF] bg-white/70 p-3 text-center">
+                  <p className="text-[20px] font-semibold text-[#181D23] leading-none tracking-tight">
                     {agent.total_signals_handled}
                   </p>
-                  <p className="text-[9px] uppercase tracking-[0.14em] text-[#8B84A0] mt-1.5 font-medium">Signals</p>
+                  <p className="text-[9px] uppercase tracking-[0.14em] text-[#96989B] mt-1.5 font-medium">Signals</p>
                 </div>
-                <div className="rounded-xl border border-[#EBE5FF] bg-white/70 p-3 text-center">
-                  <p className="text-[20px] font-semibold text-[#1A1035] leading-none tracking-tight">
+                <div className="rounded-xl border border-[#D4E2FF] bg-white/70 p-3 text-center">
+                  <p className="text-[20px] font-semibold text-[#181D23] leading-none tracking-tight">
                     {conversations.length}
                   </p>
-                  <p className="text-[9px] uppercase tracking-[0.14em] text-[#8B84A0] mt-1.5 font-medium">Chats</p>
+                  <p className="text-[9px] uppercase tracking-[0.14em] text-[#96989B] mt-1.5 font-medium">Chats</p>
                 </div>
               </div>
             )}
@@ -834,7 +834,7 @@ export default function AgentChatPage() {
                     ))}
                   </div>
                 ) : conversations.length === 0 ? (
-                  <p className="text-[11px] text-[#8B84A0] italic py-1 flex-shrink-0">No conversations yet</p>
+                  <p className="text-[11px] text-[#96989B] italic py-1 flex-shrink-0">No conversations yet</p>
                 ) : (
                   <div className="space-y-0.5 overflow-y-auto flex-1 pr-1">
                     {conversations.map(conv => {
@@ -850,7 +850,7 @@ export default function AgentChatPage() {
                           className={`group relative rounded-xl border transition-all ${
                             isActive
                               ? 'border-transparent'
-                              : 'border-transparent hover:bg-white hover:border-[#EBE5FF]'
+                              : 'border-transparent hover:bg-white hover:border-[#D4E2FF]'
                           }`}
                           style={isActive ? { backgroundColor: `${color}12`, borderColor: `${color}22` } : {}}
                         >
@@ -860,12 +860,12 @@ export default function AgentChatPage() {
                           >
                             <div className="flex items-start gap-1.5">
                               <MessageSquare size={10} className="mt-0.5 flex-shrink-0"
-                                style={{ color: isActive ? color : '#8B84A0' }} />
+                                style={{ color: isActive ? color : '#96989B' }} />
                               <div className="flex-1 min-w-0">
-                                <p className={`text-[11px] font-medium truncate leading-snug ${isActive ? 'text-[#1A1035]' : 'text-[#524D66]'}`}>
+                                <p className={`text-[11px] font-medium truncate leading-snug ${isActive ? 'text-[#181D23]' : 'text-[#3D4451]'}`}>
                                   {title}
                                 </p>
-                                <p className="text-[10px] text-[#8B84A0] mt-0.5">
+                                <p className="text-[10px] text-[#96989B] mt-0.5">
                                   {conv.message_count > 0 ? `${conv.message_count} msg · ` : ''}{relativeTime(conv.updated_at)}
                                 </p>
                               </div>
@@ -880,7 +880,7 @@ export default function AgentChatPage() {
                             }`}
                             style={{ backgroundColor: menuOpen ? `${color}14` : 'transparent' }}
                           >
-                            <span className="text-[10px] text-[#8B84A0] leading-none font-bold tracking-[-1px]">···</span>
+                            <span className="text-[10px] text-[#96989B] leading-none font-bold tracking-[-1px]">···</span>
                           </button>
 
                           {/* Dropdown menu */}
@@ -892,17 +892,17 @@ export default function AgentChatPage() {
                                 animate={{ opacity: 1, scale: 1, y: 0 }}
                                 exit={{ opacity: 0, scale: 0.95, y: -2 }}
                                 transition={{ duration: 0.1 }}
-                                className="absolute right-0 top-full mt-1 w-[140px] bg-white border border-[#EBE5FF] rounded-xl shadow-lg overflow-hidden z-20"
+                                className="absolute right-0 top-full mt-1 w-[140px] bg-white border border-[#D4E2FF] rounded-xl shadow-lg overflow-hidden z-20"
                               >
                                 <button
                                   onClick={e => { e.stopPropagation(); handleArchiveConv(conv.id); }}
-                                  className="w-full flex items-center gap-2 px-3 py-2 text-left text-[11px] text-[#524D66] hover:bg-[#FAF7F2] transition-colors"
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-left text-[11px] text-[#3D4451] hover:bg-[#F8FAFF] transition-colors"
                                 >
-                                  <span className="text-[#8B84A0]">⊖</span> Archive
+                                  <span className="text-[#96989B]">⊖</span> Archive
                                 </button>
                                 <button
                                   onClick={e => { e.stopPropagation(); setConfirmDelete(conv.id); }}
-                                  className="w-full flex items-center gap-2 px-3 py-2 text-left text-[11px] text-[#DC2626] hover:bg-[#FEF2F2] transition-colors border-t border-[#EBE5FF]"
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-left text-[11px] text-[#DC2626] hover:bg-[#FEF2F2] transition-colors border-t border-[#D4E2FF]"
                                 >
                                   <span>⊗</span> Delete
                                 </button>
@@ -917,14 +917,14 @@ export default function AgentChatPage() {
                                 animate={{ opacity: 1, scale: 1 }}
                                 exit={{ opacity: 0 }}
                                 transition={{ duration: 0.1 }}
-                                className="absolute right-0 top-full mt-1 w-[160px] bg-white border border-[#EBE5FF] rounded-xl shadow-lg p-3 z-20"
+                                className="absolute right-0 top-full mt-1 w-[160px] bg-white border border-[#D4E2FF] rounded-xl shadow-lg p-3 z-20"
                                 onClick={e => e.stopPropagation()}
                               >
-                                <p className="text-[10px] text-[#1A1035] font-medium mb-2">Delete permanently?</p>
+                                <p className="text-[10px] text-[#181D23] font-medium mb-2">Delete permanently?</p>
                                 <div className="flex gap-1.5">
                                   <button
                                     onClick={() => { setConfirmDelete(null); setConvMenu(null); }}
-                                    className="flex-1 text-[10px] py-1 rounded-lg border border-[#EBE5FF] text-[#524D66] hover:bg-[#FAF7F2] transition-colors"
+                                    className="flex-1 text-[10px] py-1 rounded-lg border border-[#D4E2FF] text-[#3D4451] hover:bg-[#F8FAFF] transition-colors"
                                   >
                                     Cancel
                                   </button>
@@ -957,8 +957,8 @@ export default function AgentChatPage() {
                     <div key={cap.label} className="flex items-start gap-2">
                       <div className="w-1 h-1 rounded-full mt-1.5 flex-shrink-0" style={{ backgroundColor: color, opacity: 0.7 }} />
                       <div>
-                        <p className="text-[11px] font-medium text-[#524D66] leading-none">{cap.label}</p>
-                        <p className="text-[10px] text-[#8B84A0] mt-0.5 leading-relaxed">{cap.desc}</p>
+                        <p className="text-[11px] font-medium text-[#3D4451] leading-none">{cap.label}</p>
+                        <p className="text-[10px] text-[#96989B] mt-0.5 leading-relaxed">{cap.desc}</p>
                       </div>
                     </div>
                   ))}
@@ -972,7 +972,7 @@ export default function AgentChatPage() {
               <div className="relative">
                 <button
                   onClick={() => setSwitchOpen(o => !o)}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl border border-transparent hover:bg-white hover:border-[#EBE5FF] transition-all"
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl border border-transparent hover:bg-white hover:border-[#D4E2FF] transition-all"
                 >
                   <div className="flex items-center gap-2">
                     <div className="flex -space-x-1.5">
@@ -981,9 +981,9 @@ export default function AgentChatPage() {
                           style={{ backgroundColor: (AGENT_CONFIG[k] || DEFAULT_CONFIG).color }} />
                       ))}
                     </div>
-                    <span className="text-[11px] text-[#6E6688] font-medium">Switch agent</span>
+                    <span className="text-[11px] text-[#5A6475] font-medium">Switch agent</span>
                   </div>
-                  <ChevronDown size={10} className="text-[#8B84A0] transition-transform"
+                  <ChevronDown size={10} className="text-[#96989B] transition-transform"
                     style={{ transform: switchOpen ? 'rotate(180deg)' : 'none' }} />
                 </button>
 
@@ -994,7 +994,7 @@ export default function AgentChatPage() {
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 2, scale: 0.98 }}
                       transition={{ duration: 0.13 }}
-                      className="absolute bottom-full mb-1 left-0 right-0 bg-white border border-[#EBE5FF] rounded-xl overflow-hidden shadow-lg z-10"
+                      className="absolute bottom-full mb-1 left-0 right-0 bg-white border border-[#D4E2FF] rounded-xl overflow-hidden shadow-lg z-10"
                     >
                       {otherAgents.map(key => {
                         const otherCfg = AGENT_CONFIG[key] || DEFAULT_CONFIG;
@@ -1002,13 +1002,13 @@ export default function AgentChatPage() {
                           <button
                             key={key}
                             onClick={() => router.push(`/staff/agents/${key}?userId=${userId}`)}
-                            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-[#FAF7F2] transition-colors"
+                            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-[#F8FAFF] transition-colors"
                           >
                             <div className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                               style={{ backgroundColor: otherCfg.color }} />
                             <div className="flex-1 min-w-0">
-                              <p className="text-[12px] font-medium text-[#1A1035] leading-none">{otherCfg.displayName}</p>
-                              <p className="text-[10px] text-[#8B84A0] mt-0.5">{otherCfg.role}</p>
+                              <p className="text-[12px] font-medium text-[#181D23] leading-none">{otherCfg.displayName}</p>
+                              <p className="text-[10px] text-[#96989B] mt-0.5">{otherCfg.role}</p>
                             </div>
                           </button>
                         );
@@ -1023,7 +1023,7 @@ export default function AgentChatPage() {
         </div>
 
         {/* ── RIGHT PANEL ─────────────────────────────────────────── */}
-        <div className="flex-1 flex flex-col min-w-0 bg-[#FAF7F2] relative">
+        <div className="flex-1 flex flex-col min-w-0 bg-[#F8FAFF] relative">
 
           {/* Naming modal */}
           <AnimatePresence>
@@ -1045,20 +1045,20 @@ export default function AgentChatPage() {
                   className="absolute inset-0 flex items-center justify-center z-40 pointer-events-none"
                 >
                   <div
-                    className="pointer-events-auto bg-white border border-[#EBE5FF] rounded-2xl shadow-xl p-6 w-[380px]"
+                    className="pointer-events-auto bg-white border border-[#D4E2FF] rounded-2xl shadow-xl p-6 w-[380px]"
                     onClick={e => e.stopPropagation()}
                   >
-                    <p className="text-[15px] font-semibold text-[#1A1035] tracking-tight mb-1">
+                    <p className="text-[15px] font-semibold text-[#181D23] tracking-tight mb-1">
                       Name this conversation
                     </p>
-                    <p className="text-[12px] text-[#8B84A0] mb-4 leading-relaxed">
+                    <p className="text-[12px] text-[#96989B] mb-4 leading-relaxed">
                       Give this chat a name so you can find it later in your history.
                     </p>
 
                     {pendingFirstMsg && (
-                      <div className="rounded-xl bg-[#FAF7F2] border border-[#EBE5FF] px-3 py-2.5 mb-4 flex items-start gap-2">
-                        <MessageSquare size={11} className="mt-0.5 flex-shrink-0 text-[#8B84A0]" />
-                        <p className="text-[11px] text-[#6E6688] italic leading-relaxed line-clamp-2">
+                      <div className="rounded-xl bg-[#F8FAFF] border border-[#D4E2FF] px-3 py-2.5 mb-4 flex items-start gap-2">
+                        <MessageSquare size={11} className="mt-0.5 flex-shrink-0 text-[#96989B]" />
+                        <p className="text-[11px] text-[#5A6475] italic leading-relaxed line-clamp-2">
                           &ldquo;{pendingFirstMsg}&rdquo;
                         </p>
                       </div>
@@ -1075,16 +1075,16 @@ export default function AgentChatPage() {
                       }}
                       placeholder="e.g. Morning briefing, Patient retention review…"
                       maxLength={80}
-                      className="w-full text-[13px] px-4 py-3 rounded-xl border border-[#EBE5FF] bg-[#FAF7F2] text-[#1A1035] placeholder:text-[#8B84A0] outline-none mb-4 transition-all"
+                      className="w-full text-[13px] px-4 py-3 rounded-xl border border-[#D4E2FF] bg-[#F8FAFF] text-[#181D23] placeholder:text-[#96989B] outline-none mb-4 transition-all"
                       style={{ '--tw-ring-color': color } as React.CSSProperties}
                       onFocus={e => (e.currentTarget.style.borderColor = `${color}50`)}
-                      onBlur={e => (e.currentTarget.style.borderColor = '#EBE5FF')}
+                      onBlur={e => (e.currentTarget.style.borderColor = '#D4E2FF')}
                     />
 
                     <div className="flex items-center justify-between">
                       <button
                         onClick={handleSkipName}
-                        className="text-[12px] text-[#8B84A0] hover:text-[#524D66] transition-colors px-2 py-1"
+                        className="text-[12px] text-[#96989B] hover:text-[#3D4451] transition-colors px-2 py-1"
                       >
                         Skip
                       </button>
@@ -1106,7 +1106,7 @@ export default function AgentChatPage() {
           </AnimatePresence>
 
           {/* Tab header */}
-          <div className="flex-shrink-0 px-6 py-0 border-b border-[#EBE5FF] bg-white/60 backdrop-blur-sm flex items-center gap-1">
+          <div className="flex-shrink-0 px-6 py-0 border-b border-[#D4E2FF] bg-white/60 backdrop-blur-sm flex items-center gap-1">
             {([
               { key: 'chat',      label: 'Chat',         Icon: MessageSquare },
               { key: 'activity',  label: 'Activity Log', Icon: Clock },
@@ -1120,8 +1120,8 @@ export default function AgentChatPage() {
                   onClick={() => setActiveTab(key)}
                   className={`flex items-center gap-1.5 px-3.5 py-3.5 text-[12px] font-medium border-b-2 transition-all ${
                     active
-                      ? 'text-[#1A1035] border-current'
-                      : 'text-[#8B84A0] border-transparent hover:text-[#524D66]'
+                      ? 'text-[#181D23] border-current'
+                      : 'text-[#96989B] border-transparent hover:text-[#3D4451]'
                   }`}
                   style={active ? { borderColor: color, color: color } : {}}
                 >
@@ -1131,7 +1131,7 @@ export default function AgentChatPage() {
               );
             })}
             {activeTab === 'chat' && messages.length > 0 && (
-              <span className="ml-auto text-[11px] text-[#8B84A0]">
+              <span className="ml-auto text-[11px] text-[#96989B]">
                 {messages.length} message{messages.length !== 1 ? 's' : ''}
               </span>
             )}
@@ -1164,7 +1164,7 @@ export default function AgentChatPage() {
                               transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.18 }} />
                           ))}
                         </div>
-                        <p className="text-[11px] text-[#8B84A0]">Loading conversation…</p>
+                        <p className="text-[11px] text-[#96989B]">Loading conversation…</p>
                       </div>
                     </div>
                   )}
@@ -1179,8 +1179,8 @@ export default function AgentChatPage() {
                     >
                       <AgentOrb color={color} size={44} />
                       <div>
-                        <h2 className="text-[20px] font-semibold text-[#1A1035] tracking-tight mb-1.5">{agentName}</h2>
-                        <p className="text-[13px] text-[#6E6688] max-w-xs leading-relaxed">{cfg.tagline}</p>
+                        <h2 className="text-[20px] font-semibold text-[#181D23] tracking-tight mb-1.5">{agentName}</h2>
+                        <p className="text-[13px] text-[#5A6475] max-w-xs leading-relaxed">{cfg.tagline}</p>
                       </div>
                       {/* Quick prompts */}
                       <div className="grid grid-cols-2 gap-2 max-w-sm w-full">
@@ -1189,7 +1189,7 @@ export default function AgentChatPage() {
                             key={label}
                             onClick={() => handleSend(label)}
                             disabled={sending}
-                            className="flex items-start gap-2 px-3 py-2.5 rounded-xl text-left text-[11px] text-[#524D66] border border-[#EBE5FF] bg-white hover:border-[#D5CCFF] hover:shadow-sm transition-all disabled:opacity-40"
+                            className="flex items-start gap-2 px-3 py-2.5 rounded-xl text-left text-[11px] text-[#3D4451] border border-[#D4E2FF] bg-white hover:border-[#A8C4FF] hover:shadow-sm transition-all disabled:opacity-40"
                           >
                             <Icon size={11} className="flex-shrink-0 mt-0.5" style={{ color }} />
                             <span className="leading-relaxed">{label}</span>
@@ -1220,11 +1220,11 @@ export default function AgentChatPage() {
                             )}
                             <div className={`max-w-[72%] rounded-2xl px-4 py-3 text-[13px] leading-relaxed ${
                               msg.role === 'user'
-                                ? 'bg-[#1A1035] text-white rounded-tr-md'
-                                : 'bg-white border border-[#EBE5FF] text-[#1A1035] rounded-tl-md shadow-sm'
+                                ? 'bg-[#181D23] text-white rounded-tr-md'
+                                : 'bg-white border border-[#D4E2FF] text-[#181D23] rounded-tl-md shadow-sm'
                             }`}>
                               {msg.role === 'assistant' ? (
-                                <div className="prose prose-slate prose-sm max-w-none [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:ml-4 [&_li]:mb-1 [&_code]:text-[11px] [&_code]:bg-[#F5F2EB] [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_strong]:text-[#1A1035] [&_strong]:font-semibold [&_table]:text-[12px] [&_th]:text-[#1A1035] [&_td]:text-[#524D66]">
+                                <div className="prose prose-slate prose-sm max-w-none [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:ml-4 [&_li]:mb-1 [&_code]:text-[11px] [&_code]:bg-[#F5F2EB] [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_strong]:text-[#181D23] [&_strong]:font-semibold [&_table]:text-[12px] [&_th]:text-[#181D23] [&_td]:text-[#3D4451]">
                                   <ReactMarkdown>{msg.content}</ReactMarkdown>
                                 </div>
                               ) : msg.content}
@@ -1240,7 +1240,7 @@ export default function AgentChatPage() {
                             <motion.div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }}
                               animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 0.8, repeat: Infinity }} />
                           </div>
-                          <div className="max-w-[72%] rounded-2xl rounded-tl-md px-4 py-3 bg-white border border-[#EBE5FF] shadow-sm">
+                          <div className="max-w-[72%] rounded-2xl rounded-tl-md px-4 py-3 bg-white border border-[#D4E2FF] shadow-sm">
                             {activeToolCall && (
                               <div className="flex items-center gap-1.5 mb-2">
                                 <Loader2 size={10} className="animate-spin flex-shrink-0" style={{ color: `${color}80` }} />
@@ -1248,7 +1248,7 @@ export default function AgentChatPage() {
                               </div>
                             )}
                             {streamingText ? (
-                              <div className="text-[13px] text-[#1A1035] leading-relaxed prose prose-slate prose-sm max-w-none [&_p]:mb-2 [&_p:last-child]:mb-0">
+                              <div className="text-[13px] text-[#181D23] leading-relaxed prose prose-slate prose-sm max-w-none [&_p]:mb-2 [&_p:last-child]:mb-0">
                                 <ReactMarkdown>{streamingText}</ReactMarkdown>
                               </div>
                             ) : (
@@ -1270,7 +1270,7 @@ export default function AgentChatPage() {
                 </div>
 
                 {/* Input area */}
-                <div className="flex-shrink-0 px-6 pb-6 pt-2 border-t border-[#EBE5FF] bg-white/40">
+                <div className="flex-shrink-0 px-6 pb-6 pt-2 border-t border-[#D4E2FF] bg-white/40">
 
                   {/* Tools row */}
                   <div className="relative max-w-3xl mx-auto mb-2">
@@ -1280,7 +1280,7 @@ export default function AgentChatPage() {
                       className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium border transition-all"
                       style={toolsOpen
                         ? { backgroundColor: `${color}12`, borderColor: `${color}30`, color }
-                        : { backgroundColor: 'white', borderColor: '#EBE5FF', color: '#8B84A0' }}
+                        : { backgroundColor: 'white', borderColor: '#D4E2FF', color: '#96989B' }}
                     >
                       <Wrench size={9} />
                       Tools
@@ -1296,19 +1296,19 @@ export default function AgentChatPage() {
                           animate={{ opacity: 1, y: 0, scale: 1 }}
                           exit={{ opacity: 0, y: 4, scale: 0.98 }}
                           transition={{ duration: 0.14 }}
-                          className="absolute bottom-full mb-2 left-0 w-[380px] bg-white border border-[#EBE5FF] rounded-2xl shadow-xl overflow-hidden z-20"
+                          className="absolute bottom-full mb-2 left-0 w-[380px] bg-white border border-[#D4E2FF] rounded-2xl shadow-xl overflow-hidden z-20"
                         >
                           {/* Header */}
                           <div className="flex items-center justify-between px-4 py-3 border-b border-[#F0EBF8]">
                             <div>
-                              <p className="text-[12px] font-semibold text-[#1A1035]">Available Tools</p>
-                              <p className="text-[10px] text-[#8B84A0]">
+                              <p className="text-[12px] font-semibold text-[#181D23]">Available Tools</p>
+                              <p className="text-[10px] text-[#96989B]">
                                 {agentName} uses these automatically when needed
                               </p>
                             </div>
                             <button
                               onClick={() => setToolsOpen(false)}
-                              className="w-6 h-6 rounded-full flex items-center justify-center transition-colors hover:bg-[#F5F2EB] text-[#8B84A0] hover:text-[#524D66]"
+                              className="w-6 h-6 rounded-full flex items-center justify-center transition-colors hover:bg-[#F5F2EB] text-[#96989B] hover:text-[#3D4451]"
                             >
                               <X size={12} />
                             </button>
@@ -1328,10 +1328,10 @@ export default function AgentChatPage() {
                                 >
                                   <div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 transition-all"
                                     style={{ backgroundColor: hovered ? `${color}18` : `${color}0A` }}>
-                                    <tool.icon size={11} style={{ color: hovered ? color : '#8B84A0' }} />
+                                    <tool.icon size={11} style={{ color: hovered ? color : '#96989B' }} />
                                   </div>
                                   <div className="min-w-0 flex-1">
-                                    <p className="text-[11px] font-semibold text-[#1A1035] leading-none">{tool.label}</p>
+                                    <p className="text-[11px] font-semibold text-[#181D23] leading-none">{tool.label}</p>
                                     <AnimatePresence>
                                       {hovered && (
                                         <motion.p
@@ -1339,7 +1339,7 @@ export default function AgentChatPage() {
                                           animate={{ opacity: 1, height: 'auto' }}
                                           exit={{ opacity: 0, height: 0 }}
                                           transition={{ duration: 0.12 }}
-                                          className="text-[10px] text-[#6E6688] mt-0.5 leading-snug overflow-hidden"
+                                          className="text-[10px] text-[#5A6475] mt-0.5 leading-snug overflow-hidden"
                                         >
                                           {tool.desc}
                                         </motion.p>
@@ -1354,7 +1354,7 @@ export default function AgentChatPage() {
                           {/* Footer */}
                           <div className="px-4 py-2.5 border-t border-[#F0EBF8] flex items-center gap-1.5">
                             <div className="w-1.5 h-1.5 rounded-full bg-[#4ade80]" />
-                            <p className="text-[10px] text-[#8B84A0]">All tools active — hover to see details</p>
+                            <p className="text-[10px] text-[#96989B]">All tools active — hover to see details</p>
                           </div>
                         </motion.div>
                       )}
@@ -1379,7 +1379,7 @@ export default function AgentChatPage() {
                       }}
                       placeholder={`Message ${agentName}…`}
                       rows={1}
-                      className="flex-1 bg-transparent text-[13px] text-[#1A1035] placeholder:text-[#8B84A0] outline-none resize-none leading-relaxed"
+                      className="flex-1 bg-transparent text-[13px] text-[#181D23] placeholder:text-[#96989B] outline-none resize-none leading-relaxed"
                       style={{ maxHeight: 140 }}
                     />
                     <button
@@ -1393,7 +1393,7 @@ export default function AgentChatPage() {
                         : <Send size={14} className="text-white" />}
                     </button>
                   </div>
-                  <p className="text-[9px] text-[#8B84A0] text-center mt-2">
+                  <p className="text-[9px] text-[#96989B] text-center mt-2">
                     Enter to send · Shift+Enter for new line
                   </p>
                 </div>
@@ -1426,22 +1426,22 @@ export default function AgentChatPage() {
                     {/* Signals */}
                     <div>
                       <div className="flex items-center justify-between mb-3">
-                        <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-[#8B84A0]">
+                        <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-[#96989B]">
                           Signals Handled ({activitySignals.length})
                         </p>
                         {activitySignals.length > 0 && (
                           <button
                             onClick={() => router.push(`/staff/signals?userId=${userId}`)}
-                            className="text-[11px] text-[#8B84A0] hover:text-[#524D66] transition-colors"
+                            className="text-[11px] text-[#96989B] hover:text-[#3D4451] transition-colors"
                           >
                             View all →
                           </button>
                         )}
                       </div>
                       {activitySignals.length === 0 ? (
-                        <div className="rounded-xl border border-[#EBE5FF] bg-white p-6 text-center">
-                          <ShieldAlert size={20} className="mx-auto mb-2 text-[#D5CCFF]" />
-                          <p className="text-[12px] text-[#8B84A0]">No signals handled yet</p>
+                        <div className="rounded-xl border border-[#D4E2FF] bg-white p-6 text-center">
+                          <ShieldAlert size={20} className="mx-auto mb-2 text-[#A8C4FF]" />
+                          <p className="text-[12px] text-[#96989B]">No signals handled yet</p>
                         </div>
                       ) : (
                         <div className="space-y-2">
@@ -1449,11 +1449,11 @@ export default function AgentChatPage() {
                             const pColor = PRIORITY_COLOR[sig.priority] || '#6B7280';
                             const sBadge = STATUS_STYLE[sig.status] || STATUS_STYLE.new;
                             return (
-                              <div key={sig.id} className="rounded-xl border border-[#EBE5FF] bg-white px-4 py-3 flex items-start gap-3 hover:shadow-sm transition-shadow">
+                              <div key={sig.id} className="rounded-xl border border-[#D4E2FF] bg-white px-4 py-3 flex items-start gap-3 hover:shadow-sm transition-shadow">
                                 <div className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" style={{ backgroundColor: pColor }} />
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2 flex-wrap">
-                                    <p className="text-[13px] font-medium text-[#1A1035] leading-snug">{sig.title}</p>
+                                    <p className="text-[13px] font-medium text-[#181D23] leading-snug">{sig.title}</p>
                                     <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
                                       style={{ backgroundColor: sBadge.bg, color: sBadge.text }}>
                                       {sig.status.replace('_', ' ')}
@@ -1461,16 +1461,16 @@ export default function AgentChatPage() {
                                   </div>
                                   <div className="flex items-center gap-2 mt-1">
                                     <span className="text-[11px] font-medium uppercase" style={{ color: pColor }}>{sig.priority}</span>
-                                    <span className="text-[#D5CCFF]">·</span>
-                                    <span className="text-[11px] text-[#8B84A0]">{sig.signal_type}</span>
+                                    <span className="text-[#A8C4FF]">·</span>
+                                    <span className="text-[11px] text-[#96989B]">{sig.signal_type}</span>
                                     {sig.category && (
                                       <>
-                                        <span className="text-[#D5CCFF]">·</span>
-                                        <span className="text-[11px] text-[#8B84A0]">{sig.category}</span>
+                                        <span className="text-[#A8C4FF]">·</span>
+                                        <span className="text-[11px] text-[#96989B]">{sig.category}</span>
                                       </>
                                     )}
-                                    <span className="text-[#D5CCFF]">·</span>
-                                    <span className="text-[11px] text-[#8B84A0]">{relativeTime(sig.created_at)}</span>
+                                    <span className="text-[#A8C4FF]">·</span>
+                                    <span className="text-[11px] text-[#96989B]">{relativeTime(sig.created_at)}</span>
                                   </div>
                                 </div>
                               </div>
@@ -1482,13 +1482,13 @@ export default function AgentChatPage() {
 
                     {/* Conversations */}
                     <div>
-                      <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-[#8B84A0] mb-3">
+                      <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-[#96989B] mb-3">
                         Your Conversations ({activityConvs.length})
                       </p>
                       {activityConvs.length === 0 ? (
-                        <div className="rounded-xl border border-[#EBE5FF] bg-white p-6 text-center">
-                          <MessageSquare size={20} className="mx-auto mb-2 text-[#D5CCFF]" />
-                          <p className="text-[12px] text-[#8B84A0]">No conversations yet</p>
+                        <div className="rounded-xl border border-[#D4E2FF] bg-white p-6 text-center">
+                          <MessageSquare size={20} className="mx-auto mb-2 text-[#A8C4FF]" />
+                          <p className="text-[12px] text-[#96989B]">No conversations yet</p>
                           <button
                             onClick={() => setActiveTab('chat')}
                             className="mt-3 text-[12px] font-medium px-4 py-1.5 rounded-lg text-white transition-all"
@@ -1503,21 +1503,21 @@ export default function AgentChatPage() {
                             <button
                               key={conv.id}
                               onClick={() => handleSelectConversation(conv.id)}
-                              className="w-full rounded-xl border border-[#EBE5FF] bg-white px-4 py-3 flex items-center gap-3 hover:shadow-sm transition-shadow text-left"
+                              className="w-full rounded-xl border border-[#D4E2FF] bg-white px-4 py-3 flex items-center gap-3 hover:shadow-sm transition-shadow text-left"
                             >
                               <div className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center"
                                 style={{ background: `${color}14` }}>
                                 <MessageSquare size={11} style={{ color }} />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="text-[13px] font-medium text-[#1A1035] truncate">
+                                <p className="text-[13px] font-medium text-[#181D23] truncate">
                                   {(conv.title && conv.title !== 'New Conversation') ? conv.title : 'New conversation'}
                                 </p>
-                                <p className="text-[11px] text-[#8B84A0] mt-0.5">
+                                <p className="text-[11px] text-[#96989B] mt-0.5">
                                   {conv.message_count} message{conv.message_count !== 1 ? 's' : ''} · {relativeTime(conv.updated_at)}
                                 </p>
                               </div>
-                              <span className="text-[11px] text-[#8B84A0] hover:text-[#524D66] transition-colors flex-shrink-0">
+                              <span className="text-[11px] text-[#96989B] hover:text-[#3D4451] transition-colors flex-shrink-0">
                                 Open →
                               </span>
                             </button>
@@ -1528,26 +1528,26 @@ export default function AgentChatPage() {
 
                     {/* Agent Memories */}
                     <div>
-                      <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-[#8B84A0] mb-3">
+                      <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-[#96989B] mb-3">
                         Agent Memory ({memories.length})
                       </p>
                       {memories.length === 0 ? (
-                        <div className="rounded-xl border border-[#EBE5FF] bg-white p-6 text-center">
-                          <Brain size={20} className="mx-auto mb-2 text-[#D5CCFF]" />
-                          <p className="text-[12px] text-[#8B84A0]">No memories stored yet — they accumulate through conversations</p>
+                        <div className="rounded-xl border border-[#D4E2FF] bg-white p-6 text-center">
+                          <Brain size={20} className="mx-auto mb-2 text-[#A8C4FF]" />
+                          <p className="text-[12px] text-[#96989B]">No memories stored yet — they accumulate through conversations</p>
                         </div>
                       ) : (
                         <div className="space-y-2">
                           {memories.map(m => (
-                            <div key={m.id} className="rounded-xl border border-[#EBE5FF] bg-white px-4 py-3">
+                            <div key={m.id} className="rounded-xl border border-[#D4E2FF] bg-white px-4 py-3">
                               <div className="flex items-center gap-2 mb-1">
                                 <span className="text-[9px] uppercase tracking-[0.14em] font-semibold px-1.5 py-0.5 rounded"
                                   style={{ backgroundColor: `${color}14`, color: `${color}CC` }}>
                                   {m.memory_type}
                                 </span>
-                                <span className="text-[10px] text-[#8B84A0]">{relativeTime(m.created_at)}</span>
+                                <span className="text-[10px] text-[#96989B]">{relativeTime(m.created_at)}</span>
                               </div>
-                              <p className="text-[12px] text-[#524D66] leading-relaxed line-clamp-3">{m.content}</p>
+                              <p className="text-[12px] text-[#3D4451] leading-relaxed line-clamp-3">{m.content}</p>
                             </div>
                           ))}
                         </div>
@@ -1585,11 +1585,11 @@ export default function AgentChatPage() {
                     <div className="mb-6">
                       <div className="flex items-center gap-2 mb-1">
                         <Sparkles size={14} style={{ color }} />
-                        <h2 className="text-[16px] font-semibold text-[#1A1035] tracking-tight">
+                        <h2 className="text-[16px] font-semibold text-[#181D23] tracking-tight">
                           Customise {agentName}
                         </h2>
                       </div>
-                      <p className="text-[12px] text-[#6E6688] leading-relaxed">
+                      <p className="text-[12px] text-[#5A6475] leading-relaxed">
                         These preferences apply only to your sessions. They shape how {agentName} communicates with you specifically.
                       </p>
                     </div>
@@ -1597,8 +1597,8 @@ export default function AgentChatPage() {
                     <div className="space-y-5">
 
                       {/* Tone */}
-                      <div className="rounded-xl border border-[#EBE5FF] bg-white p-4">
-                        <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-[#8B84A0] mb-3">Communication Tone</p>
+                      <div className="rounded-xl border border-[#D4E2FF] bg-white p-4">
+                        <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-[#96989B] mb-3">Communication Tone</p>
                         <div className="grid grid-cols-3 gap-2">
                           {TONE_OPTIONS.map(t => (
                             <button
@@ -1607,7 +1607,7 @@ export default function AgentChatPage() {
                               className={`py-2.5 rounded-xl text-[12px] font-medium border transition-all ${
                                 prefs.tone === t
                                   ? 'text-white border-transparent'
-                                  : 'text-[#524D66] border-[#EBE5FF] hover:border-[#D5CCFF]'
+                                  : 'text-[#3D4451] border-[#D4E2FF] hover:border-[#A8C4FF]'
                               }`}
                               style={prefs.tone === t ? { backgroundColor: color } : {}}
                             >
@@ -1615,7 +1615,7 @@ export default function AgentChatPage() {
                             </button>
                           ))}
                         </div>
-                        <p className="text-[10px] text-[#8B84A0] mt-2">
+                        <p className="text-[10px] text-[#96989B] mt-2">
                           {prefs.tone === 'casual'
                             ? 'Relaxed and conversational — like talking to a knowledgeable colleague.'
                             : prefs.tone === 'formal'
@@ -1625,8 +1625,8 @@ export default function AgentChatPage() {
                       </div>
 
                       {/* Verbosity */}
-                      <div className="rounded-xl border border-[#EBE5FF] bg-white p-4">
-                        <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-[#8B84A0] mb-3">Response Detail</p>
+                      <div className="rounded-xl border border-[#D4E2FF] bg-white p-4">
+                        <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-[#96989B] mb-3">Response Detail</p>
                         <div className="grid grid-cols-3 gap-2">
                           {VERB_OPTIONS.map(v => (
                             <button
@@ -1635,7 +1635,7 @@ export default function AgentChatPage() {
                               className={`py-2.5 rounded-xl text-[12px] font-medium border transition-all ${
                                 prefs.verbosity === v
                                   ? 'text-white border-transparent'
-                                  : 'text-[#524D66] border-[#EBE5FF] hover:border-[#D5CCFF]'
+                                  : 'text-[#3D4451] border-[#D4E2FF] hover:border-[#A8C4FF]'
                               }`}
                               style={prefs.verbosity === v ? { backgroundColor: color } : {}}
                             >
@@ -1643,7 +1643,7 @@ export default function AgentChatPage() {
                             </button>
                           ))}
                         </div>
-                        <p className="text-[10px] text-[#8B84A0] mt-2">
+                        <p className="text-[10px] text-[#96989B] mt-2">
                           {prefs.verbosity === 'brief'
                             ? 'Concise, actionable answers — get to the point quickly.'
                             : prefs.verbosity === 'detailed'
@@ -1653,9 +1653,9 @@ export default function AgentChatPage() {
                       </div>
 
                       {/* Focus Areas */}
-                      <div className="rounded-xl border border-[#EBE5FF] bg-white p-4">
-                        <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-[#8B84A0] mb-3">Priority Focus Areas</p>
-                        <p className="text-[11px] text-[#6E6688] mb-3">
+                      <div className="rounded-xl border border-[#D4E2FF] bg-white p-4">
+                        <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-[#96989B] mb-3">Priority Focus Areas</p>
+                        <p className="text-[11px] text-[#5A6475] mb-3">
                           Tell {agentName} what matters most to your role. These will be surfaced proactively.
                         </p>
                         <div className="flex flex-wrap gap-1.5 mb-3">
@@ -1671,7 +1671,7 @@ export default function AgentChatPage() {
                                     : [...p.focus_areas, f],
                                 }))}
                                 className={`px-3 py-1 rounded-full text-[11px] font-medium border transition-all ${
-                                  active ? 'text-white border-transparent' : 'text-[#524D66] border-[#EBE5FF] hover:border-[#D5CCFF]'
+                                  active ? 'text-white border-transparent' : 'text-[#3D4451] border-[#D4E2FF] hover:border-[#A8C4FF]'
                                 }`}
                                 style={active ? { backgroundColor: color } : {}}
                               >
@@ -1695,7 +1695,7 @@ export default function AgentChatPage() {
                               }
                             }}
                             placeholder="Add custom area…"
-                            className="flex-1 text-[12px] px-3 py-1.5 rounded-lg border border-[#EBE5FF] bg-[#FAF7F2] text-[#1A1035] placeholder:text-[#8B84A0] outline-none focus:border-[#D5CCFF]"
+                            className="flex-1 text-[12px] px-3 py-1.5 rounded-lg border border-[#D4E2FF] bg-[#F8FAFF] text-[#181D23] placeholder:text-[#96989B] outline-none focus:border-[#A8C4FF]"
                           />
                           <button
                             onClick={() => {
@@ -1729,9 +1729,9 @@ export default function AgentChatPage() {
                       </div>
 
                       {/* Custom Instructions */}
-                      <div className="rounded-xl border border-[#EBE5FF] bg-white p-4">
-                        <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-[#8B84A0] mb-1">Custom Instructions</p>
-                        <p className="text-[11px] text-[#6E6688] mb-3">
+                      <div className="rounded-xl border border-[#D4E2FF] bg-white p-4">
+                        <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-[#96989B] mb-1">Custom Instructions</p>
+                        <p className="text-[11px] text-[#5A6475] mb-3">
                           Any specific instructions for {agentName} when responding to you.
                           e.g. &ldquo;Always end with a recommended next action&rdquo;.
                         </p>
@@ -1740,7 +1740,7 @@ export default function AgentChatPage() {
                           onChange={e => setPrefs(p => ({ ...p, custom_instructions: e.target.value }))}
                           placeholder={`e.g. Always start with a brief summary before detail. Focus on clinical compliance. Prioritise patient safety above revenue.`}
                           rows={4}
-                          className="w-full text-[12px] px-3 py-2.5 rounded-xl border border-[#EBE5FF] bg-[#FAF7F2] text-[#1A1035] placeholder:text-[#8B84A0] outline-none focus:border-[#D5CCFF] resize-none leading-relaxed"
+                          className="w-full text-[12px] px-3 py-2.5 rounded-xl border border-[#D4E2FF] bg-[#F8FAFF] text-[#181D23] placeholder:text-[#96989B] outline-none focus:border-[#A8C4FF] resize-none leading-relaxed"
                         />
                       </div>
 
@@ -1748,7 +1748,7 @@ export default function AgentChatPage() {
                       <div className="flex items-center justify-between pt-1 pb-6">
                         <button
                           onClick={() => setPrefs({ ...DEFAULT_AGENT_PREFS })}
-                          className="text-[12px] text-[#8B84A0] hover:text-[#524D66] transition-colors"
+                          className="text-[12px] text-[#96989B] hover:text-[#3D4451] transition-colors"
                         >
                           Reset to defaults
                         </button>
@@ -1790,23 +1790,23 @@ export default function AgentChatPage() {
                     style={{ background: `${color}08`, border: `1px solid ${color}20` }}>
                     <AgentOrb color={color} size={36} />
                     <div className="min-w-0">
-                      <h2 className="text-[20px] font-black tracking-tight text-[#1A1035] leading-none mb-1">{agentName}</h2>
+                      <h2 className="text-[20px] font-black tracking-tight text-[#181D23] leading-none mb-1">{agentName}</h2>
                       <p className="text-[10px] font-semibold uppercase tracking-[0.20em] mb-2" style={{ color: `${color}AA` }}>{cfg.role}</p>
-                      <p className="text-[13px] text-[#524D66] leading-relaxed">{cfg.tagline}</p>
+                      <p className="text-[13px] text-[#3D4451] leading-relaxed">{cfg.tagline}</p>
                     </div>
                   </div>
 
                   {/* Capabilities */}
                   {cfg.capabilities.length > 0 && (
-                    <div className="rounded-xl border border-[#EBE5FF] bg-white p-4">
-                      <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-[#8B84A0] mb-3">What I can do</p>
+                    <div className="rounded-xl border border-[#D4E2FF] bg-white p-4">
+                      <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-[#96989B] mb-3">What I can do</p>
                       <div className="space-y-2.5">
                         {cfg.capabilities.map(cap => (
                           <div key={cap.label} className="flex items-start gap-3">
                             <div className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0" style={{ backgroundColor: color }} />
                             <div>
-                              <span className="text-[12px] font-semibold text-[#1A1035]">{cap.label}</span>
-                              <span className="text-[12px] text-[#8B84A0]"> — {cap.desc}</span>
+                              <span className="text-[12px] font-semibold text-[#181D23]">{cap.label}</span>
+                              <span className="text-[12px] text-[#96989B]"> — {cap.desc}</span>
                             </div>
                           </div>
                         ))}
@@ -1816,14 +1816,14 @@ export default function AgentChatPage() {
 
                   {/* Available tools */}
                   {agentTools.length > 0 && (
-                    <div className="rounded-xl border border-[#EBE5FF] bg-white p-4">
-                      <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-[#8B84A0] mb-3">Tools &amp; Access</p>
+                    <div className="rounded-xl border border-[#D4E2FF] bg-white p-4">
+                      <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-[#96989B] mb-3">Tools &amp; Access</p>
                       <div className="grid grid-cols-2 gap-2">
                         {agentTools.map(tool => (
                           <div key={tool.key} className="flex items-center gap-2 px-3 py-2 rounded-lg"
                             style={{ background: `${color}08`, border: `1px solid ${color}18` }}>
                             <tool.icon size={11} style={{ color }} className="flex-shrink-0" />
-                            <span className="text-[11px] font-medium text-[#524D66]">{tool.label}</span>
+                            <span className="text-[11px] font-medium text-[#3D4451]">{tool.label}</span>
                           </div>
                         ))}
                       </div>
@@ -1831,14 +1831,14 @@ export default function AgentChatPage() {
                   )}
 
                   {/* Try asking */}
-                  <div className="rounded-xl border border-[#EBE5FF] bg-white p-4">
-                    <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-[#8B84A0] mb-3">Try asking</p>
+                  <div className="rounded-xl border border-[#D4E2FF] bg-white p-4">
+                    <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-[#96989B] mb-3">Try asking</p>
                     <div className="space-y-2">
                       {cfg.quickPrompts.map(({ label, icon: Icon }) => (
                         <button
                           key={label}
                           onClick={() => { setActiveTab('chat'); setTimeout(() => handleSend(label), 150); }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left text-[12px] text-[#524D66] border border-[#EBE5FF] bg-[#FAF7F2] hover:border-[#D5CCFF] hover:bg-white transition-all"
+                          className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left text-[12px] text-[#3D4451] border border-[#D4E2FF] bg-[#F8FAFF] hover:border-[#A8C4FF] hover:bg-white transition-all"
                         >
                           <Icon size={11} className="flex-shrink-0" style={{ color }} />
                           <span>{label}</span>

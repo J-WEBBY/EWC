@@ -23,23 +23,23 @@ import { StaffNav } from '@/components/staff-nav';
 // CONSTANTS
 // =============================================================================
 
-const ACCENT = '#6D28D9';
+const ACCENT = '#0058E6';
 
 const CATEGORY_META: Record<KnowledgeCategory, { label: string; color: string; icon: string }> = {
-  treatment_protocols: { label: 'Treatment Protocols', color: '#6D28D9', icon: '◈' },
-  faqs:               { label: 'FAQs',                 color: '#0D9488', icon: '◈' },
+  treatment_protocols: { label: 'Treatment Protocols', color: '#0058E6', icon: '◈' },
+  faqs:               { label: 'FAQs',                 color: '#00A693', icon: '◈' },
   sops:               { label: 'SOPs',                 color: '#2563EB', icon: '◈' },
-  cqc_guidance:       { label: 'CQC Guidance',         color: '#D97706', icon: '◈' },
+  cqc_guidance:       { label: 'CQC Guidance',         color: '#D8A600', icon: '◈' },
   consent_templates:  { label: 'Consent Templates',    color: '#059669', icon: '◈' },
   aftercare:          { label: 'Aftercare',             color: '#0284C7', icon: '◈' },
   contraindications:  { label: 'Contraindications',    color: '#DC2626', icon: '◈' },
-  pricing:            { label: 'Pricing',               color: '#8B84A0', icon: '◈' },
+  pricing:            { label: 'Pricing',               color: '#96989B', icon: '◈' },
 };
 
 const STATUS_STYLE: Record<KnowledgeDocument['status'], { bg: string; border: string; text: string; label: string }> = {
   published:    { bg: 'rgba(5,150,105,0.07)',   border: 'rgba(5,150,105,0.25)',   text: '#059669', label: 'Published' },
-  draft:        { bg: 'rgba(217,119,6,0.07)',   border: 'rgba(217,119,6,0.25)',   text: '#D97706', label: 'Draft' },
-  archived:     { bg: 'rgba(110,102,136,0.06)', border: '#EBE5FF',                text: '#8B84A0', label: 'Archived' },
+  draft:        { bg: 'rgba(217,119,6,0.07)',   border: 'rgba(217,119,6,0.25)',   text: '#D8A600', label: 'Draft' },
+  archived:     { bg: 'rgba(110,102,136,0.06)', border: '#D4E2FF',                text: '#96989B', label: 'Archived' },
   under_review: { bg: 'rgba(37,99,235,0.07)',   border: 'rgba(37,99,235,0.25)',   text: '#2563EB', label: 'Under Review' },
 };
 
@@ -48,7 +48,7 @@ const FALLBACK: StaffProfile = {
   jobTitle: null, departmentName: null, departmentId: null,
   roleName: null, isAdmin: false, isOwner: false,
   companyName: 'Edgbaston Wellness Clinic',
-  aiName: 'Aria', brandColor: '#6D28D9', logoUrl: null,
+  aiName: 'Aria', brandColor: '#0058E6', logoUrl: null,
   industry: null, reportsTo: null, teamSize: 0,
 };
 
@@ -64,20 +64,20 @@ function fmtDate(iso: string) {
 function renderContent(md: string) {
   const lines = md.split('\n');
   return lines.map((line, i) => {
-    if (line.startsWith('## ')) return <h2 key={i} style={{ fontSize: 15, fontWeight: 800, color: '#1A1035', margin: '18px 0 8px', letterSpacing: '-0.02em' }}>{line.slice(3)}</h2>;
-    if (line.startsWith('### ')) return <h3 key={i} style={{ fontSize: 13, fontWeight: 700, color: '#1A1035', margin: '14px 0 6px' }}>{line.slice(4)}</h3>;
-    if (line.startsWith('**') && line.endsWith('**')) return <p key={i} style={{ fontSize: 12, fontWeight: 700, color: '#1A1035', margin: '6px 0' }}>{line.slice(2, -2)}</p>;
-    if (line.startsWith('- ')) return <div key={i} style={{ display: 'flex', gap: 8, margin: '3px 0' }}><span style={{ color: '#8B84A0', flexShrink: 0 }}>–</span><span style={{ fontSize: 12, color: '#524D66' }}>{line.slice(2)}</span></div>;
+    if (line.startsWith('## ')) return <h2 key={i} style={{ fontSize: 15, fontWeight: 800, color: '#181D23', margin: '18px 0 8px', letterSpacing: '-0.02em' }}>{line.slice(3)}</h2>;
+    if (line.startsWith('### ')) return <h3 key={i} style={{ fontSize: 13, fontWeight: 700, color: '#181D23', margin: '14px 0 6px' }}>{line.slice(4)}</h3>;
+    if (line.startsWith('**') && line.endsWith('**')) return <p key={i} style={{ fontSize: 12, fontWeight: 700, color: '#181D23', margin: '6px 0' }}>{line.slice(2, -2)}</p>;
+    if (line.startsWith('- ')) return <div key={i} style={{ display: 'flex', gap: 8, margin: '3px 0' }}><span style={{ color: '#96989B', flexShrink: 0 }}>–</span><span style={{ fontSize: 12, color: '#3D4451' }}>{line.slice(2)}</span></div>;
     if (line.startsWith('| ') && line.includes(' | ')) {
       const cells = line.split('|').filter(Boolean).map(c => c.trim());
-      return <div key={i} style={{ display: 'flex', gap: 0, borderBottom: '1px solid #EBE5FF' }}>
+      return <div key={i} style={{ display: 'flex', gap: 0, borderBottom: '1px solid #D4E2FF' }}>
         {cells.map((c, j) => (
-          <span key={j} style={{ flex: 1, fontSize: 11, padding: '4px 8px', color: j === 0 ? '#1A1035' : '#524D66', fontWeight: j === 0 ? 600 : 400, background: i === 1 ? 'rgba(138,108,255,0.05)' : 'transparent' }}>{c}</span>
+          <span key={j} style={{ flex: 1, fontSize: 11, padding: '4px 8px', color: j === 0 ? '#181D23' : '#3D4451', fontWeight: j === 0 ? 600 : 400, background: i === 1 ? 'rgba(0,88,230,0.05)' : 'transparent' }}>{c}</span>
         ))}
       </div>;
     }
     if (!line.trim()) return <div key={i} style={{ height: 8 }} />;
-    return <p key={i} style={{ fontSize: 12, color: '#524D66', lineHeight: 1.65, margin: '2px 0' }}>{line}</p>;
+    return <p key={i} style={{ fontSize: 12, color: '#3D4451', lineHeight: 1.65, margin: '2px 0' }}>{line}</p>;
   });
 }
 
@@ -107,7 +107,7 @@ function DocCard({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        border: `1px solid ${hovered ? meta.color + '40' : '#EBE5FF'}`,
+        border: `1px solid ${hovered ? meta.color + '40' : '#D4E2FF'}`,
         borderRadius: 16,
         padding: '18px 20px',
         background: hovered ? `${meta.color}05` : 'transparent',
@@ -139,7 +139,7 @@ function DocCard({
               <span style={{
                 fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 5,
                 background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.2)',
-                color: '#D97706', letterSpacing: '0.12em',
+                color: '#D8A600', letterSpacing: '0.12em',
               }}>
                 CQC
               </span>
@@ -152,19 +152,19 @@ function DocCard({
             </span>
           </div>
 
-          <h3 style={{ fontSize: 13, fontWeight: 800, color: '#1A1035', letterSpacing: '-0.02em', margin: '0 0 6px' }}>
+          <h3 style={{ fontSize: 13, fontWeight: 800, color: '#181D23', letterSpacing: '-0.02em', margin: '0 0 6px' }}>
             {doc.title}
           </h3>
-          <p style={{ fontSize: 11, color: '#6E6688', lineHeight: 1.5, margin: 0 }}>
+          <p style={{ fontSize: 11, color: '#5A6475', lineHeight: 1.5, margin: 0 }}>
             {doc.summary}
           </p>
 
           <div style={{ display: 'flex', gap: 12, marginTop: 10, alignItems: 'center' }}>
-            <span style={{ fontSize: 10, color: '#8B84A0' }}>By {doc.author}</span>
+            <span style={{ fontSize: 10, color: '#96989B' }}>By {doc.author}</span>
             {doc.last_reviewed && (
-              <span style={{ fontSize: 10, color: '#8B84A0' }}>Reviewed {fmtDate(doc.last_reviewed)}</span>
+              <span style={{ fontSize: 10, color: '#96989B' }}>Reviewed {fmtDate(doc.last_reviewed)}</span>
             )}
-            <span style={{ fontSize: 10, color: '#8B84A0', marginLeft: 'auto' }}>
+            <span style={{ fontSize: 10, color: '#96989B', marginLeft: 'auto' }}>
               {doc.view_count} views · {doc.helpful_count} helpful
             </span>
           </div>
@@ -174,7 +174,7 @@ function DocCard({
             {doc.tags.slice(0, 4).map(tag => (
               <span key={tag} style={{
                 fontSize: 9, padding: '1px 6px', borderRadius: 4,
-                background: 'rgba(138,108,255,0.06)', color: accentColor,
+                background: 'rgba(0,88,230,0.06)', color: accentColor,
               }}>
                 {tag}
               </span>
@@ -232,7 +232,7 @@ function DocViewer({
       exit={{ opacity: 0, x: 20 }}
       style={{
         position: 'sticky', top: 32,
-        border: '1px solid #EBE5FF', borderRadius: 20,
+        border: '1px solid #D4E2FF', borderRadius: 20,
         background: '#fff',
         overflow: 'hidden',
         maxHeight: 'calc(100vh - 160px)',
@@ -240,7 +240,7 @@ function DocViewer({
       }}
     >
       {/* Header */}
-      <div style={{ padding: '20px 24px', borderBottom: '1px solid #EBE5FF', flexShrink: 0 }}>
+      <div style={{ padding: '20px 24px', borderBottom: '1px solid #D4E2FF', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
           <div style={{ flex: 1 }}>
             <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
@@ -252,18 +252,18 @@ function DocViewer({
                 {meta.label}
               </span>
               {doc.cqc_relevant && (
-                <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 5, background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.2)', color: '#D97706' }}>CQC</span>
+                <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 5, background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.2)', color: '#D8A600' }}>CQC</span>
               )}
             </div>
-            <h2 style={{ fontSize: 15, fontWeight: 800, color: '#1A1035', letterSpacing: '-0.025em', margin: 0 }}>{doc.title}</h2>
-            <p style={{ fontSize: 11, color: '#6E6688', marginTop: 6 }}>
+            <h2 style={{ fontSize: 15, fontWeight: 800, color: '#181D23', letterSpacing: '-0.025em', margin: 0 }}>{doc.title}</h2>
+            <p style={{ fontSize: 11, color: '#5A6475', marginTop: 6 }}>
               By {doc.author} · Updated {fmtDate(doc.updated_at)}
               {doc.last_reviewed && ` · Reviewed ${fmtDate(doc.last_reviewed)}`}
             </p>
           </div>
           <button
             onClick={onClose}
-            style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 4, color: '#8B84A0', flexShrink: 0 }}
+            style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 4, color: '#96989B', flexShrink: 0 }}
           >
             <svg width={16} height={16} viewBox="0 0 16 16" fill="none">
               <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" />
@@ -280,8 +280,8 @@ function DocViewer({
             placeholder="Ask AI about this document…"
             style={{
               flex: 1, padding: '8px 12px', borderRadius: 8,
-              border: '1px solid #EBE5FF', background: '#FAF7F2',
-              fontSize: 11, color: '#1A1035', outline: 'none',
+              border: '1px solid #D4E2FF', background: '#F8FAFF',
+              fontSize: 11, color: '#181D23', outline: 'none',
             }}
           />
           <button
@@ -315,7 +315,7 @@ function DocViewer({
                 borderRadius: 10,
               }}>
                 <p style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.2em', color: accentColor, marginBottom: 6 }}>AI Answer</p>
-                <p style={{ fontSize: 12, color: '#524D66', lineHeight: 1.65 }}>{aiAnswer}</p>
+                <p style={{ fontSize: 12, color: '#3D4451', lineHeight: 1.65 }}>{aiAnswer}</p>
               </div>
             </motion.div>
           )}
@@ -328,16 +328,16 @@ function DocViewer({
       </div>
 
       {/* Footer */}
-      <div style={{ padding: '14px 24px', borderTop: '1px solid #EBE5FF', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontSize: 10, color: '#8B84A0' }}>{doc.view_count} views</span>
+      <div style={{ padding: '14px 24px', borderTop: '1px solid #D4E2FF', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: 10, color: '#96989B' }}>{doc.view_count} views</span>
         <button
           onClick={handleHelpful}
           disabled={helpful}
           style={{
             padding: '6px 14px', borderRadius: 8,
             background: helpful ? 'rgba(5,150,105,0.08)' : 'transparent',
-            border: `1px solid ${helpful ? 'rgba(5,150,105,0.25)' : '#EBE5FF'}`,
-            color: helpful ? '#059669' : '#8B84A0',
+            border: `1px solid ${helpful ? 'rgba(5,150,105,0.25)' : '#D4E2FF'}`,
+            color: helpful ? '#059669' : '#96989B',
             fontSize: 11, fontWeight: 700, cursor: helpful ? 'default' : 'pointer',
             transition: 'all 0.2s',
           }}
@@ -355,7 +355,7 @@ function DocViewer({
 
 function StatsBar({ stats, accentColor }: { stats: KnowledgeStats; accentColor: string }) {
   return (
-    <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid #EBE5FF' }}>
+    <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid #D4E2FF' }}>
       {[
         { label: 'Total Documents', value: stats.total },
         { label: 'CQC Relevant', value: stats.cqc_relevant },
@@ -364,14 +364,14 @@ function StatsBar({ stats, accentColor }: { stats: KnowledgeStats; accentColor: 
       ].map((m, i) => (
         <div key={m.label} style={{
           flex: 1, padding: '20px 24px',
-          borderRight: i < 3 ? '1px solid #EBE5FF' : 'none',
+          borderRight: i < 3 ? '1px solid #D4E2FF' : 'none',
         }}>
-          <p style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.28em', color: '#8B84A0', marginBottom: 4 }}>{m.label}</p>
-          <p style={{ fontSize: 28, fontWeight: 900, color: '#1A1035', letterSpacing: '-0.04em' }}>{m.value}</p>
+          <p style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.28em', color: '#96989B', marginBottom: 4 }}>{m.label}</p>
+          <p style={{ fontSize: 28, fontWeight: 900, color: '#181D23', letterSpacing: '-0.04em' }}>{m.value}</p>
         </div>
       ))}
       <div style={{ flex: 1, padding: '20px 24px' }}>
-        <p style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.28em', color: '#8B84A0', marginBottom: 4 }}>Categories</p>
+        <p style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.28em', color: '#96989B', marginBottom: 4 }}>Categories</p>
         <p style={{ fontSize: 28, fontWeight: 900, color: accentColor, letterSpacing: '-0.04em' }}>
           {Object.keys(CATEGORY_META).length}
         </p>
@@ -441,10 +441,10 @@ export default function KnowledgeBasePage() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', backgroundColor: '#FAF7F2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ minHeight: '100vh', backgroundColor: '#F8FAFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ width: 32, height: 32, border: '2px solid #EBE5FF', borderTopColor: ACCENT, borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
-          <p style={{ fontSize: 12, color: '#8B84A0' }}>Loading knowledge base…</p>
+          <div style={{ width: 32, height: 32, border: '2px solid #D4E2FF', borderTopColor: ACCENT, borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
+          <p style={{ fontSize: 12, color: '#96989B' }}>Loading knowledge base…</p>
         </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
@@ -452,24 +452,24 @@ export default function KnowledgeBasePage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#FAF7F2' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#F8FAFF' }}>
       {profile && <StaffNav profile={profile} userId={userId} brandColor={accentColor} currentPath="Knowledge Base" />}
 
       <main style={{ paddingLeft: 240, minHeight: '100vh' }}>
         {/* ── Header ── */}
-        <div style={{ padding: '40px 40px 0', borderBottom: '1px solid #EBE5FF' }}>
+        <div style={{ padding: '40px 40px 0', borderBottom: '1px solid #D4E2FF' }}>
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', paddingBottom: 24 }}>
             <div>
-              <p style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.28em', color: '#8B84A0', marginBottom: 6 }}>Clinical</p>
-              <h1 style={{ fontSize: 38, fontWeight: 900, letterSpacing: '-0.035em', color: '#1A1035', lineHeight: 1 }}>Knowledge Base</h1>
-              <p style={{ fontSize: 13, color: '#524D66', marginTop: 6 }}>
+              <p style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.28em', color: '#96989B', marginBottom: 6 }}>Clinical</p>
+              <h1 style={{ fontSize: 38, fontWeight: 900, letterSpacing: '-0.035em', color: '#181D23', lineHeight: 1 }}>Knowledge Base</h1>
+              <p style={{ fontSize: 13, color: '#3D4451', marginTop: 6 }}>
                 Treatment protocols, SOPs, FAQs and CQC guidance — AI-searchable
               </p>
             </div>
 
             {/* Search */}
             <div style={{ position: 'relative', width: 340 }}>
-              <svg width={14} height={14} viewBox="0 0 14 14" fill="none" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#8B84A0' }}>
+              <svg width={14} height={14} viewBox="0 0 14 14" fill="none" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#96989B' }}>
                 <circle cx={6} cy={6} r={4.5} stroke="currentColor" strokeWidth={1.5} />
                 <path d="M10 10l2.5 2.5" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" />
               </svg>
@@ -479,13 +479,13 @@ export default function KnowledgeBasePage() {
                 placeholder="Search protocols, SOPs, FAQs…"
                 style={{
                   width: '100%', padding: '10px 14px 10px 34px',
-                  borderRadius: 10, border: '1px solid #EBE5FF',
-                  background: '#fff', fontSize: 12, color: '#1A1035',
+                  borderRadius: 10, border: '1px solid #D4E2FF',
+                  background: '#fff', fontSize: 12, color: '#181D23',
                   outline: 'none', boxSizing: 'border-box',
                 }}
               />
               {searching && (
-                <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, border: '2px solid #EBE5FF', borderTopColor: accentColor, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, border: '2px solid #D4E2FF', borderTopColor: accentColor, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
               )}
             </div>
           </div>
@@ -497,7 +497,7 @@ export default function KnowledgeBasePage() {
               style={{
                 padding: '6px 14px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700,
                 background: activeCategory === null ? accentColor : 'transparent',
-                color: activeCategory === null ? '#fff' : '#8B84A0',
+                color: activeCategory === null ? '#fff' : '#96989B',
                 transition: 'all 0.2s', flexShrink: 0,
               }}
             >
@@ -511,10 +511,10 @@ export default function KnowledgeBasePage() {
                   key={cat}
                   onClick={() => handleCategoryFilter(cat)}
                   style={{
-                    padding: '6px 14px', borderRadius: 20, border: `1px solid ${isActive ? meta.color : '#EBE5FF'}`,
+                    padding: '6px 14px', borderRadius: 20, border: `1px solid ${isActive ? meta.color : '#D4E2FF'}`,
                     cursor: 'pointer', fontSize: 11, fontWeight: 700,
                     background: isActive ? `${meta.color}12` : 'transparent',
-                    color: isActive ? meta.color : '#8B84A0',
+                    color: isActive ? meta.color : '#96989B',
                     transition: 'all 0.2s', flexShrink: 0,
                   }}
                 >
@@ -535,7 +535,7 @@ export default function KnowledgeBasePage() {
             {/* Document list */}
             <div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                <p style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.28em', color: '#8B84A0' }}>
+                <p style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.28em', color: '#96989B' }}>
                   {documents.length} {searchQuery ? 'Results' : 'Documents'}
                   {activeCategory ? ` — ${CATEGORY_META[activeCategory].label}` : ''}
                 </p>
@@ -550,7 +550,7 @@ export default function KnowledgeBasePage() {
               </div>
 
               {documents.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '60px 0', color: '#8B84A0' }}>
+                <div style={{ textAlign: 'center', padding: '60px 0', color: '#96989B' }}>
                   <p style={{ fontSize: 24, marginBottom: 8 }}>○</p>
                   <p style={{ fontSize: 13 }}>No documents found{searchQuery ? ` for "${searchQuery}"` : ''}.</p>
                 </div>

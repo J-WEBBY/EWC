@@ -19,7 +19,7 @@ interface Brand {
 interface AuthUser { id: string; first_name: string; last_name: string; email: string; }
 
 // Design tokens
-const NAVY   = '#080517';   // left panel bg + button + input glow — matches dashboard sidebar
+const NAVY   = '#181D23';   // left panel bg + button + input glow — matches dashboard sidebar
 const CREAM  = '#faf8f3';   // right panel bg
 const BORDER = '#e8e2d6';   // cream-side border / divider
 const MUTED  = '#a0acb8';   // secondary text

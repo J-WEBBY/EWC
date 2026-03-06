@@ -115,10 +115,10 @@ function buildDemoData(range: TimeRange): ClinicAnalytics {
   };
 
   const treatments: TreatmentStat[] = [
-    { name: 'Botox Anti-Wrinkle', revenue: Math.round(12400 * scale), sessions: Math.round(64  * scale), pct: 36, trend: +14.2, color: '#6D28D9' },
+    { name: 'Botox Anti-Wrinkle', revenue: Math.round(12400 * scale), sessions: Math.round(64  * scale), pct: 36, trend: +14.2, color: '#0058E6' },
     { name: 'Dermal Fillers',     revenue: Math.round(8600  * scale), sessions: Math.round(28  * scale), pct: 25, trend: +8.1,  color: '#3B82F6' },
-    { name: 'IV Vitamin Therapy', revenue: Math.round(4800  * scale), sessions: Math.round(11  * scale), pct: 14, trend: +22.4, color: '#0D9488' },
-    { name: 'CoolSculpting',      revenue: Math.round(4200  * scale), sessions: Math.round(5   * scale), pct: 12, trend: +5.3,  color: '#D97706' },
+    { name: 'IV Vitamin Therapy', revenue: Math.round(4800  * scale), sessions: Math.round(11  * scale), pct: 14, trend: +22.4, color: '#00A693' },
+    { name: 'CoolSculpting',      revenue: Math.round(4200  * scale), sessions: Math.round(5   * scale), pct: 12, trend: +5.3,  color: '#D8A600' },
     { name: 'B12 Injections',     revenue: Math.round(2100  * scale), sessions: Math.round(42  * scale), pct: 6,  trend: -2.1,  color: '#EC4899' },
     { name: 'Health Screening',   revenue: Math.round(1650  * scale), sessions: Math.round(8   * scale), pct: 5,  trend: +18.7, color: '#22C55E' },
     { name: 'Weight Management',  revenue: Math.round(1100  * scale), sessions: Math.round(7   * scale), pct: 3,  trend: +33.2, color: '#F97316' },
@@ -133,7 +133,7 @@ function buildDemoData(range: TimeRange): ClinicAnalytics {
     lifecycle: [
       { label: 'New',    count: 23,  color: '#0284C7' },
       { label: 'Active', count: 189, color: '#059669' },
-      { label: 'Loyal',  count: 62,  color: '#D97706' },
+      { label: 'Loyal',  count: 62,  color: '#D8A600' },
       { label: 'At Risk',count: 31,  color: '#DC2626' },
       { label: 'Lapsed', count: 42,  color: '#6B7280' },
     ],
@@ -150,19 +150,19 @@ function buildDemoData(range: TimeRange): ClinicAnalytics {
 
   const agents: AgentStat[] = [
     {
-      key: 'primary_agent', name: 'EWC',   color: '#6D28D9',
+      key: 'primary_agent', name: 'EWC',   color: '#0058E6',
       signals:    range === '7d' ? 22 : range === '30d' ? 94  : 271,
       resolution: 91, avg_time_h: 1.2, actions: range === '7d' ? 38 : range === '30d' ? 163 : 470,
       sparkline: [12,18,14,22,17,20,24,19,28,21,25,18,29,22,30],
     },
     {
-      key: 'sales_agent', name: 'Orion', color: '#D97706',
+      key: 'sales_agent', name: 'Orion', color: '#D8A600',
       signals:    range === '7d' ? 7  : range === '30d' ? 23  : 68,
       resolution: 87, avg_time_h: 0.8, actions: range === '7d' ? 14 : range === '30d' ? 49  : 142,
       sparkline: [4,6,5,8,7,9,6,10,8,12,9,11,10,13,11],
     },
     {
-      key: 'crm_agent', name: 'Aria', color: '#0D9488',
+      key: 'crm_agent', name: 'Aria', color: '#00A693',
       signals:    range === '7d' ? 11 : range === '30d' ? 47  : 138,
       resolution: 78, avg_time_h: 2.1, actions: range === '7d' ? 18 : range === '30d' ? 71  : 207,
       sparkline: [6,8,10,9,14,12,16,13,18,15,20,17,19,22,21],
@@ -188,11 +188,11 @@ function buildDemoData(range: TimeRange): ClinicAnalytics {
   ];
 
   const funnel: FunnelStage[] = [
-    { stage: 'Enquiries',     count: range === '7d' ? 48  : range === '30d' ? 194 : 561,  rate: 100, color: '#6D28D9' },
+    { stage: 'Enquiries',     count: range === '7d' ? 48  : range === '30d' ? 194 : 561,  rate: 100, color: '#0058E6' },
     { stage: 'Consultations', count: range === '7d' ? 31  : range === '30d' ? 126 : 364,  rate: 65,  color: '#3B82F6' },
-    { stage: 'Booked',        count: range === '7d' ? 22  : range === '30d' ? 89  : 257,  rate: 71,  color: '#0D9488' },
+    { stage: 'Booked',        count: range === '7d' ? 22  : range === '30d' ? 89  : 257,  rate: 71,  color: '#00A693' },
     { stage: 'Treated',       count: range === '7d' ? 19  : range === '30d' ? 78  : 226,  rate: 88,  color: '#059669' },
-    { stage: 'Retained',      count: range === '7d' ? 12  : range === '30d' ? 51  : 147,  rate: 65,  color: '#D97706' },
+    { stage: 'Retained',      count: range === '7d' ? 12  : range === '30d' ? 51  : 147,  rate: 65,  color: '#D8A600' },
   ];
 
   const appointment_util: AppointmentUtil = {

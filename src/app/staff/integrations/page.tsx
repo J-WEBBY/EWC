@@ -2,7 +2,7 @@
 
 // =============================================================================
 // Integrations Page — Data connection control centre
-// Light design system — #FAF7F2 base.
+// Light design system — #F8FAFF base.
 // =============================================================================
 
 import { useState, useEffect, useCallback } from 'react';
@@ -169,8 +169,8 @@ function formatCurrency(n: number): string {
 function StatusBadge({ status, label }: { status: CatalogStatus; label: string }) {
   const styles: Record<CatalogStatus, React.CSSProperties> = {
     live:    { backgroundColor: 'rgba(5,150,105,0.10)', border: '1px solid rgba(5,150,105,0.25)', color: '#059669' },
-    pending: { backgroundColor: 'rgba(217,119,6,0.10)', border: '1px solid rgba(217,119,6,0.25)', color: '#D97706' },
-    planned: { backgroundColor: 'rgba(138,108,255,0.06)', border: '1px solid #EBE5FF', color: '#8B84A0' },
+    pending: { backgroundColor: 'rgba(217,119,6,0.10)', border: '1px solid rgba(217,119,6,0.25)', color: '#D8A600' },
+    planned: { backgroundColor: 'rgba(0,88,230,0.06)', border: '1px solid #D4E2FF', color: '#96989B' },
   };
   return (
     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium tracking-wide" style={styles[status]}>
@@ -185,23 +185,23 @@ function StatusBadge({ status, label }: { status: CatalogStatus; label: string }
 
 function SyncLogRow({ log }: { log: SyncLog }) {
   const statusColor: Record<string, string> = {
-    completed: '#059669', failed: '#DC2626', partial: '#D97706', started: '#D97706',
+    completed: '#059669', failed: '#DC2626', partial: '#D8A600', started: '#D8A600',
   };
-  const color = statusColor[log.status] ?? '#8B84A0';
+  const color = statusColor[log.status] ?? '#96989B';
   const typeLabels: Record<string, string> = {
     full: 'Full sync', patients: 'Patients', appointments: 'Appointments',
     invoices: 'Invoices', practitioners: 'Practitioners',
   };
 
   return (
-    <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 items-center py-2.5 last:border-0" style={{ borderBottom: '1px solid #EBE5FF' }}>
+    <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 items-center py-2.5 last:border-0" style={{ borderBottom: '1px solid #D4E2FF' }}>
       <div className="min-w-0">
-        <span className="text-[12px]" style={{ color: '#524D66' }}>{typeLabels[log.sync_type] ?? log.sync_type}</span>
+        <span className="text-[12px]" style={{ color: '#3D4451' }}>{typeLabels[log.sync_type] ?? log.sync_type}</span>
         {log.error_message && <p className="text-[10px] truncate mt-0.5" style={{ color: '#DC2626' }}>{log.error_message}</p>}
       </div>
       <span className="text-[11px] font-medium" style={{ color }}>{log.status}</span>
-      <span className="text-[11px]" style={{ color: '#6E6688' }}>{log.records_synced > 0 ? `+${log.records_synced}` : '—'}</span>
-      <span className="text-[11px]" style={{ color: '#8B84A0' }}>{formatTime(log.started_at)}</span>
+      <span className="text-[11px]" style={{ color: '#5A6475' }}>{log.records_synced > 0 ? `+${log.records_synced}` : '—'}</span>
+      <span className="text-[11px]" style={{ color: '#96989B' }}>{formatTime(log.started_at)}</span>
     </div>
   );
 }
@@ -213,14 +213,14 @@ function SyncLogRow({ log }: { log: SyncLog }) {
 function StatTile({ label, value, sub, icon: Icon, delay }: { label: string; value: string; sub?: string; icon: LucideIcon; delay?: number }) {
   return (
     <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: delay ?? 0 }}
-      className="rounded-xl p-5 flex flex-col gap-3" style={{ border: '1px solid #EBE5FF' }}>
+      className="rounded-xl p-5 flex flex-col gap-3" style={{ border: '1px solid #D4E2FF' }}>
       <div className="flex items-center justify-between">
-        <span className="text-[8px] uppercase tracking-[0.28em] font-semibold" style={{ color: '#8B84A0' }}>{label}</span>
-        <Icon size={14} style={{ color: '#8B84A0' }} />
+        <span className="text-[8px] uppercase tracking-[0.28em] font-semibold" style={{ color: '#96989B' }}>{label}</span>
+        <Icon size={14} style={{ color: '#96989B' }} />
       </div>
       <div>
-        <p className="text-[28px] font-black leading-none tracking-tight" style={{ color: '#1A1035' }}>{value}</p>
-        {sub && <p className="text-[11px] mt-1.5" style={{ color: '#6E6688' }}>{sub}</p>}
+        <p className="text-[28px] font-black leading-none tracking-tight" style={{ color: '#181D23' }}>{value}</p>
+        {sub && <p className="text-[11px] mt-1.5" style={{ color: '#5A6475' }}>{sub}</p>}
       </div>
     </motion.div>
   );
@@ -233,20 +233,20 @@ function StatTile({ label, value, sub, icon: Icon, delay }: { label: string; val
 function CatalogCard({ item }: { item: CatalogItem }) {
   const Icon = item.icon;
   return (
-    <div className="rounded-xl p-5 flex flex-col gap-4" style={{ border: '1px solid #EBE5FF' }}>
+    <div className="rounded-xl p-5 flex flex-col gap-4" style={{ border: '1px solid #D4E2FF' }}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(138,108,255,0.08)', border: '1px solid #EBE5FF' }}>
-            <Icon size={15} style={{ color: '#6E6688' }} />
+          <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(0,88,230,0.08)', border: '1px solid #D4E2FF' }}>
+            <Icon size={15} style={{ color: '#5A6475' }} />
           </div>
           <div>
-            <p className="text-[13px] font-semibold" style={{ color: '#1A1035' }}>{item.name}</p>
-            <p className="text-[8px] uppercase tracking-[0.15em] mt-0.5" style={{ color: '#8B84A0' }}>{item.category}</p>
+            <p className="text-[13px] font-semibold" style={{ color: '#181D23' }}>{item.name}</p>
+            <p className="text-[8px] uppercase tracking-[0.15em] mt-0.5" style={{ color: '#96989B' }}>{item.category}</p>
           </div>
         </div>
         <StatusBadge status={item.status} label={item.statusLabel} />
       </div>
-      <p className="text-[12px] leading-relaxed" style={{ color: '#6E6688' }}>{item.description}</p>
+      <p className="text-[12px] leading-relaxed" style={{ color: '#5A6475' }}>{item.description}</p>
     </div>
   );
 }
@@ -282,14 +282,14 @@ function ClinikoConnectForm({ onConnected }: { onConnected: () => void }) {
 
   return (
     <div className="space-y-5">
-      <p className="text-[13px] leading-relaxed max-w-lg" style={{ color: '#6E6688' }}>
+      <p className="text-[13px] leading-relaxed max-w-lg" style={{ color: '#5A6475' }}>
         Enter your Cliniko API key to begin syncing patient records, appointments, and invoices.
         The shard is auto-detected from the key suffix (e.g.{' '}
-        <span className="font-mono" style={{ color: '#524D66' }}>-uk1</span>).
+        <span className="font-mono" style={{ color: '#3D4451' }}>-uk1</span>).
       </p>
       <div className="space-y-2">
-        <label className="text-[8px] uppercase tracking-[0.28em] font-semibold" style={{ color: '#8B84A0' }}>Cliniko API Key</label>
-        <div className="flex items-center gap-2 px-3 py-3 rounded-xl transition-colors" style={{ border: '1px solid #EBE5FF', backgroundColor: 'white' }}>
+        <label className="text-[8px] uppercase tracking-[0.28em] font-semibold" style={{ color: '#96989B' }}>Cliniko API Key</label>
+        <div className="flex items-center gap-2 px-3 py-3 rounded-xl transition-colors" style={{ border: '1px solid #D4E2FF', backgroundColor: 'white' }}>
           <input
             type={showKey ? 'text' : 'password'}
             value={apiKey}
@@ -297,9 +297,9 @@ function ClinikoConnectForm({ onConnected }: { onConnected: () => void }) {
             onKeyDown={e => { if (e.key === 'Enter') handleConnect(); }}
             placeholder="Paste your Cliniko API key..."
             className="flex-1 bg-transparent text-[13px] outline-none font-mono"
-            style={{ color: '#1A1035' }}
+            style={{ color: '#181D23' }}
           />
-          <button onClick={() => setShowKey(v => !v)} className="transition-colors flex-shrink-0" style={{ color: '#8B84A0' }}>
+          <button onClick={() => setShowKey(v => !v)} className="transition-colors flex-shrink-0" style={{ color: '#96989B' }}>
             {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
           </button>
         </div>
@@ -315,7 +315,7 @@ function ClinikoConnectForm({ onConnected }: { onConnected: () => void }) {
       </AnimatePresence>
       <button onClick={handleConnect} disabled={connecting || !apiKey.trim()}
         className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-[13px] font-semibold transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-        style={{ backgroundColor: '#1A1035', color: '#FAF7F2' }}>
+        style={{ backgroundColor: '#181D23', color: '#F8FAFF' }}>
         {connecting ? <><Loader2 size={14} className="animate-spin" /> Connecting…</> : <><Link2 size={14} /> Connect Cliniko</>}
       </button>
     </div>
@@ -353,15 +353,15 @@ function ClinikoConnectedPanel({
               animate={{ scale: [1, 2.5, 1], opacity: [0.5, 0, 0.5] }} transition={{ duration: 2.5, repeat: Infinity }} />
           </div>
           <div>
-            <p className="text-[13px] font-semibold" style={{ color: '#1A1035' }}>Connected</p>
-            <p className="text-[11px]" style={{ color: '#6E6688' }}>
+            <p className="text-[13px] font-semibold" style={{ color: '#181D23' }}>Connected</p>
+            <p className="text-[11px]" style={{ color: '#5A6475' }}>
               Shard: <span className="font-mono">{status.shard ?? 'uk1'}</span>
               {status.lastSyncAt && <> · Last sync: {timeSince(status.lastSyncAt)}</>}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1.5 text-[11px]" style={{ color: '#8B84A0' }}>
+          <div className="flex items-center gap-1.5 text-[11px]" style={{ color: '#96989B' }}>
             <Activity size={11} /> Auto-sync daily at 2am
           </div>
           <button onClick={onDisconnect}
@@ -377,17 +377,17 @@ function ClinikoConnectedPanel({
       {/* First-sync CTA */}
       {isFirstSync && (
         <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
-          className="flex items-start gap-4 p-4 rounded-xl" style={{ border: '1px solid #EBE5FF' }}>
-          <Database size={14} className="mt-0.5 flex-shrink-0" style={{ color: '#8B84A0' }} />
+          className="flex items-start gap-4 p-4 rounded-xl" style={{ border: '1px solid #D4E2FF' }}>
+          <Database size={14} className="mt-0.5 flex-shrink-0" style={{ color: '#96989B' }} />
           <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-semibold" style={{ color: '#1A1035' }}>Ready for first sync</p>
-            <p className="text-[12px] mt-0.5" style={{ color: '#6E6688' }}>
+            <p className="text-[13px] font-semibold" style={{ color: '#181D23' }}>Ready for first sync</p>
+            <p className="text-[12px] mt-0.5" style={{ color: '#5A6475' }}>
               Run a full sync to import all patients, appointments, and invoices from Cliniko.
             </p>
           </div>
           <button onClick={onSync} disabled={syncing}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-[12px] font-semibold transition-all disabled:opacity-40 flex-shrink-0"
-            style={{ backgroundColor: '#1A1035', color: '#FAF7F2' }}>
+            style={{ backgroundColor: '#181D23', color: '#F8FAFF' }}>
             {syncing ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
             {syncing ? 'Syncing…' : 'Run First Sync'}
           </button>
@@ -407,24 +407,24 @@ function ClinikoConnectedPanel({
       {/* Sync controls */}
       {!isFirstSync && (
         <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-[12px]" style={{ color: '#6E6688' }}>
+          <div className="flex items-center gap-2 text-[12px]" style={{ color: '#5A6475' }}>
             <Clock size={12} />
             {status.lastSyncAt ? `Last sync: ${timeSince(status.lastSyncAt)}` : 'No sync yet'}
             {status.lastSyncStatus === 'completed' && <span style={{ color: '#059669' }}> · Success</span>}
-            {status.lastSyncStatus === 'partial'   && <span style={{ color: '#D97706' }}> · Partial</span>}
+            {status.lastSyncStatus === 'partial'   && <span style={{ color: '#D8A600' }}> · Partial</span>}
           </div>
           <div className="flex items-center gap-2">
             <button onClick={onSync} disabled={syncing || clearing}
               className="flex items-center gap-2 px-4 py-2 rounded-lg text-[12px] font-medium transition-all disabled:opacity-30"
-              style={{ border: '1px solid #EBE5FF', color: '#524D66' }}
-              onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(138,108,255,0.05)')}
+              style={{ border: '1px solid #D4E2FF', color: '#3D4451' }}
+              onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(0,88,230,0.05)')}
               onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}>
               {syncing ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
               {syncing ? 'Syncing…' : 'Sync Now'}
             </button>
             <button onClick={onClearResync} disabled={syncing || clearing}
               className="flex items-center gap-2 px-4 py-2 rounded-lg text-[12px] font-semibold transition-all disabled:opacity-30"
-              style={{ backgroundColor: '#1A1035', color: '#FAF7F2' }}>
+              style={{ backgroundColor: '#181D23', color: '#F8FAFF' }}>
               {clearing ? <Loader2 size={12} className="animate-spin" /> : <Database size={12} />}
               {clearing ? 'Clearing & syncing…' : 'Clear & Full Sync'}
             </button>
@@ -451,9 +451,9 @@ function ClinikoConnectedPanel({
       {/* Sync log */}
       {displayLogs.length > 0 && (
         <div>
-          <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 pb-2 mb-1" style={{ borderBottom: '1px solid #EBE5FF' }}>
+          <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 pb-2 mb-1" style={{ borderBottom: '1px solid #D4E2FF' }}>
             {['Sync type', 'Status', 'Records', 'Time'].map(h => (
-              <span key={h} className="text-[8px] uppercase tracking-[0.15em] font-semibold" style={{ color: '#8B84A0' }}>{h}</span>
+              <span key={h} className="text-[8px] uppercase tracking-[0.15em] font-semibold" style={{ color: '#96989B' }}>{h}</span>
             ))}
           </div>
           {displayLogs.map(log => <SyncLogRow key={log.id} log={log} />)}
@@ -581,58 +581,58 @@ export default function IntegrationsPage() {
   // ── Loading ──
   if (loading || !profile) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#FAF7F2', paddingLeft: 'var(--nav-w, 240px)' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#F8FAFF', paddingLeft: 'var(--nav-w, 240px)' }}>
         <motion.div animate={{ opacity: [0.2, 0.5, 0.2] }} transition={{ duration: 1.8, repeat: Infinity }}
-          className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#8B84A0' }} />
+          className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#96989B' }} />
       </div>
     );
   }
 
-  const brandColor = profile.brandColor ?? '#8A6CFF';
+  const brandColor = profile.brandColor ?? '#0058E6';
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#FAF7F2', paddingLeft: 'var(--nav-w, 240px)' }}>
+    <div className="min-h-screen" style={{ backgroundColor: '#F8FAFF', paddingLeft: 'var(--nav-w, 240px)' }}>
       <StaffNav profile={profile} userId={userId!} brandColor={brandColor} currentPath="Integrations" />
 
       <main className="px-8 py-10">
 
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-10">
-          <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-1" style={{ color: '#8B84A0' }}>System</p>
-          <h1 className="text-[38px] font-black tracking-[-0.035em]" style={{ color: '#1A1035' }}>Integrations</h1>
-          <p className="text-[13px] mt-2 max-w-xl" style={{ color: '#6E6688' }}>
+          <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-1" style={{ color: '#96989B' }}>System</p>
+          <h1 className="text-[38px] font-black tracking-[-0.035em]" style={{ color: '#181D23' }}>Integrations</h1>
+          <p className="text-[13px] mt-2 max-w-xl" style={{ color: '#5A6475' }}>
             Connect external systems to sync patient data, automate workflows, and enrich the intelligence layer.
           </p>
         </motion.div>
 
         {/* Cliniko — primary integration */}
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-          className="rounded-2xl p-6 mb-8" style={{ border: '1px solid #EBE5FF' }}>
+          className="rounded-2xl p-6 mb-8" style={{ border: '1px solid #D4E2FF' }}>
           <div className="flex items-start gap-4 mb-6">
-            <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(138,108,255,0.08)', border: '1px solid #EBE5FF' }}>
-              <Database size={18} style={{ color: '#6E6688' }} />
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(0,88,230,0.08)', border: '1px solid #D4E2FF' }}>
+              <Database size={18} style={{ color: '#5A6475' }} />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-3 flex-wrap">
-                <h2 className="text-[15px] font-bold" style={{ color: '#1A1035' }}>Cliniko</h2>
-                <span className="text-[8px] uppercase tracking-[0.15em] font-semibold" style={{ color: '#8B84A0' }}>Patient Management</span>
+                <h2 className="text-[15px] font-bold" style={{ color: '#181D23' }}>Cliniko</h2>
+                <span className="text-[8px] uppercase tracking-[0.15em] font-semibold" style={{ color: '#96989B' }}>Patient Management</span>
                 {clinikoStatus?.isConnected && (
                   <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: 'rgba(5,150,105,0.10)', border: '1px solid rgba(5,150,105,0.25)', color: '#059669' }}>Live</span>
                 )}
               </div>
-              <p className="text-[12px] mt-1 max-w-2xl" style={{ color: '#6E6688' }}>
+              <p className="text-[12px] mt-1 max-w-2xl" style={{ color: '#5A6475' }}>
                 Syncs patients, appointments, invoices, and practitioners into the EWC intelligence layer.
                 Powers patient recognition, appointment history, revenue signals, and Komal&apos;s real-time knowledge.
               </p>
             </div>
             {!clinikoStatus?.isConnected && (
-              <div className="flex items-center gap-1.5 text-[11px] flex-shrink-0" style={{ color: '#8B84A0' }}>
-                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#D5CCFF' }} /> Disconnected
+              <div className="flex items-center gap-1.5 text-[11px] flex-shrink-0" style={{ color: '#96989B' }}>
+                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#A8C4FF' }} /> Disconnected
               </div>
             )}
           </div>
 
-          <div className="mb-6" style={{ borderTop: '1px solid #EBE5FF' }} />
+          <div className="mb-6" style={{ borderTop: '1px solid #D4E2FF' }} />
 
           {clinikoStatus?.isConnected ? (
             <ClinikoConnectedPanel status={clinikoStatus} stats={stats} syncLogs={syncLogs} syncing={syncing} clearing={clearing} syncMsg={syncMsg} onSync={handleSync} onClearResync={handleClearAndResync} onDisconnect={handleDisconnect} />
@@ -644,8 +644,8 @@ export default function IntegrationsPage() {
         {/* Other integrations */}
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}>
           <div className="flex items-center justify-between mb-5">
-            <p className="text-[8px] uppercase tracking-[0.28em] font-semibold" style={{ color: '#8B84A0' }}>Other Connections</p>
-            <div className="flex items-center gap-1.5 text-[11px]" style={{ color: '#8B84A0' }}>
+            <p className="text-[8px] uppercase tracking-[0.28em] font-semibold" style={{ color: '#96989B' }}>Other Connections</p>
+            <div className="flex items-center gap-1.5 text-[11px]" style={{ color: '#96989B' }}>
               <Clock size={11} /> Week 2 roadmap
             </div>
           </div>
@@ -660,14 +660,14 @@ export default function IntegrationsPage() {
 
         {/* Footer */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
-          className="mt-10 pt-8 flex items-center justify-between" style={{ borderTop: '1px solid #EBE5FF' }}>
+          className="mt-10 pt-8 flex items-center justify-between" style={{ borderTop: '1px solid #D4E2FF' }}>
           <button onClick={() => router.push('/staff/dashboard')} className="text-[12px] transition-colors"
-            style={{ color: '#8B84A0' }}
-            onMouseEnter={e => (e.currentTarget.style.color = '#524D66')}
-            onMouseLeave={e => (e.currentTarget.style.color = '#8B84A0')}>
+            style={{ color: '#96989B' }}
+            onMouseEnter={e => (e.currentTarget.style.color = '#3D4451')}
+            onMouseLeave={e => (e.currentTarget.style.color = '#96989B')}>
             ← Dashboard
           </button>
-          <div className="flex items-center gap-1.5 text-[11px]" style={{ color: '#8B84A0' }}>
+          <div className="flex items-center gap-1.5 text-[11px]" style={{ color: '#96989B' }}>
             <ArrowUpRight size={11} /> api.uk1.cliniko.com
           </div>
         </motion.div>

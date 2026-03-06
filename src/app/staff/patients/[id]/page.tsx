@@ -41,16 +41,16 @@ import {
 
 const LC_CFG: Record<LifecycleStage, { label: string; color: string; bg: string; border: string }> = {
   existing: { label: 'Existing', color: '#0891B2', bg: '#F0F9FF', border: '#BAE6FD' },
-  lead:     { label: 'Lead',     color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE' },
+  lead:     { label: 'Lead',     color: '#0058E6', bg: '#F5F3FF', border: '#DDD6FE' },
   new:      { label: 'New',      color: '#0284C7', bg: '#EFF6FF', border: '#BFDBFE' },
   active:   { label: 'Active',   color: '#059669', bg: '#ECFDF5', border: '#A7F3D0' },
-  loyal:    { label: 'Loyal',    color: '#D97706', bg: '#FFFBEB', border: '#FDE68A' },
+  loyal:    { label: 'Loyal',    color: '#D8A600', bg: '#FFFBEB', border: '#FDE68A' },
   at_risk:  { label: 'At Risk',  color: '#DC2626', bg: '#FFF1F2', border: '#FECDD3' },
   lapsed:   { label: 'Lapsed',   color: '#6B7280', bg: '#F9FAFB', border: '#E5E7EB' },
 };
 
 const PRIO_COLOR: Record<string, string> = {
-  critical: '#DC2626', high: '#DC2626', medium: '#D97706', low: '#6B7280',
+  critical: '#DC2626', high: '#DC2626', medium: '#D8A600', low: '#6B7280',
 };
 
 // =============================================================================
@@ -98,16 +98,16 @@ function fmtGBP(n: number): string {
 function Panel({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
     <div className={`rounded-2xl overflow-hidden ${className}`}
-      style={{ backgroundColor: '#FFFFFF', border: '1px solid #EBE5FF' }}>
+      style={{ backgroundColor: '#FFFFFF', border: '1px solid #D4E2FF' }}>
       {children}
     </div>
   );
 }
 function PanelHeader({ title, badge, action }: { title: string; badge?: number; action?: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid #EBE5FF' }}>
+    <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid #D4E2FF' }}>
       <div className="flex items-center gap-2">
-        <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#8B84A0]">{title}</p>
+        <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#96989B]">{title}</p>
         {badge !== undefined && badge > 0 && (
           <span className="inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold text-white"
             style={{ backgroundColor: '#DC2626' }}>{badge}</span>
@@ -119,10 +119,10 @@ function PanelHeader({ title, badge, action }: { title: string; badge?: number; 
 }
 function StatTile({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: string }) {
   return (
-    <div className="rounded-xl p-4" style={{ backgroundColor: '#FDFCFB', border: '1px solid #EBE5FF' }}>
-      <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-1.5">{label}</p>
-      <p className="text-[22px] font-black tracking-[-0.02em] leading-none" style={{ color: accent ?? '#1A1035' }}>{value}</p>
-      {sub && <p className="text-[10px] text-[#8B84A0] mt-1">{sub}</p>}
+    <div className="rounded-xl p-4" style={{ backgroundColor: '#FDFCFB', border: '1px solid #D4E2FF' }}>
+      <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B] mb-1.5">{label}</p>
+      <p className="text-[22px] font-black tracking-[-0.02em] leading-none" style={{ color: accent ?? '#181D23' }}>{value}</p>
+      {sub && <p className="text-[10px] text-[#96989B] mt-1">{sub}</p>}
     </div>
   );
 }
@@ -130,9 +130,9 @@ function EmptyState({ title, sub }: { title: string; sub?: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-14 gap-2.5">
       <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#F5F3FF' }}>
-        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#D5CCFF' }} />
+        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#A8C4FF' }} />
       </div>
-      <p className="text-[12px] font-semibold text-[#8B84A0]">{title}</p>
+      <p className="text-[12px] font-semibold text-[#96989B]">{title}</p>
       {sub && <p className="text-[11px] text-[#B0A8C8] text-center max-w-xs">{sub}</p>}
     </div>
   );
@@ -147,7 +147,7 @@ function EngagementGauge({ score, color }: { score: number; color: string }) {
   return (
     <div className="flex flex-col items-center gap-1">
       <svg width="72" height="72" viewBox="0 0 72 72">
-        <circle cx="36" cy="36" r={r} fill="none" stroke="#EBE5FF" strokeWidth="5" />
+        <circle cx="36" cy="36" r={r} fill="none" stroke="#D4E2FF" strokeWidth="5" />
         <motion.circle cx="36" cy="36" r={r} fill="none" stroke={color} strokeWidth="5"
           strokeLinecap="round" strokeDasharray={circ}
           initial={{ strokeDashoffset: circ }}
@@ -155,9 +155,9 @@ function EngagementGauge({ score, color }: { score: number; color: string }) {
           transition={{ duration: 1, ease: 'easeOut' }}
           style={{ transformOrigin: '50% 50%', transform: 'rotate(-90deg)' }} />
         <text x="36" y="36" textAnchor="middle" dominantBaseline="central"
-          fontSize="15" fontWeight="900" fill="#1A1035">{score}</text>
+          fontSize="15" fontWeight="900" fill="#181D23">{score}</text>
       </svg>
-      <span className="text-[8px] uppercase tracking-[0.22em] text-[#8B84A0] font-semibold">Score</span>
+      <span className="text-[8px] uppercase tracking-[0.22em] text-[#96989B] font-semibold">Score</span>
     </div>
   );
 }
@@ -245,8 +245,8 @@ function EngagementTrendChart({ patient, color }: { patient: PatientIntelligence
 
 const EV_CFG: Record<string, { color: string; bg: string }> = {
   appointment:  { color: '#059669', bg: '#ECFDF5' },
-  komal_call:   { color: '#7C3AED', bg: '#F5F3FF' },
-  signal:       { color: '#D97706', bg: '#FFFBEB' },
+  komal_call:   { color: '#0058E6', bg: '#F5F3FF' },
+  signal:       { color: '#D8A600', bg: '#FFFBEB' },
   note:         { color: '#0284C7', bg: '#EFF6FF' },
   lead_capture: { color: '#DC2626', bg: '#FFF1F2' },
   referral:     { color: '#6B7280', bg: '#F9FAFB' },
@@ -256,16 +256,16 @@ function TimelineItem({ ev, last }: { ev: TimelineEvent; last: boolean }) {
   const cfg = EV_CFG[ev.type] ?? EV_CFG.note;
   return (
     <div className="flex gap-3 pb-4 relative">
-      {!last && <div className="absolute left-[13px] top-7 bottom-0 w-[1px]" style={{ backgroundColor: '#EBE5FF' }} />}
+      {!last && <div className="absolute left-[13px] top-7 bottom-0 w-[1px]" style={{ backgroundColor: '#D4E2FF' }} />}
       <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 z-10"
         style={{ backgroundColor: cfg.bg }}>
         <div className="w-2 h-2 rounded-full" style={{ backgroundColor: cfg.color }} />
       </div>
       <div className="flex-1 min-w-0 pt-0.5">
-        <p className="text-[12px] font-semibold text-[#1A1035] leading-tight">{ev.title}</p>
-        {ev.description && <p className="text-[11px] text-[#6E6688] mt-0.5 leading-relaxed line-clamp-2">{ev.description}</p>}
+        <p className="text-[12px] font-semibold text-[#181D23] leading-tight">{ev.title}</p>
+        {ev.description && <p className="text-[11px] text-[#5A6475] mt-0.5 leading-relaxed line-clamp-2">{ev.description}</p>}
         <div className="flex items-center gap-3 mt-1 flex-wrap">
-          <span className="text-[10px] text-[#8B84A0]">{fmtDate(ev.date)}</span>
+          <span className="text-[10px] text-[#96989B]">{fmtDate(ev.date)}</span>
           {(ev as { status?: string }).status && (
             <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full"
               style={{ backgroundColor: cfg.bg, color: cfg.color }}>
@@ -344,14 +344,14 @@ function OverviewTab({ patient }: { patient: PatientIntelligenceRow }) {
           <PanelHeader title={`Risk Flags — ${riskFlags.length}`} badge={riskFlags.filter(f => f.severity === 'high').length} />
           <div>
             {riskFlags.map((f, i) => {
-              const col = f.severity === 'high' ? '#DC2626' : f.severity === 'medium' ? '#D97706' : '#6B7280';
+              const col = f.severity === 'high' ? '#DC2626' : f.severity === 'medium' ? '#D8A600' : '#6B7280';
               const bg = f.severity === 'high' ? '#FFF1F2' : f.severity === 'medium' ? '#FFFBEB' : '#F9FAFB';
               return (
-                <div key={i} className="flex items-start gap-3 px-5 py-3" style={{ borderBottom: i < riskFlags.length - 1 ? '1px solid #EBE5FF' : 'none' }}>
+                <div key={i} className="flex items-start gap-3 px-5 py-3" style={{ borderBottom: i < riskFlags.length - 1 ? '1px solid #D4E2FF' : 'none' }}>
                   <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5" style={{ backgroundColor: col }} />
                   <div className="flex-1">
-                    <p className="text-[12px] font-semibold text-[#1A1035]">{f.label}</p>
-                    <p className="text-[11px] text-[#6E6688] mt-0.5">{f.note}</p>
+                    <p className="text-[12px] font-semibold text-[#181D23]">{f.label}</p>
+                    <p className="text-[11px] text-[#5A6475] mt-0.5">{f.note}</p>
                   </div>
                   <span className="text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full flex-shrink-0"
                     style={{ backgroundColor: bg, color: col }}>{f.severity}</span>
@@ -367,19 +367,19 @@ function OverviewTab({ patient }: { patient: PatientIntelligenceRow }) {
         <div className="p-5">
           <div className="grid grid-cols-3 gap-3 mb-4">
             {[
-              { label: 'Total Visits', value: String(patient.total_visits), accent: '#1A1035' },
+              { label: 'Total Visits', value: String(patient.total_visits), accent: '#181D23' },
               { label: 'Avg Visit Value', value: '£180', accent: '#059669' },
               { label: 'Est. CLV', value: fmtGBP(clv), accent: '#059669' },
             ].map(item => (
-              <div key={item.label} className="p-3 rounded-xl text-center" style={{ backgroundColor: '#FDFCFB', border: '1px solid #EBE5FF' }}>
-                <p className="text-[8px] uppercase tracking-[0.22em] text-[#8B84A0] mb-1">{item.label}</p>
+              <div key={item.label} className="p-3 rounded-xl text-center" style={{ backgroundColor: '#FDFCFB', border: '1px solid #D4E2FF' }}>
+                <p className="text-[8px] uppercase tracking-[0.22em] text-[#96989B] mb-1">{item.label}</p>
                 <p className="text-[20px] font-black" style={{ color: item.accent }}>{item.value}</p>
               </div>
             ))}
           </div>
-          <div className="flex items-center gap-2 p-3 rounded-xl" style={{ backgroundColor: isVip ? '#FFFBEB' : '#FDFCFB', border: `1px solid ${isVip ? '#FDE68A' : '#EBE5FF'}` }}>
-            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: isVip ? '#D97706' : '#D5CCFF' }} />
-            <p className="text-[11px]" style={{ color: isVip ? '#92400E' : '#8B84A0' }}>
+          <div className="flex items-center gap-2 p-3 rounded-xl" style={{ backgroundColor: isVip ? '#FFFBEB' : '#FDFCFB', border: `1px solid ${isVip ? '#FDE68A' : '#D4E2FF'}` }}>
+            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: isVip ? '#D8A600' : '#A8C4FF' }} />
+            <p className="text-[11px]" style={{ color: isVip ? '#92400E' : '#96989B' }}>
               {isVip ? 'VIP Patient — high-value loyal relationship. Prioritise for exclusive offers and personalised outreach.' : 'Connect Cliniko and Stripe to see live revenue figures per patient.'}
             </p>
           </div>
@@ -400,19 +400,19 @@ function OverviewTab({ patient }: { patient: PatientIntelligenceRow }) {
             ['Cancel Rate', `${Math.round(patient.cancellation_rate * 100)}%`],
             ['Open Signals', String(patient.open_signals_count)],
           ].map(([l, v]) => (
-            <div key={l}><p className="text-[8px] uppercase tracking-[0.22em] text-[#8B84A0] mb-0.5">{l}</p>
-              <p className="text-[12px] font-semibold text-[#524D66]">{v}</p></div>
+            <div key={l}><p className="text-[8px] uppercase tracking-[0.22em] text-[#96989B] mb-0.5">{l}</p>
+              <p className="text-[12px] font-semibold text-[#3D4451]">{v}</p></div>
           ))}
 
           {/* All phone numbers */}
           {patient.all_phones && patient.all_phones.length > 0 && (
-            <div className="col-span-2 pt-3.5" style={{ borderTop: '1px solid #EBE5FF' }}>
-              <p className="text-[8px] uppercase tracking-[0.22em] text-[#8B84A0] mb-2">Phone Numbers</p>
+            <div className="col-span-2 pt-3.5" style={{ borderTop: '1px solid #D4E2FF' }}>
+              <p className="text-[8px] uppercase tracking-[0.22em] text-[#96989B] mb-2">Phone Numbers</p>
               <div className="flex flex-col gap-1.5">
                 {patient.all_phones.map((ph, i) => (
                   <div key={i} className="flex items-center gap-3">
-                    <span className="text-[9px] font-medium text-[#8B84A0] uppercase tracking-wide w-12 flex-shrink-0">{ph.type}</span>
-                    <a href={`tel:${ph.number}`} className="text-[12px] font-semibold text-[#524D66] hover:text-[#1A1035] transition-colors">{ph.number}</a>
+                    <span className="text-[9px] font-medium text-[#96989B] uppercase tracking-wide w-12 flex-shrink-0">{ph.type}</span>
+                    <a href={`tel:${ph.number}`} className="text-[12px] font-semibold text-[#3D4451] hover:text-[#181D23] transition-colors">{ph.number}</a>
                   </div>
                 ))}
               </div>
@@ -421,9 +421,9 @@ function OverviewTab({ patient }: { patient: PatientIntelligenceRow }) {
 
           {/* Address */}
           {patient.address && (patient.address.line1 || patient.address.city) && (
-            <div className="col-span-2 pt-3.5" style={{ borderTop: '1px solid #EBE5FF' }}>
-              <p className="text-[8px] uppercase tracking-[0.22em] text-[#8B84A0] mb-1">Address</p>
-              <p className="text-[12px] leading-relaxed text-[#524D66]">
+            <div className="col-span-2 pt-3.5" style={{ borderTop: '1px solid #D4E2FF' }}>
+              <p className="text-[8px] uppercase tracking-[0.22em] text-[#96989B] mb-1">Address</p>
+              <p className="text-[12px] leading-relaxed text-[#3D4451]">
                 {[patient.address.line1, patient.address.line2, patient.address.line3, patient.address.city, patient.address.postcode, patient.address.country]
                   .filter(Boolean).join(', ')}
               </p>
@@ -432,17 +432,17 @@ function OverviewTab({ patient }: { patient: PatientIntelligenceRow }) {
 
           {/* Emergency contact */}
           {patient.emergency_contact && (
-            <div className="col-span-2 pt-3.5" style={{ borderTop: '1px solid #EBE5FF' }}>
-              <p className="text-[8px] uppercase tracking-[0.22em] text-[#8B84A0] mb-1">Emergency Contact</p>
-              <p className="text-[12px] font-semibold text-[#524D66]">{patient.emergency_contact}</p>
+            <div className="col-span-2 pt-3.5" style={{ borderTop: '1px solid #D4E2FF' }}>
+              <p className="text-[8px] uppercase tracking-[0.22em] text-[#96989B] mb-1">Emergency Contact</p>
+              <p className="text-[12px] font-semibold text-[#3D4451]">{patient.emergency_contact}</p>
             </div>
           )}
 
           {/* Notes */}
           {patient.notes && (
-            <div className="col-span-2 pt-3.5" style={{ borderTop: '1px solid #EBE5FF' }}>
-              <p className="text-[8px] uppercase tracking-[0.22em] text-[#8B84A0] mb-1">Clinical Notes</p>
-              <p className="text-[12px] leading-relaxed text-[#6E6688]">{patient.notes}</p>
+            <div className="col-span-2 pt-3.5" style={{ borderTop: '1px solid #D4E2FF' }}>
+              <p className="text-[8px] uppercase tracking-[0.22em] text-[#96989B] mb-1">Clinical Notes</p>
+              <p className="text-[12px] leading-relaxed text-[#5A6475]">{patient.notes}</p>
             </div>
           )}
         </div>
@@ -453,8 +453,8 @@ function OverviewTab({ patient }: { patient: PatientIntelligenceRow }) {
           <PanelHeader title="Treatment Profile" />
           <div className="p-5 flex flex-wrap gap-2">
             {patient.treatment_tags.map(t => (
-              <span key={t} className="px-3 py-1.5 rounded-lg text-[11px] font-semibold text-[#524D66]"
-                style={{ backgroundColor: '#F9FAFB', border: '1px solid #EBE5FF' }}>{t}</span>
+              <span key={t} className="px-3 py-1.5 rounded-lg text-[11px] font-semibold text-[#3D4451]"
+                style={{ backgroundColor: '#F9FAFB', border: '1px solid #D4E2FF' }}>{t}</span>
             ))}
           </div>
         </Panel>
@@ -463,15 +463,15 @@ function OverviewTab({ patient }: { patient: PatientIntelligenceRow }) {
       <Panel>
         <PanelHeader title="Referral Network" />
         <div className="p-5 grid grid-cols-2 gap-4">
-          <div className="p-4 rounded-xl" style={{ backgroundColor: '#FDFCFB', border: '1px solid #EBE5FF' }}>
-            <p className="text-[8px] uppercase tracking-[0.22em] text-[#8B84A0] mb-2">Referred By</p>
-            <p className="text-[13px] font-bold text-[#1A1035]">{patient.referral_source ?? 'Unknown'}</p>
-            <p className="text-[10px] text-[#8B84A0] mt-0.5">Acquisition source</p>
+          <div className="p-4 rounded-xl" style={{ backgroundColor: '#FDFCFB', border: '1px solid #D4E2FF' }}>
+            <p className="text-[8px] uppercase tracking-[0.22em] text-[#96989B] mb-2">Referred By</p>
+            <p className="text-[13px] font-bold text-[#181D23]">{patient.referral_source ?? 'Unknown'}</p>
+            <p className="text-[10px] text-[#96989B] mt-0.5">Acquisition source</p>
           </div>
-          <div className="p-4 rounded-xl" style={{ backgroundColor: '#FDFCFB', border: '1px solid #EBE5FF' }}>
-            <p className="text-[8px] uppercase tracking-[0.22em] text-[#8B84A0] mb-2">Referrals Made</p>
-            <p className="text-[13px] font-bold text-[#1A1035]">—</p>
-            <p className="text-[10px] text-[#8B84A0] mt-0.5">Requires referral tracking</p>
+          <div className="p-4 rounded-xl" style={{ backgroundColor: '#FDFCFB', border: '1px solid #D4E2FF' }}>
+            <p className="text-[8px] uppercase tracking-[0.22em] text-[#96989B] mb-2">Referrals Made</p>
+            <p className="text-[13px] font-bold text-[#181D23]">—</p>
+            <p className="text-[10px] text-[#96989B] mt-0.5">Requires referral tracking</p>
           </div>
         </div>
       </Panel>
@@ -508,9 +508,9 @@ function getTrajectory(patient: PatientIntelligenceRow) {
   if (lc === 'loyal' && patient.engagement_score >= 70) return { velocity: 'Strong', velColor: '#059669', forecast: 'Retention', foreColor: '#059669', summary: `${patient.first_name} shows consistent engagement. Rebooking window is open — proactive contact within 2–4 weeks recommended.` };
   if (lc === 'active') return { velocity: 'Positive', velColor: '#0284C7', forecast: 'Loyalty', foreColor: '#0284C7', summary: `${patient.first_name} is on a positive trajectory with ${patient.total_visits} visits. A loyalty touchpoint from Aria could accelerate progression.` };
   if (lc === 'at_risk') return { velocity: 'Declining', velColor: '#DC2626', forecast: 'At Risk', foreColor: '#DC2626', summary: `${patient.first_name} has not visited in ${days ?? '?'} days. Immediate outreach via Komal or Aria is recommended.` };
-  if (lc === 'lapsed') return { velocity: 'Stalled', velColor: '#6B7280', forecast: 'Win-Back', foreColor: '#D97706', summary: `${patient.first_name} has lapsed. A win-back campaign may re-activate. Consult Orion for strategy.` };
+  if (lc === 'lapsed') return { velocity: 'Stalled', velColor: '#6B7280', forecast: 'Win-Back', foreColor: '#D8A600', summary: `${patient.first_name} has lapsed. A win-back campaign may re-activate. Consult Orion for strategy.` };
   if (lc === 'new') return { velocity: 'Emerging', velColor: '#0284C7', forecast: 'Active', foreColor: '#059669', summary: `${patient.first_name} completed their first visit. Post-treatment follow-up within 72 hours is critical.` };
-  return { velocity: 'Enquiry', velColor: '#7C3AED', forecast: 'Convert', foreColor: '#0284C7', summary: `${patient.first_name} is in the enquiry stage. Lead velocity is highest within the first 48 hours.` };
+  return { velocity: 'Enquiry', velColor: '#0058E6', forecast: 'Convert', foreColor: '#0284C7', summary: `${patient.first_name} is in the enquiry stage. Lead velocity is highest within the first 48 hours.` };
 }
 
 function LifecycleTab({ patient, timeline }: { patient: PatientIntelligenceRow; timeline: TimelineEvent[] }) {
@@ -527,7 +527,7 @@ function LifecycleTab({ patient, timeline }: { patient: PatientIntelligenceRow; 
         <PanelHeader title="Relationship Track" />
         <div className="px-7 pt-7 pb-4">
           <div className="relative" style={{ paddingBottom: 56 }}>
-            <div className="absolute left-0 right-0 h-[2px] rounded-full" style={{ top: 16, backgroundColor: '#EBE5FF' }} />
+            <div className="absolute left-0 right-0 h-[2px] rounded-full" style={{ top: 16, backgroundColor: '#D4E2FF' }} />
             <motion.div className="absolute left-0 h-[2px] rounded-full" style={{ top: 16, backgroundColor: lc.color }}
               initial={{ width: '0%' }} animate={{ width: `${Math.min(progressPct, 84)}%` }} transition={{ duration: 1, ease: 'easeOut' }} />
             <div className="relative flex justify-between">
@@ -543,7 +543,7 @@ function LifecycleTab({ patient, timeline }: { patient: PatientIntelligenceRow; 
                       : <span>{i + 1}</span>}
                   </motion.button>
                   <div className="mt-2.5 text-center" style={{ maxWidth: 72 }}>
-                    <p className="text-[9px] font-bold leading-tight" style={{ color: stage.reached || stage.isCurrent ? '#1A1035' : '#C4BEDE' }}>{stage.label}</p>
+                    <p className="text-[9px] font-bold leading-tight" style={{ color: stage.reached || stage.isCurrent ? '#181D23' : '#C4BEDE' }}>{stage.label}</p>
                     <p className="text-[8px] mt-0.5 font-medium" style={{ color: stage.reached ? lc.color : '#C4BEDE' }}>{stage.metric}</p>
                   </div>
                 </div>
@@ -559,9 +559,9 @@ function LifecycleTab({ patient, timeline }: { patient: PatientIntelligenceRow; 
                   <div className="mb-2 p-4 rounded-xl" style={{ backgroundColor: lc.bg, border: `1px solid ${lc.border}` }}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1">
-                        <p className="text-[11px] font-bold text-[#1A1035] mb-1">{s.label}</p>
-                        <p className="text-[11px] text-[#6E6688] leading-relaxed">{s.sub}</p>
-                        {s.date && <p className="text-[10px] text-[#8B84A0] mt-1.5">{fmtDate(s.date)}</p>}
+                        <p className="text-[11px] font-bold text-[#181D23] mb-1">{s.label}</p>
+                        <p className="text-[11px] text-[#5A6475] leading-relaxed">{s.sub}</p>
+                        {s.date && <p className="text-[10px] text-[#96989B] mt-1.5">{fmtDate(s.date)}</p>}
                         {!s.reached && s.id !== 'next' && <p className="text-[10px] mt-1.5" style={{ color: lc.color }}>Not yet reached</p>}
                       </div>
                       {s.metric && <span className="text-[9px] font-black px-2.5 py-1 rounded-lg uppercase tracking-wide flex-shrink-0" style={{ backgroundColor: lc.border, color: lc.color }}>{s.metric}</span>}
@@ -579,16 +579,16 @@ function LifecycleTab({ patient, timeline }: { patient: PatientIntelligenceRow; 
           <PanelHeader title="Trajectory Forecast" />
           <div className="p-5 space-y-4">
             <div className="grid grid-cols-2 gap-3">
-              <div className="p-3 rounded-xl" style={{ backgroundColor: '#FDFCFB', border: '1px solid #EBE5FF' }}>
-                <p className="text-[8px] uppercase tracking-[0.22em] text-[#8B84A0] mb-1.5">Velocity</p>
+              <div className="p-3 rounded-xl" style={{ backgroundColor: '#FDFCFB', border: '1px solid #D4E2FF' }}>
+                <p className="text-[8px] uppercase tracking-[0.22em] text-[#96989B] mb-1.5">Velocity</p>
                 <p className="text-[16px] font-black" style={{ color: traj.velColor }}>{traj.velocity}</p>
               </div>
-              <div className="p-3 rounded-xl" style={{ backgroundColor: '#FDFCFB', border: '1px solid #EBE5FF' }}>
-                <p className="text-[8px] uppercase tracking-[0.22em] text-[#8B84A0] mb-1.5">Forecast</p>
+              <div className="p-3 rounded-xl" style={{ backgroundColor: '#FDFCFB', border: '1px solid #D4E2FF' }}>
+                <p className="text-[8px] uppercase tracking-[0.22em] text-[#96989B] mb-1.5">Forecast</p>
                 <p className="text-[16px] font-black" style={{ color: traj.foreColor }}>{traj.forecast}</p>
               </div>
             </div>
-            <p className="text-[11px] text-[#6E6688] leading-relaxed">{traj.summary}</p>
+            <p className="text-[11px] text-[#5A6475] leading-relaxed">{traj.summary}</p>
           </div>
         </Panel>
         <Panel>
@@ -596,13 +596,13 @@ function LifecycleTab({ patient, timeline }: { patient: PatientIntelligenceRow; 
           <div className="p-5 space-y-3">
             {[
               { label: 'Stage', value: lc.label, accent: lc.color },
-              { label: 'Engagement', value: `${patient.engagement_score}/100`, accent: patient.engagement_score >= 70 ? '#059669' : '#D97706' },
-              { label: 'Total Visits', value: String(patient.total_visits), accent: '#1A1035' },
-              { label: 'Days Since Visit', value: patient.days_since_last_visit !== null ? `${patient.days_since_last_visit}d` : '—', accent: (patient.days_since_last_visit ?? 0) > 90 ? '#DC2626' : '#1A1035' },
+              { label: 'Engagement', value: `${patient.engagement_score}/100`, accent: patient.engagement_score >= 70 ? '#059669' : '#D8A600' },
+              { label: 'Total Visits', value: String(patient.total_visits), accent: '#181D23' },
+              { label: 'Days Since Visit', value: patient.days_since_last_visit !== null ? `${patient.days_since_last_visit}d` : '—', accent: (patient.days_since_last_visit ?? 0) > 90 ? '#DC2626' : '#181D23' },
               { label: 'Track Progress', value: `${progressPct}%`, accent: lc.color },
             ].map(row => (
               <div key={row.label} className="flex items-center justify-between">
-                <span className="text-[11px] text-[#6E6688]">{row.label}</span>
+                <span className="text-[11px] text-[#5A6475]">{row.label}</span>
                 <span className="text-[13px] font-black" style={{ color: row.accent }}>{row.value}</span>
               </div>
             ))}
@@ -629,7 +629,7 @@ function LifecycleTab({ patient, timeline }: { patient: PatientIntelligenceRow; 
                 <TimelineItem ev={ev} last={i === Math.min(timeline.length, 5) - 1} />
               </motion.div>
             ))}
-            {timeline.length > 5 && <p className="text-[10px] text-[#8B84A0] text-center pt-2">+{timeline.length - 5} more — see Communications tab</p>}
+            {timeline.length > 5 && <p className="text-[10px] text-[#96989B] text-center pt-2">+{timeline.length - 5} more — see Communications tab</p>}
           </div>
         </Panel>
       )}
@@ -682,11 +682,11 @@ function AppointmentsTab({ patient, appointments }: { patient: PatientIntelligen
       )}
 
       <Panel>
-        <div className="flex items-center gap-1 px-5 py-3" style={{ borderBottom: '1px solid #EBE5FF' }}>
+        <div className="flex items-center gap-1 px-5 py-3" style={{ borderBottom: '1px solid #D4E2FF' }}>
           {filterBtns.map(btn => (
             <button key={btn.id} onClick={() => setFilter(btn.id)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all"
-              style={{ backgroundColor: filter === btn.id ? '#1A1035' : 'transparent', color: filter === btn.id ? '#FFFFFF' : '#8B84A0' }}>
+              style={{ backgroundColor: filter === btn.id ? '#181D23' : 'transparent', color: filter === btn.id ? '#FFFFFF' : '#96989B' }}>
               {btn.label}
               {btn.count > 0 && <span className="text-[9px] opacity-70">{btn.count}</span>}
             </button>
@@ -703,32 +703,32 @@ function AppointmentsTab({ patient, appointments }: { patient: PatientIntelligen
               const statusBg = a.status === 'Attended' ? '#ECFDF5' : a.status === 'Cancelled' || a.status === 'Did Not Arrive' ? '#FFF1F2' : isUpcoming ? '#EFF6FF' : '#F9FAFB';
               const isOpen = expanded === a.id;
               return (
-                <div key={a.id} style={{ borderBottom: i < filtered.length - 1 ? '1px solid #EBE5FF' : 'none' }}>
+                <div key={a.id} style={{ borderBottom: i < filtered.length - 1 ? '1px solid #D4E2FF' : 'none' }}>
                   <button className="w-full flex items-start justify-between gap-4 px-5 py-3.5 text-left transition-all"
                     style={{ backgroundColor: isOpen ? '#FDFCFB' : 'transparent' }}
                     onClick={() => setExpanded(isOpen ? null : a.id)}>
                     <div className="flex gap-3 flex-1 min-w-0">
                       <div className="w-2 h-2 rounded-full flex-shrink-0 mt-2" style={{ backgroundColor: statusColor }} />
                       <div className="flex-1 min-w-0">
-                        <p className="text-[12px] font-semibold text-[#1A1035]">{a.appointment_type ?? 'Appointment'}</p>
+                        <p className="text-[12px] font-semibold text-[#181D23]">{a.appointment_type ?? 'Appointment'}</p>
                         <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-                          <span className="text-[10px] text-[#8B84A0]">{fmtDate(a.starts_at)}</span>
-                          {a.practitioner_name && <span className="text-[10px] text-[#8B84A0]">{a.practitioner_name}</span>}
-                          {a.duration_minutes && <span className="text-[10px] text-[#8B84A0]">{a.duration_minutes}min</span>}
+                          <span className="text-[10px] text-[#96989B]">{fmtDate(a.starts_at)}</span>
+                          {a.practitioner_name && <span className="text-[10px] text-[#96989B]">{a.practitioner_name}</span>}
+                          {a.duration_minutes && <span className="text-[10px] text-[#96989B]">{a.duration_minutes}min</span>}
                         </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {a.status && <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ backgroundColor: statusBg, color: statusColor }}>{a.status}</span>}
-                      <ChevronDown size={12} className="text-[#8B84A0] transition-transform" style={{ transform: isOpen ? 'rotate(180deg)' : 'none' }} />
+                      <ChevronDown size={12} className="text-[#96989B] transition-transform" style={{ transform: isOpen ? 'rotate(180deg)' : 'none' }} />
                     </div>
                   </button>
                   <AnimatePresence>
                     {isOpen && (
                       <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }} className="overflow-hidden">
                         <div className="px-5 pb-4 pt-1">
-                          <div className="p-3.5 rounded-xl space-y-2" style={{ backgroundColor: '#F9F7FF', border: '1px solid #EBE5FF' }}>
-                            {a.notes && <p className="text-[11px] text-[#6E6688] leading-relaxed">{a.notes}</p>}
+                          <div className="p-3.5 rounded-xl space-y-2" style={{ backgroundColor: '#F9F7FF', border: '1px solid #D4E2FF' }}>
+                            {a.notes && <p className="text-[11px] text-[#5A6475] leading-relaxed">{a.notes}</p>}
                             <div className="grid grid-cols-3 gap-3">
                               {[
                                 { label: 'Date', value: fmtDate(a.starts_at) },
@@ -736,8 +736,8 @@ function AppointmentsTab({ patient, appointments }: { patient: PatientIntelligen
                                 { label: 'Practitioner', value: a.practitioner_name ?? '—' },
                               ].map(item => (
                                 <div key={item.label}>
-                                  <p className="text-[8px] uppercase tracking-[0.22em] text-[#8B84A0] mb-0.5">{item.label}</p>
-                                  <p className="text-[11px] font-semibold text-[#524D66]">{item.value}</p>
+                                  <p className="text-[8px] uppercase tracking-[0.22em] text-[#96989B] mb-0.5">{item.label}</p>
+                                  <p className="text-[11px] font-semibold text-[#3D4451]">{item.value}</p>
                                 </div>
                               ))}
                             </div>
@@ -785,13 +785,13 @@ function PractitionersTab({ patient, appointments }: { patient: PatientIntellige
   const primaryPract = practitioners[0];
   const upcomingAppts = appointments.filter(a => a.starts_at && new Date(a.starts_at) > now).sort((a, b) => new Date(a.starts_at!).getTime() - new Date(b.starts_at!).getTime());
 
-  const PRACT_COLORS = ['#7C3AED', '#059669', '#0284C7', '#D97706', '#DC2626'];
+  const PRACT_COLORS = ['#0058E6', '#059669', '#0284C7', '#D8A600', '#DC2626'];
 
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-3 gap-3">
         <StatTile label="Practitioners" value={String(practitioners.length)} sub="total worked with" />
-        <StatTile label="Primary" value={primaryPract?.name ?? '—'} sub="most appointments" accent="#7C3AED" />
+        <StatTile label="Primary" value={primaryPract?.name ?? '—'} sub="most appointments" accent="#0058E6" />
         <StatTile label="Upcoming" value={String(upcomingAppts.length)} sub="scheduled sessions" accent={upcomingAppts.length > 0 ? '#059669' : '#6B7280'} />
       </div>
 
@@ -804,7 +804,7 @@ function PractitionersTab({ patient, appointments }: { patient: PatientIntellige
                 const col = PRACT_COLORS[i % PRACT_COLORS.length];
                 const services = Array.from(p.services);
                 return (
-                  <div key={p.name} className="px-5 py-4" style={{ borderBottom: i < practitioners.length - 1 ? '1px solid #EBE5FF' : 'none' }}>
+                  <div key={p.name} className="px-5 py-4" style={{ borderBottom: i < practitioners.length - 1 ? '1px solid #D4E2FF' : 'none' }}>
                     <div className="flex items-start gap-4">
                       <div className="w-10 h-10 rounded-xl flex items-center justify-center text-[12px] font-black flex-shrink-0"
                         style={{ backgroundColor: col + '15', color: col }}>
@@ -812,19 +812,19 @@ function PractitionersTab({ patient, appointments }: { patient: PatientIntellige
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <p className="text-[13px] font-black text-[#1A1035]">{p.name}</p>
+                          <p className="text-[13px] font-black text-[#181D23]">{p.name}</p>
                           {i === 0 && <span className="text-[8px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide" style={{ backgroundColor: col + '15', color: col }}>Primary</span>}
                           {p.upcoming.length > 0 && <span className="text-[8px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide" style={{ backgroundColor: '#EFF6FF', color: '#0284C7' }}>Upcoming</span>}
                         </div>
                         <div className="flex items-center gap-4 mb-2">
-                          <span className="text-[10px] text-[#8B84A0]">{p.count} appointment{p.count !== 1 ? 's' : ''}</span>
-                          {p.lastDate && <span className="text-[10px] text-[#8B84A0]">Last: {fmtDateShort(p.lastDate)}</span>}
+                          <span className="text-[10px] text-[#96989B]">{p.count} appointment{p.count !== 1 ? 's' : ''}</span>
+                          {p.lastDate && <span className="text-[10px] text-[#96989B]">Last: {fmtDateShort(p.lastDate)}</span>}
                         </div>
                         {services.length > 0 && (
                           <div className="flex flex-wrap gap-1.5">
                             {services.map(s => (
-                              <span key={s} className="text-[10px] px-2 py-0.5 rounded-md font-medium text-[#524D66]"
-                                style={{ backgroundColor: '#F5F3FF', border: '1px solid #EBE5FF' }}>{s}</span>
+                              <span key={s} className="text-[10px] px-2 py-0.5 rounded-md font-medium text-[#3D4451]"
+                                style={{ backgroundColor: '#F5F3FF', border: '1px solid #D4E2FF' }}>{s}</span>
                             ))}
                           </div>
                         )}
@@ -838,7 +838,7 @@ function PractitionersTab({ patient, appointments }: { patient: PatientIntellige
                       </div>
                       <div className="flex-shrink-0 text-right">
                         <p className="text-[20px] font-black" style={{ color: col }}>{p.count}</p>
-                        <p className="text-[9px] text-[#8B84A0] uppercase tracking-wide">sessions</p>
+                        <p className="text-[9px] text-[#96989B] uppercase tracking-wide">sessions</p>
                       </div>
                     </div>
                   </div>
@@ -853,11 +853,11 @@ function PractitionersTab({ patient, appointments }: { patient: PatientIntellige
               <div>
                 {upcomingAppts.map((a, i) => (
                   <div key={a.id} className="flex items-center justify-between gap-4 px-5 py-3.5"
-                    style={{ borderBottom: i < upcomingAppts.length - 1 ? '1px solid #EBE5FF' : 'none' }}>
+                    style={{ borderBottom: i < upcomingAppts.length - 1 ? '1px solid #D4E2FF' : 'none' }}>
                     <div>
-                      <p className="text-[12px] font-semibold text-[#1A1035]">{a.appointment_type ?? 'Appointment'}</p>
+                      <p className="text-[12px] font-semibold text-[#181D23]">{a.appointment_type ?? 'Appointment'}</p>
                       <div className="flex items-center gap-3 mt-0.5">
-                        <span className="text-[10px] text-[#8B84A0]">{fmtDate(a.starts_at)}</span>
+                        <span className="text-[10px] text-[#96989B]">{fmtDate(a.starts_at)}</span>
                         {a.practitioner_name && <span className="text-[10px] text-[#0284C7] font-medium">{a.practitioner_name}</span>}
                       </div>
                     </div>
@@ -927,7 +927,7 @@ function CommunicationsTab({ patient, timeline }: { patient: PatientIntelligence
 
   const allComms: CommEntry[] = [
     ...calls.map(c => ({
-      id: c.id, type: 'call' as const, date: c.date, title: c.title, sub: c.description ?? undefined, color: '#7C3AED',
+      id: c.id, type: 'call' as const, date: c.date, title: c.title, sub: c.description ?? undefined, color: '#0058E6',
       transcript: DEMO_TRANSCRIPT,
     })),
     ...notes.map(n => ({ id: n.id, type: 'note' as const, date: n.created_at, title: 'Staff Note', sub: n.content, color: '#0284C7' })),
@@ -936,7 +936,7 @@ function CommunicationsTab({ patient, timeline }: { patient: PatientIntelligence
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const channels = [
-    { label: 'Phone', value: patient.phone, primary: true, color: '#7C3AED' },
+    { label: 'Phone', value: patient.phone, primary: true, color: '#0058E6' },
     { label: 'Email', value: patient.email, primary: false, color: '#0284C7' },
     { label: 'SMS', value: patient.phone ? 'Via mobile' : null, primary: false, color: '#059669' },
   ];
@@ -950,12 +950,12 @@ function CommunicationsTab({ patient, timeline }: { patient: PatientIntelligence
         <PanelHeader title="Contact Preferences" />
         <div className="p-4 flex gap-3">
           {channels.map(ch => (
-            <div key={ch.label} className="flex-1 p-3 rounded-xl" style={{ backgroundColor: ch.primary ? ch.color + '0D' : '#FDFCFB', border: `1px solid ${ch.primary ? ch.color + '30' : '#EBE5FF'}` }}>
+            <div key={ch.label} className="flex-1 p-3 rounded-xl" style={{ backgroundColor: ch.primary ? ch.color + '0D' : '#FDFCFB', border: `1px solid ${ch.primary ? ch.color + '30' : '#D4E2FF'}` }}>
               <div className="flex items-center gap-1.5 mb-1">
                 {ch.primary && <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: ch.color }} />}
-                <p className="text-[8px] uppercase tracking-[0.22em] font-semibold" style={{ color: ch.primary ? ch.color : '#8B84A0' }}>{ch.label}{ch.primary ? ' — Primary' : ''}</p>
+                <p className="text-[8px] uppercase tracking-[0.22em] font-semibold" style={{ color: ch.primary ? ch.color : '#96989B' }}>{ch.label}{ch.primary ? ' — Primary' : ''}</p>
               </div>
-              <p className="text-[11px] font-semibold text-[#524D66] truncate">{ch.value ?? '—'}</p>
+              <p className="text-[11px] font-semibold text-[#3D4451] truncate">{ch.value ?? '—'}</p>
             </div>
           ))}
         </div>
@@ -968,7 +968,7 @@ function CommunicationsTab({ patient, timeline }: { patient: PatientIntelligence
           <textarea placeholder="Log a communication, note an observation, or record patient feedback…"
             value={noteInput} onChange={e => setNoteInput(e.target.value)}
             rows={3} className="w-full px-3 py-2.5 rounded-xl text-[12px] outline-none resize-none leading-relaxed"
-            style={{ backgroundColor: '#FAF7F2', border: '1px solid #EBE5FF', color: '#1A1035' }} />
+            style={{ backgroundColor: '#F8FAFF', border: '1px solid #D4E2FF', color: '#181D23' }} />
           <div className="flex items-center justify-between mt-2">
             <AnimatePresence>
               {saved && (
@@ -979,7 +979,7 @@ function CommunicationsTab({ patient, timeline }: { patient: PatientIntelligence
             </AnimatePresence>
             <button onClick={handleAddNote} disabled={!noteInput.trim() || saving || !patient.cliniko_id}
               className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[11px] font-semibold ml-auto transition-all"
-              style={{ backgroundColor: noteInput.trim() ? '#1A1035' : '#EBE5FF', color: noteInput.trim() ? '#FFFFFF' : '#8B84A0' }}>
+              style={{ backgroundColor: noteInput.trim() ? '#181D23' : '#D4E2FF', color: noteInput.trim() ? '#FFFFFF' : '#96989B' }}>
               {saving ? <Loader2 size={11} className="animate-spin" /> : <Plus size={11} />} Add Note
             </button>
           </div>
@@ -993,7 +993,7 @@ function CommunicationsTab({ patient, timeline }: { patient: PatientIntelligence
           <Panel>
             <PanelHeader title={`All Communications — ${allComms.length}`}
               action={selectedComm ? (
-                <button onClick={() => setSelectedComm(null)} className="text-[10px] text-[#8B84A0] hover:text-[#524D66] transition-colors flex items-center gap-1">
+                <button onClick={() => setSelectedComm(null)} className="text-[10px] text-[#96989B] hover:text-[#3D4451] transition-colors flex items-center gap-1">
                   <X size={10} /> Close
                 </button>
               ) : undefined} />
@@ -1007,17 +1007,17 @@ function CommunicationsTab({ patient, timeline }: { patient: PatientIntelligence
                     <motion.button key={c.id} initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.025 }}
                       onClick={() => setSelectedComm(isSelected ? null : c)}
                       className="w-full flex gap-3 px-5 py-3.5 text-left transition-all"
-                      style={{ borderBottom: i < allComms.length - 1 ? '1px solid #EBE5FF' : 'none', backgroundColor: isSelected ? c.color + '08' : 'transparent' }}>
+                      style={{ borderBottom: i < allComms.length - 1 ? '1px solid #D4E2FF' : 'none', backgroundColor: isSelected ? c.color + '08' : 'transparent' }}>
                       <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 z-10"
                         style={{ backgroundColor: c.color + '15' }}>
                         <div className="w-2 h-2 rounded-full" style={{ backgroundColor: c.color }} />
                       </div>
                       <div className="flex-1 min-w-0 pt-0.5">
-                        <p className="text-[12px] font-semibold text-[#1A1035]">{c.title}</p>
-                        {c.sub && <p className="text-[11px] text-[#6E6688] mt-0.5 line-clamp-1 leading-relaxed">{c.sub}</p>}
+                        <p className="text-[12px] font-semibold text-[#181D23]">{c.title}</p>
+                        {c.sub && <p className="text-[11px] text-[#5A6475] mt-0.5 line-clamp-1 leading-relaxed">{c.sub}</p>}
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-[9px] px-1.5 py-0.5 rounded font-semibold uppercase tracking-wide" style={{ backgroundColor: c.color + '15', color: c.color }}>{typeLabel[c.type]}</span>
-                          <span className="text-[10px] text-[#8B84A0]">{fmtDate(c.date)}</span>
+                          <span className="text-[10px] text-[#96989B]">{fmtDate(c.date)}</span>
                         </div>
                       </div>
                       <ChevronRight size={12} className="flex-shrink-0 mt-1 text-[#C4BEDE]" style={{ opacity: isSelected ? 1 : 0.4 }} />
@@ -1035,13 +1035,13 @@ function CommunicationsTab({ patient, timeline }: { patient: PatientIntelligence
             <motion.div key={selectedComm.id} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.2 }}
               className="flex-1" style={{ minWidth: 0 }}>
               <Panel>
-                <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid #EBE5FF' }}>
+                <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid #D4E2FF' }}>
                   <div>
-                    <p className="text-[12px] font-bold text-[#1A1035]">{selectedComm.title}</p>
-                    <p className="text-[10px] text-[#8B84A0] mt-0.5">{fmtDate(selectedComm.date)} · {typeLabel[selectedComm.type]}</p>
+                    <p className="text-[12px] font-bold text-[#181D23]">{selectedComm.title}</p>
+                    <p className="text-[10px] text-[#96989B] mt-0.5">{fmtDate(selectedComm.date)} · {typeLabel[selectedComm.type]}</p>
                   </div>
-                  <button onClick={() => setSelectedComm(null)} className="w-7 h-7 rounded-lg flex items-center justify-center transition-all" style={{ border: '1px solid #EBE5FF' }}>
-                    <X size={11} className="text-[#8B84A0]" />
+                  <button onClick={() => setSelectedComm(null)} className="w-7 h-7 rounded-lg flex items-center justify-center transition-all" style={{ border: '1px solid #D4E2FF' }}>
+                    <X size={11} className="text-[#96989B]" />
                   </button>
                 </div>
 
@@ -1051,13 +1051,13 @@ function CommunicationsTab({ patient, timeline }: { patient: PatientIntelligence
                       <motion.div key={i} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
                         className={`flex ${line.role === 'agent' ? 'justify-start' : 'justify-end'}`}>
                         <div className="max-w-[88%]" style={{ maxWidth: '88%' }}>
-                          <p className="text-[9px] font-semibold mb-1 px-1" style={{ color: line.role === 'agent' ? '#7C3AED' : '#8B84A0' }}>
+                          <p className="text-[9px] font-semibold mb-1 px-1" style={{ color: line.role === 'agent' ? '#0058E6' : '#96989B' }}>
                             {line.role === 'agent' ? 'Komal' : patient.first_name}
                           </p>
                           <div className="px-3.5 py-2.5 rounded-2xl text-[12px] leading-relaxed"
                             style={{
-                              backgroundColor: line.role === 'agent' ? '#F5F3FF' : '#1A1035',
-                              color: line.role === 'agent' ? '#1A1035' : '#FFFFFF',
+                              backgroundColor: line.role === 'agent' ? '#F5F3FF' : '#181D23',
+                              color: line.role === 'agent' ? '#181D23' : '#FFFFFF',
                               borderRadius: line.role === 'agent' ? '4px 18px 18px 18px' : '18px 4px 18px 18px',
                             }}>
                             {line.text}
@@ -1068,21 +1068,21 @@ function CommunicationsTab({ patient, timeline }: { patient: PatientIntelligence
                   ) : selectedComm.type === 'note' ? (
                     <div className="p-4 rounded-xl" style={{ backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE' }}>
                       <p className="text-[9px] uppercase tracking-[0.22em] text-[#0284C7] font-semibold mb-2">Staff Note</p>
-                      <p className="text-[12px] text-[#1A1035] leading-relaxed">{selectedComm.sub}</p>
-                      <p className="text-[10px] text-[#8B84A0] mt-2">{fmtDate(selectedComm.date)}</p>
+                      <p className="text-[12px] text-[#181D23] leading-relaxed">{selectedComm.sub}</p>
+                      <p className="text-[10px] text-[#96989B] mt-2">{fmtDate(selectedComm.date)}</p>
                     </div>
                   ) : (
                     <div className="p-4 rounded-xl" style={{ backgroundColor: selectedComm.color + '0D', border: `1px solid ${selectedComm.color}25` }}>
                       <p className="text-[9px] uppercase tracking-[0.22em] font-semibold mb-2" style={{ color: selectedComm.color }}>{typeLabel[selectedComm.type]}</p>
-                      <p className="text-[13px] font-bold text-[#1A1035] mb-1">{selectedComm.title}</p>
-                      {selectedComm.sub && <p className="text-[12px] text-[#6E6688] leading-relaxed">{selectedComm.sub}</p>}
-                      <p className="text-[10px] text-[#8B84A0] mt-2">{fmtDate(selectedComm.date)}</p>
+                      <p className="text-[13px] font-bold text-[#181D23] mb-1">{selectedComm.title}</p>
+                      {selectedComm.sub && <p className="text-[12px] text-[#5A6475] leading-relaxed">{selectedComm.sub}</p>}
+                      <p className="text-[10px] text-[#96989B] mt-2">{fmtDate(selectedComm.date)}</p>
                     </div>
                   )}
 
                   {selectedComm.type === 'call' && (
-                    <div className="p-3 rounded-xl text-center" style={{ backgroundColor: '#F9F7FF', border: '1px solid #EBE5FF' }}>
-                      <p className="text-[10px] text-[#8B84A0]">Live transcript will appear here once Komal is provisioned and a call is completed.</p>
+                    <div className="p-3 rounded-xl text-center" style={{ backgroundColor: '#F9F7FF', border: '1px solid #D4E2FF' }}>
+                      <p className="text-[10px] text-[#96989B]">Live transcript will appear here once Komal is provisioned and a call is completed.</p>
                     </div>
                   )}
                 </div>
@@ -1108,7 +1108,7 @@ function PaymentsTab({ patient, appointments }: { patient: PatientIntelligenceRo
   // Simulated per-treatment breakdown
   const serviceBreakdown = patient.treatment_tags.map((tag, i) => {
     const count = Math.max(1, Math.round(attended.length / (patient.treatment_tags.length || 1)));
-    return { name: tag, count, revenue: count * avgValue, color: ['#7C3AED', '#059669', '#0284C7', '#D97706', '#DC2626'][i % 5] };
+    return { name: tag, count, revenue: count * avgValue, color: ['#0058E6', '#059669', '#0284C7', '#D8A600', '#DC2626'][i % 5] };
   });
 
   const maxRevenue = Math.max(...serviceBreakdown.map(s => s.revenue), 1);
@@ -1129,20 +1129,20 @@ function PaymentsTab({ patient, appointments }: { patient: PatientIntelligenceRo
             {serviceBreakdown.map(s => (
               <div key={s.name}>
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[11px] font-semibold text-[#524D66]">{s.name}</span>
+                  <span className="text-[11px] font-semibold text-[#3D4451]">{s.name}</span>
                   <div className="flex items-center gap-3">
-                    <span className="text-[10px] text-[#8B84A0]">{s.count} sessions</span>
+                    <span className="text-[10px] text-[#96989B]">{s.count} sessions</span>
                     <span className="text-[13px] font-black" style={{ color: s.color }}>{fmtGBP(s.revenue)}</span>
                   </div>
                 </div>
-                <div className="h-[6px] rounded-full overflow-hidden" style={{ backgroundColor: '#EBE5FF' }}>
+                <div className="h-[6px] rounded-full overflow-hidden" style={{ backgroundColor: '#D4E2FF' }}>
                   <motion.div className="h-full rounded-full" initial={{ width: 0 }} animate={{ width: `${(s.revenue / maxRevenue) * 100}%` }}
                     transition={{ duration: 0.7, delay: 0.1 }} style={{ backgroundColor: s.color }} />
                 </div>
               </div>
             ))}
-            <div className="flex items-center justify-between pt-3" style={{ borderTop: '1px solid #EBE5FF' }}>
-              <span className="text-[11px] font-bold text-[#1A1035]">Total Revenue</span>
+            <div className="flex items-center justify-between pt-3" style={{ borderTop: '1px solid #D4E2FF' }}>
+              <span className="text-[11px] font-bold text-[#181D23]">Total Revenue</span>
               <span className="text-[16px] font-black text-[#059669]">{fmtGBP(totalRevenue)}</span>
             </div>
           </div>
@@ -1151,7 +1151,7 @@ function PaymentsTab({ patient, appointments }: { patient: PatientIntelligenceRo
 
       <Panel>
         <PanelHeader title="Invoice History"
-          action={<button className="flex items-center gap-1 text-[10px] text-[#8B84A0] px-2.5 py-1 rounded-lg" style={{ border: '1px solid #EBE5FF', opacity: 0.5, cursor: 'not-allowed' }}><Receipt size={10} /> New Invoice</button>} />
+          action={<button className="flex items-center gap-1 text-[10px] text-[#96989B] px-2.5 py-1 rounded-lg" style={{ border: '1px solid #D4E2FF', opacity: 0.5, cursor: 'not-allowed' }}><Receipt size={10} /> New Invoice</button>} />
         <EmptyState title="No invoices synced" sub="Invoice history will appear here once Cliniko is connected" />
       </Panel>
 
@@ -1170,9 +1170,9 @@ function PaymentsTab({ patient, appointments }: { patient: PatientIntelligenceRo
             { label: 'GoCardless Direct Debit', sub: 'Set up recurring payment', pending: true },
           ].map(a => (
             <button key={a.label} className="flex flex-col gap-0.5 px-3.5 py-3 rounded-xl text-left transition-all"
-              style={{ border: '1px solid #EBE5FF', opacity: a.pending ? 0.5 : 1, cursor: a.pending ? 'not-allowed' : 'pointer' }}>
-              <span className="text-[11px] font-semibold text-[#524D66]">{a.label}</span>
-              <span className="text-[10px] text-[#8B84A0]">{a.sub}</span>
+              style={{ border: '1px solid #D4E2FF', opacity: a.pending ? 0.5 : 1, cursor: a.pending ? 'not-allowed' : 'pointer' }}>
+              <span className="text-[11px] font-semibold text-[#3D4451]">{a.label}</span>
+              <span className="text-[10px] text-[#96989B]">{a.sub}</span>
               {a.pending && <span className="text-[8px] text-[#C4BEDE] uppercase tracking-wide font-semibold">Coming Soon</span>}
             </button>
           ))}
@@ -1202,13 +1202,13 @@ function FilesTab({ patient }: { patient: PatientIntelligenceRow }) {
           <div>
             {consentItems.map((c, i) => (
               <div key={c.treatment} className="flex items-center justify-between px-5 py-3.5"
-                style={{ borderBottom: i < consentItems.length - 1 ? '1px solid #EBE5FF' : 'none' }}>
+                style={{ borderBottom: i < consentItems.length - 1 ? '1px solid #D4E2FF' : 'none' }}>
                 <div>
-                  <p className="text-[12px] font-semibold text-[#1A1035]">{c.treatment}</p>
-                  {c.date && <p className="text-[10px] text-[#8B84A0] mt-0.5">{c.status === 'signed' ? `Signed ${fmtDateShort(c.date)}` : 'Awaiting signature'}</p>}
+                  <p className="text-[12px] font-semibold text-[#181D23]">{c.treatment}</p>
+                  {c.date && <p className="text-[10px] text-[#96989B] mt-0.5">{c.status === 'signed' ? `Signed ${fmtDateShort(c.date)}` : 'Awaiting signature'}</p>}
                 </div>
                 <span className="text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full"
-                  style={{ backgroundColor: c.status === 'signed' ? '#ECFDF5' : '#FFFBEB', color: c.status === 'signed' ? '#059669' : '#D97706' }}>
+                  style={{ backgroundColor: c.status === 'signed' ? '#ECFDF5' : '#FFFBEB', color: c.status === 'signed' ? '#059669' : '#D8A600' }}>
                   {c.status}
                 </span>
               </div>
@@ -1225,15 +1225,15 @@ function FilesTab({ patient }: { patient: PatientIntelligenceRow }) {
       ].map(s => (
         <Panel key={s.id}>
           <PanelHeader title={s.label}
-            action={<button className="flex items-center gap-1 text-[10px] text-[#8B84A0] px-2.5 py-1 rounded-lg" style={{ border: '1px solid #EBE5FF', opacity: 0.5, cursor: 'not-allowed' }}><Upload size={10} /> Upload</button>} />
+            action={<button className="flex items-center gap-1 text-[10px] text-[#96989B] px-2.5 py-1 rounded-lg" style={{ border: '1px solid #D4E2FF', opacity: 0.5, cursor: 'not-allowed' }}><Upload size={10} /> Upload</button>} />
           <div className="p-5">
-            <div className="flex flex-col items-center justify-center py-8 gap-2.5 rounded-xl" style={{ border: '1.5px dashed #EBE5FF', backgroundColor: '#FDFCFB' }}>
+            <div className="flex flex-col items-center justify-center py-8 gap-2.5 rounded-xl" style={{ border: '1.5px dashed #D4E2FF', backgroundColor: '#FDFCFB' }}>
               <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#F5F3FF' }}>
-                <FolderOpen size={14} style={{ color: '#D5CCFF' }} />
+                <FolderOpen size={14} style={{ color: '#A8C4FF' }} />
               </div>
-              <p className="text-[12px] font-semibold text-[#8B84A0]">No {s.label.toLowerCase()} yet</p>
+              <p className="text-[12px] font-semibold text-[#96989B]">No {s.label.toLowerCase()} yet</p>
               <p className="text-[10px] text-[#B0A8C8] text-center max-w-[240px]">{s.sub}</p>
-              <span className="text-[9px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wide" style={{ backgroundColor: '#F5F3FF', color: '#7C3AED', border: '1px solid #DDD6FE' }}>Coming Soon</span>
+              <span className="text-[9px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wide" style={{ backgroundColor: '#F5F3FF', color: '#0058E6', border: '1px solid #DDD6FE' }}>Coming Soon</span>
             </div>
           </div>
         </Panel>
@@ -1251,9 +1251,9 @@ function FilesTab({ patient }: { patient: PatientIntelligenceRow }) {
 function DetailRow({ label, value, mono }: { label: string; value: string | null | undefined; mono?: boolean }) {
   if (!value) return null;
   return (
-    <div className="flex items-start gap-3 py-3" style={{ borderBottom: '1px solid #EBE5FF' }}>
-      <p className="text-[10px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] w-[120px] shrink-0 pt-0.5">{label}</p>
-      <p className={`text-[12px] text-[#1A1035] font-medium leading-relaxed ${mono ? 'font-mono' : ''}`}>{value}</p>
+    <div className="flex items-start gap-3 py-3" style={{ borderBottom: '1px solid #D4E2FF' }}>
+      <p className="text-[10px] uppercase tracking-[0.22em] font-semibold text-[#96989B] w-[120px] shrink-0 pt-0.5">{label}</p>
+      <p className={`text-[12px] text-[#181D23] font-medium leading-relaxed ${mono ? 'font-mono' : ''}`}>{value}</p>
     </div>
   );
 }
@@ -1313,7 +1313,7 @@ function ClientDetailTab({ patient }: { patient: PatientIntelligenceRow }) {
         <DetailRow label="Cliniko ID"   value={patient.cliniko_id ? String(patient.cliniko_id) : null} mono />
         {!dob && !genderDisplay && !patient.occupation && (
           <div className="py-6 text-center">
-            <p className="text-[12px] text-[#8B84A0]">No personal details on file</p>
+            <p className="text-[12px] text-[#96989B]">No personal details on file</p>
             <p className="text-[10px] text-[#B0A8C8] mt-1">Synced from Cliniko — update the patient record there to populate</p>
           </div>
         )}
@@ -1328,7 +1328,7 @@ function ClientDetailTab({ patient }: { patient: PatientIntelligenceRow }) {
         ))}
         {!primaryPhone && !patient.email && (
           <div className="py-6 text-center">
-            <p className="text-[12px] text-[#8B84A0]">No contact details on file</p>
+            <p className="text-[12px] text-[#96989B]">No contact details on file</p>
           </div>
         )}
       </DetailBlock>
@@ -1339,14 +1339,14 @@ function ClientDetailTab({ patient }: { patient: PatientIntelligenceRow }) {
           <div className="py-3">
             <div className="flex items-start gap-3">
               <div className="mt-0.5 shrink-0">
-                <MapPin size={14} style={{ color: '#8B84A0' }} />
+                <MapPin size={14} style={{ color: '#96989B' }} />
               </div>
-              <pre className="text-[12px] text-[#1A1035] font-medium leading-relaxed font-sans whitespace-pre-line">{addressStr}</pre>
+              <pre className="text-[12px] text-[#181D23] font-medium leading-relaxed font-sans whitespace-pre-line">{addressStr}</pre>
             </div>
           </div>
         ) : (
           <div className="py-6 text-center">
-            <p className="text-[12px] text-[#8B84A0]">No address on file</p>
+            <p className="text-[12px] text-[#96989B]">No address on file</p>
           </div>
         )}
       </DetailBlock>
@@ -1355,12 +1355,12 @@ function ClientDetailTab({ patient }: { patient: PatientIntelligenceRow }) {
       <DetailBlock title="Emergency Contact">
         {patient.emergency_contact ? (
           <div className="py-3 flex items-start gap-3">
-            <Heart size={14} style={{ color: '#8B84A0', marginTop: 2 }} />
-            <p className="text-[12px] text-[#1A1035] font-medium leading-relaxed">{patient.emergency_contact}</p>
+            <Heart size={14} style={{ color: '#96989B', marginTop: 2 }} />
+            <p className="text-[12px] text-[#181D23] font-medium leading-relaxed">{patient.emergency_contact}</p>
           </div>
         ) : (
           <div className="py-6 text-center">
-            <p className="text-[12px] text-[#8B84A0]">No emergency contact recorded</p>
+            <p className="text-[12px] text-[#96989B]">No emergency contact recorded</p>
             <p className="text-[10px] text-[#B0A8C8] mt-1">Add via Cliniko patient record</p>
           </div>
         )}
@@ -1373,7 +1373,7 @@ function ClientDetailTab({ patient }: { patient: PatientIntelligenceRow }) {
         <DetailRow label="Lifecycle Stage" value={LC_CFG[patient.lifecycle_stage]?.label ?? patient.lifecycle_stage} />
         {!patient.referral_source && (
           <div className="py-3 pb-4 text-center">
-            <p className="text-[12px] text-[#8B84A0]">No referral source recorded</p>
+            <p className="text-[12px] text-[#96989B]">No referral source recorded</p>
           </div>
         )}
       </DetailBlock>
@@ -1382,11 +1382,11 @@ function ClientDetailTab({ patient }: { patient: PatientIntelligenceRow }) {
       <DetailBlock title="Treatment Profile">
         {patient.treatment_tags.length > 0 ? (
           <div className="py-4">
-            <p className="text-[10px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-3">Known Treatments</p>
+            <p className="text-[10px] uppercase tracking-[0.22em] font-semibold text-[#96989B] mb-3">Known Treatments</p>
             <div className="flex flex-wrap gap-2">
               {patient.treatment_tags.map(tag => (
                 <span key={tag} className="text-[11px] font-medium px-3 py-1 rounded-full"
-                  style={{ backgroundColor: '#F5F3FF', color: '#6D28D9', border: '1px solid #DDD6FE' }}>
+                  style={{ backgroundColor: '#F5F3FF', color: '#0058E6', border: '1px solid #DDD6FE' }}>
                   {tag}
                 </span>
               ))}
@@ -1394,7 +1394,7 @@ function ClientDetailTab({ patient }: { patient: PatientIntelligenceRow }) {
           </div>
         ) : (
           <div className="py-6 text-center">
-            <p className="text-[12px] text-[#8B84A0]">No treatment history recorded</p>
+            <p className="text-[12px] text-[#96989B]">No treatment history recorded</p>
           </div>
         )}
         <DetailRow label="Total Visits"   value={String(patient.total_visits)} />
@@ -1407,11 +1407,11 @@ function ClientDetailTab({ patient }: { patient: PatientIntelligenceRow }) {
       <DetailBlock title="Internal Notes">
         {patient.notes ? (
           <div className="py-3">
-            <p className="text-[12px] text-[#1A1035] leading-relaxed whitespace-pre-wrap">{patient.notes}</p>
+            <p className="text-[12px] text-[#181D23] leading-relaxed whitespace-pre-wrap">{patient.notes}</p>
           </div>
         ) : (
           <div className="py-6 text-center">
-            <p className="text-[12px] text-[#8B84A0]">No notes on file</p>
+            <p className="text-[12px] text-[#96989B]">No notes on file</p>
             <p className="text-[10px] text-[#B0A8C8] mt-1">Add notes via Cliniko or the Intelligence tab</p>
           </div>
         )}
@@ -1420,13 +1420,13 @@ function ClientDetailTab({ patient }: { patient: PatientIntelligenceRow }) {
       {/* ── RELATED CLIENTS ── */}
       <Panel>
         <PanelHeader title="Related Clients"
-          action={<span className="text-[9px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wide" style={{ backgroundColor: '#F5F3FF', color: '#7C3AED', border: '1px solid #DDD6FE' }}>Coming Soon</span>} />
+          action={<span className="text-[9px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wide" style={{ backgroundColor: '#F5F3FF', color: '#0058E6', border: '1px solid #DDD6FE' }}>Coming Soon</span>} />
         <div className="p-5">
-          <div className="flex flex-col items-center justify-center py-8 gap-2.5 rounded-xl" style={{ border: '1.5px dashed #EBE5FF', backgroundColor: '#FDFCFB' }}>
+          <div className="flex flex-col items-center justify-center py-8 gap-2.5 rounded-xl" style={{ border: '1.5px dashed #D4E2FF', backgroundColor: '#FDFCFB' }}>
             <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#F5F3FF' }}>
-              <Users size={14} style={{ color: '#D5CCFF' }} />
+              <Users size={14} style={{ color: '#A8C4FF' }} />
             </div>
-            <p className="text-[12px] font-semibold text-[#8B84A0]">No related clients linked</p>
+            <p className="text-[12px] font-semibold text-[#96989B]">No related clients linked</p>
             <p className="text-[10px] text-[#B0A8C8] text-center max-w-[260px]">Family members, corporate accounts, and referral networks will appear here once linked</p>
           </div>
         </div>
@@ -1445,7 +1445,7 @@ function ClientDetailTab({ patient }: { patient: PatientIntelligenceRow }) {
 const OUTCOME_CFG: Record<string, { label: string; color: string; bg: string; border: string }> = {
   excellent:    { label: 'Excellent',    color: '#059669', bg: '#ECFDF5', border: '#A7F3D0' },
   good:         { label: 'Good',         color: '#0284C7', bg: '#EFF6FF', border: '#BFDBFE' },
-  satisfactory: { label: 'Satisfactory', color: '#D97706', bg: '#FFFBEB', border: '#FDE68A' },
+  satisfactory: { label: 'Satisfactory', color: '#D8A600', bg: '#FFFBEB', border: '#FDE68A' },
   needs_review: { label: 'Needs Review', color: '#DC2626', bg: '#FFF1F2', border: '#FECDD3' },
 };
 
@@ -1471,23 +1471,23 @@ function AddLogModal({
 
   const field = (key: keyof AddTreatmentLogInput, label: string, type = 'text', ph = '') => (
     <div>
-      <label className="block text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-1">{label}</label>
+      <label className="block text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B] mb-1">{label}</label>
       <input type={type} placeholder={ph}
         value={(form[key] as string) ?? ''}
         onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
         className="w-full px-3 py-2 rounded-lg text-[12px] outline-none"
-        style={{ border: '1px solid #EBE5FF', background: '#FDFCFB', color: '#1A1035' }} />
+        style={{ border: '1px solid #D4E2FF', background: '#FDFCFB', color: '#181D23' }} />
     </div>
   );
 
   const area = (key: keyof AddTreatmentLogInput, label: string, rows = 3, ph = '') => (
     <div>
-      <label className="block text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-1">{label}</label>
+      <label className="block text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B] mb-1">{label}</label>
       <textarea rows={rows} placeholder={ph}
         value={(form[key] as string) ?? ''}
         onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
         className="w-full px-3 py-2 rounded-lg text-[12px] outline-none resize-none"
-        style={{ border: '1px solid #EBE5FF', background: '#FDFCFB', color: '#1A1035' }} />
+        style={{ border: '1px solid #D4E2FF', background: '#FDFCFB', color: '#181D23' }} />
     </div>
   );
 
@@ -1498,14 +1498,14 @@ function AddLogModal({
       onClick={e => e.target === e.currentTarget && onClose()}>
       <motion.div initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
         className="w-full max-w-2xl rounded-2xl overflow-hidden max-h-[90vh] flex flex-col"
-        style={{ background: '#FAF7F2', border: '1px solid #EBE5FF' }}>
-        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid #EBE5FF' }}>
+        style={{ background: '#F8FAFF', border: '1px solid #D4E2FF' }}>
+        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid #D4E2FF' }}>
           <div>
-            <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#8B84A0] mb-0.5">New Entry</p>
-            <p className="text-[16px] font-black text-[#1A1035]">Treatment Log</p>
+            <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#96989B] mb-0.5">New Entry</p>
+            <p className="text-[16px] font-black text-[#181D23]">Treatment Log</p>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ border: '1px solid #EBE5FF' }}>
-            <X size={13} className="text-[#6E6688]" />
+          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ border: '1px solid #D4E2FF' }}>
+            <X size={13} className="text-[#5A6475]" />
           </button>
         </div>
 
@@ -1522,10 +1522,10 @@ function AddLogModal({
           {area('contraindications', 'Contraindications', 2, 'Any contraindications identified or discussed')}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-1">Outcome</label>
+              <label className="block text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B] mb-1">Outcome</label>
               <select value={form.outcome ?? ''} onChange={e => setForm(f => ({ ...f, outcome: (e.target.value || null) as AddTreatmentLogInput['outcome'] }))}
                 className="w-full px-3 py-2 rounded-lg text-[12px] outline-none"
-                style={{ border: '1px solid #EBE5FF', background: '#FDFCFB', color: '#1A1035' }}>
+                style={{ border: '1px solid #D4E2FF', background: '#FDFCFB', color: '#181D23' }}>
                 <option value="">— Select outcome</option>
                 <option value="excellent">Excellent</option>
                 <option value="good">Good</option>
@@ -1534,11 +1534,11 @@ function AddLogModal({
               </select>
             </div>
             <div>
-              <label className="block text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-1">Follow-up Date</label>
+              <label className="block text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B] mb-1">Follow-up Date</label>
               <input type="date" value={form.follow_up_date ?? ''}
                 onChange={e => setForm(f => ({ ...f, follow_up_date: e.target.value || undefined, follow_up_required: !!e.target.value }))}
                 className="w-full px-3 py-2 rounded-lg text-[12px] outline-none"
-                style={{ border: '1px solid #EBE5FF', background: '#FDFCFB', color: '#1A1035' }} />
+                style={{ border: '1px solid #D4E2FF', background: '#FDFCFB', color: '#181D23' }} />
             </div>
           </div>
           {form.follow_up_date && area('follow_up_notes', 'Follow-up Notes', 2)}
@@ -1546,24 +1546,24 @@ function AddLogModal({
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={form.consent_obtained ?? false}
                 onChange={e => setForm(f => ({ ...f, consent_obtained: e.target.checked }))} className="w-4 h-4 rounded" />
-              <span className="text-[11px] text-[#524D66]">Consent obtained</span>
+              <span className="text-[11px] text-[#3D4451]">Consent obtained</span>
             </label>
             <div className="flex-1">{field('consent_form_ref', 'Consent Ref', 'text', 'CONSENT-XXXX')}</div>
           </div>
         </div>
 
-        <div className="px-6 py-3 flex items-center justify-between" style={{ borderTop: '1px solid #EBE5FF' }}>
+        <div className="px-6 py-3 flex items-center justify-between" style={{ borderTop: '1px solid #D4E2FF' }}>
           <button onClick={() => handleSave(true)} disabled={saving}
-            className="text-[11px] font-semibold text-[#8B84A0] hover:text-[#524D66] transition-colors">
+            className="text-[11px] font-semibold text-[#96989B] hover:text-[#3D4451] transition-colors">
             Save as draft
           </button>
           <div className="flex items-center gap-2">
-            <button onClick={onClose} className="px-4 py-2 rounded-lg text-[11px] font-semibold text-[#6E6688]" style={{ border: '1px solid #EBE5FF' }}>
+            <button onClick={onClose} className="px-4 py-2 rounded-lg text-[11px] font-semibold text-[#5A6475]" style={{ border: '1px solid #D4E2FF' }}>
               Cancel
             </button>
             <button onClick={() => handleSave(false)} disabled={saving || (!form.appointment_type && !form.notes)}
               className="px-5 py-2 rounded-lg text-[11px] font-bold text-white flex items-center gap-1.5 transition-opacity"
-              style={{ background: '#1A1035', opacity: saving || (!form.appointment_type && !form.notes) ? 0.45 : 1 }}>
+              style={{ background: '#181D23', opacity: saving || (!form.appointment_type && !form.notes) ? 0.45 : 1 }}>
               {saving && <Loader2 size={11} className="animate-spin" />} Save Entry
             </button>
           </div>
@@ -1581,23 +1581,23 @@ function TreatmentEntryCard({ log, index }: { log: TreatmentLog; index: number }
     <motion.div layout initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.04 }}
       className="rounded-xl overflow-hidden"
-      style={{ border: '1px solid #EBE5FF', background: expanded ? '#FFFFFF' : 'transparent' }}>
+      style={{ border: '1px solid #D4E2FF', background: expanded ? '#FFFFFF' : 'transparent' }}>
       <button onClick={() => setExpanded(v => !v)}
         className="w-full flex items-center gap-4 px-5 py-3.5 text-left hover:bg-black/[0.015] transition-colors">
         {/* Date */}
         <div className="flex-shrink-0 text-center w-12">
-          <p className="text-[20px] font-black text-[#1A1035] leading-none">{new Date(log.log_date).getDate()}</p>
-          <p className="text-[9px] font-semibold text-[#8B84A0] uppercase">
+          <p className="text-[20px] font-black text-[#181D23] leading-none">{new Date(log.log_date).getDate()}</p>
+          <p className="text-[9px] font-semibold text-[#96989B] uppercase">
             {new Date(log.log_date).toLocaleDateString('en-GB', { month: 'short', year: '2-digit' })}
           </p>
         </div>
         {/* Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[13px] font-bold text-[#1A1035]">{log.appointment_type ?? 'Treatment'}</span>
+            <span className="text-[13px] font-bold text-[#181D23]">{log.appointment_type ?? 'Treatment'}</span>
             {log.is_draft && (
               <span className="text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide"
-                style={{ backgroundColor: '#FFFBEB', color: '#D97706', border: '1px solid #FDE68A' }}>Draft</span>
+                style={{ backgroundColor: '#FFFBEB', color: '#D8A600', border: '1px solid #FDE68A' }}>Draft</span>
             )}
             {outcome && (
               <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full"
@@ -1613,16 +1613,16 @@ function TreatmentEntryCard({ log, index }: { log: TreatmentLog; index: number }
             )}
           </div>
           <div className="flex items-center gap-3 mt-0.5">
-            {log.practitioner_name && <span className="text-[10px] text-[#8B84A0]">{log.practitioner_name}</span>}
-            {log.procedures.length > 0 && <span className="text-[10px] text-[#8B84A0]">{log.procedures.length} procedure{log.procedures.length > 1 ? 's' : ''}</span>}
-            {log.products_used.length > 0 && <span className="text-[10px] text-[#8B84A0]">{log.products_used.length} product{log.products_used.length > 1 ? 's' : ''}</span>}
+            {log.practitioner_name && <span className="text-[10px] text-[#96989B]">{log.practitioner_name}</span>}
+            {log.procedures.length > 0 && <span className="text-[10px] text-[#96989B]">{log.procedures.length} procedure{log.procedures.length > 1 ? 's' : ''}</span>}
+            {log.products_used.length > 0 && <span className="text-[10px] text-[#96989B]">{log.products_used.length} product{log.products_used.length > 1 ? 's' : ''}</span>}
             {log.consent_obtained && (
               <span className="text-[9px] text-[#059669] flex items-center gap-0.5"><CheckCircle size={8} /> Consent</span>
             )}
           </div>
         </div>
         <motion.div animate={{ rotate: expanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
-          <ChevronDown size={13} className="text-[#8B84A0]" />
+          <ChevronDown size={13} className="text-[#96989B]" />
         </motion.div>
       </button>
 
@@ -1635,17 +1635,17 @@ function TreatmentEntryCard({ log, index }: { log: TreatmentLog; index: number }
               {/* Procedures */}
               {log.procedures.length > 0 && (
                 <div className="pt-4">
-                  <p className="text-[8px] uppercase tracking-[0.24em] font-semibold text-[#8B84A0] mb-2">Procedures</p>
+                  <p className="text-[8px] uppercase tracking-[0.24em] font-semibold text-[#96989B] mb-2">Procedures</p>
                   <div className="space-y-2">
                     {log.procedures.map((proc, i) => (
-                      <div key={i} className="px-3 py-2.5 rounded-lg" style={{ background: '#F9F8FF', border: '1px solid #EBE5FF' }}>
+                      <div key={i} className="px-3 py-2.5 rounded-lg" style={{ background: '#F9F8FF', border: '1px solid #D4E2FF' }}>
                         <div className="flex items-start justify-between">
-                          <span className="text-[12px] font-semibold text-[#1A1035]">{proc.name}</span>
-                          {proc.units_used != null && <span className="text-[10px] text-[#8B84A0]">{proc.units_used} units</span>}
+                          <span className="text-[12px] font-semibold text-[#181D23]">{proc.name}</span>
+                          {proc.units_used != null && <span className="text-[10px] text-[#96989B]">{proc.units_used} units</span>}
                         </div>
-                        {proc.area && <p className="text-[10px] text-[#6E6688] mt-0.5">Area: {proc.area}</p>}
-                        {proc.product && <p className="text-[10px] text-[#6E6688]">Product: {proc.product}{proc.batch ? ` · Batch ${proc.batch}` : ''}</p>}
-                        {proc.notes && <p className="text-[10px] text-[#524D66] mt-1 italic">{proc.notes}</p>}
+                        {proc.area && <p className="text-[10px] text-[#5A6475] mt-0.5">Area: {proc.area}</p>}
+                        {proc.product && <p className="text-[10px] text-[#5A6475]">Product: {proc.product}{proc.batch ? ` · Batch ${proc.batch}` : ''}</p>}
+                        {proc.notes && <p className="text-[10px] text-[#3D4451] mt-1 italic">{proc.notes}</p>}
                       </div>
                     ))}
                   </div>
@@ -1655,16 +1655,16 @@ function TreatmentEntryCard({ log, index }: { log: TreatmentLog; index: number }
               {/* Products */}
               {log.products_used.length > 0 && (
                 <div>
-                  <p className="text-[8px] uppercase tracking-[0.24em] font-semibold text-[#8B84A0] mb-2">Products Used</p>
+                  <p className="text-[8px] uppercase tracking-[0.24em] font-semibold text-[#96989B] mb-2">Products Used</p>
                   <div className="grid grid-cols-2 gap-2">
                     {log.products_used.map((prod, i) => (
                       <div key={i} className="px-3 py-2.5 rounded-lg flex items-start gap-2"
-                        style={{ background: '#F9F8FF', border: '1px solid #EBE5FF' }}>
-                        <Package size={11} className="text-[#8B84A0] mt-0.5 flex-shrink-0" />
+                        style={{ background: '#F9F8FF', border: '1px solid #D4E2FF' }}>
+                        <Package size={11} className="text-[#96989B] mt-0.5 flex-shrink-0" />
                         <div>
-                          <p className="text-[11px] font-semibold text-[#1A1035]">{prod.product}</p>
-                          <p className="text-[9px] text-[#8B84A0]">{prod.quantity}{prod.lot_number ? ` · Lot ${prod.lot_number}` : ''}</p>
-                          {prod.expiry && <p className="text-[9px] text-[#8B84A0]">Exp: {prod.expiry}</p>}
+                          <p className="text-[11px] font-semibold text-[#181D23]">{prod.product}</p>
+                          <p className="text-[9px] text-[#96989B]">{prod.quantity}{prod.lot_number ? ` · Lot ${prod.lot_number}` : ''}</p>
+                          {prod.expiry && <p className="text-[9px] text-[#96989B]">Exp: {prod.expiry}</p>}
                         </div>
                       </div>
                     ))}
@@ -1677,14 +1677,14 @@ function TreatmentEntryCard({ log, index }: { log: TreatmentLog; index: number }
                 <div className="grid grid-cols-2 gap-3">
                   {log.pre_care && (
                     <div className="px-3 py-2.5 rounded-lg" style={{ background: '#FFF8F0', border: '1px solid #FDE68A' }}>
-                      <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#D97706] mb-1.5">Pre-Care</p>
-                      <p className="text-[11px] text-[#524D66] leading-relaxed">{log.pre_care}</p>
+                      <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#D8A600] mb-1.5">Pre-Care</p>
+                      <p className="text-[11px] text-[#3D4451] leading-relaxed">{log.pre_care}</p>
                     </div>
                   )}
                   {log.post_care && (
                     <div className="px-3 py-2.5 rounded-lg" style={{ background: '#F0FDF4', border: '1px solid #A7F3D0' }}>
                       <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#059669] mb-1.5">Post-Care</p>
-                      <p className="text-[11px] text-[#524D66] leading-relaxed">{log.post_care}</p>
+                      <p className="text-[11px] text-[#3D4451] leading-relaxed">{log.post_care}</p>
                     </div>
                   )}
                 </div>
@@ -1697,7 +1697,7 @@ function TreatmentEntryCard({ log, index }: { log: TreatmentLog; index: number }
                   <AlertTriangle size={11} style={{ color: '#DC2626', marginTop: 2, flexShrink: 0 }} />
                   <div>
                     <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#DC2626] mb-0.5">Contraindications</p>
-                    <p className="text-[11px] text-[#524D66]">{log.contraindications}</p>
+                    <p className="text-[11px] text-[#3D4451]">{log.contraindications}</p>
                   </div>
                 </div>
               )}
@@ -1708,13 +1708,13 @@ function TreatmentEntryCard({ log, index }: { log: TreatmentLog; index: number }
                   <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#0284C7] mb-1 flex items-center gap-1">
                     <Calendar size={8} /> Follow-up Required{log.follow_up_date ? ` — ${new Date(log.follow_up_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}
                   </p>
-                  {log.follow_up_notes && <p className="text-[11px] text-[#524D66]">{log.follow_up_notes}</p>}
+                  {log.follow_up_notes && <p className="text-[11px] text-[#3D4451]">{log.follow_up_notes}</p>}
                 </div>
               )}
 
               {/* Notes + footer */}
               <div className="flex items-start justify-between gap-4 pt-1">
-                {log.notes && <p className="text-[11px] text-[#6E6688] italic flex-1">{log.notes}</p>}
+                {log.notes && <p className="text-[11px] text-[#5A6475] italic flex-1">{log.notes}</p>}
                 <div className="flex items-center gap-3 flex-shrink-0">
                   {log.consent_obtained && (
                     <span className="text-[9px] text-[#059669] flex items-center gap-1">
@@ -1722,7 +1722,7 @@ function TreatmentEntryCard({ log, index }: { log: TreatmentLog; index: number }
                     </span>
                   )}
                   {log.created_by_name && (
-                    <span className="text-[9px] text-[#8B84A0]">Logged by {log.created_by_name}</span>
+                    <span className="text-[9px] text-[#96989B]">Logged by {log.created_by_name}</span>
                   )}
                 </div>
               </div>
@@ -1766,8 +1766,8 @@ function TreatmentLogTab({ patient }: { patient: PatientIntelligenceRow }) {
       {/* Header stats */}
       <div className="grid grid-cols-4 gap-3">
         <StatTile label="Total Entries" value={String(stats.total)} sub="treatment records" />
-        <StatTile label="Drafts" value={String(stats.drafts)} sub="pending completion" accent={stats.drafts > 0 ? '#D97706' : '#1A1035'} />
-        <StatTile label="Follow-ups Due" value={String(stats.followUps)} sub="upcoming" accent={stats.followUps > 0 ? '#DC2626' : '#1A1035'} />
+        <StatTile label="Drafts" value={String(stats.drafts)} sub="pending completion" accent={stats.drafts > 0 ? '#D8A600' : '#181D23'} />
+        <StatTile label="Follow-ups Due" value={String(stats.followUps)} sub="upcoming" accent={stats.followUps > 0 ? '#DC2626' : '#181D23'} />
         <StatTile label="Consent Rate" value={stats.total > 0 ? `${Math.round((stats.withConsent / stats.total) * 100)}%` : '—'} sub="of all entries" accent="#059669" />
       </div>
 
@@ -1781,14 +1781,14 @@ function TreatmentLogTab({ patient }: { patient: PatientIntelligenceRow }) {
                   <button key={v} onClick={() => setFilter(v)}
                     className="px-2.5 py-1 rounded-lg text-[9px] font-semibold transition-all"
                     style={filter === v
-                      ? { backgroundColor: '#1A1035', color: '#FFFFFF', border: '1px solid #1A1035' }
-                      : { backgroundColor: 'transparent', color: '#8B84A0', border: '1px solid #EBE5FF' }
+                      ? { backgroundColor: '#181D23', color: '#FFFFFF', border: '1px solid #181D23' }
+                      : { backgroundColor: 'transparent', color: '#96989B', border: '1px solid #D4E2FF' }
                     }>{l}</button>
                 ))}
               </div>
               <button onClick={() => setShowAdd(true)}
                 className="flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 rounded-lg transition-all"
-                style={{ backgroundColor: '#1A1035', color: '#FFFFFF', border: '1px solid #1A1035' }}>
+                style={{ backgroundColor: '#181D23', color: '#FFFFFF', border: '1px solid #181D23' }}>
                 <Plus size={10} /> New Entry
               </button>
             </div>
@@ -1796,17 +1796,17 @@ function TreatmentLogTab({ patient }: { patient: PatientIntelligenceRow }) {
         />
         {loading ? (
           <div className="flex items-center gap-2 justify-center py-12">
-            <Loader2 size={14} className="animate-spin text-[#8B84A0]" />
-            <span className="text-[11px] text-[#8B84A0]">Loading records…</span>
+            <Loader2 size={14} className="animate-spin text-[#96989B]" />
+            <span className="text-[11px] text-[#96989B]">Loading records…</span>
           </div>
         ) : displayed.length === 0 ? (
           <div className="p-5">
             <div className="flex flex-col items-center justify-center py-10 gap-3 rounded-xl"
-              style={{ border: '1.5px dashed #EBE5FF', backgroundColor: '#FDFCFB' }}>
+              style={{ border: '1.5px dashed #D4E2FF', backgroundColor: '#FDFCFB' }}>
               <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: '#F5F3FF' }}>
-                <ClipboardList size={16} style={{ color: '#7C3AED' }} />
+                <ClipboardList size={16} style={{ color: '#0058E6' }} />
               </div>
-              <p className="text-[12px] font-semibold text-[#8B84A0]">
+              <p className="text-[12px] font-semibold text-[#96989B]">
                 {filter === 'all' ? 'No treatment entries yet' : filter === 'draft' ? 'No draft entries' : 'No follow-ups due'}
               </p>
               {filter === 'all' && (
@@ -1817,7 +1817,7 @@ function TreatmentLogTab({ patient }: { patient: PatientIntelligenceRow }) {
               {filter === 'all' && (
                 <button onClick={() => setShowAdd(true)}
                   className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold text-white"
-                  style={{ background: '#7C3AED' }}>
+                  style={{ background: '#0058E6' }}>
                   <Plus size={10} /> Add First Entry
                 </button>
               )}
@@ -1833,10 +1833,10 @@ function TreatmentLogTab({ patient }: { patient: PatientIntelligenceRow }) {
       {/* Linked appointments guide */}
       <Panel>
         <PanelHeader title="Cliniko Appointments Snapshot"
-          action={<span className="text-[9px] text-[#8B84A0]">from sync</span>}
+          action={<span className="text-[9px] text-[#96989B]">from sync</span>}
         />
         <div className="px-5 py-3">
-          <p className="text-[11px] text-[#6E6688] leading-relaxed">
+          <p className="text-[11px] text-[#5A6475] leading-relaxed">
             Treatment log entries complement Cliniko appointment records. Each entry captures the clinical detail — procedures performed, products used, pre/post care, and outcomes — creating a comprehensive patient DNA beyond what Cliniko stores.
           </p>
         </div>
@@ -1857,17 +1857,17 @@ function TreatmentLogTab({ patient }: { patient: PatientIntelligenceRow }) {
 // =============================================================================
 
 const PLAN_STATUS_CFG: Record<string, { label: string; color: string; bg: string; border: string }> = {
-  draft:     { label: 'Draft',     color: '#8B84A0', bg: '#F9FAFB',  border: '#E5E7EB' },
+  draft:     { label: 'Draft',     color: '#96989B', bg: '#F9FAFB',  border: '#E5E7EB' },
   active:    { label: 'Active',    color: '#059669', bg: '#ECFDF5',  border: '#A7F3D0' },
-  on_hold:   { label: 'On Hold',   color: '#D97706', bg: '#FFFBEB',  border: '#FDE68A' },
+  on_hold:   { label: 'On Hold',   color: '#D8A600', bg: '#FFFBEB',  border: '#FDE68A' },
   completed: { label: 'Completed', color: '#0284C7', bg: '#EFF6FF',  border: '#BFDBFE' },
   cancelled: { label: 'Cancelled', color: '#DC2626', bg: '#FFF1F2',  border: '#FECDD3' },
 };
 
 const PHASE_STATUS_CFG: Record<string, { label: string; color: string; bg: string; border: string }> = {
-  upcoming:  { label: 'Upcoming',  color: '#8B84A0', bg: '#F9F8FF', border: '#EBE5FF' },
+  upcoming:  { label: 'Upcoming',  color: '#96989B', bg: '#F9F8FF', border: '#D4E2FF' },
   active:    { label: 'Active',    color: '#059669', bg: '#ECFDF5', border: '#A7F3D0' },
-  completed: { label: 'Completed', color: '#D97706', bg: '#FFFBEB', border: '#FDE68A' },
+  completed: { label: 'Completed', color: '#D8A600', bg: '#FFFBEB', border: '#FDE68A' },
 };
 
 function PlanPhaseCard({ phase, index }: { phase: PlanPhase; index: number }) {
@@ -1880,7 +1880,7 @@ function PlanPhaseCard({ phase, index }: { phase: PlanPhase; index: number }) {
   return (
     <div className="relative">
       {index > 0 && (
-        <div className="absolute left-[19px] -top-3 w-[2px] h-3" style={{ background: 'linear-gradient(180deg, transparent, #EBE5FF)' }} />
+        <div className="absolute left-[19px] -top-3 w-[2px] h-3" style={{ background: 'linear-gradient(180deg, transparent, #D4E2FF)' }} />
       )}
       <div className="rounded-xl overflow-hidden" style={{ border: `1px solid ${cfg.border}`, background: phase.status === 'active' ? '#FFFFFF' : 'transparent' }}>
         <button onClick={() => setExpanded(v => !v)}
@@ -1891,23 +1891,23 @@ function PlanPhaseCard({ phase, index }: { phase: PlanPhase; index: number }) {
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[13px] font-bold text-[#1A1035]">{phase.title}</span>
+              <span className="text-[13px] font-bold text-[#181D23]">{phase.title}</span>
               <span className="text-[8px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wide"
                 style={{ backgroundColor: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}>{cfg.label}</span>
-              {phase.duration_weeks && <span className="text-[9px] text-[#8B84A0]">{phase.duration_weeks}w</span>}
+              {phase.duration_weeks && <span className="text-[9px] text-[#96989B]">{phase.duration_weeks}w</span>}
             </div>
-            {phase.description && <p className="text-[10px] text-[#6E6688] mt-0.5 truncate">{phase.description}</p>}
+            {phase.description && <p className="text-[10px] text-[#5A6475] mt-0.5 truncate">{phase.description}</p>}
           </div>
           {totalSessions > 0 && (
             <div className="flex-shrink-0 w-20 text-right">
-              <p className="text-[9px] text-[#8B84A0] mb-1">{completedSessions}/{totalSessions} sessions</p>
-              <div className="h-[3px] rounded-full overflow-hidden" style={{ backgroundColor: '#EBE5FF' }}>
+              <p className="text-[9px] text-[#96989B] mb-1">{completedSessions}/{totalSessions} sessions</p>
+              <div className="h-[3px] rounded-full overflow-hidden" style={{ backgroundColor: '#D4E2FF' }}>
                 <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: cfg.color }} />
               </div>
             </div>
           )}
           <motion.div animate={{ rotate: expanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
-            <ChevronDown size={13} className="text-[#8B84A0]" />
+            <ChevronDown size={13} className="text-[#96989B]" />
           </motion.div>
         </button>
 
@@ -1917,38 +1917,38 @@ function PlanPhaseCard({ phase, index }: { phase: PlanPhase; index: number }) {
               exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
               <div className="px-5 pb-5 space-y-3" style={{ borderTop: '1px solid #F3F0FC' }}>
                 {phase.goals && (
-                  <div className="mt-4 px-3 py-2.5 rounded-lg" style={{ background: '#F8F7FD', border: '1px solid #EBE5FF' }}>
-                    <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#6D28D9] mb-1 flex items-center gap-1">
+                  <div className="mt-4 px-3 py-2.5 rounded-lg" style={{ background: '#F8F7FD', border: '1px solid #D4E2FF' }}>
+                    <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#0058E6] mb-1 flex items-center gap-1">
                       <Target size={9} /> Phase Goals
                     </p>
-                    <p className="text-[11px] text-[#524D66]">{phase.goals}</p>
+                    <p className="text-[11px] text-[#3D4451]">{phase.goals}</p>
                   </div>
                 )}
                 {phase.treatments.length > 0 && (
                   <div>
-                    <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-2">Treatments</p>
+                    <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B] mb-2">Treatments</p>
                     <div className="space-y-2">
                       {phase.treatments.map((t, i) => {
                         const done = t.sessions_completed >= t.sessions_planned;
                         const tPct = t.sessions_planned > 0 ? (t.sessions_completed / t.sessions_planned) * 100 : 0;
                         return (
                           <div key={i} className="px-3 py-2.5 rounded-lg flex items-start gap-3"
-                            style={{ background: '#FDFCFB', border: '1px solid #EBE5FF' }}>
+                            style={{ background: '#FDFCFB', border: '1px solid #D4E2FF' }}>
                             {done
                               ? <CheckSquare size={13} style={{ color: '#059669', marginTop: 2, flexShrink: 0 }} />
                               : <Circle size={13} className="text-[#C4BFD6] mt-0.5 flex-shrink-0" />
                             }
                             <div className="flex-1 min-w-0">
-                              <p className="text-[12px] font-semibold text-[#1A1035]">{t.name}</p>
+                              <p className="text-[12px] font-semibold text-[#181D23]">{t.name}</p>
                               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                <span className="text-[10px] text-[#8B84A0]">{t.frequency}</span>
-                                {t.product && <span className="text-[10px] text-[#8B84A0]">· {t.product}</span>}
+                                <span className="text-[10px] text-[#96989B]">{t.frequency}</span>
+                                {t.product && <span className="text-[10px] text-[#96989B]">· {t.product}</span>}
                               </div>
                               <div className="flex items-center gap-2 mt-1.5">
-                                <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: '#EBE5FF' }}>
-                                  <div className="h-full rounded-full" style={{ width: `${tPct}%`, backgroundColor: done ? '#059669' : '#6D28D9' }} />
+                                <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: '#D4E2FF' }}>
+                                  <div className="h-full rounded-full" style={{ width: `${tPct}%`, backgroundColor: done ? '#059669' : '#0058E6' }} />
                                 </div>
-                                <span className="text-[9px] text-[#8B84A0]">{t.sessions_completed}/{t.sessions_planned}</span>
+                                <span className="text-[9px] text-[#96989B]">{t.sessions_completed}/{t.sessions_planned}</span>
                               </div>
                             </div>
                           </div>
@@ -1958,7 +1958,7 @@ function PlanPhaseCard({ phase, index }: { phase: PlanPhase; index: number }) {
                   </div>
                 )}
                 {phase.start_date && (
-                  <p className="text-[9px] text-[#8B84A0]">
+                  <p className="text-[9px] text-[#96989B]">
                     Started {new Date(phase.start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                   </p>
                 )}
@@ -1982,8 +1982,8 @@ function PatientPlanTab({ patient }: { patient: PatientIntelligenceRow }) {
 
   if (loading) return (
     <div className="flex items-center gap-2 justify-center py-20">
-      <Loader2 size={14} className="animate-spin text-[#8B84A0]" />
-      <span className="text-[11px] text-[#8B84A0]">Loading plan…</span>
+      <Loader2 size={14} className="animate-spin text-[#96989B]" />
+      <span className="text-[11px] text-[#96989B]">Loading plan…</span>
     </div>
   );
 
@@ -1992,16 +1992,16 @@ function PatientPlanTab({ patient }: { patient: PatientIntelligenceRow }) {
       <Panel>
         <div className="p-6 flex flex-col items-center gap-4">
           <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ backgroundColor: '#FFF7ED', border: '1px solid #FED7AA' }}>
-            <Target size={20} style={{ color: '#D97706' }} />
+            <Target size={20} style={{ color: '#D8A600' }} />
           </div>
           <div className="text-center">
-            <p className="text-[14px] font-bold text-[#1A1035]">No treatment plan yet</p>
-            <p className="text-[11px] text-[#8B84A0] mt-1 max-w-xs">
+            <p className="text-[14px] font-bold text-[#181D23]">No treatment plan yet</p>
+            <p className="text-[11px] text-[#96989B] mt-1 max-w-xs">
               Build a structured, phased treatment plan — set goals, define treatments, track progress across sessions, and guide this patient&apos;s journey.
             </p>
           </div>
           <button className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-bold text-white"
-            style={{ background: '#D97706', opacity: 0.6, cursor: 'not-allowed' }}>
+            style={{ background: '#D8A600', opacity: 0.6, cursor: 'not-allowed' }}>
             <Plus size={11} /> Create Treatment Plan <span className="text-[9px] opacity-70 ml-1">(coming soon)</span>
           </button>
         </div>
@@ -2018,11 +2018,11 @@ function PatientPlanTab({ patient }: { patient: PatientIntelligenceRow }) {
           ].map(({ icon: Icon, label, desc }) => (
             <div key={label} className="flex items-start gap-3">
               <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#F5F3FF' }}>
-                <Icon size={12} style={{ color: '#7C3AED' }} />
+                <Icon size={12} style={{ color: '#0058E6' }} />
               </div>
               <div>
-                <p className="text-[12px] font-semibold text-[#1A1035]">{label}</p>
-                <p className="text-[10px] text-[#8B84A0] mt-0.5">{desc.replace(/&apos;/g, "'")}</p>
+                <p className="text-[12px] font-semibold text-[#181D23]">{label}</p>
+                <p className="text-[10px] text-[#96989B] mt-0.5">{desc.replace(/&apos;/g, "'")}</p>
               </div>
             </div>
           ))}
@@ -2046,28 +2046,28 @@ function PatientPlanTab({ patient }: { patient: PatientIntelligenceRow }) {
           <div className="flex items-start justify-between gap-4 mb-4">
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-[8px] uppercase tracking-[0.24em] font-semibold text-[#8B84A0]">Treatment Plan</span>
+                <span className="text-[8px] uppercase tracking-[0.24em] font-semibold text-[#96989B]">Treatment Plan</span>
                 <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide"
                   style={{ backgroundColor: planCfg.bg, color: planCfg.color, border: `1px solid ${planCfg.border}` }}>
                   {planCfg.label}
                 </span>
               </div>
-              <h3 className="text-[18px] font-black text-[#1A1035]">{plan.title}</h3>
-              {plan.description && <p className="text-[11px] text-[#6E6688] mt-1 leading-relaxed max-w-lg">{plan.description}</p>}
+              <h3 className="text-[18px] font-black text-[#181D23]">{plan.title}</h3>
+              {plan.description && <p className="text-[11px] text-[#5A6475] mt-1 leading-relaxed max-w-lg">{plan.description}</p>}
             </div>
-            <button className="flex items-center gap-1 text-[10px] text-[#8B84A0] px-2.5 py-1.5 rounded-lg flex-shrink-0"
-              style={{ border: '1px solid #EBE5FF', opacity: 0.6, cursor: 'not-allowed' }}>
+            <button className="flex items-center gap-1 text-[10px] text-[#96989B] px-2.5 py-1.5 rounded-lg flex-shrink-0"
+              style={{ border: '1px solid #D4E2FF', opacity: 0.6, cursor: 'not-allowed' }}>
               <Edit3 size={10} /> Edit
             </button>
           </div>
 
           {/* Plan goals */}
           {plan.goals && (
-            <div className="px-3 py-2.5 rounded-lg mb-4" style={{ background: '#F8F7FD', border: '1px solid #EBE5FF' }}>
-              <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#6D28D9] mb-1 flex items-center gap-1">
+            <div className="px-3 py-2.5 rounded-lg mb-4" style={{ background: '#F8F7FD', border: '1px solid #D4E2FF' }}>
+              <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#0058E6] mb-1 flex items-center gap-1">
                 <Target size={9} /> Plan Goals
               </p>
-              <p className="text-[11px] text-[#524D66] leading-relaxed">{plan.goals}</p>
+              <p className="text-[11px] text-[#3D4451] leading-relaxed">{plan.goals}</p>
             </div>
           )}
 
@@ -2078,9 +2078,9 @@ function PatientPlanTab({ patient }: { patient: PatientIntelligenceRow }) {
               { label: 'Target End', value: fmtD(plan.target_end_date) },
               { label: 'Next Review', value: fmtD(plan.review_date) },
             ].map(({ label, value }) => (
-              <div key={label} className="p-3 rounded-xl text-center" style={{ backgroundColor: '#FDFCFB', border: '1px solid #EBE5FF' }}>
-                <p className="text-[8px] uppercase tracking-[0.20em] text-[#8B84A0] mb-0.5">{label}</p>
-                <p className="text-[12px] font-bold text-[#1A1035]">{value}</p>
+              <div key={label} className="p-3 rounded-xl text-center" style={{ backgroundColor: '#FDFCFB', border: '1px solid #D4E2FF' }}>
+                <p className="text-[8px] uppercase tracking-[0.20em] text-[#96989B] mb-0.5">{label}</p>
+                <p className="text-[12px] font-bold text-[#181D23]">{value}</p>
               </div>
             ))}
           </div>
@@ -2088,10 +2088,10 @@ function PatientPlanTab({ patient }: { patient: PatientIntelligenceRow }) {
           {totalSessions > 0 && (
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0]">Overall Progress</p>
-                <p className="text-[10px] font-bold text-[#1A1035]">{overallPct}% · {doneSessions}/{totalSessions} sessions</p>
+                <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B]">Overall Progress</p>
+                <p className="text-[10px] font-bold text-[#181D23]">{overallPct}% · {doneSessions}/{totalSessions} sessions</p>
               </div>
-              <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: '#EBE5FF' }}>
+              <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: '#D4E2FF' }}>
                 <motion.div initial={{ width: 0 }} animate={{ width: `${overallPct}%` }}
                   transition={{ duration: 1.2, ease: 'easeOut' }}
                   className="h-full rounded-full" style={{ backgroundColor: '#059669' }} />
@@ -2117,9 +2117,9 @@ function PatientPlanTab({ patient }: { patient: PatientIntelligenceRow }) {
           <PanelHeader title="Practitioner Notes" />
           <div className="px-5 py-4">
             <div className="px-3 py-2.5 rounded-lg" style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}>
-              <p className="text-[11px] text-[#524D66] leading-relaxed">{plan.practitioner_notes}</p>
+              <p className="text-[11px] text-[#3D4451] leading-relaxed">{plan.practitioner_notes}</p>
               {plan.last_modified_by_name && (
-                <p className="text-[9px] text-[#8B84A0] mt-2">Last updated by {plan.last_modified_by_name} · {fmtD(plan.updated_at)}</p>
+                <p className="text-[9px] text-[#96989B] mt-2">Last updated by {plan.last_modified_by_name} · {fmtD(plan.updated_at)}</p>
               )}
             </div>
           </div>
@@ -2138,7 +2138,7 @@ function IntelligenceTab({ patient, onGenerateReport, onChatWithAgent }: {
 }) {
   const isLeadOrNew = patient.lifecycle_stage === 'lead' || patient.lifecycle_stage === 'new';
   const agentName = isLeadOrNew ? 'Orion' : 'Aria';
-  const agentColor = isLeadOrNew ? '#D97706' : '#0D9488';
+  const agentColor = isLeadOrNew ? '#D8A600' : '#00A693';
   const lc = LC_CFG[patient.lifecycle_stage];
 
   const factors = [
@@ -2150,7 +2150,7 @@ function IntelligenceTab({ patient, onGenerateReport, onChatWithAgent }: {
   // Sentiment (simulated)
   const sentimentScore = patient.lifecycle_stage === 'loyal' ? 88 : patient.lifecycle_stage === 'active' ? 72 : patient.lifecycle_stage === 'at_risk' ? 38 : patient.lifecycle_stage === 'lapsed' ? 25 : 60;
   const sentimentLabel = sentimentScore >= 70 ? 'Positive' : sentimentScore >= 45 ? 'Neutral' : 'Concerning';
-  const sentimentColor = sentimentScore >= 70 ? '#059669' : sentimentScore >= 45 ? '#D97706' : '#DC2626';
+  const sentimentColor = sentimentScore >= 70 ? '#059669' : sentimentScore >= 45 ? '#D8A600' : '#DC2626';
 
   // Annual plan (based on treatment tags)
   const annualPlan = patient.treatment_tags.slice(0, 4).map((t, i) => ({
@@ -2169,8 +2169,8 @@ function IntelligenceTab({ patient, onGenerateReport, onChatWithAgent }: {
               <Brain size={18} style={{ color: agentColor }} />
             </div>
             <div className="flex-1">
-              <p className="text-[13px] font-black text-[#1A1035]">Chat with {agentName}</p>
-              <p className="text-[11px] text-[#6E6688] mt-0.5 leading-relaxed">
+              <p className="text-[13px] font-black text-[#181D23]">Chat with {agentName}</p>
+              <p className="text-[11px] text-[#5A6475] mt-0.5 leading-relaxed">
                 {isLeadOrNew ? `${agentName} specialises in patient acquisition. Ask about this lead, objection handling, or booking strategy.` : `${agentName} specialises in patient retention. Ask about rebooking, engagement, or relationship strategy.`}
               </p>
             </div>
@@ -2194,13 +2194,13 @@ function IntelligenceTab({ patient, onGenerateReport, onChatWithAgent }: {
             </div>
             <div className="flex-1">
               <p className="text-[18px] font-black" style={{ color: sentimentColor }}>{sentimentLabel}</p>
-              <p className="text-[11px] text-[#6E6688] mt-1 leading-relaxed">
+              <p className="text-[11px] text-[#5A6475] mt-1 leading-relaxed">
                 Derived from call transcripts, note tone, and engagement patterns. Sentiment is {sentimentLabel.toLowerCase()} — {sentimentScore >= 70 ? 'patient shows strong positive indicators.' : sentimentScore >= 45 ? 'monitor for changes in communication tone.' : 'proactive engagement recommended to address underlying concerns.'}
               </p>
             </div>
           </div>
-          <div className="p-3 rounded-xl text-center" style={{ backgroundColor: '#F9F7FF', border: '1px solid #EBE5FF' }}>
-            <p className="text-[10px] text-[#8B84A0]">Live sentiment analysis will use Komal call transcripts once voice is active.</p>
+          <div className="p-3 rounded-xl text-center" style={{ backgroundColor: '#F9F7FF', border: '1px solid #D4E2FF' }}>
+            <p className="text-[10px] text-[#96989B]">Live sentiment analysis will use Komal call transcripts once voice is active.</p>
           </div>
         </div>
       </Panel>
@@ -2210,14 +2210,14 @@ function IntelligenceTab({ patient, onGenerateReport, onChatWithAgent }: {
         <PanelHeader title="Engagement Score Breakdown" />
         <div className="p-5 space-y-4">
           {factors.map(f => {
-            const c = f.score >= 70 ? '#059669' : f.score >= 40 ? '#D97706' : '#DC2626';
+            const c = f.score >= 70 ? '#059669' : f.score >= 40 ? '#D8A600' : '#DC2626';
             return (
               <div key={f.label}>
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[11px] font-semibold text-[#524D66]">{f.label}</span>
+                  <span className="text-[11px] font-semibold text-[#3D4451]">{f.label}</span>
                   <span className="text-[14px] font-black" style={{ color: c }}>{f.score}</span>
                 </div>
-                <div className="h-[4px] rounded-full overflow-hidden" style={{ backgroundColor: '#EBE5FF' }}>
+                <div className="h-[4px] rounded-full overflow-hidden" style={{ backgroundColor: '#D4E2FF' }}>
                   <motion.div className="h-full rounded-full" initial={{ width: 0 }} animate={{ width: `${f.score}%` }} transition={{ duration: 0.8, delay: 0.1 }} style={{ backgroundColor: c }} />
                 </div>
               </div>
@@ -2233,10 +2233,10 @@ function IntelligenceTab({ patient, onGenerateReport, onChatWithAgent }: {
           <div>
             {annualPlan.map((item, i) => (
               <div key={item.treatment} className="flex items-center justify-between px-5 py-3.5"
-                style={{ borderBottom: i < annualPlan.length - 1 ? '1px solid #EBE5FF' : 'none' }}>
+                style={{ borderBottom: i < annualPlan.length - 1 ? '1px solid #D4E2FF' : 'none' }}>
                 <div>
-                  <p className="text-[12px] font-semibold text-[#1A1035]">{item.treatment}</p>
-                  <p className="text-[10px] text-[#8B84A0] mt-0.5">{item.frequency}</p>
+                  <p className="text-[12px] font-semibold text-[#181D23]">{item.treatment}</p>
+                  <p className="text-[10px] text-[#96989B] mt-0.5">{item.frequency}</p>
                 </div>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
                   style={{ backgroundColor: item.nextDue === 'Overdue' ? '#FFF1F2' : '#EFF6FF', color: item.nextDue === 'Overdue' ? '#DC2626' : '#0284C7' }}>
@@ -2245,8 +2245,8 @@ function IntelligenceTab({ patient, onGenerateReport, onChatWithAgent }: {
               </div>
             ))}
           </div>
-          <div className="px-5 py-3" style={{ borderTop: '1px solid #EBE5FF' }}>
-            <p className="text-[10px] text-[#8B84A0]">Treatment plan generated from historical appointment data. Review with practitioner for accuracy.</p>
+          <div className="px-5 py-3" style={{ borderTop: '1px solid #D4E2FF' }}>
+            <p className="text-[10px] text-[#96989B]">Treatment plan generated from historical appointment data. Review with practitioner for accuracy.</p>
           </div>
         </Panel>
       )}
@@ -2254,7 +2254,7 @@ function IntelligenceTab({ patient, onGenerateReport, onChatWithAgent }: {
       {/* Post-Treatment Follow-up Log */}
       <Panel>
         <PanelHeader title="Post-Treatment Follow-up Log"
-          action={<button className="flex items-center gap-1 text-[10px] text-[#8B84A0] px-2.5 py-1 rounded-lg transition-all" style={{ border: '1px solid #EBE5FF' }}><Plus size={10} /> Log</button>} />
+          action={<button className="flex items-center gap-1 text-[10px] text-[#96989B] px-2.5 py-1 rounded-lg transition-all" style={{ border: '1px solid #D4E2FF' }}><Plus size={10} /> Log</button>} />
         <EmptyState title="No follow-up records" sub="Post-treatment calls, SMS check-ins, and reviews will be logged here automatically" />
       </Panel>
 
@@ -2262,12 +2262,12 @@ function IntelligenceTab({ patient, onGenerateReport, onChatWithAgent }: {
       <Panel>
         <PanelHeader title="AI Patient Report" />
         <div className="p-5">
-          <p className="text-[11px] text-[#6E6688] mb-4 leading-relaxed">
+          <p className="text-[11px] text-[#5A6475] mb-4 leading-relaxed">
             Generate a comprehensive patient relationship report — lifecycle analysis, engagement drivers, retention risk, and recommended next actions.
           </p>
           <button onClick={onGenerateReport}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12px] font-semibold transition-all"
-            style={{ backgroundColor: '#1A1035', color: '#FFFFFF' }}
+            style={{ backgroundColor: '#181D23', color: '#FFFFFF' }}
             onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')} onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
             <Sparkles size={13} /> Generate Patient Report
           </button>
@@ -2290,13 +2290,13 @@ function SignalsMini({ patient }: { patient: PatientIntelligenceRow }) {
       <PanelHeader title="Linked Signals" badge={signals.filter(s => s.status === 'new').length} />
       <div>
         {signals.map((s, i) => {
-          const col = PRIO_COLOR[s.priority] ?? '#8B84A0';
+          const col = PRIO_COLOR[s.priority] ?? '#96989B';
           return (
-            <div key={s.id} className="flex items-start gap-3 px-5 py-3" style={{ borderBottom: i < signals.length - 1 ? '1px solid #EBE5FF' : 'none' }}>
+            <div key={s.id} className="flex items-start gap-3 px-5 py-3" style={{ borderBottom: i < signals.length - 1 ? '1px solid #D4E2FF' : 'none' }}>
               <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-2" style={{ backgroundColor: col }} />
               <div className="flex-1 min-w-0">
-                <p className="text-[11px] font-semibold text-[#1A1035] truncate">{s.title}</p>
-                <p className="text-[10px] text-[#8B84A0] mt-0.5">{s.category ?? s.source_type} · {fmtTime(s.created_at)}</p>
+                <p className="text-[11px] font-semibold text-[#181D23] truncate">{s.title}</p>
+                <p className="text-[10px] text-[#96989B] mt-0.5">{s.category ?? s.source_type} · {fmtTime(s.created_at)}</p>
               </div>
               <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded flex-shrink-0" style={{ color: col, backgroundColor: col + '15' }}>{s.priority}</span>
             </div>
@@ -2318,13 +2318,13 @@ function ContextSidebar({ patient, onChatWithAgent, onAddNote }: {
   const nba = patient.next_best_action;
   const isLeadOrNew = patient.lifecycle_stage === 'lead' || patient.lifecycle_stage === 'new';
   const agentName = isLeadOrNew ? 'Orion' : 'Aria';
-  const agentColor = isLeadOrNew ? '#D97706' : '#0D9488';
+  const agentColor = isLeadOrNew ? '#D8A600' : '#00A693';
 
   // Smart Rebooking Window
   const rebookDays = patient.lifecycle_stage === 'loyal' ? 90 : patient.lifecycle_stage === 'active' ? 120 : patient.lifecycle_stage === 'at_risk' ? 14 : 30;
   const daysSince = patient.days_since_last_visit ?? 0;
   const rebookStatus = daysSince >= rebookDays ? 'Due Now' : daysSince >= rebookDays * 0.75 ? 'Due Soon' : 'Not Yet';
-  const rebookColor = rebookStatus === 'Due Now' ? '#DC2626' : rebookStatus === 'Due Soon' ? '#D97706' : '#059669';
+  const rebookColor = rebookStatus === 'Due Now' ? '#DC2626' : rebookStatus === 'Due Soon' ? '#D8A600' : '#059669';
 
   return (
     <div className="space-y-4">
@@ -2338,7 +2338,7 @@ function ContextSidebar({ patient, onChatWithAgent, onAddNote }: {
               {agentName} — {isLeadOrNew ? 'Acquisition' : 'Retention'}
             </p>
           </div>
-          <p className="text-[11px] text-[#6E6688] leading-relaxed mb-3">
+          <p className="text-[11px] text-[#5A6475] leading-relaxed mb-3">
             {isLeadOrNew ? `Chat with Orion about ${patient.first_name}'s acquisition journey.` : `Chat with Aria about ${patient.first_name}'s retention and engagement.`}
           </p>
           <button onClick={onChatWithAgent}
@@ -2357,19 +2357,19 @@ function ContextSidebar({ patient, onChatWithAgent, onAddNote }: {
           <div className="flex items-center justify-between mb-3">
             <div>
               <p className="text-[18px] font-black" style={{ color: rebookColor }}>{rebookStatus}</p>
-              <p className="text-[10px] text-[#8B84A0] mt-0.5">Target: every {rebookDays} days</p>
+              <p className="text-[10px] text-[#96989B] mt-0.5">Target: every {rebookDays} days</p>
             </div>
             <div className="text-right">
-              <p className="text-[22px] font-black text-[#1A1035]">{daysSince}<span className="text-[12px] font-medium text-[#8B84A0]">d</span></p>
-              <p className="text-[9px] text-[#8B84A0]">since last visit</p>
+              <p className="text-[22px] font-black text-[#181D23]">{daysSince}<span className="text-[12px] font-medium text-[#96989B]">d</span></p>
+              <p className="text-[9px] text-[#96989B]">since last visit</p>
             </div>
           </div>
-          <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: '#EBE5FF' }}>
+          <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: '#D4E2FF' }}>
             <motion.div className="h-full rounded-full" initial={{ width: 0 }}
               animate={{ width: `${Math.min(100, (daysSince / rebookDays) * 100)}%` }}
               transition={{ duration: 0.8 }} style={{ backgroundColor: rebookColor }} />
           </div>
-          <p className="text-[10px] text-[#8B84A0] mt-2">
+          <p className="text-[10px] text-[#96989B] mt-2">
             {rebookStatus === 'Due Now' ? 'Rebooking overdue — contact recommended.' : rebookStatus === 'Due Soon' ? `${Math.max(0, rebookDays - daysSince)} days until rebooking window opens.` : `${rebookDays - daysSince} days remaining.`}
           </p>
         </div>
@@ -2384,12 +2384,12 @@ function ContextSidebar({ patient, onChatWithAgent, onAddNote }: {
               <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5" style={{ backgroundColor: PRIO_COLOR[nba.urgency] }} />
               <div>
                 <p className="text-[8px] uppercase tracking-[0.20em] font-semibold mb-0.5" style={{ color: PRIO_COLOR[nba.urgency] }}>{nba.urgency} urgency</p>
-                <p className="text-[13px] font-black text-[#1A1035] leading-snug">{nba.title}</p>
-                <p className="text-[11px] text-[#6E6688] mt-1 leading-relaxed">{nba.description}</p>
+                <p className="text-[13px] font-black text-[#181D23] leading-snug">{nba.title}</p>
+                <p className="text-[11px] text-[#5A6475] mt-1 leading-relaxed">{nba.description}</p>
               </div>
             </div>
             <button onClick={onAddNote} className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] font-semibold transition-all"
-              style={{ backgroundColor: '#1A1035', color: '#FFFFFF' }}
+              style={{ backgroundColor: '#181D23', color: '#FFFFFF' }}
               onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')} onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
               <Zap size={11} /> Create Signal
             </button>
@@ -2407,8 +2407,8 @@ function ContextSidebar({ patient, onChatWithAgent, onAddNote }: {
                 <Calendar size={14} style={{ color: '#059669' }} />
               </div>
               <div>
-                <p className="text-[13px] font-bold text-[#1A1035]">{fmtDate(patient.next_appointment_at)}</p>
-                {patient.latest_treatment && <p className="text-[10px] text-[#8B84A0] mt-0.5">{patient.latest_treatment}</p>}
+                <p className="text-[13px] font-bold text-[#181D23]">{fmtDate(patient.next_appointment_at)}</p>
+                {patient.latest_treatment && <p className="text-[10px] text-[#96989B] mt-0.5">{patient.latest_treatment}</p>}
               </div>
             </div>
           </div>
@@ -2418,12 +2418,12 @@ function ContextSidebar({ patient, onChatWithAgent, onAddNote }: {
       {/* Waiting List */}
       <Panel>
         <PanelHeader title="Waiting List" action={
-          <button className="flex items-center gap-1 text-[10px] text-[#8B84A0] px-2 py-1 rounded-lg transition-all" style={{ border: '1px solid #EBE5FF' }}>
+          <button className="flex items-center gap-1 text-[10px] text-[#96989B] px-2 py-1 rounded-lg transition-all" style={{ border: '1px solid #D4E2FF' }}>
             <Plus size={9} /> Add
           </button>
         } />
         <div className="p-4">
-          <p className="text-[11px] text-[#8B84A0] leading-relaxed">
+          <p className="text-[11px] text-[#96989B] leading-relaxed">
             {patient.next_appointment_at ? `${patient.first_name} has an upcoming appointment scheduled. Waiting list monitoring active.` : `${patient.first_name} is not on any waiting list. Add them for a specific treatment or time slot.`}
           </p>
         </div>
@@ -2435,14 +2435,14 @@ function ContextSidebar({ patient, onChatWithAgent, onAddNote }: {
         <div className="p-4 space-y-3">
           {[
             ['Stage', <span key="s" className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: lc.bg, color: lc.color, border: `1px solid ${lc.border}` }}>{lc.label}</span>],
-            ['Visits', <span key="v" className="text-[13px] font-black text-[#1A1035]">{patient.total_visits}</span>],
-            ['Cancel rate', <span key="c" className="text-[12px] font-bold" style={{ color: patient.cancellation_rate > 0.2 ? '#DC2626' : '#524D66' }}>{Math.round(patient.cancellation_rate * 100)}%</span>],
-            patient.referral_source ? ['Source', <span key="r" className="text-[10px] text-[#524D66] font-medium">{patient.referral_source}</span>] : null,
+            ['Visits', <span key="v" className="text-[13px] font-black text-[#181D23]">{patient.total_visits}</span>],
+            ['Cancel rate', <span key="c" className="text-[12px] font-bold" style={{ color: patient.cancellation_rate > 0.2 ? '#DC2626' : '#3D4451' }}>{Math.round(patient.cancellation_rate * 100)}%</span>],
+            patient.referral_source ? ['Source', <span key="r" className="text-[10px] text-[#3D4451] font-medium">{patient.referral_source}</span>] : null,
           ].filter(Boolean).map(row => {
             const [label, value] = row as [string, React.ReactNode];
             return (
               <div key={label} className="flex items-center justify-between">
-                <span className="text-[11px] text-[#6E6688]">{label}</span>
+                <span className="text-[11px] text-[#5A6475]">{label}</span>
                 {value}
               </div>
             );
@@ -2459,11 +2459,11 @@ function ContextSidebar({ patient, onChatWithAgent, onAddNote }: {
             { label: `Chat with ${agentName}`, onClick: onChatWithAgent },
           ].map(a => (
             <button key={a.label} onClick={a.onClick}
-              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[11px] font-semibold text-[#524D66] transition-all"
-              style={{ background: 'transparent', border: '1px solid #EBE5FF' }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[11px] font-semibold text-[#3D4451] transition-all"
+              style={{ background: 'transparent', border: '1px solid #D4E2FF' }}
               onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.02)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-              {a.label} <ChevronRight size={10} className="ml-auto text-[#8B84A0]" />
+              {a.label} <ChevronRight size={10} className="ml-auto text-[#96989B]" />
             </button>
           ))}
         </div>
@@ -2478,7 +2478,7 @@ function ContextSidebar({ patient, onChatWithAgent, onAddNote }: {
 // CLINICAL RECORD TAB
 // =============================================================================
 
-const ARIA_COLOR = '#0D9488';
+const ARIA_COLOR = '#00A693';
 
 function ClinicalRecordTab({ patient, userId }: { patient: PatientIntelligenceRow; userId: string }) {
   const [record, setRecord] = useState<ClinicalRecord | null>(null);
@@ -2516,13 +2516,13 @@ function ClinicalRecordTab({ patient, userId }: { patient: PatientIntelligenceRo
     setGeneratingSummary(false);
   }, [patient.id, patient.first_name, patient.last_name]);
 
-  if (loading) return <div className="flex items-center justify-center py-16"><Loader2 size={18} className="animate-spin text-[#8B84A0]" /></div>;
+  if (loading) return <div className="flex items-center justify-center py-16"><Loader2 size={18} className="animate-spin text-[#96989B]" /></div>;
 
   const r = record;
   const riskCfg: Record<string, { color: string; bg: string; border: string }> = {
     critical: { color: '#DC2626', bg: '#FFF1F2', border: '#FECDD3' },
     high:     { color: '#DC2626', bg: '#FFF1F2', border: '#FECDD3' },
-    medium:   { color: '#D97706', bg: '#FFFBEB', border: '#FDE68A' },
+    medium:   { color: '#D8A600', bg: '#FFFBEB', border: '#FDE68A' },
     low:      { color: '#059669', bg: '#ECFDF5', border: '#A7F3D0' },
   };
 
@@ -2549,14 +2549,14 @@ function ClinicalRecordTab({ patient, userId }: { patient: PatientIntelligenceRo
           <div className="p-5 space-y-3">
             {r?.ai_clinical_summary && (
               <div>
-                <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-1.5">Clinical Summary</p>
-                <p className="text-[12px] text-[#524D66] leading-relaxed">{r.ai_clinical_summary}</p>
+                <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B] mb-1.5">Clinical Summary</p>
+                <p className="text-[12px] text-[#3D4451] leading-relaxed">{r.ai_clinical_summary}</p>
               </div>
             )}
             {r?.ai_risk_assessment && (
-              <div className="pt-3" style={{ borderTop: '1px solid #EBE5FF' }}>
-                <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-1.5">Risk Assessment</p>
-                <p className="text-[12px] text-[#524D66] leading-relaxed">{r.ai_risk_assessment}</p>
+              <div className="pt-3" style={{ borderTop: '1px solid #D4E2FF' }}>
+                <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B] mb-1.5">Risk Assessment</p>
+                <p className="text-[12px] text-[#3D4451] leading-relaxed">{r.ai_risk_assessment}</p>
               </div>
             )}
             {aiMsg && <p className="text-[11px]" style={{ color: ARIA_COLOR }}>{aiMsg}</p>}
@@ -2583,15 +2583,15 @@ function ClinicalRecordTab({ patient, userId }: { patient: PatientIntelligenceRo
       {(r?.risk_flags?.length ?? 0) > 0 && (
         <Panel>
           <PanelHeader title="Risk Flags" badge={r!.risk_flags.filter(f => f.severity === 'high' || f.severity === 'critical').length} />
-          <div className="divide-y" style={{ borderColor: '#EBE5FF' }}>
+          <div className="divide-y" style={{ borderColor: '#D4E2FF' }}>
             {r!.risk_flags.map((flag, i) => {
               const cfg = riskCfg[flag.severity] ?? riskCfg.low;
               return (
                 <div key={i} className="flex items-start gap-3 px-5 py-3.5">
                   <AlertTriangle size={13} style={{ color: cfg.color, marginTop: 1, flexShrink: 0 }} />
                   <div className="flex-1">
-                    <p className="text-[12px] text-[#1A1035] font-medium">{flag.message}</p>
-                    <p className="text-[10px] text-[#8B84A0] mt-0.5">{flag.type} · {flag.auto ? 'Auto-detected' : 'Manual'}</p>
+                    <p className="text-[12px] text-[#181D23] font-medium">{flag.message}</p>
+                    <p className="text-[10px] text-[#96989B] mt-0.5">{flag.type} · {flag.auto ? 'Auto-detected' : 'Manual'}</p>
                   </div>
                   <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase"
                     style={{ color: cfg.color, backgroundColor: cfg.bg, border: `1px solid ${cfg.border}` }}>
@@ -2611,11 +2611,11 @@ function ClinicalRecordTab({ patient, userId }: { patient: PatientIntelligenceRo
           <PanelHeader title="Allergies" badge={(r?.allergies?.length ?? 0)} />
           <div className="p-4 space-y-2">
             {(r?.allergies?.length ?? 0) === 0 ? (
-              <p className="text-[11px] text-[#8B84A0] text-center py-4">No allergies recorded</p>
+              <p className="text-[11px] text-[#96989B] text-center py-4">No allergies recorded</p>
             ) : r!.allergies.map((a: Allergy, i) => (
               <div key={i} className="rounded-xl px-3 py-2.5" style={{ backgroundColor: '#FFF1F2', border: '1px solid #FECDD3' }}>
                 <p className="text-[12px] font-semibold text-[#DC2626]">{a.name}</p>
-                <p className="text-[10px] text-[#8B84A0]">{a.reaction} · {a.severity}</p>
+                <p className="text-[10px] text-[#96989B]">{a.reaction} · {a.severity}</p>
               </div>
             ))}
           </div>
@@ -2626,11 +2626,11 @@ function ClinicalRecordTab({ patient, userId }: { patient: PatientIntelligenceRo
           <PanelHeader title="Contraindications" badge={(r?.contraindications?.length ?? 0)} />
           <div className="p-4 space-y-2">
             {(r?.contraindications?.length ?? 0) === 0 ? (
-              <p className="text-[11px] text-[#8B84A0] text-center py-4">No contraindications recorded</p>
+              <p className="text-[11px] text-[#96989B] text-center py-4">No contraindications recorded</p>
             ) : r!.contraindications.map((c: Contraindication, i) => (
               <div key={i} className="rounded-xl px-3 py-2.5" style={{ backgroundColor: '#FFFBEB', border: '1px solid #FDE68A' }}>
-                <p className="text-[12px] font-semibold text-[#D97706]">{c.name}</p>
-                <p className="text-[10px] text-[#8B84A0]">{c.reason}</p>
+                <p className="text-[12px] font-semibold text-[#D8A600]">{c.name}</p>
+                <p className="text-[10px] text-[#96989B]">{c.reason}</p>
               </div>
             ))}
           </div>
@@ -2641,11 +2641,11 @@ function ClinicalRecordTab({ patient, userId }: { patient: PatientIntelligenceRo
           <PanelHeader title="Current Medications" />
           <div className="p-4 space-y-2">
             {(r?.medications?.length ?? 0) === 0 ? (
-              <p className="text-[11px] text-[#8B84A0] text-center py-4">No medications recorded</p>
+              <p className="text-[11px] text-[#96989B] text-center py-4">No medications recorded</p>
             ) : r!.medications.map((m: Medication, i) => (
-              <div key={i} className="rounded-xl px-3 py-2.5" style={{ backgroundColor: '#F8F7FF', border: '1px solid #EBE5FF' }}>
-                <p className="text-[12px] font-semibold text-[#1A1035]">{m.name}</p>
-                <p className="text-[10px] text-[#8B84A0]">{m.dose} · {m.frequency}{m.prescriber ? ` · ${m.prescriber}` : ''}</p>
+              <div key={i} className="rounded-xl px-3 py-2.5" style={{ backgroundColor: '#F8F7FF', border: '1px solid #D4E2FF' }}>
+                <p className="text-[12px] font-semibold text-[#181D23]">{m.name}</p>
+                <p className="text-[10px] text-[#96989B]">{m.dose} · {m.frequency}{m.prescriber ? ` · ${m.prescriber}` : ''}</p>
               </div>
             ))}
           </div>
@@ -2656,11 +2656,11 @@ function ClinicalRecordTab({ patient, userId }: { patient: PatientIntelligenceRo
           <PanelHeader title="Medical Conditions" />
           <div className="p-4 space-y-2">
             {(r?.medical_conditions?.length ?? 0) === 0 ? (
-              <p className="text-[11px] text-[#8B84A0] text-center py-4">No conditions recorded</p>
+              <p className="text-[11px] text-[#96989B] text-center py-4">No conditions recorded</p>
             ) : r!.medical_conditions.map((c: MedicalCondition, i) => (
-              <div key={i} className="rounded-xl px-3 py-2.5" style={{ backgroundColor: '#F8F7FF', border: '1px solid #EBE5FF' }}>
-                <p className="text-[12px] font-semibold text-[#1A1035]">{c.name}</p>
-                <p className="text-[10px]" style={{ color: c.status === 'active' ? '#DC2626' : c.status === 'managed' ? '#D97706' : '#059669' }}>{c.status}{c.notes ? ` · ${c.notes}` : ''}</p>
+              <div key={i} className="rounded-xl px-3 py-2.5" style={{ backgroundColor: '#F8F7FF', border: '1px solid #D4E2FF' }}>
+                <p className="text-[12px] font-semibold text-[#181D23]">{c.name}</p>
+                <p className="text-[10px]" style={{ color: c.status === 'active' ? '#DC2626' : c.status === 'managed' ? '#D8A600' : '#059669' }}>{c.status}{c.notes ? ` · ${c.notes}` : ''}</p>
               </div>
             ))}
           </div>
@@ -2670,7 +2670,7 @@ function ClinicalRecordTab({ patient, userId }: { patient: PatientIntelligenceRo
       {/* Vitals */}
       <Panel>
         <PanelHeader title="Latest Vitals" />
-        <div className="grid grid-cols-4 divide-x p-0" style={{ borderColor: '#EBE5FF' }}>
+        <div className="grid grid-cols-4 divide-x p-0" style={{ borderColor: '#D4E2FF' }}>
           {[
             { label: 'Blood Pressure', value: r?.blood_pressure_sys && r?.blood_pressure_dia ? `${r.blood_pressure_sys}/${r.blood_pressure_dia}` : '—', unit: 'mmHg' },
             { label: 'Heart Rate', value: r?.heart_rate ? String(r.heart_rate) : '—', unit: 'bpm' },
@@ -2678,19 +2678,19 @@ function ClinicalRecordTab({ patient, userId }: { patient: PatientIntelligenceRo
             { label: 'BMI', value: r?.bmi ? `${r.bmi}` : '—', unit: 'kg/m²' },
           ].map(v => (
             <div key={v.label} className="px-5 py-4">
-              <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-1">{v.label}</p>
-              <p className="text-[24px] font-black tracking-[-0.03em] text-[#1A1035] leading-none">{v.value}</p>
-              <p className="text-[9px] text-[#8B84A0] mt-0.5">{v.unit}</p>
+              <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B] mb-1">{v.label}</p>
+              <p className="text-[24px] font-black tracking-[-0.03em] text-[#181D23] leading-none">{v.value}</p>
+              <p className="text-[9px] text-[#96989B] mt-0.5">{v.unit}</p>
             </div>
           ))}
         </div>
         {vitals.length > 1 && (
-          <div className="px-5 pb-4" style={{ borderTop: '1px solid #EBE5FF' }}>
-            <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mt-4 mb-2">Vitals History ({vitals.length} readings)</p>
+          <div className="px-5 pb-4" style={{ borderTop: '1px solid #D4E2FF' }}>
+            <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B] mt-4 mb-2">Vitals History ({vitals.length} readings)</p>
             <div className="space-y-1">
               {vitals.slice(0, 4).map(v => (
-                <div key={v.id} className="flex items-center gap-3 text-[10px] text-[#8B84A0]">
-                  <span className="font-medium text-[#524D66]">{new Date(v.recorded_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                <div key={v.id} className="flex items-center gap-3 text-[10px] text-[#96989B]">
+                  <span className="font-medium text-[#3D4451]">{new Date(v.recorded_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                   {v.blood_pressure_sys && <span>BP {v.blood_pressure_sys}/{v.blood_pressure_dia}</span>}
                   {v.heart_rate && <span>HR {v.heart_rate}</span>}
                   {v.weight_kg && <span>{v.weight_kg}kg</span>}
@@ -2714,8 +2714,8 @@ function ClinicalRecordTab({ patient, userId }: { patient: PatientIntelligenceRo
               { label: 'NHS Number', value: r?.nhs_number ?? '—' },
             ].map(f => (
               <div key={f.label}>
-                <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-0.5">{f.label}</p>
-                <p className="text-[12px] text-[#1A1035] font-medium">{f.value}</p>
+                <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B] mb-0.5">{f.label}</p>
+                <p className="text-[12px] text-[#181D23] font-medium">{f.value}</p>
               </div>
             ))}
           </div>
@@ -2813,11 +2813,11 @@ function SOAPNotesTab({ patient, userId }: { patient: PatientIntelligenceRow; us
     setNotes(res.data);
   }, [patient.id, userId]);
 
-  if (loading) return <div className="flex items-center justify-center py-16"><Loader2 size={18} className="animate-spin text-[#8B84A0]" /></div>;
+  if (loading) return <div className="flex items-center justify-center py-16"><Loader2 size={18} className="animate-spin text-[#96989B]" /></div>;
 
   const statusCfg: Record<string, { label: string; color: string; bg: string; border: string }> = {
     draft:          { label: 'Draft',           color: '#6B7280', bg: '#F9FAFB', border: '#E5E7EB' },
-    pending_review: { label: 'Pending Review',  color: '#D97706', bg: '#FFFBEB', border: '#FDE68A' },
+    pending_review: { label: 'Pending Review',  color: '#D8A600', bg: '#FFFBEB', border: '#FDE68A' },
     signed_off:     { label: 'Signed Off',      color: '#059669', bg: '#ECFDF5', border: '#A7F3D0' },
   };
 
@@ -2842,7 +2842,7 @@ function SOAPNotesTab({ patient, userId }: { patient: PatientIntelligenceRow; us
                 AI Draft
               </button>
               <button onClick={() => setAddingNote(false)}
-                className="p-1.5 rounded-lg text-[#8B84A0] hover:text-[#1A1035]">
+                className="p-1.5 rounded-lg text-[#96989B] hover:text-[#181D23]">
                 <X size={13} />
               </button>
             </div>
@@ -2855,44 +2855,44 @@ function SOAPNotesTab({ patient, userId }: { patient: PatientIntelligenceRow; us
               </div>
             )}
             <div>
-              <label className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0]">Appointment Type</label>
+              <label className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B]">Appointment Type</label>
               <input value={form.appointment_type} onChange={e => setForm(f => ({ ...f, appointment_type: e.target.value }))}
                 placeholder="e.g. Dermal Filler Consultation"
                 className="w-full mt-1 px-3 py-2 rounded-xl text-[12px] outline-none"
-                style={{ backgroundColor: '#F8F7FF', border: '1px solid #EBE5FF', color: '#1A1035' }} />
+                style={{ backgroundColor: '#F8F7FF', border: '1px solid #D4E2FF', color: '#181D23' }} />
             </div>
             {(['subjective', 'objective', 'assessment', 'plan'] as const).map(field => (
               <div key={field}>
-                <label className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0]">
+                <label className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B]">
                   {field.charAt(0).toUpperCase() + field.slice(1)}
                 </label>
                 <textarea value={form[field]} onChange={e => setForm(f => ({ ...f, [field]: e.target.value }))}
                   rows={3} placeholder={field === 'subjective' ? "Patient's reported symptoms or complaint…" : field === 'objective' ? 'Clinical observations…' : field === 'assessment' ? 'Assessment / diagnosis…' : 'Treatment plan and next steps…'}
                   className="w-full mt-1 px-3 py-2 rounded-xl text-[12px] outline-none resize-none"
-                  style={{ backgroundColor: '#F8F7FF', border: '1px solid #EBE5FF', color: '#1A1035' }} />
+                  style={{ backgroundColor: '#F8F7FF', border: '1px solid #D4E2FF', color: '#181D23' }} />
               </div>
             ))}
             <div>
-              <label className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0]">Treatment Performed (optional)</label>
+              <label className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B]">Treatment Performed (optional)</label>
               <textarea value={form.treatment_performed} onChange={e => setForm(f => ({ ...f, treatment_performed: e.target.value }))}
                 rows={2} placeholder="Procedures carried out today…"
                 className="w-full mt-1 px-3 py-2 rounded-xl text-[12px] outline-none resize-none"
-                style={{ backgroundColor: '#F8F7FF', border: '1px solid #EBE5FF', color: '#1A1035' }} />
+                style={{ backgroundColor: '#F8F7FF', border: '1px solid #D4E2FF', color: '#181D23' }} />
             </div>
             <div className="flex items-center gap-3">
               <input type="checkbox" id="follow-up" checked={form.follow_up_required}
                 onChange={e => setForm(f => ({ ...f, follow_up_required: e.target.checked }))}
                 className="rounded" />
-              <label htmlFor="follow-up" className="text-[11px] text-[#524D66]">Follow-up required</label>
+              <label htmlFor="follow-up" className="text-[11px] text-[#3D4451]">Follow-up required</label>
             </div>
-            <div className="flex justify-end gap-2 pt-2" style={{ borderTop: '1px solid #EBE5FF' }}>
+            <div className="flex justify-end gap-2 pt-2" style={{ borderTop: '1px solid #D4E2FF' }}>
               <button onClick={() => setAddingNote(false)}
-                className="px-4 py-2 rounded-xl text-[11px] font-semibold text-[#8B84A0]">
+                className="px-4 py-2 rounded-xl text-[11px] font-semibold text-[#96989B]">
                 Cancel
               </button>
               <button onClick={handleSaveNote} disabled={saving}
                 className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-[11px] font-semibold text-white"
-                style={{ backgroundColor: '#1A1035' }}>
+                style={{ backgroundColor: '#181D23' }}>
                 {saving ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle size={11} />}
                 Save Note
               </button>
@@ -2902,7 +2902,7 @@ function SOAPNotesTab({ patient, userId }: { patient: PatientIntelligenceRow; us
       ) : (
         <button onClick={() => setAddingNote(true)}
           className="flex items-center gap-2 px-4 py-2 rounded-xl text-[11px] font-semibold transition-all"
-          style={{ backgroundColor: '#1A1035', color: '#EBF0FF' }}>
+          style={{ backgroundColor: '#181D23', color: '#EBF0FF' }}>
           <Plus size={12} />
           New SOAP Note
         </button>
@@ -2911,7 +2911,7 @@ function SOAPNotesTab({ patient, userId }: { patient: PatientIntelligenceRow; us
       {/* Notes List */}
       {notes.length === 0 ? (
         <Panel><div className="flex flex-col items-center justify-center py-12 gap-2">
-          <p className="text-[12px] font-semibold text-[#8B84A0]">No SOAP notes yet</p>
+          <p className="text-[12px] font-semibold text-[#96989B]">No SOAP notes yet</p>
           <p className="text-[11px] text-[#B0A8C8]">Add the first clinical note for this patient</p>
         </div></Panel>
       ) : notes.map(note => {
@@ -2926,50 +2926,50 @@ function SOAPNotesTab({ patient, userId }: { patient: PatientIntelligenceRow; us
                   <FileText size={13} style={{ color: ARIA_COLOR }} />
                 </div>
                 <div>
-                  <p className="text-[12px] font-semibold text-[#1A1035]">{note.appointment_type ?? 'Clinical Note'}</p>
-                  <p className="text-[10px] text-[#8B84A0]">{note.appointment_date ? new Date(note.appointment_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'}</p>
+                  <p className="text-[12px] font-semibold text-[#181D23]">{note.appointment_type ?? 'Clinical Note'}</p>
+                  <p className="text-[10px] text-[#96989B]">{note.appointment_date ? new Date(note.appointment_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
                 {note.ai_draft_used && <span className="text-[9px] font-medium" style={{ color: ARIA_COLOR }}>AI Draft</span>}
                 <span className="px-2 py-0.5 rounded-full text-[9px] font-bold"
                   style={{ color: sc.color, backgroundColor: sc.bg, border: `1px solid ${sc.border}` }}>{sc.label}</span>
-                <ChevronDown size={13} className="text-[#8B84A0] transition-transform" style={{ transform: isOpen ? 'rotate(180deg)' : 'none' }} />
+                <ChevronDown size={13} className="text-[#96989B] transition-transform" style={{ transform: isOpen ? 'rotate(180deg)' : 'none' }} />
               </div>
             </button>
             <AnimatePresence>
               {isOpen && (
                 <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }}
-                  className="overflow-hidden" style={{ borderTop: '1px solid #EBE5FF' }}>
+                  className="overflow-hidden" style={{ borderTop: '1px solid #D4E2FF' }}>
                   <div className="p-5 space-y-4">
                     {(['subjective', 'objective', 'assessment', 'plan'] as const).filter(f => note[f]).map(field => (
                       <div key={field}>
-                        <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-1">
+                        <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B] mb-1">
                           {field.charAt(0).toUpperCase() + field.slice(1)}
                         </p>
-                        <p className="text-[12px] text-[#524D66] leading-relaxed">{note[field]}</p>
+                        <p className="text-[12px] text-[#3D4451] leading-relaxed">{note[field]}</p>
                       </div>
                     ))}
                     {note.treatment_performed && (
-                      <div style={{ borderTop: '1px solid #EBE5FF', paddingTop: 12 }}>
-                        <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-1">Treatment Performed</p>
-                        <p className="text-[12px] text-[#524D66]">{note.treatment_performed}</p>
+                      <div style={{ borderTop: '1px solid #D4E2FF', paddingTop: 12 }}>
+                        <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B] mb-1">Treatment Performed</p>
+                        <p className="text-[12px] text-[#3D4451]">{note.treatment_performed}</p>
                       </div>
                     )}
                     {note.follow_up_required && (
                       <div className="rounded-xl px-4 py-2.5" style={{ backgroundColor: '#FFFBEB', border: '1px solid #FDE68A' }}>
-                        <p className="text-[11px] text-[#D97706] font-medium">Follow-up required</p>
-                        {note.follow_up_notes && <p className="text-[10px] text-[#8B84A0] mt-0.5">{note.follow_up_notes}</p>}
+                        <p className="text-[11px] text-[#D8A600] font-medium">Follow-up required</p>
+                        {note.follow_up_notes && <p className="text-[10px] text-[#96989B] mt-0.5">{note.follow_up_notes}</p>}
                       </div>
                     )}
                     {note.adverse_events && (
                       <div className="rounded-xl px-4 py-2.5" style={{ backgroundColor: '#FFF1F2', border: '1px solid #FECDD3' }}>
                         <p className="text-[11px] font-semibold text-[#DC2626]">Adverse Events</p>
-                        <p className="text-[11px] text-[#524D66] mt-0.5">{note.adverse_events}</p>
+                        <p className="text-[11px] text-[#3D4451] mt-0.5">{note.adverse_events}</p>
                       </div>
                     )}
                     {note.status === 'pending_review' && (
-                      <div className="flex justify-end pt-2" style={{ borderTop: '1px solid #EBE5FF' }}>
+                      <div className="flex justify-end pt-2" style={{ borderTop: '1px solid #D4E2FF' }}>
                         <button onClick={() => handleSignOff(note.id)}
                           className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-semibold"
                           style={{ backgroundColor: '#059669', color: '#fff' }}>
@@ -3040,10 +3040,10 @@ function ConsentsTab({ patient, userId }: { patient: PatientIntelligenceRow; use
     setConsents(res.data);
   }, [patient.id]);
 
-  if (loading) return <div className="flex items-center justify-center py-16"><Loader2 size={18} className="animate-spin text-[#8B84A0]" /></div>;
+  if (loading) return <div className="flex items-center justify-center py-16"><Loader2 size={18} className="animate-spin text-[#96989B]" /></div>;
 
   const statusCfg: Record<string, { label: string; color: string; bg: string; border: string }> = {
-    pending:   { label: 'Pending',   color: '#D97706', bg: '#FFFBEB', border: '#FDE68A' },
+    pending:   { label: 'Pending',   color: '#D8A600', bg: '#FFFBEB', border: '#FDE68A' },
     consented: { label: 'Consented', color: '#059669', bg: '#ECFDF5', border: '#A7F3D0' },
     refused:   { label: 'Refused',   color: '#DC2626', bg: '#FFF1F2', border: '#FECDD3' },
     withdrawn: { label: 'Withdrawn', color: '#6B7280', bg: '#F9FAFB', border: '#E5E7EB' },
@@ -3063,14 +3063,14 @@ function ConsentsTab({ patient, userId }: { patient: PatientIntelligenceRow; use
       {addingConsent ? (
         <Panel>
           <PanelHeader title="New Consent Form" action={
-            <button onClick={() => setAddingConsent(false)} className="p-1.5 rounded-lg text-[#8B84A0]"><X size={13} /></button>
+            <button onClick={() => setAddingConsent(false)} className="p-1.5 rounded-lg text-[#96989B]"><X size={13} /></button>
           } />
           <div className="p-5 space-y-4">
             <div>
-              <label className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0]">Consent Type</label>
+              <label className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B]">Consent Type</label>
               <select value={form.consent_type} onChange={e => setForm(f => ({ ...f, consent_type: e.target.value }))}
                 className="w-full mt-1 px-3 py-2 rounded-xl text-[12px] outline-none"
-                style={{ backgroundColor: '#F8F7FF', border: '1px solid #EBE5FF', color: '#1A1035' }}>
+                style={{ backgroundColor: '#F8F7FF', border: '1px solid #D4E2FF', color: '#181D23' }}>
                 {['treatment','photography','data_processing','marketing','referral','research'].map(t => (
                   <option key={t} value={t}>{t.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}</option>
                 ))}
@@ -3078,18 +3078,18 @@ function ConsentsTab({ patient, userId }: { patient: PatientIntelligenceRow; use
             </div>
             {form.consent_type === 'treatment' && (
               <div>
-                <label className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0]">Treatment Name</label>
+                <label className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B]">Treatment Name</label>
                 <input value={form.treatment_name} onChange={e => setForm(f => ({ ...f, treatment_name: e.target.value }))}
                   placeholder="e.g. Dermal Fillers"
                   className="w-full mt-1 px-3 py-2 rounded-xl text-[12px] outline-none"
-                  style={{ backgroundColor: '#F8F7FF', border: '1px solid #EBE5FF', color: '#1A1035' }} />
+                  style={{ backgroundColor: '#F8F7FF', border: '1px solid #D4E2FF', color: '#181D23' }} />
               </div>
             )}
-            <div className="flex justify-end gap-2" style={{ borderTop: '1px solid #EBE5FF', paddingTop: 12 }}>
-              <button onClick={() => setAddingConsent(false)} className="px-4 py-2 rounded-xl text-[11px] font-semibold text-[#8B84A0]">Cancel</button>
+            <div className="flex justify-end gap-2" style={{ borderTop: '1px solid #D4E2FF', paddingTop: 12 }}>
+              <button onClick={() => setAddingConsent(false)} className="px-4 py-2 rounded-xl text-[11px] font-semibold text-[#96989B]">Cancel</button>
               <button onClick={handleAdd} disabled={saving}
                 className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-[11px] font-semibold text-white"
-                style={{ backgroundColor: '#1A1035' }}>
+                style={{ backgroundColor: '#181D23' }}>
                 {saving ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle size={11} />}
                 Create
               </button>
@@ -3099,7 +3099,7 @@ function ConsentsTab({ patient, userId }: { patient: PatientIntelligenceRow; use
       ) : (
         <button onClick={() => setAddingConsent(true)}
           className="flex items-center gap-2 px-4 py-2 rounded-xl text-[11px] font-semibold"
-          style={{ backgroundColor: '#1A1035', color: '#EBF0FF' }}>
+          style={{ backgroundColor: '#181D23', color: '#EBF0FF' }}>
           <Plus size={12} />
           New Consent Form
         </button>
@@ -3108,7 +3108,7 @@ function ConsentsTab({ patient, userId }: { patient: PatientIntelligenceRow; use
       {/* Consents List */}
       {consents.length === 0 ? (
         <Panel><div className="flex flex-col items-center justify-center py-12 gap-2">
-          <p className="text-[12px] font-semibold text-[#8B84A0]">No consent forms yet</p>
+          <p className="text-[12px] font-semibold text-[#96989B]">No consent forms yet</p>
           <p className="text-[11px] text-[#B0A8C8]">Add a consent form for this patient</p>
         </div></Panel>
       ) : consents.map(c => {
@@ -3124,10 +3124,10 @@ function ConsentsTab({ patient, userId }: { patient: PatientIntelligenceRow; use
                     : <ClipboardList size={13} style={{ color: ARIA_COLOR }} />}
                 </div>
                 <div>
-                  <p className="text-[12px] font-semibold text-[#1A1035]">
+                  <p className="text-[12px] font-semibold text-[#181D23]">
                     {c.treatment_name ?? c.consent_type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                   </p>
-                  <p className="text-[10px] text-[#8B84A0]">
+                  <p className="text-[10px] text-[#96989B]">
                     v{c.consent_form_version} · {c.collected_via}
                     {c.consented_at ? ` · Consented ${new Date(c.consented_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}
                     {c.has_red_flags && ' · RED FLAGS'}
@@ -3150,7 +3150,7 @@ function ConsentsTab({ patient, userId }: { patient: PatientIntelligenceRow; use
               <div className="px-5 pb-4">
                 <div className="rounded-xl px-4 py-2.5" style={{ backgroundColor: '#FFF1F2', border: '1px solid #FECDD3' }}>
                   <p className="text-[10px] font-semibold text-[#DC2626] mb-0.5">Screening Flags</p>
-                  <p className="text-[10px] text-[#524D66]">{c.ai_screening_notes}</p>
+                  <p className="text-[10px] text-[#3D4451]">{c.ai_screening_notes}</p>
                 </div>
               </div>
             )}
@@ -3161,8 +3161,8 @@ function ConsentsTab({ patient, userId }: { patient: PatientIntelligenceRow; use
       {/* CQC Note */}
       <div className="rounded-xl px-4 py-3" style={{ backgroundColor: '#F5F3FF', border: '1px solid #DDD6FE' }}>
         <div className="flex items-start gap-2">
-          <Shield size={12} style={{ color: '#6D28D9', marginTop: 1, flexShrink: 0 }} />
-          <p className="text-[10px] text-[#524D66]">All consent forms are logged with version, timestamp, and collection method. CQC Section 4 compliant.</p>
+          <Shield size={12} style={{ color: '#0058E6', marginTop: 1, flexShrink: 0 }} />
+          <p className="text-[10px] text-[#3D4451]">All consent forms are logged with version, timestamp, and collection method. CQC Section 4 compliant.</p>
         </div>
       </div>
     </div>
@@ -3186,10 +3186,10 @@ function PhotosTab({ patient }: { patient: PatientIntelligenceRow }) {
     });
   }, [patient.id]);
 
-  if (loading) return <div className="flex items-center justify-center py-16"><Loader2 size={18} className="animate-spin text-[#8B84A0]" /></div>;
+  if (loading) return <div className="flex items-center justify-center py-16"><Loader2 size={18} className="animate-spin text-[#96989B]" /></div>;
 
   const typeCfg: Record<string, { label: string; color: string; bg: string }> = {
-    before:    { label: 'Before',   color: '#6D28D9', bg: '#F5F3FF' },
+    before:    { label: 'Before',   color: '#0058E6', bg: '#F5F3FF' },
     after:     { label: 'After',    color: '#059669', bg: '#ECFDF5' },
     progress:  { label: 'Progress', color: ARIA_COLOR,  bg: `${ARIA_COLOR}12` },
     concern:   { label: 'Concern',  color: '#DC2626', bg: '#FFF1F2' },
@@ -3208,7 +3208,7 @@ function PhotosTab({ patient }: { patient: PatientIntelligenceRow }) {
       {/* Upload button */}
       <button
         className="flex items-center gap-2 px-4 py-2 rounded-xl text-[11px] font-semibold"
-        style={{ backgroundColor: '#1A1035', color: '#EBF0FF' }}
+        style={{ backgroundColor: '#181D23', color: '#EBF0FF' }}
         onClick={() => alert('Photo upload requires Supabase Storage configuration — see DEEP_PROBE_SETUP.md')}>
         <Upload size={12} />
         Upload Photos
@@ -3220,7 +3220,7 @@ function PhotosTab({ patient }: { patient: PatientIntelligenceRow }) {
             <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ backgroundColor: `${ARIA_COLOR}12` }}>
               <Camera size={20} style={{ color: ARIA_COLOR }} />
             </div>
-            <p className="text-[12px] font-semibold text-[#8B84A0]">No clinical photos yet</p>
+            <p className="text-[12px] font-semibold text-[#96989B]">No clinical photos yet</p>
             <p className="text-[11px] text-[#B0A8C8] text-center max-w-xs">Upload before/after and progress photos for this patient. Consent is required before each upload.</p>
           </div>
           <div className="px-5 pb-5">
@@ -3230,7 +3230,7 @@ function PhotosTab({ patient }: { patient: PatientIntelligenceRow }) {
                 {['Photo consent required before each upload', 'Before/after pairs linked for comparison', 'Tagged with treatment area and context', 'Stored in private encrypted bucket'].map(item => (
                   <div key={item} className="flex items-start gap-1.5">
                     <CheckCircle size={9} style={{ color: ARIA_COLOR, marginTop: 2, flexShrink: 0 }} />
-                    <p className="text-[10px] text-[#524D66]">{item}</p>
+                    <p className="text-[10px] text-[#3D4451]">{item}</p>
                   </div>
                 ))}
               </div>
@@ -3242,16 +3242,16 @@ function PhotosTab({ patient }: { patient: PatientIntelligenceRow }) {
           {photos.map(photo => {
             const tc = typeCfg[photo.photo_type] ?? typeCfg.reference;
             return (
-              <div key={photo.id} className="rounded-2xl overflow-hidden" style={{ border: '1px solid #EBE5FF' }}>
+              <div key={photo.id} className="rounded-2xl overflow-hidden" style={{ border: '1px solid #D4E2FF' }}>
                 <div className="aspect-square flex items-center justify-center" style={{ backgroundColor: tc.bg }}>
                   <div className="text-center">
                     <p className="text-[10px] font-bold" style={{ color: tc.color }}>{tc.label}</p>
-                    <p className="text-[9px] text-[#8B84A0] mt-0.5">{photo.treatment_area ?? '—'}</p>
+                    <p className="text-[9px] text-[#96989B] mt-0.5">{photo.treatment_area ?? '—'}</p>
                   </div>
                 </div>
                 <div className="p-3">
-                  <p className="text-[11px] font-semibold text-[#1A1035] truncate">{photo.file_name}</p>
-                  <p className="text-[10px] text-[#8B84A0]">{new Date(photo.taken_at).toLocaleDateString('en-GB')}</p>
+                  <p className="text-[11px] font-semibold text-[#181D23] truncate">{photo.file_name}</p>
+                  <p className="text-[10px] text-[#96989B]">{new Date(photo.taken_at).toLocaleDateString('en-GB')}</p>
                   {!photo.photo_consent_given && (
                     <p className="text-[9px] font-bold text-[#DC2626] mt-0.5">Consent required</p>
                   )}
@@ -3270,7 +3270,7 @@ function PhotosTab({ patient }: { patient: PatientIntelligenceRow }) {
 // =============================================================================
 
 function PrescriptionsTab({ patient }: { patient: PatientIntelligenceRow }) {
-  const ARIA = '#0D9488';
+  const ARIA = '#00A693';
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [isDemo, setIsDemo] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -3292,7 +3292,7 @@ function PrescriptionsTab({ patient }: { patient: PatientIntelligenceRow }) {
     return { bg: '#F3F4F6', color: '#374151' };
   };
 
-  if (loading) return <div className="py-16 text-center text-[13px] text-[#8B84A0]">Loading prescriptions…</div>;
+  if (loading) return <div className="py-16 text-center text-[13px] text-[#96989B]">Loading prescriptions…</div>;
 
   return (
     <div>
@@ -3306,12 +3306,12 @@ function PrescriptionsTab({ patient }: { patient: PatientIntelligenceRow }) {
       <div className="grid grid-cols-4 gap-3 mb-6">
         {[
           { label: 'Active', val: prescriptions.filter(r => r.status === 'active').length, color: '#059669' },
-          { label: 'On Hold', val: prescriptions.filter(r => r.status === 'on_hold').length, color: '#D97706' },
+          { label: 'On Hold', val: prescriptions.filter(r => r.status === 'on_hold').length, color: '#D8A600' },
           { label: 'Stopped', val: prescriptions.filter(r => r.status === 'stopped').length, color: '#DC2626' },
           { label: 'Total', val: prescriptions.length, color: ARIA },
         ].map(m => (
-          <div key={m.label} className="rounded-xl p-4" style={{ border: '1px solid #EBE5FF' }}>
-            <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#8B84A0] mb-1">{m.label}</p>
+          <div key={m.label} className="rounded-xl p-4" style={{ border: '1px solid #D4E2FF' }}>
+            <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#96989B] mb-1">{m.label}</p>
             <p className="text-[28px] font-black tracking-[-0.03em]" style={{ color: m.color }}>{m.val}</p>
           </div>
         ))}
@@ -3319,7 +3319,7 @@ function PrescriptionsTab({ patient }: { patient: PatientIntelligenceRow }) {
 
       {/* Prescription list */}
       {prescriptions.length === 0 ? (
-        <div className="py-12 text-center text-[13px] text-[#8B84A0]">No prescriptions recorded</div>
+        <div className="py-12 text-center text-[13px] text-[#96989B]">No prescriptions recorded</div>
       ) : (
         <div className="space-y-2">
           {prescriptions.map(rx => {
@@ -3330,25 +3330,25 @@ function PrescriptionsTab({ patient }: { patient: PatientIntelligenceRow }) {
                 key={rx.id}
                 layout
                 className="rounded-2xl overflow-hidden cursor-pointer"
-                style={{ border: `1px solid ${isSelected ? ARIA : '#EBE5FF'}` }}
+                style={{ border: `1px solid ${isSelected ? ARIA : '#D4E2FF'}` }}
                 onClick={() => setSelectedRx(isSelected ? null : rx)}
               >
                 <div className="flex items-center gap-4 px-5 py-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-[14px] font-semibold text-[#1A1035]">{rx.drug_name}</p>
+                      <p className="text-[14px] font-semibold text-[#181D23]">{rx.drug_name}</p>
                       {rx.drug_generic_name && rx.drug_generic_name !== rx.drug_name && (
-                        <span className="text-[11px] text-[#8B84A0]">({rx.drug_generic_name})</span>
+                        <span className="text-[11px] text-[#96989B]">({rx.drug_generic_name})</span>
                       )}
                       <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: sc.bg, color: sc.color }}>{rx.status}</span>
                     </div>
-                    <p className="text-[12px] text-[#524D66] mt-0.5">{rx.dose} — {rx.frequency} — {rx.route}</p>
-                    {rx.indication && <p className="text-[11px] text-[#8B84A0] mt-0.5">For: {rx.indication}</p>}
+                    <p className="text-[12px] text-[#3D4451] mt-0.5">{rx.dose} — {rx.frequency} — {rx.route}</p>
+                    {rx.indication && <p className="text-[11px] text-[#96989B] mt-0.5">For: {rx.indication}</p>}
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <p className="text-[11px] text-[#524D66]">{rx.prescriber_name}</p>
-                    <p className="text-[10px] text-[#8B84A0]">{rx.prescribed_date}</p>
-                    {rx.end_date && <p className="text-[10px] text-[#8B84A0]">Until {rx.end_date}</p>}
+                    <p className="text-[11px] text-[#3D4451]">{rx.prescriber_name}</p>
+                    <p className="text-[10px] text-[#96989B]">{rx.prescribed_date}</p>
+                    {rx.end_date && <p className="text-[10px] text-[#96989B]">Until {rx.end_date}</p>}
                   </div>
                 </div>
 
@@ -3361,7 +3361,7 @@ function PrescriptionsTab({ patient }: { patient: PatientIntelligenceRow }) {
                       transition={{ duration: 0.2 }}
                       className="overflow-hidden"
                     >
-                      <div className="px-5 pb-5 pt-1" style={{ borderTop: '1px solid #EBE5FF' }}>
+                      <div className="px-5 pb-5 pt-1" style={{ borderTop: '1px solid #D4E2FF' }}>
                         <div className="grid grid-cols-3 gap-4 text-[11px]">
                           {[
                             { label: 'Formulation', val: rx.formulation },
@@ -3372,8 +3372,8 @@ function PrescriptionsTab({ patient }: { patient: PatientIntelligenceRow }) {
                             { label: 'GMC No.', val: rx.prescriber_gmc },
                           ].filter(f => f.val).map(f => (
                             <div key={f.label}>
-                              <p className="text-[9px] uppercase tracking-[0.2em] text-[#8B84A0] mb-0.5">{f.label}</p>
-                              <p className="text-[#1A1035] font-medium">{f.val}</p>
+                              <p className="text-[9px] uppercase tracking-[0.2em] text-[#96989B] mb-0.5">{f.label}</p>
+                              <p className="text-[#181D23] font-medium">{f.val}</p>
                             </div>
                           ))}
                         </div>
@@ -3388,13 +3388,13 @@ function PrescriptionsTab({ patient }: { patient: PatientIntelligenceRow }) {
                               <div className="w-3 h-3 rounded-full flex items-center justify-center" style={{ backgroundColor: f.val ? '#D1FAE5' : '#FEE2E2' }}>
                                 <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: f.val ? '#059669' : '#DC2626' }} />
                               </div>
-                              <span className="text-[#524D66]">{f.label}</span>
+                              <span className="text-[#3D4451]">{f.label}</span>
                             </div>
                           ))}
                         </div>
                         {rx.special_instructions && (
-                          <p className="mt-2 text-[11px] text-[#524D66] p-3 rounded-xl" style={{ backgroundColor: '#FAF7F2', border: '1px solid #EBE5FF' }}>
-                            <span className="font-semibold text-[#1A1035]">Instructions: </span>{rx.special_instructions}
+                          <p className="mt-2 text-[11px] text-[#3D4451] p-3 rounded-xl" style={{ backgroundColor: '#F8FAFF', border: '1px solid #D4E2FF' }}>
+                            <span className="font-semibold text-[#181D23]">Instructions: </span>{rx.special_instructions}
                           </p>
                         )}
                         {rx.stopped_reason && (
@@ -3420,7 +3420,7 @@ function PrescriptionsTab({ patient }: { patient: PatientIntelligenceRow }) {
 // =============================================================================
 
 function LabResultsTab({ patient }: { patient: PatientIntelligenceRow }) {
-  const ARIA = '#0D9488';
+  const ARIA = '#00A693';
   const [results, setResults] = useState<LabResult[]>([]);
   const [isDemo, setIsDemo] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -3450,7 +3450,7 @@ function LabResultsTab({ patient }: { patient: PatientIntelligenceRow }) {
     return { bg: '#F3F4F6', color: '#374151' };
   };
 
-  if (loading) return <div className="py-16 text-center text-[13px] text-[#8B84A0]">Loading lab results…</div>;
+  if (loading) return <div className="py-16 text-center text-[13px] text-[#96989B]">Loading lab results…</div>;
 
   const abnormal = results.filter(r => r.flag && ['low', 'high', 'critical_low', 'critical_high', 'abnormal'].includes(r.flag));
 
@@ -3467,18 +3467,18 @@ function LabResultsTab({ patient }: { patient: PatientIntelligenceRow }) {
         {[
           { label: 'Total Results', val: results.length, color: ARIA },
           { label: 'Abnormal', val: abnormal.length, color: '#DC2626' },
-          { label: 'Pending Review', val: results.filter(r => r.status === 'received').length, color: '#D97706' },
-          { label: 'Actions Required', val: results.filter(r => r.action_required).length, color: '#7C3AED' },
+          { label: 'Pending Review', val: results.filter(r => r.status === 'received').length, color: '#D8A600' },
+          { label: 'Actions Required', val: results.filter(r => r.action_required).length, color: '#0058E6' },
         ].map(m => (
-          <div key={m.label} className="rounded-xl p-4" style={{ border: '1px solid #EBE5FF' }}>
-            <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#8B84A0] mb-1">{m.label}</p>
+          <div key={m.label} className="rounded-xl p-4" style={{ border: '1px solid #D4E2FF' }}>
+            <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#96989B] mb-1">{m.label}</p>
             <p className="text-[28px] font-black tracking-[-0.03em]" style={{ color: m.color }}>{m.val}</p>
           </div>
         ))}
       </div>
 
       {results.length === 0 ? (
-        <div className="py-12 text-center text-[13px] text-[#8B84A0]">No lab results recorded</div>
+        <div className="py-12 text-center text-[13px] text-[#96989B]">No lab results recorded</div>
       ) : (
         <div className="space-y-2">
           {results.map(r => {
@@ -3490,35 +3490,35 @@ function LabResultsTab({ patient }: { patient: PatientIntelligenceRow }) {
                 key={r.id}
                 layout
                 className="rounded-2xl overflow-hidden cursor-pointer"
-                style={{ border: `1px solid ${isSelected ? ARIA : '#EBE5FF'}` }}
+                style={{ border: `1px solid ${isSelected ? ARIA : '#D4E2FF'}` }}
                 onClick={() => setSelected(isSelected ? null : r)}
               >
                 <div className="flex items-center gap-4 px-5 py-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-[14px] font-semibold text-[#1A1035]">{r.test_name}</p>
+                      <p className="text-[14px] font-semibold text-[#181D23]">{r.test_name}</p>
                       {r.panel_name && r.panel_name !== r.test_name && (
-                        <span className="text-[11px] text-[#8B84A0]">— {r.panel_name}</span>
+                        <span className="text-[11px] text-[#96989B]">— {r.panel_name}</span>
                       )}
                       {r.flag && (
                         <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: fc.bg, color: fc.color }}>{r.flag.replace('_', ' ')}</span>
                       )}
                       <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: sc.bg, color: sc.color }}>{r.status}</span>
                     </div>
-                    <p className="text-[12px] text-[#524D66] mt-0.5">
+                    <p className="text-[12px] text-[#3D4451] mt-0.5">
                       Ordered by {r.ordered_by} — {r.ordered_date}
                       {r.lab_name && ` · ${r.lab_name}`}
                     </p>
                     {r.result_value && (
                       <p className="text-[12px] font-semibold mt-0.5" style={{ color: fc.color }}>
                         Result: {r.result_value} {r.result_unit}
-                        {r.reference_range_text && <span className="text-[#8B84A0] font-normal"> (ref: {r.reference_range_text})</span>}
+                        {r.reference_range_text && <span className="text-[#96989B] font-normal"> (ref: {r.reference_range_text})</span>}
                       </p>
                     )}
                   </div>
                   <div className="text-right flex-shrink-0">
-                    {r.result_date && <p className="text-[11px] text-[#524D66]">Result: {r.result_date}</p>}
-                    {r.reviewed_by && <p className="text-[10px] text-[#8B84A0]">Reviewed: {r.reviewed_by}</p>}
+                    {r.result_date && <p className="text-[11px] text-[#3D4451]">Result: {r.result_date}</p>}
+                    {r.reviewed_by && <p className="text-[10px] text-[#96989B]">Reviewed: {r.reviewed_by}</p>}
                   </div>
                 </div>
 
@@ -3531,19 +3531,19 @@ function LabResultsTab({ patient }: { patient: PatientIntelligenceRow }) {
                       transition={{ duration: 0.2 }}
                       className="overflow-hidden"
                     >
-                      <div className="px-5 pb-5 pt-1" style={{ borderTop: '1px solid #EBE5FF' }}>
+                      <div className="px-5 pb-5 pt-1" style={{ borderTop: '1px solid #D4E2FF' }}>
                         {r.panel_results && r.panel_results.length > 0 && (
                           <div className="mb-4">
-                            <p className="text-[9px] uppercase tracking-[0.2em] text-[#8B84A0] mb-2">Panel Results</p>
+                            <p className="text-[9px] uppercase tracking-[0.2em] text-[#96989B] mb-2">Panel Results</p>
                             <div className="space-y-1">
                               {r.panel_results.map((pr, i) => {
                                 const pfc = flagColor(pr.flag ?? null);
                                 return (
-                                  <div key={i} className="flex items-center justify-between py-1.5 px-3 rounded-lg" style={{ backgroundColor: pr.flag !== 'normal' ? `${pfc.bg}60` : '#FAF7F2' }}>
-                                    <span className="text-[12px] text-[#1A1035]">{pr.name}</span>
+                                  <div key={i} className="flex items-center justify-between py-1.5 px-3 rounded-lg" style={{ backgroundColor: pr.flag !== 'normal' ? `${pfc.bg}60` : '#F8FAFF' }}>
+                                    <span className="text-[12px] text-[#181D23]">{pr.name}</span>
                                     <div className="flex items-center gap-3">
                                       <span className="text-[12px] font-semibold" style={{ color: pfc.color }}>{pr.value} {pr.unit}</span>
-                                      {pr.range && <span className="text-[10px] text-[#8B84A0]">ref: {pr.range}</span>}
+                                      {pr.range && <span className="text-[10px] text-[#96989B]">ref: {pr.range}</span>}
                                       <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: pfc.bg, color: pfc.color }}>{pr.flag}</span>
                                     </div>
                                   </div>
@@ -3553,18 +3553,18 @@ function LabResultsTab({ patient }: { patient: PatientIntelligenceRow }) {
                           </div>
                         )}
                         {r.clinical_notes && (
-                          <div className="p-3 rounded-xl" style={{ backgroundColor: '#FAF7F2', border: '1px solid #EBE5FF' }}>
-                            <p className="text-[9px] uppercase tracking-[0.2em] text-[#8B84A0] mb-1">Clinical Notes</p>
-                            <p className="text-[12px] text-[#1A1035]">{r.clinical_notes}</p>
+                          <div className="p-3 rounded-xl" style={{ backgroundColor: '#F8FAFF', border: '1px solid #D4E2FF' }}>
+                            <p className="text-[9px] uppercase tracking-[0.2em] text-[#96989B] mb-1">Clinical Notes</p>
+                            <p className="text-[12px] text-[#181D23]">{r.clinical_notes}</p>
                           </div>
                         )}
                         {r.action_required && r.action_taken && (
-                          <p className="mt-2 text-[11px] text-[#0D9488]">
+                          <p className="mt-2 text-[11px] text-[#00A693]">
                             <span className="font-semibold">Action taken: </span>{r.action_taken}
                           </p>
                         )}
                         {r.lab_reference && (
-                          <p className="mt-2 text-[10px] text-[#8B84A0]">Lab ref: {r.lab_reference}</p>
+                          <p className="mt-2 text-[10px] text-[#96989B]">Lab ref: {r.lab_reference}</p>
                         )}
                       </div>
                     </motion.div>
@@ -3584,7 +3584,7 @@ function LabResultsTab({ patient }: { patient: PatientIntelligenceRow }) {
 // =============================================================================
 
 function ReferralsTab({ patient }: { patient: PatientIntelligenceRow }) {
-  const ARIA = '#0D9488';
+  const ARIA = '#00A693';
   const [referrals, setReferrals] = useState<Referral[]>([]);
   const [isDemo, setIsDemo] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -3615,7 +3615,7 @@ function ReferralsTab({ patient }: { patient: PatientIntelligenceRow }) {
 
   const statusSteps = ['draft', 'sent', 'acknowledged', 'appointment_booked', 'appointment_attended', 'completed'];
 
-  if (loading) return <div className="py-16 text-center text-[13px] text-[#8B84A0]">Loading referrals…</div>;
+  if (loading) return <div className="py-16 text-center text-[13px] text-[#96989B]">Loading referrals…</div>;
 
   return (
     <div>
@@ -3629,19 +3629,19 @@ function ReferralsTab({ patient }: { patient: PatientIntelligenceRow }) {
       <div className="grid grid-cols-4 gap-3 mb-6">
         {[
           { label: 'Total Referrals', val: referrals.length, color: ARIA },
-          { label: 'Active', val: referrals.filter(r => !['completed', 'rejected', 'cancelled'].includes(r.status)).length, color: '#7C3AED' },
+          { label: 'Active', val: referrals.filter(r => !['completed', 'rejected', 'cancelled'].includes(r.status)).length, color: '#0058E6' },
           { label: 'Completed', val: referrals.filter(r => r.status === 'completed').length, color: '#059669' },
-          { label: 'Awaiting Response', val: referrals.filter(r => !r.response_received && r.status !== 'completed').length, color: '#D97706' },
+          { label: 'Awaiting Response', val: referrals.filter(r => !r.response_received && r.status !== 'completed').length, color: '#D8A600' },
         ].map(m => (
-          <div key={m.label} className="rounded-xl p-4" style={{ border: '1px solid #EBE5FF' }}>
-            <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#8B84A0] mb-1">{m.label}</p>
+          <div key={m.label} className="rounded-xl p-4" style={{ border: '1px solid #D4E2FF' }}>
+            <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#96989B] mb-1">{m.label}</p>
             <p className="text-[28px] font-black tracking-[-0.03em]" style={{ color: m.color }}>{m.val}</p>
           </div>
         ))}
       </div>
 
       {referrals.length === 0 ? (
-        <div className="py-12 text-center text-[13px] text-[#8B84A0]">No referrals recorded</div>
+        <div className="py-12 text-center text-[13px] text-[#96989B]">No referrals recorded</div>
       ) : (
         <div className="space-y-2">
           {referrals.map(ref => {
@@ -3654,7 +3654,7 @@ function ReferralsTab({ patient }: { patient: PatientIntelligenceRow }) {
                 key={ref.id}
                 layout
                 className="rounded-2xl overflow-hidden cursor-pointer"
-                style={{ border: `1px solid ${isSelected ? ARIA : '#EBE5FF'}` }}
+                style={{ border: `1px solid ${isSelected ? ARIA : '#D4E2FF'}` }}
                 onClick={() => setSelected(isSelected ? null : ref)}
               >
                 <div className="flex items-center gap-4 px-5 py-4">
@@ -3665,17 +3665,17 @@ function ReferralsTab({ patient }: { patient: PatientIntelligenceRow }) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-[14px] font-semibold text-[#1A1035]">
+                      <p className="text-[14px] font-semibold text-[#181D23]">
                         {ref.specialty || ref.referral_type}
                       </p>
-                      {ref.referred_to_name && <span className="text-[11px] text-[#8B84A0]">— {ref.referred_to_name}</span>}
+                      {ref.referred_to_name && <span className="text-[11px] text-[#96989B]">— {ref.referred_to_name}</span>}
                       <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: sc.bg, color: sc.color }}>{ref.status.replace('_', ' ')}</span>
                       {ref.urgency !== 'routine' && (
                         <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: uc.bg, color: uc.color }}>{ref.urgency.replace('_', ' ')}</span>
                       )}
                     </div>
-                    <p className="text-[12px] text-[#524D66] mt-0.5 line-clamp-1">{ref.reason}</p>
-                    <p className="text-[11px] text-[#8B84A0] mt-0.5">
+                    <p className="text-[12px] text-[#3D4451] mt-0.5 line-clamp-1">{ref.reason}</p>
+                    <p className="text-[11px] text-[#96989B] mt-0.5">
                       Referred by {ref.referred_by} · {ref.referred_date}
                       {ref.referred_to_hospital && ` · ${ref.referred_to_hospital}`}
                     </p>
@@ -3691,24 +3691,24 @@ function ReferralsTab({ patient }: { patient: PatientIntelligenceRow }) {
                       transition={{ duration: 0.2 }}
                       className="overflow-hidden"
                     >
-                      <div className="px-5 pb-5 pt-1" style={{ borderTop: '1px solid #EBE5FF' }}>
+                      <div className="px-5 pb-5 pt-1" style={{ borderTop: '1px solid #D4E2FF' }}>
                         {/* Progress tracker */}
                         {!['rejected', 'cancelled'].includes(ref.status) && (
                           <div className="mb-4">
-                            <p className="text-[9px] uppercase tracking-[0.2em] text-[#8B84A0] mb-2">Progress</p>
+                            <p className="text-[9px] uppercase tracking-[0.2em] text-[#96989B] mb-2">Progress</p>
                             <div className="flex items-center gap-1">
                               {statusSteps.map((step, i) => (
                                 <div key={step} className="flex items-center gap-1 flex-1">
-                                  <div className="flex-1 h-1 rounded-full" style={{ backgroundColor: i <= stepIdx ? ARIA : '#EBE5FF' }} />
+                                  <div className="flex-1 h-1 rounded-full" style={{ backgroundColor: i <= stepIdx ? ARIA : '#D4E2FF' }} />
                                   {i === statusSteps.length - 1 && (
-                                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: i <= stepIdx ? ARIA : '#EBE5FF' }} />
+                                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: i <= stepIdx ? ARIA : '#D4E2FF' }} />
                                   )}
                                 </div>
                               ))}
                             </div>
                             <div className="flex justify-between mt-1">
                               {statusSteps.map((step, i) => (
-                                <p key={step} className="text-[8px] capitalize" style={{ color: i <= stepIdx ? ARIA : '#8B84A0' }}>
+                                <p key={step} className="text-[8px] capitalize" style={{ color: i <= stepIdx ? ARIA : '#96989B' }}>
                                   {step.replace('_', ' ')}
                                 </p>
                               ))}
@@ -3718,9 +3718,9 @@ function ReferralsTab({ patient }: { patient: PatientIntelligenceRow }) {
 
                         {/* Clinical summary */}
                         {ref.clinical_summary && (
-                          <div className="p-3 rounded-xl mb-3" style={{ backgroundColor: '#FAF7F2', border: '1px solid #EBE5FF' }}>
-                            <p className="text-[9px] uppercase tracking-[0.2em] text-[#8B84A0] mb-1">Clinical Summary Sent</p>
-                            <p className="text-[12px] text-[#1A1035]">{ref.clinical_summary}</p>
+                          <div className="p-3 rounded-xl mb-3" style={{ backgroundColor: '#F8FAFF', border: '1px solid #D4E2FF' }}>
+                            <p className="text-[9px] uppercase tracking-[0.2em] text-[#96989B] mb-1">Clinical Summary Sent</p>
+                            <p className="text-[12px] text-[#181D23]">{ref.clinical_summary}</p>
                           </div>
                         )}
 
@@ -3728,7 +3728,7 @@ function ReferralsTab({ patient }: { patient: PatientIntelligenceRow }) {
                         {ref.outcome && (
                           <div className="p-3 rounded-xl mb-3" style={{ backgroundColor: '#F0FDF4', border: '1px solid #BBF7D0' }}>
                             <p className="text-[9px] uppercase tracking-[0.2em] text-[#059669] mb-1">Outcome</p>
-                            <p className="text-[12px] text-[#1A1035]">{ref.outcome}</p>
+                            <p className="text-[12px] text-[#181D23]">{ref.outcome}</p>
                           </div>
                         )}
 
@@ -3736,7 +3736,7 @@ function ReferralsTab({ patient }: { patient: PatientIntelligenceRow }) {
                         {ref.response_summary && (
                           <div className="p-3 rounded-xl mb-3" style={{ backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE' }}>
                             <p className="text-[9px] uppercase tracking-[0.2em] text-[#1E40AF] mb-1">Specialist Response {ref.response_date && `· ${ref.response_date}`}</p>
-                            <p className="text-[12px] text-[#1A1035]">{ref.response_summary}</p>
+                            <p className="text-[12px] text-[#181D23]">{ref.response_summary}</p>
                           </div>
                         )}
 
@@ -3745,21 +3745,21 @@ function ReferralsTab({ patient }: { patient: PatientIntelligenceRow }) {
                           <div className="grid grid-cols-2 gap-3 text-[11px]">
                             {ref.referred_to_phone && (
                               <div>
-                                <p className="text-[9px] uppercase tracking-[0.2em] text-[#8B84A0] mb-0.5">Phone</p>
-                                <p className="text-[#1A1035]">{ref.referred_to_phone}</p>
+                                <p className="text-[9px] uppercase tracking-[0.2em] text-[#96989B] mb-0.5">Phone</p>
+                                <p className="text-[#181D23]">{ref.referred_to_phone}</p>
                               </div>
                             )}
                             {ref.referred_to_address && (
                               <div>
-                                <p className="text-[9px] uppercase tracking-[0.2em] text-[#8B84A0] mb-0.5">Address</p>
-                                <p className="text-[#1A1035]">{ref.referred_to_address}</p>
+                                <p className="text-[9px] uppercase tracking-[0.2em] text-[#96989B] mb-0.5">Address</p>
+                                <p className="text-[#181D23]">{ref.referred_to_address}</p>
                               </div>
                             )}
                           </div>
                         )}
 
                         {ref.follow_up_required && ref.follow_up_notes && (
-                          <p className="mt-2 text-[11px] text-[#D97706]">
+                          <p className="mt-2 text-[11px] text-[#D8A600]">
                             <span className="font-semibold">Follow-up: </span>{ref.follow_up_notes}
                           </p>
                         )}
@@ -3787,7 +3787,7 @@ export default function PatientHubPage() {
 
   const [userId,    setUserId]    = useState('');
   const [profile,   setProfile]   = useState<StaffProfile | null>(null);
-  const [brandColor,setBrandColor]= useState('#6D28D9');
+  const [brandColor,setBrandColor]= useState('#0058E6');
   const [hub,          setHub]         = useState<PatientHubData | null>(null);
   const [isDemo,       setIsDemo]      = useState(false);
   const [loading,      setLoading]     = useState(true);
@@ -3804,7 +3804,7 @@ export default function PatientHubPage() {
       getStaffProfile('clinic', uid).then(res => {
         if (res.success && res.data?.profile) {
           setProfile(res.data.profile);
-          setBrandColor(res.data.profile.brandColor || '#6D28D9');
+          setBrandColor(res.data.profile.brandColor || '#0058E6');
         }
       });
     });
@@ -3855,37 +3855,37 @@ export default function PatientHubPage() {
   void [Activity, BarChart2, CreditCard, Package, Users, Flag, UserIcon, Target, Shield, FileText];
 
   return (
-    <div className="min-h-screen pl-[240px]" style={{ backgroundColor: '#FAF7F2' }}>
+    <div className="min-h-screen pl-[240px]" style={{ backgroundColor: '#F8FAFF' }}>
       {profile && <StaffNav profile={profile} userId={userId} brandColor={brandColor} currentPath="Patients" />}
 
       {loading ? (
         <div className="flex items-center justify-center h-screen">
           <motion.div animate={{ scale: [0.8, 1.2, 0.8], opacity: [0.2, 0.6, 0.2] }} transition={{ duration: 1.6, repeat: Infinity }}
-            className="w-[5px] h-[5px] rounded-full" style={{ backgroundColor: '#D5CCFF' }} />
+            className="w-[5px] h-[5px] rounded-full" style={{ backgroundColor: '#A8C4FF' }} />
         </div>
       ) : error || !patient || !lc ? (
         <div className="flex flex-col items-center justify-center h-screen gap-3">
           <AlertCircle size={28} style={{ color: '#DC2626' }} />
-          <p className="text-[13px] text-[#6E6688]">{error ?? 'Patient not found'}</p>
-          <button onClick={() => router.push('/staff/patients')} className="text-[12px] text-[#7C3AED] hover:underline">Go back</button>
+          <p className="text-[13px] text-[#5A6475]">{error ?? 'Patient not found'}</p>
+          <button onClick={() => router.push('/staff/patients')} className="text-[12px] text-[#0058E6] hover:underline">Go back</button>
         </div>
       ) : (
         <div className="max-w-[1440px] mx-auto">
 
           {/* Hero header */}
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="sticky top-0 z-20"
-            style={{ backgroundColor: '#FAF7F2', borderBottom: '1px solid #EBE5FF' }}>
+            style={{ backgroundColor: '#F8FAFF', borderBottom: '1px solid #D4E2FF' }}>
 
             <div className="flex items-center justify-between px-10 pt-5 pb-3">
               <button onClick={() => router.push('/staff/patients')}
-                className="flex items-center gap-1.5 text-[11px] text-[#8B84A0] hover:text-[#524D66] transition-colors">
+                className="flex items-center gap-1.5 text-[11px] text-[#96989B] hover:text-[#3D4451] transition-colors">
                 <ArrowLeft size={13} /> All patients
               </button>
               <div className="flex items-center gap-2">
-                {isDemo && <span className="text-[9px] px-2 py-0.5 rounded-full font-semibold" style={{ backgroundColor: '#F5F3FF', color: '#7C3AED', border: '1px solid #DDD6FE' }}>Demo</span>}
-                {isVip && <span className="text-[9px] px-2.5 py-0.5 rounded-full font-semibold" style={{ backgroundColor: '#FFFBEB', color: '#D97706', border: '1px solid #FDE68A' }}>VIP</span>}
-                <button onClick={load} className="w-7 h-7 rounded-lg flex items-center justify-center transition-all" style={{ background: 'rgba(0,0,0,0.02)', border: '1px solid #EBE5FF' }}>
-                  <RefreshCw size={11} className="text-[#8B84A0]" />
+                {isDemo && <span className="text-[9px] px-2 py-0.5 rounded-full font-semibold" style={{ backgroundColor: '#F5F3FF', color: '#0058E6', border: '1px solid #DDD6FE' }}>Demo</span>}
+                {isVip && <span className="text-[9px] px-2.5 py-0.5 rounded-full font-semibold" style={{ backgroundColor: '#FFFBEB', color: '#D8A600', border: '1px solid #FDE68A' }}>VIP</span>}
+                <button onClick={load} className="w-7 h-7 rounded-lg flex items-center justify-center transition-all" style={{ background: 'rgba(0,0,0,0.02)', border: '1px solid #D4E2FF' }}>
+                  <RefreshCw size={11} className="text-[#96989B]" />
                 </button>
               </div>
             </div>
@@ -3897,7 +3897,7 @@ export default function PatientHubPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-3 flex-wrap mb-1">
-                  <h1 className="text-[28px] font-black tracking-[-0.035em] text-[#1A1035]">{patient.first_name} {patient.last_name}</h1>
+                  <h1 className="text-[28px] font-black tracking-[-0.035em] text-[#181D23]">{patient.first_name} {patient.last_name}</h1>
                   {/* Lifecycle badge + manual override */}
                   <div className="relative">
                     <button
@@ -3915,8 +3915,8 @@ export default function PatientHubPage() {
                       {statusMenu && (
                         <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
                           className="absolute left-0 top-full mt-1 z-50 rounded-xl overflow-hidden shadow-lg"
-                          style={{ border: '1px solid #EBE5FF', backgroundColor: '#FAF7F2', minWidth: 140 }}>
-                          <div className="px-3 py-2 text-[8px] uppercase tracking-[0.2em] font-semibold text-[#8B84A0]" style={{ borderBottom: '1px solid #EBE5FF' }}>
+                          style={{ border: '1px solid #D4E2FF', backgroundColor: '#F8FAFF', minWidth: 140 }}>
+                          <div className="px-3 py-2 text-[8px] uppercase tracking-[0.2em] font-semibold text-[#96989B]" style={{ borderBottom: '1px solid #D4E2FF' }}>
                             Set Status
                           </div>
                           {(['existing','active','new','loyal','at_risk','lapsed','lead'] as LifecycleStage[]).map(s => {
@@ -3925,7 +3925,7 @@ export default function PatientHubPage() {
                             return (
                               <button key={s} onClick={() => handleSetStatus(s)}
                                 className="w-full flex items-center gap-2 px-3 py-2 text-[11px] transition-colors text-left"
-                                style={{ backgroundColor: isCurrent ? cfg.bg : 'transparent', color: isCurrent ? cfg.color : '#524D66' }}
+                                style={{ backgroundColor: isCurrent ? cfg.bg : 'transparent', color: isCurrent ? cfg.color : '#3D4451' }}
                                 onMouseEnter={e => { if (!isCurrent) (e.currentTarget as HTMLElement).style.backgroundColor = '#F5F0FF'; }}
                                 onMouseLeave={e => { if (!isCurrent) (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}>
                                 <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cfg.color }} />
@@ -3936,9 +3936,9 @@ export default function PatientHubPage() {
                           })}
                           {patient.lifecycle_manually_set && (
                             <>
-                              <div style={{ borderTop: '1px solid #EBE5FF' }} />
+                              <div style={{ borderTop: '1px solid #D4E2FF' }} />
                               <button onClick={() => handleSetStatus(null)}
-                                className="w-full flex items-center gap-2 px-3 py-2 text-[11px] text-[#8B84A0] transition-colors text-left hover:bg-[#F9F7FF]">
+                                className="w-full flex items-center gap-2 px-3 py-2 text-[11px] text-[#96989B] transition-colors text-left hover:bg-[#F9F7FF]">
                                 <RefreshCw size={10} /> Reset to auto
                               </button>
                             </>
@@ -3947,7 +3947,7 @@ export default function PatientHubPage() {
                       )}
                     </AnimatePresence>
                   </div>
-                  {isVip && <span className="text-[10px] font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: '#FFFBEB', color: '#D97706', border: '1px solid #FDE68A' }}>VIP</span>}
+                  {isVip && <span className="text-[10px] font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: '#FFFBEB', color: '#D8A600', border: '1px solid #FDE68A' }}>VIP</span>}
                   {patient.open_signals_count > 0 && (
                     <span className="text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1" style={{ backgroundColor: '#FFF1F2', color: '#DC2626', border: '1px solid #FECDD3' }}>
                       <Zap size={10} /> {patient.open_signals_count} signal{patient.open_signals_count !== 1 ? 's' : ''}
@@ -3955,14 +3955,14 @@ export default function PatientHubPage() {
                   )}
                 </div>
                 <div className="flex items-center gap-5 flex-wrap">
-                  {patient.phone && <span className="text-[11px] text-[#8B84A0] flex items-center gap-1.5"><Phone size={11} />{patient.phone}</span>}
-                  {patient.email && <span className="text-[11px] text-[#8B84A0] flex items-center gap-1.5"><Mail size={11} />{patient.email}</span>}
-                  <span className="text-[11px] text-[#8B84A0] flex items-center gap-1.5"><Calendar size={11} />{patient.total_visits} visits</span>
+                  {patient.phone && <span className="text-[11px] text-[#96989B] flex items-center gap-1.5"><Phone size={11} />{patient.phone}</span>}
+                  {patient.email && <span className="text-[11px] text-[#96989B] flex items-center gap-1.5"><Mail size={11} />{patient.email}</span>}
+                  <span className="text-[11px] text-[#96989B] flex items-center gap-1.5"><Calendar size={11} />{patient.total_visits} visits</span>
                   {patient.days_since_last_visit !== null && (
-                    <span className="text-[11px] text-[#8B84A0] flex items-center gap-1.5"><Clock size={11} />Last: {fmtDays(patient.days_since_last_visit)}</span>
+                    <span className="text-[11px] text-[#96989B] flex items-center gap-1.5"><Clock size={11} />Last: {fmtDays(patient.days_since_last_visit)}</span>
                   )}
                   {patient.latest_treatment && (
-                    <span className="text-[11px] text-[#8B84A0] flex items-center gap-1.5"><Stethoscope size={11} />{patient.latest_treatment}</span>
+                    <span className="text-[11px] text-[#96989B] flex items-center gap-1.5"><Stethoscope size={11} />{patient.latest_treatment}</span>
                   )}
                 </div>
               </div>
@@ -3976,7 +3976,7 @@ export default function PatientHubPage() {
               {TABS.map(tab => (
                 <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                   className="relative flex-shrink-0 px-4 py-2.5 text-[11px] font-semibold transition-all whitespace-nowrap"
-                  style={{ color: activeTab === tab.id ? lc.color : '#8B84A0', borderBottom: `2px solid ${activeTab === tab.id ? lc.color : 'transparent'}` }}>
+                  style={{ color: activeTab === tab.id ? lc.color : '#96989B', borderBottom: `2px solid ${activeTab === tab.id ? lc.color : 'transparent'}` }}>
                   {tab.label}
                   {tab.id === 'communications' && patient.open_signals_count > 0 && (
                     <span className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold text-white" style={{ backgroundColor: '#DC2626' }}>{patient.open_signals_count}</span>

@@ -26,11 +26,11 @@ import { getStaffProfile, getLatestTenantAndUser } from '@/lib/actions/staff-onb
 import type { StaffProfile } from '@/lib/actions/staff-onboarding';
 import { StaffNav } from '@/components/staff-nav';
 
-const ACCENT = '#6D28D9';
+const ACCENT = '#0058E6';
 
 const STOCK_STYLE: Record<ConsumableItem['stock_status'], { bg: string; border: string; text: string; label: string }> = {
   ok:           { bg: 'rgba(5,150,105,0.07)',   border: 'rgba(5,150,105,0.25)',   text: '#059669', label: 'OK' },
-  low:          { bg: 'rgba(217,119,6,0.07)',   border: 'rgba(217,119,6,0.25)',   text: '#D97706', label: 'Low' },
+  low:          { bg: 'rgba(217,119,6,0.07)',   border: 'rgba(217,119,6,0.25)',   text: '#D8A600', label: 'Low' },
   critical:     { bg: 'rgba(220,38,38,0.08)',   border: 'rgba(220,38,38,0.25)',   text: '#DC2626', label: 'Critical' },
   out_of_stock: { bg: 'rgba(220,38,38,0.12)',   border: 'rgba(220,38,38,0.35)',   text: '#DC2626', label: 'Out' },
   on_order:     { bg: 'rgba(37,99,235,0.07)',   border: 'rgba(37,99,235,0.25)',   text: '#2563EB', label: 'On Order' },
@@ -38,9 +38,9 @@ const STOCK_STYLE: Record<ConsumableItem['stock_status'], { bg: string; border: 
 
 const EQUIP_STYLE: Record<EquipmentItem['equipment_status'], { dot: string; label: string; text: string }> = {
   operational:      { dot: '#059669', label: 'Operational', text: '#059669' },
-  due_service:      { dot: '#D97706', label: 'Due Service',  text: '#D97706' },
+  due_service:      { dot: '#D8A600', label: 'Due Service',  text: '#D8A600' },
   overdue_service:  { dot: '#DC2626', label: 'Overdue',      text: '#DC2626' },
-  out_of_service:   { dot: '#8B84A0', label: 'Out of Svc',   text: '#8B84A0' },
+  out_of_service:   { dot: '#96989B', label: 'Out of Svc',   text: '#96989B' },
 };
 
 const FALLBACK: StaffProfile = {
@@ -48,7 +48,7 @@ const FALLBACK: StaffProfile = {
   jobTitle: null, departmentName: null, departmentId: null,
   roleName: null, isAdmin: false, isOwner: false,
   companyName: 'Edgbaston Wellness Clinic',
-  aiName: 'Aria', brandColor: '#6D28D9', logoUrl: null,
+  aiName: 'Aria', brandColor: '#0058E6', logoUrl: null,
   industry: null, reportsTo: null, teamSize: 0,
 };
 
@@ -60,11 +60,11 @@ function fmtDate(d: string | null) {
 function StockBar({ current, reorder, max }: { current: number; reorder: number; max: number }) {
   const pct = Math.min(100, (current / max) * 100);
   const reorderPct = Math.min(100, (reorder / max) * 100);
-  const color = current <= 0 ? '#DC2626' : current <= reorder * 0.5 ? '#DC2626' : current <= reorder ? '#D97706' : '#059669';
+  const color = current <= 0 ? '#DC2626' : current <= reorder * 0.5 ? '#DC2626' : current <= reorder ? '#D8A600' : '#059669';
   return (
-    <div style={{ position: 'relative', height: 4, background: 'rgba(138,108,255,0.08)', borderRadius: 2, width: '100%' }}>
+    <div style={{ position: 'relative', height: 4, background: 'rgba(0,88,230,0.08)', borderRadius: 2, width: '100%' }}>
       <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: `${pct}%`, background: color, borderRadius: 2 }} />
-      <div style={{ position: 'absolute', top: -3, bottom: -3, left: `${reorderPct}%`, width: 1, background: '#D5CCFF' }} />
+      <div style={{ position: 'absolute', top: -3, bottom: -3, left: `${reorderPct}%`, width: 1, background: '#A8C4FF' }} />
     </div>
   );
 }
@@ -85,11 +85,11 @@ function ConsumableRow({ item, tenantId, onUpdate }: { item: ConsumableItem; ten
   }
 
   return (
-    <motion.div layout initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} style={{ borderBottom: '1px solid #EBE5FF', padding: '14px 0' }}>
+    <motion.div layout initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} style={{ borderBottom: '1px solid #D4E2FF', padding: '14px 0' }}>
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 160px 1fr 80px', gap: 12, alignItems: 'center' }}>
         <div>
-          <p style={{ fontSize: 12, fontWeight: 700, color: '#1A1035', margin: 0 }}>{item.name}</p>
-          <p style={{ fontSize: 10, color: '#8B84A0', margin: 0 }}>{item.supplier} · {item.treatment_link ?? 'General'}</p>
+          <p style={{ fontSize: 12, fontWeight: 700, color: '#181D23', margin: 0 }}>{item.name}</p>
+          <p style={{ fontSize: 10, color: '#96989B', margin: 0 }}>{item.supplier} · {item.treatment_link ?? 'General'}</p>
           {item.ai_reorder_prediction && (
             <p style={{ fontSize: 10, color: ACCENT, marginTop: 3, fontStyle: 'italic' }}>AI: {item.ai_reorder_prediction}</p>
           )}
@@ -98,32 +98,32 @@ function ConsumableRow({ item, tenantId, onUpdate }: { item: ConsumableItem; ten
           {editing ? (
             <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
               <input type="number" value={newStock} onChange={e => setNewStock(Math.max(0, parseInt(e.target.value) || 0))}
-                style={{ width: 56, padding: '4px 8px', borderRadius: 6, border: '1px solid #EBE5FF', fontSize: 12, color: '#1A1035', outline: 'none' }} />
+                style={{ width: 56, padding: '4px 8px', borderRadius: 6, border: '1px solid #D4E2FF', fontSize: 12, color: '#181D23', outline: 'none' }} />
               <button onClick={handleSave} disabled={saving} style={{ padding: '4px 8px', borderRadius: 6, background: ACCENT, color: '#fff', border: 'none', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>
                 {saving ? '...' : 'Save'}
               </button>
-              <button onClick={() => setEditing(false)} style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #EBE5FF', background: 'transparent', color: '#8B84A0', fontSize: 10, cursor: 'pointer' }}>x</button>
+              <button onClick={() => setEditing(false)} style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #D4E2FF', background: 'transparent', color: '#96989B', fontSize: 10, cursor: 'pointer' }}>x</button>
             </div>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 22, fontWeight: 900, color: '#1A1035', letterSpacing: '-0.03em' }}>{item.current_stock}</span>
-              <span style={{ fontSize: 10, color: '#8B84A0' }}>{item.unit}</span>
-              <button onClick={() => setEditing(true)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#8B84A0', fontSize: 10 }}>Edit</button>
+              <span style={{ fontSize: 22, fontWeight: 900, color: '#181D23', letterSpacing: '-0.03em' }}>{item.current_stock}</span>
+              <span style={{ fontSize: 10, color: '#96989B' }}>{item.unit}</span>
+              <button onClick={() => setEditing(true)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#96989B', fontSize: 10 }}>Edit</button>
             </div>
           )}
         </div>
         <div>
           <StockBar current={item.current_stock} reorder={item.reorder_level} max={maxStock} />
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
-            <span style={{ fontSize: 9, color: '#8B84A0' }}>0</span>
-            <span style={{ fontSize: 9, color: '#8B84A0' }}>RL: {item.reorder_level}</span>
-            <span style={{ fontSize: 9, color: '#8B84A0' }}>{maxStock}</span>
+            <span style={{ fontSize: 9, color: '#96989B' }}>0</span>
+            <span style={{ fontSize: 9, color: '#96989B' }}>RL: {item.reorder_level}</span>
+            <span style={{ fontSize: 9, color: '#96989B' }}>{maxStock}</span>
           </div>
         </div>
         <div>
-          <p style={{ fontSize: 10, color: '#6E6688', margin: 0 }}>Reorder: {item.reorder_quantity} {item.unit}</p>
-          <p style={{ fontSize: 10, color: '#6E6688', margin: 0 }}>Cost: £{item.cost_per_unit}/{item.unit}</p>
-          {item.cqc_relevant && <span style={{ fontSize: 9, color: '#D97706', fontWeight: 700 }}>CQC</span>}
+          <p style={{ fontSize: 10, color: '#5A6475', margin: 0 }}>Reorder: {item.reorder_quantity} {item.unit}</p>
+          <p style={{ fontSize: 10, color: '#5A6475', margin: 0 }}>Cost: £{item.cost_per_unit}/{item.unit}</p>
+          {item.cqc_relevant && <span style={{ fontSize: 9, color: '#D8A600', fontWeight: 700 }}>CQC</span>}
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <span style={{ fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 6, background: ss.bg, border: `1px solid ${ss.border}`, color: ss.text }}>{ss.label}</span>
@@ -145,32 +145,32 @@ function EquipmentRow({ item, tenantId, onService }: { item: EquipmentItem; tena
   }
 
   return (
-    <motion.div layout initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} style={{ borderBottom: '1px solid #EBE5FF', padding: '14px 0' }}>
+    <motion.div layout initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} style={{ borderBottom: '1px solid #D4E2FF', padding: '14px 0' }}>
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 120px', gap: 12, alignItems: 'center' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: es.dot }} />
-            <p style={{ fontSize: 12, fontWeight: 700, color: '#1A1035', margin: 0 }}>{item.name}</p>
+            <p style={{ fontSize: 12, fontWeight: 700, color: '#181D23', margin: 0 }}>{item.name}</p>
           </div>
-          <p style={{ fontSize: 10, color: '#8B84A0', margin: 0 }}>{item.model ?? ''}{item.serial_number ? ' · ' + item.serial_number : ''}</p>
-          <p style={{ fontSize: 10, color: '#6E6688', margin: 0 }}>{item.location} · {item.responsible_person}</p>
+          <p style={{ fontSize: 10, color: '#96989B', margin: 0 }}>{item.model ?? ''}{item.serial_number ? ' · ' + item.serial_number : ''}</p>
+          <p style={{ fontSize: 10, color: '#5A6475', margin: 0 }}>{item.location} · {item.responsible_person}</p>
         </div>
         <div>
-          <p style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#8B84A0', margin: 0 }}>Last Service</p>
-          <p style={{ fontSize: 11, fontWeight: 700, color: '#1A1035', marginTop: 2 }}>{fmtDate(item.last_service_date)}</p>
+          <p style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#96989B', margin: 0 }}>Last Service</p>
+          <p style={{ fontSize: 11, fontWeight: 700, color: '#181D23', marginTop: 2 }}>{fmtDate(item.last_service_date)}</p>
         </div>
         <div>
-          <p style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#8B84A0', margin: 0 }}>Next Service</p>
-          <p style={{ fontSize: 11, fontWeight: 700, color: item.equipment_status === 'overdue_service' ? '#DC2626' : '#1A1035', marginTop: 2 }}>{fmtDate(item.next_service_date)}</p>
+          <p style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#96989B', margin: 0 }}>Next Service</p>
+          <p style={{ fontSize: 11, fontWeight: 700, color: item.equipment_status === 'overdue_service' ? '#DC2626' : '#181D23', marginTop: 2 }}>{fmtDate(item.next_service_date)}</p>
         </div>
         <div>
-          {item.cqc_registered && <p style={{ fontSize: 10, color: '#D97706', fontWeight: 700 }}>{item.cqc_registration_number}</p>}
-          {item.notes && <p style={{ fontSize: 10, color: '#6E6688', margin: 0 }}>{item.notes}</p>}
+          {item.cqc_registered && <p style={{ fontSize: 10, color: '#D8A600', fontWeight: 700 }}>{item.cqc_registration_number}</p>}
+          {item.notes && <p style={{ fontSize: 10, color: '#5A6475', margin: 0 }}>{item.notes}</p>}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
           <span style={{ fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 6, background: es.dot + '18', color: es.text, border: `1px solid ${es.dot}35` }}>{es.label}</span>
           {(item.equipment_status === 'due_service' || item.equipment_status === 'overdue_service') && (
-            <button onClick={handleService} disabled={logging} style={{ padding: '5px 10px', borderRadius: 7, background: '#1A1035', color: '#fff', border: 'none', fontSize: 10, fontWeight: 700, cursor: 'pointer', opacity: logging ? 0.6 : 1 }}>
+            <button onClick={handleService} disabled={logging} style={{ padding: '5px 10px', borderRadius: 7, background: '#181D23', color: '#fff', border: 'none', fontSize: 10, fontWeight: 700, cursor: 'pointer', opacity: logging ? 0.6 : 1 }}>
               {logging ? '...' : 'Log Service'}
             </button>
           )}
@@ -252,21 +252,21 @@ export default function InventoryPage() {
   const accentColor = profile?.brandColor ?? ACCENT;
 
   if (loading) return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#FAF7F2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 32, height: 32, border: '2px solid #EBE5FF', borderTopColor: ACCENT, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+    <div style={{ minHeight: '100vh', backgroundColor: '#F8FAFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 32, height: 32, border: '2px solid #D4E2FF', borderTopColor: ACCENT, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#FAF7F2' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#F8FAFF' }}>
       {profile && <StaffNav profile={profile} userId={userId} brandColor={accentColor} currentPath="Inventory" />}
       <main style={{ paddingLeft: 240, minHeight: '100vh' }}>
-        <div style={{ padding: '40px 40px 0', borderBottom: '1px solid #EBE5FF' }}>
+        <div style={{ padding: '40px 40px 0', borderBottom: '1px solid #D4E2FF' }}>
           <div style={{ paddingBottom: 24 }}>
-            <p style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.28em', color: '#8B84A0', marginBottom: 6 }}>Operations</p>
-            <h1 style={{ fontSize: 38, fontWeight: 900, letterSpacing: '-0.035em', color: '#1A1035', lineHeight: 1 }}>Inventory & Equipment</h1>
-            <p style={{ fontSize: 13, color: '#524D66', marginTop: 6 }}>Consumables, medications, PPE and equipment register — AI reorder predictions</p>
+            <p style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.28em', color: '#96989B', marginBottom: 6 }}>Operations</p>
+            <h1 style={{ fontSize: 38, fontWeight: 900, letterSpacing: '-0.035em', color: '#181D23', lineHeight: 1 }}>Inventory & Equipment</h1>
+            <p style={{ fontSize: 13, color: '#3D4451', marginTop: 6 }}>Consumables, medications, PPE and equipment register — AI reorder predictions</p>
           </div>
           <div style={{ display: 'flex', gap: 0 }}>
             {([
@@ -281,7 +281,7 @@ export default function InventoryPage() {
                 else setTab(t.key);
               }} style={{
                 padding: '10px 20px', border: 'none', background: 'transparent', fontSize: 11, fontWeight: 700,
-                cursor: 'pointer', color: tab === t.key ? accentColor : '#8B84A0',
+                cursor: 'pointer', color: tab === t.key ? accentColor : '#96989B',
                 borderBottom: `2px solid ${tab === t.key ? accentColor : 'transparent'}`, transition: 'all 0.2s',
               }}>{t.label}</button>
             ))}
@@ -289,16 +289,16 @@ export default function InventoryPage() {
         </div>
 
         {stats && (
-          <div style={{ display: 'flex', borderBottom: '1px solid #EBE5FF' }}>
+          <div style={{ display: 'flex', borderBottom: '1px solid #D4E2FF' }}>
             {[
-              { label: 'Low Stock',      value: stats.low_stock_count,           color: '#D97706' },
+              { label: 'Low Stock',      value: stats.low_stock_count,           color: '#D8A600' },
               { label: 'Critical',       value: stats.critical_stock_count,       color: '#DC2626' },
               { label: 'Equip Overdue',  value: stats.equipment_overdue_service,  color: '#DC2626' },
-              { label: 'Due Service',    value: stats.equipment_due_service,      color: '#D97706' },
-              { label: 'Est Reorder',    value: `£${stats.estimated_reorder_value.toFixed(0)}`, color: '#1A1035' },
+              { label: 'Due Service',    value: stats.equipment_due_service,      color: '#D8A600' },
+              { label: 'Est Reorder',    value: `£${stats.estimated_reorder_value.toFixed(0)}`, color: '#181D23' },
             ].map((m, i) => (
-              <div key={m.label} style={{ flex: 1, padding: '18px 20px', borderRight: i < 4 ? '1px solid #EBE5FF' : 'none' }}>
-                <p style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.25em', color: '#8B84A0', margin: 0 }}>{m.label}</p>
+              <div key={m.label} style={{ flex: 1, padding: '18px 20px', borderRight: i < 4 ? '1px solid #D4E2FF' : 'none' }}>
+                <p style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.25em', color: '#96989B', margin: 0 }}>{m.label}</p>
                 <p style={{ fontSize: 26, fontWeight: 900, color: m.color, letterSpacing: '-0.04em', margin: 0 }}>{m.value}</p>
               </div>
             ))}
@@ -308,9 +308,9 @@ export default function InventoryPage() {
         <AnimatePresence mode="wait">
           {tab === 'consumables' && (
             <motion.div key="cons" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ padding: '24px 40px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 160px 1fr 80px', gap: 12, paddingBottom: 10, borderBottom: '2px solid #EBE5FF', marginBottom: 4 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 160px 1fr 80px', gap: 12, paddingBottom: 10, borderBottom: '2px solid #D4E2FF', marginBottom: 4 }}>
                 {['Item / AI Insight', 'Stock', 'Level', 'Details', 'Status'].map(h => (
-                  <span key={h} style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.25em', color: '#8B84A0' }}>{h}</span>
+                  <span key={h} style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.25em', color: '#96989B' }}>{h}</span>
                 ))}
               </div>
               <AnimatePresence>
@@ -321,9 +321,9 @@ export default function InventoryPage() {
 
           {tab === 'equipment' && (
             <motion.div key="eq" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ padding: '24px 40px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 120px', gap: 12, paddingBottom: 10, borderBottom: '2px solid #EBE5FF', marginBottom: 4 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 120px', gap: 12, paddingBottom: 10, borderBottom: '2px solid #D4E2FF', marginBottom: 4 }}>
                 {['Equipment', 'Last Service', 'Next Service', 'Notes', 'Status'].map(h => (
-                  <span key={h} style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.25em', color: '#8B84A0' }}>{h}</span>
+                  <span key={h} style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.25em', color: '#96989B' }}>{h}</span>
                 ))}
               </div>
               <AnimatePresence>
@@ -337,50 +337,50 @@ export default function InventoryPage() {
               <div style={{ display: 'flex', gap: 20, marginBottom: 20 }}>
                 {[
                   { label: 'Expired',        val: expiryItems.filter(e => e.expiry_status === 'expired').length,        color: '#DC2626' },
-                  { label: 'Expiring <30d',  val: expiryItems.filter(e => e.expiry_status === 'expiring_soon').length,  color: '#D97706' },
+                  { label: 'Expiring <30d',  val: expiryItems.filter(e => e.expiry_status === 'expiring_soon').length,  color: '#D8A600' },
                   { label: 'OK',             val: expiryItems.filter(e => e.expiry_status === 'ok').length,             color: '#059669' },
-                  { label: 'CQC Items',      val: expiryItems.filter(e => e.cqc_relevant).length,                       color: '#6D28D9' },
+                  { label: 'CQC Items',      val: expiryItems.filter(e => e.cqc_relevant).length,                       color: '#0058E6' },
                 ].map(m => (
-                  <div key={m.label} style={{ flex: 1, padding: '16px 20px', border: '1px solid #EBE5FF', borderRadius: 14 }}>
-                    <p style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.25em', color: '#8B84A0', margin: 0 }}>{m.label}</p>
+                  <div key={m.label} style={{ flex: 1, padding: '16px 20px', border: '1px solid #D4E2FF', borderRadius: 14 }}>
+                    <p style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.25em', color: '#96989B', margin: 0 }}>{m.label}</p>
                     <p style={{ fontSize: 26, fontWeight: 900, color: m.color, letterSpacing: '-0.04em', margin: 0 }}>{m.val}</p>
                   </div>
                 ))}
               </div>
               {expiryLoading ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ width: 20, height: 20, border: '2px solid #EBE5FF', borderTopColor: ACCENT, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                  <span style={{ fontSize: 12, color: '#8B84A0' }}>Loading expiry data...</span>
+                  <div style={{ width: 20, height: 20, border: '2px solid #D4E2FF', borderTopColor: ACCENT, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                  <span style={{ fontSize: 12, color: '#96989B' }}>Loading expiry data...</span>
                 </div>
               ) : (
                 <div>
                   {/* Header */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 100px', gap: 12, paddingBottom: 10, borderBottom: '2px solid #EBE5FF', marginBottom: 4 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 100px', gap: 12, paddingBottom: 10, borderBottom: '2px solid #D4E2FF', marginBottom: 4 }}>
                     {['Item / Batch', 'Qty', 'Expiry', 'Days Left', 'Storage', 'Status'].map(h => (
-                      <span key={h} style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.25em', color: '#8B84A0' }}>{h}</span>
+                      <span key={h} style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.25em', color: '#96989B' }}>{h}</span>
                     ))}
                   </div>
                   <AnimatePresence>
                     {expiryItems.map(item => {
                       const expired  = item.expiry_status === 'expired';
                       const expiring = item.expiry_status === 'expiring_soon';
-                      const dotColor = expired ? '#DC2626' : expiring ? '#D97706' : '#059669';
+                      const dotColor = expired ? '#DC2626' : expiring ? '#D8A600' : '#059669';
                       const rowBg    = expired ? 'rgba(220,38,38,0.03)' : expiring ? 'rgba(217,119,6,0.03)' : 'transparent';
                       return (
                         <motion.div key={item.id} layout initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
-                          style={{ borderBottom: '1px solid #EBE5FF', padding: '14px 0', backgroundColor: rowBg, display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 100px', gap: 12, alignItems: 'center' }}>
+                          style={{ borderBottom: '1px solid #D4E2FF', padding: '14px 0', backgroundColor: rowBg, display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 100px', gap: 12, alignItems: 'center' }}>
                           <div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                               <div style={{ width: 6, height: 6, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
-                              <p style={{ fontSize: 12, fontWeight: 700, color: '#1A1035', margin: 0 }}>{item.name}</p>
+                              <p style={{ fontSize: 12, fontWeight: 700, color: '#181D23', margin: 0 }}>{item.name}</p>
                             </div>
-                            <p style={{ fontSize: 10, color: '#8B84A0', margin: 0, paddingLeft: 13 }}>Batch: {item.batch_number} · {item.supplier}</p>
+                            <p style={{ fontSize: 10, color: '#96989B', margin: 0, paddingLeft: 13 }}>Batch: {item.batch_number} · {item.supplier}</p>
                             {item.treatment_link && <p style={{ fontSize: 9, color: ACCENT, margin: 0, paddingLeft: 13, fontStyle: 'italic' }}>{item.treatment_link}</p>}
-                            {item.supplier_contact && <p style={{ fontSize: 9, color: '#6E6688', margin: 0, paddingLeft: 13 }}>{item.supplier_contact}</p>}
+                            {item.supplier_contact && <p style={{ fontSize: 9, color: '#5A6475', margin: 0, paddingLeft: 13 }}>{item.supplier_contact}</p>}
                           </div>
                           <div>
-                            <p style={{ fontSize: 18, fontWeight: 900, color: '#1A1035', margin: 0, letterSpacing: '-0.03em' }}>{item.quantity}</p>
-                            <p style={{ fontSize: 9, color: '#8B84A0', margin: 0 }}>{item.unit}</p>
+                            <p style={{ fontSize: 18, fontWeight: 900, color: '#181D23', margin: 0, letterSpacing: '-0.03em' }}>{item.quantity}</p>
+                            <p style={{ fontSize: 9, color: '#96989B', margin: 0 }}>{item.unit}</p>
                           </div>
                           <div>
                             <p style={{ fontSize: 11, fontWeight: 700, color: dotColor, margin: 0 }}>{new Date(item.expiry_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
@@ -389,10 +389,10 @@ export default function InventoryPage() {
                             <p style={{ fontSize: 18, fontWeight: 900, color: dotColor, margin: 0, letterSpacing: '-0.03em' }}>
                               {expired ? 'EXP' : `${item.days_until_expiry}d`}
                             </p>
-                            <p style={{ fontSize: 9, color: '#8B84A0', margin: 0 }}>{expired ? 'EXPIRED — do not use' : expiring ? 'expiring soon' : 'in date'}</p>
+                            <p style={{ fontSize: 9, color: '#96989B', margin: 0 }}>{expired ? 'EXPIRED — do not use' : expiring ? 'expiring soon' : 'in date'}</p>
                           </div>
                           <div>
-                            <p style={{ fontSize: 9, color: '#6E6688', margin: 0 }}>{item.storage_requirements ?? '—'}</p>
+                            <p style={{ fontSize: 9, color: '#5A6475', margin: 0 }}>{item.storage_requirements ?? '—'}</p>
                           </div>
                           <div>
                             <span style={{
@@ -413,17 +413,17 @@ export default function InventoryPage() {
 
           {tab === 'reorder' && (
             <motion.div key="reorder" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ padding: '32px 40px' }}>
-              <p style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.28em', color: '#8B84A0', marginBottom: 20 }}>AI Reorder Recommendations</p>
+              <p style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.28em', color: '#96989B', marginBottom: 20 }}>AI Reorder Recommendations</p>
               {reorderLoading ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ width: 20, height: 20, border: '2px solid #EBE5FF', borderTopColor: ACCENT, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                  <span style={{ fontSize: 12, color: '#8B84A0' }}>Analysing stock and appointment schedule...</span>
+                  <div style={{ width: 20, height: 20, border: '2px solid #D4E2FF', borderTopColor: ACCENT, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                  <span style={{ fontSize: 12, color: '#96989B' }}>Analysing stock and appointment schedule...</span>
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 720 }}>
                   {reorderRecs.map(rec => (
                     <motion.div key={rec.item_id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} style={{
-                      border: `1px solid ${rec.urgency === 'urgent' ? 'rgba(220,38,38,0.25)' : rec.urgency === 'soon' ? 'rgba(217,119,6,0.25)' : '#EBE5FF'}`,
+                      border: `1px solid ${rec.urgency === 'urgent' ? 'rgba(220,38,38,0.25)' : rec.urgency === 'soon' ? 'rgba(217,119,6,0.25)' : '#D4E2FF'}`,
                       borderRadius: 14, padding: '18px 20px',
                       background: rec.urgency === 'urgent' ? 'rgba(220,38,38,0.04)' : rec.urgency === 'soon' ? 'rgba(217,119,6,0.04)' : 'transparent',
                     }}>
@@ -432,20 +432,20 @@ export default function InventoryPage() {
                           <span style={{
                             fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 5,
                             textTransform: 'uppercase', letterSpacing: '0.12em',
-                            background: rec.urgency === 'urgent' ? 'rgba(220,38,38,0.10)' : rec.urgency === 'soon' ? 'rgba(217,119,6,0.10)' : 'rgba(138,108,255,0.07)',
-                            color: rec.urgency === 'urgent' ? '#DC2626' : rec.urgency === 'soon' ? '#D97706' : ACCENT,
+                            background: rec.urgency === 'urgent' ? 'rgba(220,38,38,0.10)' : rec.urgency === 'soon' ? 'rgba(217,119,6,0.10)' : 'rgba(0,88,230,0.07)',
+                            color: rec.urgency === 'urgent' ? '#DC2626' : rec.urgency === 'soon' ? '#D8A600' : ACCENT,
                           }}>{rec.urgency}</span>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: '#1A1035' }}>{rec.item_name}</span>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: '#181D23' }}>{rec.item_name}</span>
                         </div>
                         <div style={{ textAlign: 'right' }}>
-                          <p style={{ fontSize: 11, color: '#8B84A0', margin: 0 }}>Qty: {rec.recommended_quantity}</p>
-                          <p style={{ fontSize: 13, fontWeight: 900, color: '#1A1035', margin: 0 }}>£{rec.estimated_cost}</p>
+                          <p style={{ fontSize: 11, color: '#96989B', margin: 0 }}>Qty: {rec.recommended_quantity}</p>
+                          <p style={{ fontSize: 13, fontWeight: 900, color: '#181D23', margin: 0 }}>£{rec.estimated_cost}</p>
                         </div>
                       </div>
-                      <p style={{ fontSize: 12, color: '#524D66', lineHeight: 1.55 }}>{rec.reason}</p>
+                      <p style={{ fontSize: 12, color: '#3D4451', lineHeight: 1.55 }}>{rec.reason}</p>
                     </motion.div>
                   ))}
-                  {reorderRecs.length === 0 && <p style={{ fontSize: 13, color: '#8B84A0' }}>All stock levels adequate. No reorder recommendations.</p>}
+                  {reorderRecs.length === 0 && <p style={{ fontSize: 13, color: '#96989B' }}>All stock levels adequate. No reorder recommendations.</p>}
                 </div>
               )}
             </motion.div>

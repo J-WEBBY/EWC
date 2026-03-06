@@ -224,11 +224,11 @@ export function ChatPanel({
 
       {/* ── Agent switcher / header ── */}
       {showAgentSwitcher && agents.length > 0 ? (
-        <div className="flex-shrink-0 px-4 py-3 border-b border-[#EBE5FF]">
+        <div className="flex-shrink-0 px-4 py-3 border-b border-[#D4E2FF]">
           <div className="relative inline-block">
             <button
               onClick={() => setDropdownOpen(v => !v)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#FAF9F5] border border-[#EBE5FF] hover:bg-white/[0.07] transition-colors"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#FAF9F5] border border-[#D4E2FF] hover:bg-white/[0.07] transition-colors"
             >
               <motion.div
                 className="w-1.5 h-1.5 rounded-full flex-shrink-0"
@@ -236,8 +236,8 @@ export function ChatPanel({
                 animate={{ opacity: [0.5, 1, 0.5] }}
                 transition={{ duration: 2, repeat: Infinity }}
               />
-              <span className="text-[12px] text-[#1A1035] font-medium">{currentAgentName}</span>
-              <ChevronDown size={12} className={`text-[#6E6688] transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
+              <span className="text-[12px] text-[#181D23] font-medium">{currentAgentName}</span>
+              <ChevronDown size={12} className={`text-[#5A6475] transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
             </button>
 
             <AnimatePresence>
@@ -255,12 +255,12 @@ export function ChatPanel({
                       <button
                         key={agent.key}
                         onClick={() => handleAgentSwitch(agent.key, agent.name)}
-                        className={`w-full text-left px-3 py-2 text-[12px] hover:bg-[#FAF7F2] transition-colors flex items-center gap-2 ${
-                          agent.key === currentAgentKey ? 'text-[#1A1035]' : 'text-[#6E6688]'
+                        className={`w-full text-left px-3 py-2 text-[12px] hover:bg-[#F8FAFF] transition-colors flex items-center gap-2 ${
+                          agent.key === currentAgentKey ? 'text-[#181D23]' : 'text-[#5A6475]'
                         }`}
                       >
                         <div className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: agent.key === currentAgentKey ? c : '#8B84A0' }} />
+                          style={{ backgroundColor: agent.key === currentAgentKey ? c : '#96989B' }} />
                         {agent.name}
                       </button>
                     ))}
@@ -271,10 +271,10 @@ export function ChatPanel({
           </div>
         </div>
       ) : (
-        <div className="flex-shrink-0 px-4 py-3 border-b border-[#EBE5FF] flex items-center gap-2">
+        <div className="flex-shrink-0 px-4 py-3 border-b border-[#D4E2FF] flex items-center gap-2">
           <motion.div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: c }}
             animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 2, repeat: Infinity }} />
-          <span className="text-[11px] text-[#6E6688]">Chat with <span className="text-[#524D66] font-medium">{currentAgentName}</span></span>
+          <span className="text-[11px] text-[#5A6475]">Chat with <span className="text-[#3D4451] font-medium">{currentAgentName}</span></span>
         </div>
       )}
 
@@ -285,8 +285,8 @@ export function ChatPanel({
             <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-3" style={{ backgroundColor: `${c}12` }}>
               <Bot size={20} style={{ color: `${c}60` }} />
             </div>
-            <p className="text-[12px] text-[#6E6688] mb-1">Ask {currentAgentName} anything</p>
-            <p className="text-[10px] text-[#8B84A0] max-w-[200px]">
+            <p className="text-[12px] text-[#5A6475] mb-1">Ask {currentAgentName} anything</p>
+            <p className="text-[10px] text-[#96989B] max-w-[200px]">
               Signals, patients, revenue, compliance — {currentAgentName} has full clinic context
             </p>
           </div>
@@ -303,11 +303,11 @@ export function ChatPanel({
             )}
             <div className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-[12px] leading-relaxed ${
               msg.role === 'user'
-                ? 'bg-white/[0.07] text-[#1A1035] rounded-tr-md'
-                : 'bg-white border border-[#EBE5FF] text-[#1A1035] rounded-tl-md'
+                ? 'bg-white/[0.07] text-[#181D23] rounded-tr-md'
+                : 'bg-white border border-[#D4E2FF] text-[#181D23] rounded-tl-md'
             }`}>
               {msg.role === 'assistant' ? (
-                <div className="prose prose-slate prose-sm max-w-none [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:ml-3 [&_li]:mb-0.5 [&_code]:text-[11px] [&_code]:bg-white [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_strong]:text-[#1A1035]">
+                <div className="prose prose-slate prose-sm max-w-none [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:ml-3 [&_li]:mb-0.5 [&_code]:text-[11px] [&_code]:bg-white [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_strong]:text-[#181D23]">
                   <ReactMarkdown>{msg.content}</ReactMarkdown>
                 </div>
               ) : (
@@ -325,14 +325,14 @@ export function ChatPanel({
               <motion.div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: c }}
                 animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 1, repeat: Infinity }} />
             </div>
-            <div className="max-w-[85%] rounded-2xl rounded-tl-md px-3.5 py-2.5 bg-white border border-[#EBE5FF]">
+            <div className="max-w-[85%] rounded-2xl rounded-tl-md px-3.5 py-2.5 bg-white border border-[#D4E2FF]">
               {activeToolCall && (
-                <p className="text-[10px] text-[#6E6688] italic mb-1.5 flex items-center gap-1.5">
+                <p className="text-[10px] text-[#5A6475] italic mb-1.5 flex items-center gap-1.5">
                   <Loader2 size={10} className="animate-spin" /> {activeToolCall}
                 </p>
               )}
               {streamingText ? (
-                <div className="text-[12px] text-[#1A1035] leading-relaxed prose prose-slate prose-sm max-w-none [&_p]:mb-2 [&_p:last-child]:mb-0">
+                <div className="text-[12px] text-[#181D23] leading-relaxed prose prose-slate prose-sm max-w-none [&_p]:mb-2 [&_p:last-child]:mb-0">
                   <ReactMarkdown>{streamingText}</ReactMarkdown>
                 </div>
               ) : (
@@ -346,8 +346,8 @@ export function ChatPanel({
       </div>
 
       {/* ── Input ── */}
-      <div className="flex-shrink-0 px-4 pb-4 pt-2 border-t border-[#EBE5FF]">
-        <div className="flex items-end gap-2 px-3 py-2 rounded-xl border border-[#EBE5FF] bg-white focus-within:border-white/[0.18] transition-colors">
+      <div className="flex-shrink-0 px-4 pb-4 pt-2 border-t border-[#D4E2FF]">
+        <div className="flex items-end gap-2 px-3 py-2 rounded-xl border border-[#D4E2FF] bg-white focus-within:border-white/[0.18] transition-colors">
           <textarea
             ref={textareaRef}
             value={input}
@@ -361,7 +361,7 @@ export function ChatPanel({
             }}
             placeholder={`Message ${currentAgentName}...`}
             rows={1}
-            className="flex-1 bg-transparent text-[12px] text-[#1A1035] placeholder-white/20 outline-none resize-none leading-relaxed"
+            className="flex-1 bg-transparent text-[12px] text-[#181D23] placeholder-white/20 outline-none resize-none leading-relaxed"
             style={{ maxHeight: 120 }}
           />
           <button
@@ -372,11 +372,11 @@ export function ChatPanel({
           >
             {sending
               ? <Loader2 size={13} className="animate-spin text-black" />
-              : <Send size={13} className={input.trim() ? 'text-black' : 'text-[#6E6688]'} />
+              : <Send size={13} className={input.trim() ? 'text-black' : 'text-[#5A6475]'} />
             }
           </button>
         </div>
-        <p className="text-[9px] text-[#8B84A0] text-center mt-1.5">Enter to send · Shift+Enter for new line</p>
+        <p className="text-[9px] text-[#96989B] text-center mt-1.5">Enter to send · Shift+Enter for new line</p>
       </div>
     </div>
   );

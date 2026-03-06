@@ -34,7 +34,7 @@ export async function getClinicInfo() {
         data: {
           clinic_name: 'Edgbaston Wellness Clinic',
           ai_name: 'Aria',
-          brand_color: '#8A6CFF',
+          brand_color: '#0058E6',
           logo_url: null as string | null,
           tone: 'professional',
           tagline: 'Your wellbeing, elevated.',

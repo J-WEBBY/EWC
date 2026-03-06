@@ -21,11 +21,11 @@ import type { CPDEntry, Certificate, LearningResource, LearningStats } from '@/l
 // =============================================================================
 
 const ACCENT = '#059669'; // teal-green for learning/CPD context
-const BG = '#FAF7F2';
-const TEXT = '#1A1035';
-const SUB = '#524D66';
-const MUTED = '#8B84A0';
-const BORDER = '#EBE5FF';
+const BG = '#F8FAFF';
+const TEXT = '#181D23';
+const SUB = '#3D4451';
+const MUTED = '#96989B';
+const BORDER = '#D4E2FF';
 
 const FALLBACK: StaffProfile = {
   userId: 'fallback',
@@ -62,9 +62,9 @@ const CERT_STYLE: Record<string, { bg: string; color: string; label: string }> =
 };
 
 const CAT_COLORS: Record<string, string> = {
-  clinical:    '#6D28D9',
+  clinical:    '#0058E6',
   compliance:  '#DC2626',
-  leadership:  '#D97706',
+  leadership:  '#D8A600',
   technical:   '#0284C7',
   wellbeing:   '#059669',
 };
@@ -219,7 +219,7 @@ function CertRow({ cert }: { cert: Certificate }) {
           padding: '14px 24px',
           background: expanded ? `${ACCENT}07` : 'transparent',
           borderLeft: cert.status === 'expired' ? '3px solid #DC2626'
-            : cert.status === 'due_soon' ? '3px solid #D97706'
+            : cert.status === 'due_soon' ? '3px solid #D8A600'
             : expanded ? `3px solid ${ACCENT}` : '3px solid transparent',
         }}
       >
@@ -238,7 +238,7 @@ function CertRow({ cert }: { cert: Certificate }) {
               {cert.expiry_date ? new Date(cert.expiry_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
             </p>
             {daysToExpiry !== null && daysToExpiry <= 30 && (
-              <p style={{ fontSize: 10, color: daysToExpiry < 0 ? '#DC2626' : '#D97706', fontWeight: 600, marginTop: 2 }}>
+              <p style={{ fontSize: 10, color: daysToExpiry < 0 ? '#DC2626' : '#D8A600', fontWeight: 600, marginTop: 2 }}>
                 {daysToExpiry < 0 ? `${Math.abs(daysToExpiry)}d overdue` : `${daysToExpiry}d left`}
               </p>
             )}
@@ -617,9 +617,9 @@ export default function LearningPage() {
               <StatTile label="CPD Hours YTD" value={`${stats.total_cpd_hours_ytd}h`} accent={ACCENT} />
               <StatTile label="Staff on Track" value={stats.staff_on_track} sub={`of ${staffNames.length} staff`} />
               <StatTile label="Avg CPD Hours" value={`${stats.avg_cpd_hours}h`} />
-              <StatTile label="Certs Expiring" value={stats.certs_expiring_30d} sub="within 30 days" accent={dueSoonCount > 0 ? '#D97706' : undefined} />
+              <StatTile label="Certs Expiring" value={stats.certs_expiring_30d} sub="within 30 days" accent={dueSoonCount > 0 ? '#D8A600' : undefined} />
               <StatTile label="Certs Expired" value={stats.certs_expired} accent={expiredCertCount > 0 ? '#DC2626' : undefined} />
-              <StatTile label="CQC Readiness" value={`${stats.cqc_readiness_pct}%`} accent={stats.cqc_readiness_pct >= 80 ? ACCENT : '#D97706'} />
+              <StatTile label="CQC Readiness" value={`${stats.cqc_readiness_pct}%`} accent={stats.cqc_readiness_pct >= 80 ? ACCENT : '#D8A600'} />
             </div>
           )}
 

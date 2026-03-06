@@ -86,7 +86,7 @@ const AGENT_DEFS = [
     name: 'EWC',
     role: 'Operational Intelligence',
     description: 'Monitors all signals, coordinates care pathways, and surfaces critical actions across every department in real time.',
-    color: '#6D28D9',
+    color: '#0058E6',
   },
   {
     key: 'sales_agent',
@@ -94,7 +94,7 @@ const AGENT_DEFS = [
     name: 'Orion',
     role: 'Revenue Intelligence',
     description: 'Drives patient acquisition, rebooking campaigns, payment recovery, and corporate account growth.',
-    color: '#D97706',
+    color: '#D8A600',
   },
   {
     key: 'crm_agent',
@@ -102,7 +102,7 @@ const AGENT_DEFS = [
     name: 'Aria',
     role: 'Patient Relationships',
     description: 'Manages long-term retention, treatment-specific follow-ups, and meaningful patient engagement at scale.',
-    color: '#0D9488',
+    color: '#00A693',
   },
 ];
 
@@ -113,8 +113,8 @@ const AGENT_DEFS = [
 function SectionLabel({ label, right }: { label: string; right?: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between py-4"
-      style={{ borderBottom: '1px solid #EBE5FF' }}>
-      <span className="text-[8px] uppercase tracking-[0.32em] font-semibold text-[#8B84A0]">{label}</span>
+      style={{ borderBottom: '1px solid #D4E2FF' }}>
+      <span className="text-[8px] uppercase tracking-[0.32em] font-semibold text-[#96989B]">{label}</span>
       {right}
     </div>
   );
@@ -144,7 +144,7 @@ function AgentRow({
       onClick={onClick}
       className="relative flex items-center gap-8 px-6 py-5 cursor-pointer overflow-hidden"
       style={{
-        borderBottom: last ? 'none' : '1px solid #EBE5FF',
+        borderBottom: last ? 'none' : '1px solid #D4E2FF',
         transition: 'background 0.25s',
         background: hov ? `${agent.color}0c` : 'transparent',
       }}
@@ -186,7 +186,7 @@ function AgentRow({
       {/* Agent name — coloured on hover */}
       <h3
         className="text-[22px] font-black tracking-[-0.03em] leading-none flex-shrink-0 w-36 transition-all duration-250"
-        style={{ color: hov ? agent.color : '#1A1035' }}
+        style={{ color: hov ? agent.color : '#181D23' }}
       >
         {agent.name}
       </h3>
@@ -194,7 +194,7 @@ function AgentRow({
       {/* Role label — subtle agent colour */}
       <span
         className="text-[8px] uppercase tracking-[0.28em] flex-shrink-0 w-44 transition-colors duration-250"
-        style={{ color: hov ? agent.color + 'bb' : '#6E6688' }}
+        style={{ color: hov ? agent.color + 'bb' : '#5A6475' }}
       >
         {agent.role}
       </span>
@@ -203,7 +203,7 @@ function AgentRow({
       <motion.p
         animate={{ opacity: hov ? 0.55 : 0.25, x: hov ? 0 : 6 }}
         transition={{ duration: 0.3 }}
-        className="flex-1 text-[11px] text-[#1A1035] leading-snug min-w-0 pr-6"
+        className="flex-1 text-[11px] text-[#181D23] leading-snug min-w-0 pr-6"
       >
         {agent.description}
       </motion.p>
@@ -213,7 +213,7 @@ function AgentRow({
         animate={{ opacity: hov ? 1 : 0.20, x: hov ? 0 : -6 }}
         transition={{ duration: 0.25 }}
         className="flex items-center gap-2 text-[11px] font-semibold flex-shrink-0"
-        style={{ color: hov ? agent.color : '#6E6688' }}
+        style={{ color: hov ? agent.color : '#5A6475' }}
       >
         Open chat
         <ArrowRight size={13} />
@@ -242,7 +242,7 @@ function MetricCell({
       onMouseLeave={() => setHov(false)}
       className="relative text-left px-7 py-6 flex flex-col gap-0 overflow-hidden transition-all duration-250 w-full"
       style={{
-        borderRight: last ? 'none' : '1px solid #EBE5FF',
+        borderRight: last ? 'none' : '1px solid #D4E2FF',
         background: hov ? `${color}0d` : 'transparent',
       }}
     >
@@ -271,10 +271,10 @@ function MetricCell({
         </div>
       </div>
 
-      <p className="text-[40px] font-black tracking-[-0.045em] leading-none text-[#1A1035] mb-1">
+      <p className="text-[40px] font-black tracking-[-0.045em] leading-none text-[#181D23] mb-1">
         {value}
       </p>
-      <p className="text-[10px] text-[#6E6688] mb-4">{detail}</p>
+      <p className="text-[10px] text-[#5A6475] mb-4">{detail}</p>
 
       <svg width="100%" height="30" className="overflow-visible">
         <defs>
@@ -357,12 +357,12 @@ function PendingCard({ signal, onApprove, onReject }: {
             {signal.priority}
           </span>
           {signal.category && (
-            <span className="text-[8px] text-[#6E6688] uppercase tracking-[0.12em]">{signal.category}</span>
+            <span className="text-[8px] text-[#5A6475] uppercase tracking-[0.12em]">{signal.category}</span>
           )}
         </div>
-        <p className="text-[13px] font-semibold text-[#1A1035] leading-snug mb-1">{signal.title}</p>
-        <p className="text-[11px] text-[#6E6688] leading-relaxed line-clamp-2">{signal.description}</p>
-        <p className="text-[9px] text-[#8B84A0] mt-1.5">{relativeTime(signal.created_at)}</p>
+        <p className="text-[13px] font-semibold text-[#181D23] leading-snug mb-1">{signal.title}</p>
+        <p className="text-[11px] text-[#5A6475] leading-relaxed line-clamp-2">{signal.description}</p>
+        <p className="text-[9px] text-[#96989B] mt-1.5">{relativeTime(signal.created_at)}</p>
       </div>
       <div className="flex gap-1.5 flex-shrink-0 pt-0.5">
         {(['approve', 'reject'] as const).map(action => (
@@ -370,13 +370,13 @@ function PendingCard({ signal, onApprove, onReject }: {
             key={action}
             onClick={() => handle(action)} disabled={busy !== null}
             className="w-7 h-7 rounded-lg flex items-center justify-center transition-all disabled:opacity-20"
-            style={{ background: 'rgba(0,0,0,0.02)', border: '1px solid #EBE5FF' }}
+            style={{ background: 'rgba(0,0,0,0.02)', border: '1px solid #D4E2FF' }}
             onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.07)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.03)')}
           >
             {action === 'approve'
-              ? <CheckCircle2 size={12} className="text-[#524D66]" />
-              : <XCircle size={12} className="text-[#6E6688]" />}
+              ? <CheckCircle2 size={12} className="text-[#3D4451]" />
+              : <XCircle size={12} className="text-[#5A6475]" />}
           </button>
         ))}
       </div>
@@ -398,7 +398,7 @@ function SignalRow({ signal, last }: { signal: SignalEntry; last?: boolean }) {
       onMouseLeave={() => setHov(false)}
       className="flex items-start gap-3 py-3 rounded-lg px-2 -mx-2 transition-all duration-150"
       style={{
-        borderBottom: last ? 'none' : '1px solid #EBE5FF',
+        borderBottom: last ? 'none' : '1px solid #D4E2FF',
         background: hov ? bg || 'rgba(0,0,0,0.02)' : 'transparent',
       }}
     >
@@ -411,8 +411,8 @@ function SignalRow({ signal, last }: { signal: SignalEntry; last?: boolean }) {
         }}
       />
       <div className="flex-1 min-w-0">
-        <p className="text-[12px] text-[#524D66] leading-snug truncate">{signal.title}</p>
-        <p className="text-[10px] text-[#6E6688] mt-0.5">{signal.source_label} · {relativeTime(signal.created_at)}</p>
+        <p className="text-[12px] text-[#3D4451] leading-snug truncate">{signal.title}</p>
+        <p className="text-[10px] text-[#5A6475] mt-0.5">{signal.source_label} · {relativeTime(signal.created_at)}</p>
       </div>
       <span
         className="text-[8px] font-bold uppercase tracking-[0.14em] flex-shrink-0 pt-[3px] px-1.5 py-0.5 rounded"
@@ -443,30 +443,30 @@ function ConnectRow({
       className="flex items-center gap-3.5 w-full px-4 py-3.5 transition-all duration-200"
       style={{
         background: hov ? 'rgba(0,0,0,0.02)' : 'transparent',
-        borderBottom: '1px solid #EBE5FF',
+        borderBottom: '1px solid #D4E2FF',
       }}
     >
       <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-all duration-200"
         style={{
-          background: hov ? '#8B84A0' : 'rgba(0,0,0,0.04)',
-          border: '1px solid #EBE5FF',
+          background: hov ? '#96989B' : 'rgba(0,0,0,0.04)',
+          border: '1px solid #D4E2FF',
         }}>
-        <Icon size={12} style={{ color: hov ? '#1A1035' : '#6E6688' }} />
+        <Icon size={12} style={{ color: hov ? '#181D23' : '#5A6475' }} />
       </div>
       <div className="flex-1 text-left min-w-0">
-        <p className="text-[12px] font-semibold" style={{ color: hov ? '#1A1035' : '#524D66' }}>
+        <p className="text-[12px] font-semibold" style={{ color: hov ? '#181D23' : '#3D4451' }}>
           {title}
         </p>
-        <p className="text-[10px] text-[#6E6688] truncate">{sub}</p>
+        <p className="text-[10px] text-[#5A6475] truncate">{sub}</p>
       </div>
       {badge && (
-        <span className="text-[9px] px-1.5 py-0.5 rounded-full text-[#6E6688] flex-shrink-0"
-          style={{ background: 'rgba(0,0,0,0.02)', border: '1px solid #D5CCFF' }}>
+        <span className="text-[9px] px-1.5 py-0.5 rounded-full text-[#5A6475] flex-shrink-0"
+          style={{ background: 'rgba(0,0,0,0.02)', border: '1px solid #A8C4FF' }}>
           {badge}
         </span>
       )}
       <motion.div animate={{ x: hov ? 2 : 0 }} transition={{ duration: 0.15 }}>
-        <ArrowRight size={11} style={{ color: hov ? '#524D66' : '#8B84A0' }} />
+        <ArrowRight size={11} style={{ color: hov ? '#3D4451' : '#96989B' }} />
       </motion.div>
     </button>
   );
@@ -482,28 +482,28 @@ function SparkCard({
   label: string; value: string; detail: string; seed: number;
   change?: string; up?: boolean; borderRight?: boolean; color?: string;
 }) {
-  const stroke = color ?? '#8B84A0';
+  const stroke = color ?? '#96989B';
   const trendColor = color
     ? (up ? color : color + '80')
-    : (up ? '#524D66' : '#6E6688');
+    : (up ? '#3D4451' : '#5A6475');
 
   return (
     <div className="px-5 py-4"
-      style={{ borderRight: borderRight ? '1px solid #EBE5FF' : 'none' }}>
+      style={{ borderRight: borderRight ? '1px solid #D4E2FF' : 'none' }}>
       <p className="text-[8px] uppercase tracking-[0.24em] mb-2"
-        style={{ color: color ? color + 'bb' : '#8B84A0' }}>
+        style={{ color: color ? color + 'bb' : '#96989B' }}>
         {label}
       </p>
-      <p className="text-[24px] font-black tracking-[-0.03em] leading-none text-[#1A1035] mb-1">{value}</p>
+      <p className="text-[24px] font-black tracking-[-0.03em] leading-none text-[#181D23] mb-1">{value}</p>
       {change && (
         <p className="text-[9px] font-semibold mb-1" style={{ color: trendColor }}>{change}</p>
       )}
-      <p className="text-[9px] text-[#8B84A0] mb-3">{detail}</p>
+      <p className="text-[9px] text-[#96989B] mb-3">{detail}</p>
       <svg width="100%" height="22" className="overflow-visible">
         <defs>
           <linearGradient id={`sf-${seed}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color ?? '#8B84A0'} stopOpacity="0.18" />
-            <stop offset="100%" stopColor={color ?? '#8B84A0'} stopOpacity="0" />
+            <stop offset="0%" stopColor={color ?? '#96989B'} stopOpacity="0.18" />
+            <stop offset="100%" stopColor={color ?? '#96989B'} stopOpacity="0" />
           </linearGradient>
         </defs>
         <polygon points={sparklineFill(seed, 14, 22)} fill={`url(#sf-${seed})`} />
@@ -523,7 +523,7 @@ function Panel({ children, className = '' }: { children: React.ReactNode; classN
   return (
     <div
       className={`rounded-2xl overflow-hidden ${className}`}
-      style={{ background: 'transparent', border: '1px solid #EBE5FF' }}
+      style={{ background: 'transparent', border: '1px solid #D4E2FF' }}
     >
       {children}
     </div>
@@ -533,11 +533,11 @@ function Panel({ children, className = '' }: { children: React.ReactNode; classN
 function PanelHeader({ title, action, onAction }: { title: string; action?: string; onAction?: () => void }) {
   return (
     <div className="flex items-center justify-between px-5 py-3.5"
-      style={{ borderBottom: '1px solid #EBE5FF' }}>
-      <span className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#8B84A0]">{title}</span>
+      style={{ borderBottom: '1px solid #D4E2FF' }}>
+      <span className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#96989B]">{title}</span>
       {action && (
         <button onClick={onAction}
-          className="flex items-center gap-1 text-[10px] text-[#8B84A0] hover:text-[#524D66] transition-colors">
+          className="flex items-center gap-1 text-[10px] text-[#96989B] hover:text-[#3D4451] transition-colors">
           {action} <ArrowRight size={9} />
         </button>
       )}
@@ -562,7 +562,7 @@ function JweblyMark() {
         <circle cx="8.6"  cy="45.5" r="3.5" fill="white" />
         <circle cx="32"   cy="32"   r="3.5" fill="white" />
       </svg>
-      <span className="text-[7px] uppercase tracking-[0.3em] text-[#1A1035] font-semibold">Jwebly</span>
+      <span className="text-[7px] uppercase tracking-[0.3em] text-[#181D23] font-semibold">Jwebly</span>
     </div>
   );
 }
@@ -584,7 +584,7 @@ export default function DashboardPage() {
   const [loading,    setLoading]    = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const brandColor = profile?.brandColor || '#8A6CFF';
+  const brandColor = profile?.brandColor || '#0058E6';
 
   const loadData = useCallback(async (uid: string, silent = false) => {
     if (!silent) setLoading(true); else setRefreshing(true);
@@ -630,7 +630,7 @@ export default function DashboardPage() {
 
   if (loading || !profile) {
     return (
-      <div className="min-h-screen pl-[240px] bg-[#FAF7F2] flex items-center justify-center">
+      <div className="min-h-screen pl-[240px] bg-[#F8FAFF] flex items-center justify-center">
         <motion.div
           animate={{ scale: [0.8, 1.2, 0.8], opacity: [0.2, 0.6, 0.2] }}
           transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
@@ -671,7 +671,7 @@ export default function DashboardPage() {
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}
             className="flex items-center justify-between px-10 py-8"
-            style={{ borderBottom: '1px solid #EBE5FF' }}
+            style={{ borderBottom: '1px solid #D4E2FF' }}
           >
             {/* Left */}
             <div>
@@ -689,12 +689,12 @@ export default function DashboardPage() {
                   style={{ color: '#22c55ecc' }}>
                   All systems live
                 </span>
-                <span className="text-[#8B84A0]">·</span>
-                <span className="text-[8px] uppercase tracking-[0.22em] text-[#8B84A0]">
+                <span className="text-[#96989B]">·</span>
+                <span className="text-[8px] uppercase tracking-[0.22em] text-[#96989B]">
                   Edgbaston Wellness Clinic
                 </span>
               </div>
-              <h1 className="text-[38px] font-black tracking-[-0.035em] leading-none text-[#1A1035]">
+              <h1 className="text-[38px] font-black tracking-[-0.035em] leading-none text-[#181D23]">
                 {greeting()},&nbsp;{profile.firstName}
               </h1>
             </div>
@@ -702,9 +702,9 @@ export default function DashboardPage() {
             {/* Right */}
             <div className="flex items-center gap-6 text-right">
               <div>
-                <p className="text-[8px] uppercase tracking-[0.28em] text-[#8B84A0] mb-1">Today</p>
-                <p className="text-[13px] font-semibold text-[#524D66]">{formatDate()}</p>
-                <p className="text-[10px] text-[#8B84A0] mt-0.5">
+                <p className="text-[8px] uppercase tracking-[0.28em] text-[#96989B] mb-1">Today</p>
+                <p className="text-[13px] font-semibold text-[#3D4451]">{formatDate()}</p>
+                <p className="text-[10px] text-[#96989B] mt-0.5">
                   {profile.departmentName || 'Management'}
                 </p>
               </div>
@@ -712,11 +712,11 @@ export default function DashboardPage() {
                 onClick={() => userId && loadData(userId, true)}
                 disabled={refreshing}
                 className="w-9 h-9 rounded-xl flex items-center justify-center transition-all"
-                style={{ background: 'rgba(0,0,0,0.02)', border: '1px solid #EBE5FF' }}
+                style={{ background: 'rgba(0,0,0,0.02)', border: '1px solid #D4E2FF' }}
                 onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.06)')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.03)')}
               >
-                <RefreshCw size={13} className={`text-[#6E6688] ${refreshing ? 'animate-spin' : ''}`} />
+                <RefreshCw size={13} className={`text-[#5A6475] ${refreshing ? 'animate-spin' : ''}`} />
               </button>
             </div>
           </motion.div>
@@ -727,12 +727,12 @@ export default function DashboardPage() {
           <motion.div
             initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.08, duration: 0.45 }}
-            style={{ borderBottom: '1px solid #EBE5FF' }}
+            style={{ borderBottom: '1px solid #D4E2FF' }}
           >
             <div className="px-4">
               <SectionLabel label="Clinic Overview" right={
-                <span className="text-[8px] uppercase tracking-[0.22em] text-[#8B84A0] px-2 py-0.5 rounded"
-                  style={{ border: '1px solid #EBE5FF' }}>Simulated</span>
+                <span className="text-[8px] uppercase tracking-[0.22em] text-[#96989B] px-2 py-0.5 rounded"
+                  style={{ border: '1px solid #D4E2FF' }}>Simulated</span>
               } />
             </div>
             <div className="grid grid-cols-4">
@@ -756,7 +756,7 @@ export default function DashboardPage() {
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }}
             transition={{ delay: 0.18, duration: 0.4 }}
-            style={{ borderBottom: '1px solid #EBE5FF' }}
+            style={{ borderBottom: '1px solid #D4E2FF' }}
           >
             <div className="px-4">
               <SectionLabel label="Intelligence Layer" right={
@@ -772,7 +772,7 @@ export default function DashboardPage() {
                       <div className="w-full h-full rounded-full" style={{ background: a.color + 'cc' }} />
                     </div>
                   ))}
-                  <span className="text-[8px] uppercase tracking-[0.22em] text-[#6E6688]">3 agents active</span>
+                  <span className="text-[8px] uppercase tracking-[0.22em] text-[#5A6475]">3 agents active</span>
                 </div>
               } />
             </div>
@@ -799,9 +799,9 @@ export default function DashboardPage() {
               {pending.length > 0 && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.28 }}>
                   <div className="flex items-center gap-2.5 mb-3">
-                    <span className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#8B84A0]">Pending Approval</span>
-                    <span className="text-[10px] font-bold text-[#524D66] px-1.5 py-0.5 rounded-full"
-                      style={{ background: 'rgba(0,0,0,0.02)', border: '1px solid #D5CCFF' }}>
+                    <span className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#96989B]">Pending Approval</span>
+                    <span className="text-[10px] font-bold text-[#3D4451] px-1.5 py-0.5 rounded-full"
+                      style={{ background: 'rgba(0,0,0,0.02)', border: '1px solid #A8C4FF' }}>
                       {pending.length}
                     </span>
                   </div>
@@ -827,11 +827,11 @@ export default function DashboardPage() {
                     {feed.length === 0 ? (
                       <div className="py-12 flex flex-col items-center gap-3">
                         <div className="w-10 h-10 rounded-2xl flex items-center justify-center"
-                          style={{ background: 'rgba(0,0,0,0.02)', border: '1px solid #EBE5FF' }}>
-                          <Activity size={16} className="text-[#6E6688]" />
+                          style={{ background: 'rgba(0,0,0,0.02)', border: '1px solid #D4E2FF' }}>
+                          <Activity size={16} className="text-[#5A6475]" />
                         </div>
-                        <p className="text-[12px] text-[#6E6688]">No active signals</p>
-                        <p className="text-[10px] text-[#8B84A0]">EWC is monitoring all departments</p>
+                        <p className="text-[12px] text-[#5A6475]">No active signals</p>
+                        <p className="text-[10px] text-[#96989B]">EWC is monitoring all departments</p>
                       </div>
                     ) : (
                       feed.map((s, i) => <SignalRow key={s.id} signal={s} last={i === feed.length - 1} />)
@@ -912,11 +912,11 @@ export default function DashboardPage() {
                   ))}
                 </div>
                 <div className="px-5 py-3 flex items-center gap-2"
-                  style={{ borderTop: '1px solid #EBE5FF' }}>
+                  style={{ borderTop: '1px solid #D4E2FF' }}>
                   <button
                     onClick={() => router.push(`/staff/analytics?userId=${userId}&action=report`)}
-                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[11px] font-semibold text-[#524D66] hover:text-[#1A1035] transition-all"
-                    style={{ background: 'rgba(0,0,0,0.02)', border: '1px solid #EBE5FF' }}
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[11px] font-semibold text-[#3D4451] hover:text-[#181D23] transition-all"
+                    style={{ background: 'rgba(0,0,0,0.02)', border: '1px solid #D4E2FF' }}
                     onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.07)')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.04)')}
                   >

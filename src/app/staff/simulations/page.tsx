@@ -278,9 +278,9 @@ function SpinningGlobe({
             animation: `${badge.anim} ${badge.dur} linear infinite`,
           }}
         >
-          <div className="bg-[#FAF7F2]/80 border border-white/10 rounded px-2 py-1 text-center backdrop-blur-sm">
-            <div className="text-[10px] font-bold text-[#1A1035]">{badge.label}</div>
-            <div className="text-[8px] text-[#6E6688]">{badge.sub}</div>
+          <div className="bg-[#F8FAFF]/80 border border-white/10 rounded px-2 py-1 text-center backdrop-blur-sm">
+            <div className="text-[10px] font-bold text-[#181D23]">{badge.label}</div>
+            <div className="text-[8px] text-[#5A6475]">{badge.sub}</div>
           </div>
         </div>
       ))}
@@ -296,11 +296,11 @@ function SpinningGlobe({
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
-              className="absolute pointer-events-none bg-[#FAF7F2]/90 border border-[#D5CCFF] rounded-lg px-3 py-2 backdrop-blur-sm z-10"
+              className="absolute pointer-events-none bg-[#F8FAFF]/90 border border-[#A8C4FF] rounded-lg px-3 py-2 backdrop-blur-sm z-10"
               style={{ left: pos.x - 50, top: pos.y - 60 }}
             >
-              <div className="text-xs font-medium text-[#1A1035]">{node.label}</div>
-              <div className="text-[10px] text-[#524D66] capitalize">{node.type} · Score: {node.value}</div>
+              <div className="text-xs font-medium text-[#181D23]">{node.label}</div>
+              <div className="text-[10px] text-[#3D4451] capitalize">{node.type} · Score: {node.value}</div>
             </motion.div>
           );
         })()}
@@ -563,8 +563,8 @@ function ParamSlider({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <span className="text-xs text-[#524D66]">{param.label}</span>
-        <span className="text-xs font-mono font-bold text-[#1A1035]">
+        <span className="text-xs text-[#3D4451]">{param.label}</span>
+        <span className="text-xs font-mono font-bold text-[#181D23]">
           {param.value}{param.unit}
         </span>
       </div>
@@ -583,9 +583,9 @@ function ParamSlider({
           }}
         />
       </div>
-      <div className="flex justify-between text-[9px] text-[#6E6688]">
+      <div className="flex justify-between text-[9px] text-[#5A6475]">
         <span>{param.min}{param.unit}</span>
-        <span className="text-[#6E6688]">{param.description}</span>
+        <span className="text-[#5A6475]">{param.description}</span>
         <span>{param.max}{param.unit}</span>
       </div>
     </div>
@@ -721,12 +721,12 @@ export default function SimulationsPage() {
   // ── Loading state ──────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-screen pl-[240px] bg-[#FAF7F2] flex items-center justify-center">
+      <div className="min-h-screen pl-[240px] bg-[#F8FAFF] flex items-center justify-center">
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
         >
-          <Loader2 className="w-8 h-8 text-[#6E6688]" />
+          <Loader2 className="w-8 h-8 text-[#5A6475]" />
         </motion.div>
       </div>
     );
@@ -743,17 +743,17 @@ export default function SimulationsPage() {
           <div className="flex items-center gap-4">
             <button
               onClick={() => router.push('/staff/dashboard')}
-              className="p-2 rounded-lg bg-white border border-[#EBE5FF] hover:bg-[#FAF9F5] transition-colors"
+              className="p-2 rounded-lg bg-white border border-[#D4E2FF] hover:bg-[#FAF9F5] transition-colors"
             >
-              <ArrowLeft className="w-4 h-4 text-[#524D66]" />
+              <ArrowLeft className="w-4 h-4 text-[#3D4451]" />
             </button>
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg" style={{ background: `${brandColor}15` }}>
                 <FlaskConical className="w-5 h-5" style={{ color: brandColor }} />
               </div>
               <div>
-                <h1 className="text-lg font-semibold text-[#1A1035]">Predictive Simulations</h1>
-                <p className="text-xs text-[#6E6688]">Scenario modeling &amp; impact forecasting</p>
+                <h1 className="text-lg font-semibold text-[#181D23]">Predictive Simulations</h1>
+                <p className="text-xs text-[#5A6475]">Scenario modeling &amp; impact forecasting</p>
               </div>
             </div>
           </div>
@@ -784,7 +784,7 @@ export default function SimulationsPage() {
             <button
               onClick={() => setShowHistory(!showHistory)}
               className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors ${
-                showHistory ? 'bg-[#F5F2EB] text-[#1A1035]' : 'bg-white border border-[#EBE5FF] text-[#524D66] hover:bg-[#FAF9F5]'
+                showHistory ? 'bg-[#F5F2EB] text-[#181D23]' : 'bg-white border border-[#D4E2FF] text-[#3D4451] hover:bg-[#FAF9F5]'
               }`}
             >
               <History className="w-3.5 h-3.5" />
@@ -796,10 +796,10 @@ export default function SimulationsPage() {
         {/* ── TOP ROW: Globe + Neural Network ───────────────────────────── */}
         <div className="grid grid-cols-12 gap-4">
           {/* Globe panel */}
-          <div className="col-span-7 bg-[#F0ECFF] border border-[#EBE5FF] rounded-xl p-4 flex flex-col items-center">
+          <div className="col-span-7 bg-[#F0ECFF] border border-[#D4E2FF] rounded-xl p-4 flex flex-col items-center">
             <div className="flex items-center gap-2 self-start mb-2">
-              <Globe2 className="w-4 h-4 text-[#6E6688]" />
-              <span className="text-xs font-medium text-[#6E6688]">Operational Network</span>
+              <Globe2 className="w-4 h-4 text-[#5A6475]" />
+              <span className="text-xs font-medium text-[#5A6475]">Operational Network</span>
             </div>
             {overview && (
               <SpinningGlobe
@@ -815,10 +815,10 @@ export default function SimulationsPage() {
           </div>
 
           {/* Neural Network panel */}
-          <div className="col-span-5 bg-[#F0ECFF] border border-[#EBE5FF] rounded-xl p-4 flex flex-col items-center">
+          <div className="col-span-5 bg-[#F0ECFF] border border-[#D4E2FF] rounded-xl p-4 flex flex-col items-center">
             <div className="flex items-center gap-2 self-start mb-2">
-              <Network className="w-4 h-4 text-[#6E6688]" />
-              <span className="text-xs font-medium text-[#6E6688]">Agent Neural Mesh</span>
+              <Network className="w-4 h-4 text-[#5A6475]" />
+              <span className="text-xs font-medium text-[#5A6475]">Agent Neural Mesh</span>
             </div>
             {overview && (
               <NeuralNetworkViz
@@ -836,8 +836,8 @@ export default function SimulationsPage() {
           {/* Scenario Builder — left */}
           <div className="col-span-5 space-y-4">
             {/* Template selector */}
-            <div className="bg-[#F0ECFF] border border-[#EBE5FF] rounded-xl p-4">
-              <h3 className="text-sm font-medium text-[#524D66] mb-3">Scenario Templates</h3>
+            <div className="bg-[#F0ECFF] border border-[#D4E2FF] rounded-xl p-4">
+              <h3 className="text-sm font-medium text-[#3D4451] mb-3">Scenario Templates</h3>
               <div className="grid grid-cols-2 gap-2">
                 {overview?.scenarios.map(scenario => {
                   const Icon = SCENARIO_ICONS[scenario.icon] || FlaskConical;
@@ -850,7 +850,7 @@ export default function SimulationsPage() {
                       className={`text-left p-3 rounded-lg border transition-all ${
                         isSelected
                           ? 'bg-[#FAF9F5] border-white/[0.15]'
-                          : 'bg-[#F0ECFF] border-[#EBE5FF] hover:bg-[#FAF9F5]'
+                          : 'bg-[#F0ECFF] border-[#D4E2FF] hover:bg-[#FAF9F5]'
                       }`}
                     >
                       <div className="flex items-center gap-2 mb-1">
@@ -860,9 +860,9 @@ export default function SimulationsPage() {
                         >
                           <Icon className="w-3.5 h-3.5" style={{ color: catColor }} />
                         </div>
-                        <span className="text-xs font-medium text-[#1A1035]">{scenario.name}</span>
+                        <span className="text-xs font-medium text-[#181D23]">{scenario.name}</span>
                       </div>
-                      <p className="text-[10px] text-[#6E6688] leading-tight">{scenario.description}</p>
+                      <p className="text-[10px] text-[#5A6475] leading-tight">{scenario.description}</p>
                     </button>
                   );
                 })}
@@ -876,9 +876,9 @@ export default function SimulationsPage() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 10 }}
-                  className="bg-[#F0ECFF] border border-[#EBE5FF] rounded-xl p-4 space-y-4"
+                  className="bg-[#F0ECFF] border border-[#D4E2FF] rounded-xl p-4 space-y-4"
                 >
-                  <h3 className="text-sm font-medium text-[#524D66]">
+                  <h3 className="text-sm font-medium text-[#3D4451]">
                     Parameters — {selectedTemplate.name}
                   </h3>
                   {params.map(param => (
@@ -925,9 +925,9 @@ export default function SimulationsPage() {
 
             {/* Prompt to select */}
             {!selectedTemplate && (
-              <div className="bg-[#F0ECFF] border border-[#EBE5FF] rounded-xl p-6 flex flex-col items-center justify-center text-center">
-                <FlaskConical className="w-8 h-8 text-[#8B84A0] mb-3" />
-                <p className="text-sm text-[#6E6688]">Select a scenario template above to configure simulation parameters</p>
+              <div className="bg-[#F0ECFF] border border-[#D4E2FF] rounded-xl p-6 flex flex-col items-center justify-center text-center">
+                <FlaskConical className="w-8 h-8 text-[#96989B] mb-3" />
+                <p className="text-sm text-[#5A6475]">Select a scenario template above to configure simulation parameters</p>
               </div>
             )}
           </div>
@@ -948,9 +948,9 @@ export default function SimulationsPage() {
                       initial={{ opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ delay: 0.2 }}
-                      className="col-span-5 bg-[#F0ECFF] border border-[#EBE5FF] rounded-xl p-4 flex flex-col items-center"
+                      className="col-span-5 bg-[#F0ECFF] border border-[#D4E2FF] rounded-xl p-4 flex flex-col items-center"
                     >
-                      <h3 className="text-xs font-medium text-[#6E6688] mb-2 self-start">Risk Assessment</h3>
+                      <h3 className="text-xs font-medium text-[#5A6475] mb-2 self-start">Risk Assessment</h3>
                       <RiskGauge
                         score={result.riskScore}
                         label={result.riskLabel}
@@ -963,9 +963,9 @@ export default function SimulationsPage() {
                       initial={{ opacity: 0, x: 20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: 0.4 }}
-                      className="col-span-7 bg-[#F0ECFF] border border-[#EBE5FF] rounded-xl p-4"
+                      className="col-span-7 bg-[#F0ECFF] border border-[#D4E2FF] rounded-xl p-4"
                     >
-                      <h3 className="text-xs font-medium text-[#6E6688] mb-3">KPI Projections</h3>
+                      <h3 className="text-xs font-medium text-[#5A6475] mb-3">KPI Projections</h3>
                       <div className="grid grid-cols-2 gap-2">
                         {result.kpiProjections.map((kpi, i) => (
                           <motion.div
@@ -976,11 +976,11 @@ export default function SimulationsPage() {
                             className="flex items-center justify-between p-2 rounded bg-[#F0ECFF]"
                           >
                             <div>
-                              <div className="text-[10px] text-[#6E6688]">{kpi.name}</div>
+                              <div className="text-[10px] text-[#5A6475]">{kpi.name}</div>
                               <div className="flex items-center gap-1.5">
-                                <span className="text-xs font-mono text-[#524D66]">{kpi.current}{kpi.unit}</span>
-                                <ChevronRight className="w-3 h-3 text-[#6E6688]" />
-                                <span className="text-xs font-mono font-bold text-[#1A1035]">{kpi.projected}{kpi.unit}</span>
+                                <span className="text-xs font-mono text-[#3D4451]">{kpi.current}{kpi.unit}</span>
+                                <ChevronRight className="w-3 h-3 text-[#5A6475]" />
+                                <span className="text-xs font-mono font-bold text-[#181D23]">{kpi.projected}{kpi.unit}</span>
                               </div>
                             </div>
                             <div className={`flex items-center gap-0.5 text-[10px] font-mono ${
@@ -988,7 +988,7 @@ export default function SimulationsPage() {
                               kpi.trend === 'down' && kpi.name !== 'Response Time' ? 'text-red-400' :
                               kpi.trend === 'up' && kpi.name === 'Response Time' ? 'text-red-400' :
                               kpi.trend === 'down' && kpi.name === 'Response Time' ? 'text-emerald-400' :
-                              'text-[#6E6688]'
+                              'text-[#5A6475]'
                             }`}>
                               {kpi.trend === 'up' ? <TrendingUp className="w-3 h-3" /> :
                                kpi.trend === 'down' ? <TrendingDown className="w-3 h-3" /> :
@@ -1006,9 +1006,9 @@ export default function SimulationsPage() {
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.6 }}
-                    className="bg-[#F0ECFF] border border-[#EBE5FF] rounded-xl p-4"
+                    className="bg-[#F0ECFF] border border-[#D4E2FF] rounded-xl p-4"
                   >
-                    <h3 className="text-xs font-medium text-[#6E6688] mb-3">Department Impact Analysis</h3>
+                    <h3 className="text-xs font-medium text-[#5A6475] mb-3">Department Impact Analysis</h3>
                     <div className="space-y-2">
                       {result.departmentImpacts.map((dept, i) => {
                         const delta = dept.projectedScore - dept.currentScore;
@@ -1021,7 +1021,7 @@ export default function SimulationsPage() {
                             transition={{ delay: 0.7 + i * 0.06 }}
                             className="flex items-center gap-3"
                           >
-                            <span className="text-xs text-[#524D66] w-36 truncate">{dept.name}</span>
+                            <span className="text-xs text-[#3D4451] w-36 truncate">{dept.name}</span>
                             <div className="flex-1 h-2 bg-[#FAF9F5] rounded-full overflow-hidden relative">
                               {/* Current */}
                               <div
@@ -1038,8 +1038,8 @@ export default function SimulationsPage() {
                               />
                             </div>
                             <div className="flex items-center gap-1 w-20">
-                              <span className="text-[10px] font-mono text-[#6E6688]">{dept.currentScore}</span>
-                              <ChevronRight className="w-3 h-3 text-[#8B84A0]" />
+                              <span className="text-[10px] font-mono text-[#5A6475]">{dept.currentScore}</span>
+                              <ChevronRight className="w-3 h-3 text-[#96989B]" />
                               <span className="text-[10px] font-mono font-bold" style={{ color: impactColor }}>
                                 {dept.projectedScore}
                               </span>
@@ -1058,9 +1058,9 @@ export default function SimulationsPage() {
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.8 }}
-                    className="bg-[#F0ECFF] border border-[#EBE5FF] rounded-xl p-4"
+                    className="bg-[#F0ECFF] border border-[#D4E2FF] rounded-xl p-4"
                   >
-                    <h3 className="text-xs font-medium text-[#6E6688] mb-3">Agent Workload Capacity</h3>
+                    <h3 className="text-xs font-medium text-[#5A6475] mb-3">Agent Workload Capacity</h3>
                     <div className="grid grid-cols-3 gap-2">
                       {result.agentWorkloads.map((agent, i) => (
                         <motion.div
@@ -1071,11 +1071,11 @@ export default function SimulationsPage() {
                           className={`p-2 rounded-lg border ${
                             agent.overflow
                               ? 'bg-red-500/[0.06] border-red-500/20'
-                              : 'bg-[#F0ECFF] border-[#EBE5FF]'
+                              : 'bg-[#F0ECFF] border-[#D4E2FF]'
                           }`}
                         >
                           <div className="flex items-center justify-between mb-1">
-                            <span className="text-[10px] text-[#524D66] truncate">{agent.name}</span>
+                            <span className="text-[10px] text-[#3D4451] truncate">{agent.name}</span>
                             {agent.overflow && (
                               <AlertTriangle className="w-3 h-3 text-red-400 flex-shrink-0" />
                             )}
@@ -1093,9 +1093,9 @@ export default function SimulationsPage() {
                             />
                           </div>
                           <div className="flex justify-between mt-1">
-                            <span className="text-[9px] font-mono text-[#6E6688]">{agent.currentCapacity}%</span>
+                            <span className="text-[9px] font-mono text-[#5A6475]">{agent.currentCapacity}%</span>
                             <span className={`text-[9px] font-mono font-bold ${
-                              agent.overflow ? 'text-red-400' : 'text-[#524D66]'
+                              agent.overflow ? 'text-red-400' : 'text-[#3D4451]'
                             }`}>
                               {agent.projectedCapacity}%
                             </span>
@@ -1110,9 +1110,9 @@ export default function SimulationsPage() {
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 1 }}
-                    className="bg-[#F0ECFF] border border-[#EBE5FF] rounded-xl p-4"
+                    className="bg-[#F0ECFF] border border-[#D4E2FF] rounded-xl p-4"
                   >
-                    <h3 className="text-xs font-medium text-[#6E6688] mb-3">Predicted Timeline</h3>
+                    <h3 className="text-xs font-medium text-[#5A6475] mb-3">Predicted Timeline</h3>
                     <div className="flex items-start gap-0 overflow-x-auto pb-2">
                       {result.predictedTimeline.map((event, i) => (
                         <motion.div
@@ -1138,10 +1138,10 @@ export default function SimulationsPage() {
                               opacity: 0.3 + (event.confidence / 100) * 0.7,
                             }}
                           />
-                          <span className="text-[10px] font-mono text-[#524D66] mt-1">
+                          <span className="text-[10px] font-mono text-[#3D4451] mt-1">
                             Wk {event.week}
                           </span>
-                          <span className="text-[9px] text-[#6E6688] leading-tight mt-0.5 px-1">
+                          <span className="text-[9px] text-[#5A6475] leading-tight mt-0.5 px-1">
                             {event.event}
                           </span>
                           <span className="text-[8px] font-mono mt-0.5" style={{ color: brandColor }}>
@@ -1157,13 +1157,13 @@ export default function SimulationsPage() {
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 1.2 }}
-                    className="bg-[#F0ECFF] border border-[#EBE5FF] rounded-xl p-4"
+                    className="bg-[#F0ECFF] border border-[#D4E2FF] rounded-xl p-4"
                   >
                     <div className="flex items-center gap-2 mb-3">
                       <Brain className="w-4 h-4" style={{ color: brandColor }} />
-                      <h3 className="text-xs font-medium text-[#524D66]">{aiName} Analysis</h3>
+                      <h3 className="text-xs font-medium text-[#3D4451]">{aiName} Analysis</h3>
                     </div>
-                    <div className="text-xs text-[#524D66] leading-relaxed whitespace-pre-line">
+                    <div className="text-xs text-[#3D4451] leading-relaxed whitespace-pre-line">
                       {result.aiNarrative}
                     </div>
                   </motion.div>
@@ -1173,7 +1173,7 @@ export default function SimulationsPage() {
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="bg-[#F0ECFF] border border-[#EBE5FF] rounded-xl p-12 flex flex-col items-center justify-center text-center"
+                  className="bg-[#F0ECFF] border border-[#D4E2FF] rounded-xl p-12 flex flex-col items-center justify-center text-center"
                 >
                   <div className="relative mb-4">
                     <div
@@ -1198,8 +1198,8 @@ export default function SimulationsPage() {
                       transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
                     />
                   </div>
-                  <p className="text-sm text-[#6E6688] mb-1">No simulation running</p>
-                  <p className="text-xs text-[#6E6688]">Select a scenario and configure parameters to run a prediction</p>
+                  <p className="text-sm text-[#5A6475] mb-1">No simulation running</p>
+                  <p className="text-xs text-[#5A6475]">Select a scenario and configure parameters to run a prediction</p>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -1215,8 +1215,8 @@ export default function SimulationsPage() {
               exit={{ opacity: 0, height: 0 }}
               className="overflow-hidden"
             >
-              <div className="bg-[#F0ECFF] border border-[#EBE5FF] rounded-xl p-4">
-                <h3 className="text-sm font-medium text-[#524D66] mb-3">Recent Simulations</h3>
+              <div className="bg-[#F0ECFF] border border-[#D4E2FF] rounded-xl p-4">
+                <h3 className="text-sm font-medium text-[#3D4451] mb-3">Recent Simulations</h3>
                 <div className="space-y-1">
                   {overview.recentRuns.map((run) => {
                     const riskColor = run.riskScore <= 30 ? '#22c55e' : run.riskScore <= 60 ? '#f59e0b' : '#ef4444';
@@ -1235,7 +1235,7 @@ export default function SimulationsPage() {
                         {/* Info */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-medium text-[#1A1035]">{run.scenarioName}</span>
+                            <span className="text-xs font-medium text-[#181D23]">{run.scenarioName}</span>
                             <span
                               className="text-[10px] px-1.5 py-0.5 rounded font-medium"
                               style={{
@@ -1246,10 +1246,10 @@ export default function SimulationsPage() {
                               {run.status}
                             </span>
                           </div>
-                          <p className="text-[10px] text-[#6E6688] mt-0.5 truncate">{run.keyFinding}</p>
+                          <p className="text-[10px] text-[#5A6475] mt-0.5 truncate">{run.keyFinding}</p>
                         </div>
                         {/* Timestamp */}
-                        <div className="text-[10px] text-[#6E6688] flex items-center gap-1">
+                        <div className="text-[10px] text-[#5A6475] flex items-center gap-1">
                           <Clock className="w-3 h-3" />
                           {new Date(run.timestamp).toLocaleDateString('en-GB', {
                             day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
@@ -1260,7 +1260,7 @@ export default function SimulationsPage() {
                           className="p-1.5 rounded hover:bg-[#FAF9F5] transition-colors"
                           title="Re-run this simulation"
                         >
-                          <RotateCcw className="w-3.5 h-3.5 text-[#6E6688]" />
+                          <RotateCcw className="w-3.5 h-3.5 text-[#5A6475]" />
                         </button>
                       </div>
                     );

@@ -19,7 +19,7 @@ import { getStaffProfile, type StaffProfile } from '@/lib/actions/staff-onboardi
 const FALLBACK: StaffProfile = {
   userId: '', firstName: '—', lastName: '', email: '', jobTitle: null,
   departmentName: null, departmentId: null, roleName: null, isAdmin: false,
-  isOwner: false, companyName: '', aiName: 'Aria', brandColor: '#8A6CFF',
+  isOwner: false, companyName: '', aiName: 'Aria', brandColor: '#0058E6',
   logoUrl: null, industry: null, reportsTo: null, teamSize: 0,
 };
 
@@ -28,25 +28,25 @@ const FALLBACK: StaffProfile = {
 // =============================================================================
 
 const SPACE_CONFIG: Record<TeamSpace, { label: string; icon: React.ElementType; color: string }> = {
-  all_staff:  { label: 'All Staff',  icon: LayoutGrid,    color: '#7C3AED' },
-  reception:  { label: 'Reception',  icon: MessageSquare, color: '#0D9488' },
+  all_staff:  { label: 'All Staff',  icon: LayoutGrid,    color: '#0058E6' },
+  reception:  { label: 'Reception',  icon: MessageSquare, color: '#00A693' },
   clinical:   { label: 'Clinical',   icon: Stethoscope,   color: '#3B82F6' },
-  management: { label: 'Management', icon: Briefcase,      color: '#D97706' },
+  management: { label: 'Management', icon: Briefcase,      color: '#D8A600' },
 };
 
 const CATEGORY_CONFIG: Record<PostCategory, { label: string; color: string; bg: string; icon: React.ElementType }> = {
   announcement: { label: 'Announcement', color: '#f97316', bg: 'rgba(249,115,22,0.07)',  icon: Megaphone },
   handover:     { label: 'Handover',     color: '#3b82f6', bg: 'rgba(59,130,246,0.07)',  icon: ClipboardList },
-  task:         { label: 'Task',         color: '#7C3AED', bg: 'rgba(124,58,237,0.07)',  icon: CheckCircle2 },
-  resource:     { label: 'Resource',     color: '#0D9488', bg: 'rgba(13,148,136,0.07)',  icon: LinkIcon },
+  task:         { label: 'Task',         color: '#0058E6', bg: 'rgba(124,58,237,0.07)',  icon: CheckCircle2 },
+  resource:     { label: 'Resource',     color: '#00A693', bg: 'rgba(13,148,136,0.07)',  icon: LinkIcon },
   kudos:        { label: 'Kudos',        color: '#EC4899', bg: 'rgba(236,72,153,0.07)',  icon: Star },
-  update:       { label: 'Update',       color: '#8B84A0', bg: 'rgba(139,132,160,0.06)', icon: MessageSquare },
+  update:       { label: 'Update',       color: '#96989B', bg: 'rgba(139,132,160,0.06)', icon: MessageSquare },
 };
 
 const STATUS_DOT: Record<string, string> = {
   online:  '#059669',
-  away:    '#D97706',
-  offline: '#D5CCFF',
+  away:    '#D8A600',
+  offline: '#A8C4FF',
 };
 
 // =============================================================================
@@ -68,7 +68,7 @@ function fmtTime(iso: string): string {
 function getInitials(name: string) { return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2); }
 
 function getColor(name: string): string {
-  const palette = ['#7C3AED','#3B82F6','#0D9488','#D97706','#EC4899','#059669'];
+  const palette = ['#0058E6','#3B82F6','#00A693','#D8A600','#EC4899','#059669'];
   let h = 0; for (const c of name) h = (h * 31 + c.charCodeAt(0)) % palette.length;
   return palette[h];
 }
@@ -100,10 +100,10 @@ function PostCard({ post, onLike }: { post: TeamPost & { liked?: boolean }; onLi
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <p className="text-[12px] font-semibold" style={{ color: '#1A1035' }}>{post.author_name}</p>
-                {post.author_role && <p className="text-[10px]" style={{ color: '#8B84A0' }}>{post.author_role}</p>}
+                <p className="text-[12px] font-semibold" style={{ color: '#181D23' }}>{post.author_name}</p>
+                {post.author_role && <p className="text-[10px]" style={{ color: '#96989B' }}>{post.author_role}</p>}
               </div>
-              <p className="text-[9px] mt-0.5" style={{ color: '#8B84A0' }}>{fmtTime(post.created_at)}</p>
+              <p className="text-[9px] mt-0.5" style={{ color: '#96989B' }}>{fmtTime(post.created_at)}</p>
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
@@ -112,25 +112,25 @@ function PostCard({ post, onLike }: { post: TeamPost & { liked?: boolean }; onLi
               <CatIcon className="w-2.5 h-2.5" style={{ color: catCfg.color }} />
               <span className="text-[8px] font-semibold uppercase tracking-[0.10em]" style={{ color: catCfg.color }}>{catCfg.label}</span>
             </div>
-            {post.pinned && <Pin className="w-3 h-3" style={{ color: '#8B84A0' }} />}
+            {post.pinned && <Pin className="w-3 h-3" style={{ color: '#96989B' }} />}
           </div>
         </div>
 
-        {post.title && <p className="mt-3 text-[13px] font-semibold" style={{ color: '#1A1035' }}>{post.title}</p>}
+        {post.title && <p className="mt-3 text-[13px] font-semibold" style={{ color: '#181D23' }}>{post.title}</p>}
 
         <div className="mt-2">
           {expanded ? (
             <div className="space-y-1">
-              {lines.map((line, i) => <p key={i} className="text-[11px] leading-relaxed" style={{ color: '#524D66' }}>{line}</p>)}
+              {lines.map((line, i) => <p key={i} className="text-[11px] leading-relaxed" style={{ color: '#3D4451' }}>{line}</p>)}
             </div>
           ) : (
-            <p className="text-[11px] leading-relaxed" style={{ color: '#524D66' }}>
+            <p className="text-[11px] leading-relaxed" style={{ color: '#3D4451' }}>
               {preview.length > 180 ? preview.slice(0, 180) + '…' : preview}
             </p>
           )}
           {hasMore && (
             <button onClick={() => setExpanded(e => !e)}
-              className="mt-1.5 text-[10px] font-medium flex items-center gap-1" style={{ color: '#8B84A0' }}>
+              className="mt-1.5 text-[10px] font-medium flex items-center gap-1" style={{ color: '#96989B' }}>
               <ChevronDown className="w-3 h-3" style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
               {expanded ? 'Show less' : 'Read more'}
             </button>
@@ -141,7 +141,7 @@ function PostCard({ post, onLike }: { post: TeamPost & { liked?: boolean }; onLi
           <div className="mt-3 flex flex-wrap gap-1.5">
             {post.tags.map(tag => (
               <span key={tag} className="text-[8px] px-2 py-0.5 rounded-md font-medium"
-                style={{ backgroundColor: 'rgba(138,108,255,0.08)', color: '#6E6688', border: '1px solid #EBE5FF' }}>
+                style={{ backgroundColor: 'rgba(0,88,230,0.08)', color: '#5A6475', border: '1px solid #D4E2FF' }}>
                 #{tag}
               </span>
             ))}
@@ -151,24 +151,24 @@ function PostCard({ post, onLike }: { post: TeamPost & { liked?: boolean }; onLi
         {post.category === 'task' && post.metadata.task_due && (
           <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-xl"
             style={{ backgroundColor: 'rgba(124,58,237,0.06)', border: '1px solid rgba(124,58,237,0.15)' }}>
-            <CheckCircle2 className="w-3 h-3" style={{ color: '#7C3AED' }} />
-            <p className="text-[10px]" style={{ color: '#524D66' }}>
-              Due: <span style={{ color: '#7C3AED' }}>{String(post.metadata.task_due)}</span>
+            <CheckCircle2 className="w-3 h-3" style={{ color: '#0058E6' }} />
+            <p className="text-[10px]" style={{ color: '#3D4451' }}>
+              Due: <span style={{ color: '#0058E6' }}>{String(post.metadata.task_due)}</span>
               {post.metadata.assignee && <> · {String(post.metadata.assignee)}</>}
             </p>
           </div>
         )}
 
-        <div className="mt-3 pt-3 flex items-center gap-3" style={{ borderTop: '1px solid #EBE5FF' }}>
+        <div className="mt-3 pt-3 flex items-center gap-3" style={{ borderTop: '1px solid #D4E2FF' }}>
           <button onClick={() => onLike(post.id)}
             className="flex items-center gap-1.5 text-[10px] transition-colors"
-            style={{ color: post.liked ? '#EC4899' : '#8B84A0' }}
-            onMouseEnter={e => { if (!post.liked) e.currentTarget.style.color = '#6E6688'; }}
-            onMouseLeave={e => { if (!post.liked) e.currentTarget.style.color = '#8B84A0'; }}>
+            style={{ color: post.liked ? '#EC4899' : '#96989B' }}
+            onMouseEnter={e => { if (!post.liked) e.currentTarget.style.color = '#5A6475'; }}
+            onMouseLeave={e => { if (!post.liked) e.currentTarget.style.color = '#96989B'; }}>
             <ThumbsUp className="w-3 h-3" />
             {post.likes + (post.liked ? 1 : 0)}
           </button>
-          <span className="text-[9px]" style={{ color: '#8B84A0' }}>{SPACE_CONFIG[post.space].label}</span>
+          <span className="text-[9px]" style={{ color: '#96989B' }}>{SPACE_CONFIG[post.space].label}</span>
         </div>
       </div>
     </motion.div>
@@ -241,11 +241,11 @@ Action items:\n${actionList || 'None recorded'}`;
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Meeting header */}
-      <div className="px-6 py-4 flex items-center justify-between flex-shrink-0" style={{ borderBottom: '1px solid #EBE5FF', backgroundColor: 'rgba(124,58,237,0.04)' }}>
+      <div className="px-6 py-4 flex items-center justify-between flex-shrink-0" style={{ borderBottom: '1px solid #D4E2FF', backgroundColor: 'rgba(124,58,237,0.04)' }}>
         <div className="flex items-center gap-3">
           <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-          <p className="text-[13px] font-bold" style={{ color: '#1A1035' }}>Live Meeting</p>
-          <div className="px-2 py-0.5 rounded-md font-mono text-[11px]" style={{ backgroundColor: 'rgba(124,58,237,0.10)', color: '#7C3AED' }}>
+          <p className="text-[13px] font-bold" style={{ color: '#181D23' }}>Live Meeting</p>
+          <div className="px-2 py-0.5 rounded-md font-mono text-[11px]" style={{ backgroundColor: 'rgba(124,58,237,0.10)', color: '#0058E6' }}>
             {fmtElapsed(elapsed)}
           </div>
         </div>
@@ -257,7 +257,7 @@ Action items:\n${actionList || 'None recorded'}`;
                 {getInitials(m.full_name)}
               </div>
             ))}
-            <p className="text-[10px] ml-1" style={{ color: '#6E6688' }}>{members.filter(m => m.status !== 'offline').length} present</p>
+            <p className="text-[10px] ml-1" style={{ color: '#5A6475' }}>{members.filter(m => m.status !== 'offline').length} present</p>
           </div>
           <button onClick={endMeeting} disabled={generating}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-semibold transition-all"
@@ -271,30 +271,30 @@ Action items:\n${actionList || 'None recorded'}`;
       <div className="flex-1 overflow-y-auto p-6 grid grid-cols-[1fr_1fr] gap-6">
         {/* Agenda */}
         <div>
-          <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-3" style={{ color: '#8B84A0' }}>Agenda</p>
+          <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-3" style={{ color: '#96989B' }}>Agenda</p>
           <div className="space-y-2 mb-3">
             {agenda.map(item => (
               <div key={item.id} className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl cursor-pointer transition-all"
-                style={{ border: '1px solid #EBE5FF', backgroundColor: item.done ? 'rgba(5,150,105,0.05)' : 'transparent' }}
+                style={{ border: '1px solid #D4E2FF', backgroundColor: item.done ? 'rgba(5,150,105,0.05)' : 'transparent' }}
                 onClick={() => toggleAgenda(item.id)}>
                 <div className="w-4 h-4 rounded-full border flex items-center justify-center flex-shrink-0"
-                  style={{ borderColor: item.done ? '#059669' : '#D5CCFF', backgroundColor: item.done ? 'rgba(5,150,105,0.12)' : 'transparent' }}>
+                  style={{ borderColor: item.done ? '#059669' : '#A8C4FF', backgroundColor: item.done ? 'rgba(5,150,105,0.12)' : 'transparent' }}>
                   {item.done && <CheckCircle2 className="w-3 h-3" style={{ color: '#059669' }} />}
                 </div>
-                <p className="text-[11px]" style={{ color: item.done ? '#8B84A0' : '#1A1035', textDecoration: item.done ? 'line-through' : 'none' }}>{item.text}</p>
+                <p className="text-[11px]" style={{ color: item.done ? '#96989B' : '#181D23', textDecoration: item.done ? 'line-through' : 'none' }}>{item.text}</p>
               </div>
             ))}
           </div>
           <div className="flex gap-2">
             <input className="flex-1 px-3 py-2 rounded-xl text-[11px] focus:outline-none"
-              style={{ border: '1px solid #EBE5FF', backgroundColor: 'white', color: '#1A1035' }}
+              style={{ border: '1px solid #D4E2FF', backgroundColor: 'white', color: '#181D23' }}
               placeholder="Add agenda item…"
               value={agendaInput}
               onChange={e => setAgendaInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') addAgenda(); }}
             />
             <button onClick={addAgenda} className="px-3 py-2 rounded-xl text-[10px] font-semibold"
-              style={{ backgroundColor: 'rgba(124,58,237,0.10)', color: '#7C3AED', border: '1px solid #D5CCFF' }}>
+              style={{ backgroundColor: 'rgba(124,58,237,0.10)', color: '#0058E6', border: '1px solid #A8C4FF' }}>
               <Plus className="w-3 h-3" />
             </button>
           </div>
@@ -302,9 +302,9 @@ Action items:\n${actionList || 'None recorded'}`;
 
         {/* Notes */}
         <div>
-          <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-3" style={{ color: '#8B84A0' }}>Meeting Notes</p>
+          <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-3" style={{ color: '#96989B' }}>Meeting Notes</p>
           <textarea className="w-full px-3 py-2.5 rounded-xl text-[11px] leading-relaxed resize-none focus:outline-none"
-            style={{ border: '1px solid #EBE5FF', backgroundColor: 'white', color: '#1A1035', height: '140px' }}
+            style={{ border: '1px solid #D4E2FF', backgroundColor: 'white', color: '#181D23', height: '140px' }}
             placeholder="Type notes here…"
             value={notes}
             onChange={e => setNotes(e.target.value)}
@@ -313,38 +313,38 @@ Action items:\n${actionList || 'None recorded'}`;
 
         {/* Action items — full width */}
         <div className="col-span-2">
-          <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-3" style={{ color: '#8B84A0' }}>Action Items</p>
+          <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-3" style={{ color: '#96989B' }}>Action Items</p>
           <div className="space-y-2 mb-3">
             {actions.map(a => (
-              <div key={a.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl" style={{ border: '1px solid #EBE5FF' }}>
-                <CheckCircle2 className="w-3 h-3 flex-shrink-0" style={{ color: '#7C3AED' }} />
-                <p className="text-[11px] flex-1" style={{ color: '#1A1035' }}>{a.text}</p>
-                {a.assignee && <span className="text-[10px] px-2 py-0.5 rounded-lg" style={{ backgroundColor: 'rgba(124,58,237,0.08)', color: '#7C3AED' }}>{a.assignee}</span>}
-                {a.due && <span className="flex items-center gap-1 text-[10px]" style={{ color: '#8B84A0' }}><Clock className="w-2.5 h-2.5" />{a.due}</span>}
+              <div key={a.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl" style={{ border: '1px solid #D4E2FF' }}>
+                <CheckCircle2 className="w-3 h-3 flex-shrink-0" style={{ color: '#0058E6' }} />
+                <p className="text-[11px] flex-1" style={{ color: '#181D23' }}>{a.text}</p>
+                {a.assignee && <span className="text-[10px] px-2 py-0.5 rounded-lg" style={{ backgroundColor: 'rgba(124,58,237,0.08)', color: '#0058E6' }}>{a.assignee}</span>}
+                {a.due && <span className="flex items-center gap-1 text-[10px]" style={{ color: '#96989B' }}><Clock className="w-2.5 h-2.5" />{a.due}</span>}
               </div>
             ))}
           </div>
           <div className="flex gap-2">
             <input className="flex-1 px-3 py-2 rounded-xl text-[11px] focus:outline-none"
-              style={{ border: '1px solid #EBE5FF', backgroundColor: 'white', color: '#1A1035' }}
+              style={{ border: '1px solid #D4E2FF', backgroundColor: 'white', color: '#181D23' }}
               placeholder="Action item…"
               value={actionInput.text}
               onChange={e => setActionInput(a => ({ ...a, text: e.target.value }))}
             />
             <input className="w-28 px-3 py-2 rounded-xl text-[11px] focus:outline-none"
-              style={{ border: '1px solid #EBE5FF', backgroundColor: 'white', color: '#1A1035' }}
+              style={{ border: '1px solid #D4E2FF', backgroundColor: 'white', color: '#181D23' }}
               placeholder="Assignee"
               value={actionInput.assignee}
               onChange={e => setActionInput(a => ({ ...a, assignee: e.target.value }))}
             />
             <input className="w-24 px-3 py-2 rounded-xl text-[11px] focus:outline-none"
-              style={{ border: '1px solid #EBE5FF', backgroundColor: 'white', color: '#1A1035' }}
+              style={{ border: '1px solid #D4E2FF', backgroundColor: 'white', color: '#181D23' }}
               placeholder="Due date"
               value={actionInput.due}
               onChange={e => setActionInput(a => ({ ...a, due: e.target.value }))}
             />
             <button onClick={addAction} className="px-3 py-2 rounded-xl text-[10px] font-semibold"
-              style={{ backgroundColor: 'rgba(124,58,237,0.10)', color: '#7C3AED', border: '1px solid #D5CCFF' }}>
+              style={{ backgroundColor: 'rgba(124,58,237,0.10)', color: '#0058E6', border: '1px solid #A8C4FF' }}>
               <Plus className="w-3 h-3" />
             </button>
           </div>
@@ -365,7 +365,7 @@ export default function TeamPage() {
   const userId       = searchParams.get('userId') ?? '';
 
   const [profile,    setProfile]    = useState<StaffProfile | null>(null);
-  const [brandColor, setBrandColor] = useState('#8A6CFF');
+  const [brandColor, setBrandColor] = useState('#0058E6');
 
   const [activeSpace, setActiveSpace]   = useState<TeamSpace | 'all'>('all');
   const [posts,       setPosts]         = useState<(TeamPost & { liked?: boolean })[]>([]);
@@ -384,7 +384,7 @@ export default function TeamPage() {
   useEffect(() => {
     if (!userId) return;
     getStaffProfile('clinic', userId).then(r => {
-      if (r.success && r.data?.profile) { setProfile(r.data.profile); setBrandColor(r.data.profile.brandColor ?? '#8A6CFF'); }
+      if (r.success && r.data?.profile) { setProfile(r.data.profile); setBrandColor(r.data.profile.brandColor ?? '#0058E6'); }
     });
     Promise.all([getTeamRoster(), getTeamSpaceStats()]).then(([m, s]) => { setMembers(m); setStats(s); });
   }, [userId]);
@@ -462,24 +462,24 @@ export default function TeamPage() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ backgroundColor: '#FAF7F2', paddingLeft: 'var(--nav-w, 240px)' }}>
+    <div className="flex h-screen overflow-hidden" style={{ backgroundColor: '#F8FAFF', paddingLeft: 'var(--nav-w, 240px)' }}>
       <StaffNav profile={profile ?? FALLBACK} userId={userId} brandColor={brandColor} currentPath="Team" />
 
       {/* ===== LEFT: SPACES + ROSTER ===== */}
-      <div className="w-[220px] flex-shrink-0 flex flex-col overflow-hidden" style={{ borderRight: '1px solid #EBE5FF' }}>
+      <div className="w-[220px] flex-shrink-0 flex flex-col overflow-hidden" style={{ borderRight: '1px solid #D4E2FF' }}>
 
         {/* Spaces */}
-        <div className="p-4" style={{ borderBottom: '1px solid #EBE5FF' }}>
-          <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-3" style={{ color: '#8B84A0' }}>Spaces</p>
+        <div className="p-4" style={{ borderBottom: '1px solid #D4E2FF' }}>
+          <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-3" style={{ color: '#96989B' }}>Spaces</p>
           <button onClick={() => setActiveSpace('all')}
             className="w-full text-left px-3 py-2.5 rounded-xl mb-1 flex items-center gap-2.5 transition-all"
             style={{
               backgroundColor: activeSpace === 'all' ? 'rgba(124,58,237,0.08)' : 'transparent',
-              borderLeft:      activeSpace === 'all' ? '2px solid #7C3AED' : '2px solid transparent',
+              borderLeft:      activeSpace === 'all' ? '2px solid #0058E6' : '2px solid transparent',
             }}>
-            <LayoutGrid className="w-3.5 h-3.5 flex-shrink-0" style={{ color: activeSpace === 'all' ? '#7C3AED' : '#8B84A0' }} />
-            <span className="text-[12px] font-medium flex-1" style={{ color: activeSpace === 'all' ? '#1A1035' : '#524D66' }}>All Spaces</span>
-            <span className="text-[9px] px-1.5 py-0.5 rounded-md" style={{ backgroundColor: 'rgba(138,108,255,0.08)', color: '#8B84A0' }}>{posts.length}</span>
+            <LayoutGrid className="w-3.5 h-3.5 flex-shrink-0" style={{ color: activeSpace === 'all' ? '#0058E6' : '#96989B' }} />
+            <span className="text-[12px] font-medium flex-1" style={{ color: activeSpace === 'all' ? '#181D23' : '#3D4451' }}>All Spaces</span>
+            <span className="text-[9px] px-1.5 py-0.5 rounded-md" style={{ backgroundColor: 'rgba(0,88,230,0.08)', color: '#96989B' }}>{posts.length}</span>
           </button>
 
           {(Object.entries(SPACE_CONFIG) as [TeamSpace, typeof SPACE_CONFIG[TeamSpace]][]).map(([key, cfg]) => {
@@ -492,12 +492,12 @@ export default function TeamPage() {
                   backgroundColor: isActive ? `${cfg.color}0c` : 'transparent',
                   borderLeft:      isActive ? `2px solid ${cfg.color}` : '2px solid transparent',
                 }}
-                onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(138,108,255,0.04)'; }}
+                onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(0,88,230,0.04)'; }}
                 onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent'; }}>
-                <Icon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: isActive ? cfg.color : '#8B84A0' }} />
-                <span className="text-[12px] flex-1" style={{ color: isActive ? '#1A1035' : '#524D66' }}>{cfg.label}</span>
+                <Icon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: isActive ? cfg.color : '#96989B' }} />
+                <span className="text-[12px] flex-1" style={{ color: isActive ? '#181D23' : '#3D4451' }}>{cfg.label}</span>
                 {stats && (
-                  <span className="text-[9px] px-1.5 py-0.5 rounded-md" style={{ backgroundColor: isActive ? `${cfg.color}12` : 'rgba(138,108,255,0.06)', color: isActive ? cfg.color : '#8B84A0' }}>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-md" style={{ backgroundColor: isActive ? `${cfg.color}12` : 'rgba(0,88,230,0.06)', color: isActive ? cfg.color : '#96989B' }}>
                     {stats[key]}
                   </span>
                 )}
@@ -509,25 +509,25 @@ export default function TeamPage() {
         {/* Team Roster */}
         <div className="flex-1 overflow-y-auto p-4">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-[8px] uppercase tracking-[0.28em] font-semibold" style={{ color: '#8B84A0' }}>Team</p>
+            <p className="text-[8px] uppercase tracking-[0.28em] font-semibold" style={{ color: '#96989B' }}>Team</p>
             <span className="text-[9px] px-1.5 py-0.5 rounded-md" style={{ backgroundColor: 'rgba(5,150,105,0.10)', color: '#059669', border: '1px solid rgba(5,150,105,0.20)' }}>
               {onlineCount} online
             </span>
           </div>
           <div className="space-y-1">
             {members.map(m => (
-              <div key={m.id} className="flex items-center gap-2.5 px-2 py-2 rounded-xl" style={{ backgroundColor: 'rgba(138,108,255,0.04)' }}>
+              <div key={m.id} className="flex items-center gap-2.5 px-2 py-2 rounded-xl" style={{ backgroundColor: 'rgba(0,88,230,0.04)' }}>
                 <div className="relative flex-shrink-0">
                   <div className="w-6 h-6 rounded-full flex items-center justify-center text-[8px] font-bold"
                     style={{ backgroundColor: `${m.color}14`, color: m.color }}>
                     {getInitials(m.full_name)}
                   </div>
                   <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border"
-                    style={{ backgroundColor: STATUS_DOT[m.status], borderColor: '#FAF7F2' }} />
+                    style={{ backgroundColor: STATUS_DOT[m.status], borderColor: '#F8FAFF' }} />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-[10px] font-medium truncate" style={{ color: '#1A1035' }}>{m.full_name}</p>
-                  <p className="text-[9px] truncate" style={{ color: '#8B84A0' }}>{m.role}</p>
+                  <p className="text-[10px] font-medium truncate" style={{ color: '#181D23' }}>{m.full_name}</p>
+                  <p className="text-[9px] truncate" style={{ color: '#96989B' }}>{m.role}</p>
                 </div>
               </div>
             ))}
@@ -536,34 +536,34 @@ export default function TeamPage() {
       </div>
 
       {/* ===== CENTER: FEED or MEETING ===== */}
-      <div className="flex-1 flex flex-col overflow-hidden" style={{ borderRight: '1px solid #EBE5FF' }}>
+      <div className="flex-1 flex flex-col overflow-hidden" style={{ borderRight: '1px solid #D4E2FF' }}>
 
         {/* Header with view tabs */}
-        <div className="px-6 py-4 flex items-center justify-between flex-shrink-0" style={{ borderBottom: '1px solid #EBE5FF' }}>
+        <div className="px-6 py-4 flex items-center justify-between flex-shrink-0" style={{ borderBottom: '1px solid #D4E2FF' }}>
           <div>
-            <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-0.5" style={{ color: '#8B84A0' }}>Team Spaces</p>
-            <p className="text-[20px] font-black tracking-tight" style={{ color: '#1A1035' }}>
+            <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-0.5" style={{ color: '#96989B' }}>Team Spaces</p>
+            <p className="text-[20px] font-black tracking-tight" style={{ color: '#181D23' }}>
               {activeSpace === 'all' ? 'All Spaces' : SPACE_CONFIG[activeSpace as TeamSpace].label}
             </p>
           </div>
           <div className="flex items-center gap-2">
             {/* View toggle */}
-            <div className="flex gap-1 p-1 rounded-xl" style={{ backgroundColor: 'rgba(138,108,255,0.06)', border: '1px solid #EBE5FF' }}>
+            <div className="flex gap-1 p-1 rounded-xl" style={{ backgroundColor: 'rgba(0,88,230,0.06)', border: '1px solid #D4E2FF' }}>
               <button onClick={() => setCenterView('feed')}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all"
-                style={{ backgroundColor: centerView === 'feed' ? 'rgba(138,108,255,0.12)' : 'transparent', color: centerView === 'feed' ? '#6D28D9' : '#8B84A0' }}>
+                style={{ backgroundColor: centerView === 'feed' ? 'rgba(0,88,230,0.12)' : 'transparent', color: centerView === 'feed' ? '#0058E6' : '#96989B' }}>
                 <MessageSquare className="w-3 h-3" /> Feed
               </button>
               <button onClick={() => setCenterView('meeting')}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all"
-                style={{ backgroundColor: centerView === 'meeting' ? 'rgba(220,38,38,0.10)' : 'transparent', color: centerView === 'meeting' ? '#DC2626' : '#8B84A0' }}>
+                style={{ backgroundColor: centerView === 'meeting' ? 'rgba(220,38,38,0.10)' : 'transparent', color: centerView === 'meeting' ? '#DC2626' : '#96989B' }}>
                 <Video className="w-3 h-3" />
                 {centerView === 'meeting' ? 'In Meeting' : 'Start Meeting'}
               </button>
             </div>
             <div className="flex items-center gap-2">
-              <Users className="w-3.5 h-3.5" style={{ color: '#8B84A0' }} />
-              <p className="text-[11px]" style={{ color: '#6E6688' }}>{members.length} members · {onlineCount} online</p>
+              <Users className="w-3.5 h-3.5" style={{ color: '#96989B' }} />
+              <p className="text-[11px]" style={{ color: '#5A6475' }}>{members.length} members · {onlineCount} online</p>
             </div>
           </div>
         </div>
@@ -574,18 +574,18 @@ export default function TeamPage() {
         ) : (
           <>
             {/* Compose */}
-            <div className="px-6 py-4 flex-shrink-0" style={{ borderBottom: '1px solid #EBE5FF' }}>
-              <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #EBE5FF', backgroundColor: 'white' }}>
+            <div className="px-6 py-4 flex-shrink-0" style={{ borderBottom: '1px solid #D4E2FF' }}>
+              <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #D4E2FF', backgroundColor: 'white' }}>
                 <input
                   className="w-full px-4 pt-3.5 pb-0 text-[12px] font-semibold bg-transparent focus:outline-none"
-                  style={{ color: '#1A1035', borderBottom: '1px solid #EBE5FF' }}
+                  style={{ color: '#181D23', borderBottom: '1px solid #D4E2FF' }}
                   placeholder="Title (optional)…"
                   value={compose.title}
                   onChange={e => setCompose(c => ({ ...c, title: e.target.value }))}
                 />
                 <textarea
                   className="w-full px-4 py-3 text-[12px] bg-transparent resize-none focus:outline-none"
-                  style={{ color: '#524D66', minHeight: '60px' }}
+                  style={{ color: '#3D4451', minHeight: '60px' }}
                   placeholder={`Post to ${activeSpace === 'all' ? 'All Spaces' : SPACE_CONFIG[activeSpace as TeamSpace]?.label ?? 'Team'}…`}
                   value={compose.body}
                   onChange={e => setCompose(c => ({ ...c, body: e.target.value }))}
@@ -600,7 +600,7 @@ export default function TeamPage() {
                           className="text-[8px] px-2 py-0.5 rounded-md font-semibold uppercase tracking-[0.08em] transition-all"
                           style={{
                             backgroundColor: compose.category === cat ? `${cfg.color}12` : 'transparent',
-                            color:           compose.category === cat ? cfg.color : '#8B84A0',
+                            color:           compose.category === cat ? cfg.color : '#96989B',
                             border:          compose.category === cat ? `1px solid ${cfg.color}30` : '1px solid transparent',
                           }}>
                           {cfg.label}
@@ -611,9 +611,9 @@ export default function TeamPage() {
                   <button onClick={handlePost} disabled={!compose.body.trim() || posting}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-semibold transition-all"
                     style={{
-                      backgroundColor: postDone ? 'rgba(5,150,105,0.10)' : (compose.body.trim() ? 'rgba(138,108,255,0.10)' : 'transparent'),
-                      color:           postDone ? '#059669' : (compose.body.trim() ? '#6D28D9' : '#8B84A0'),
-                      border:          postDone ? '1px solid rgba(5,150,105,0.25)' : (compose.body.trim() ? '1px solid #D5CCFF' : '1px solid #EBE5FF'),
+                      backgroundColor: postDone ? 'rgba(5,150,105,0.10)' : (compose.body.trim() ? 'rgba(0,88,230,0.10)' : 'transparent'),
+                      color:           postDone ? '#059669' : (compose.body.trim() ? '#0058E6' : '#96989B'),
+                      border:          postDone ? '1px solid rgba(5,150,105,0.25)' : (compose.body.trim() ? '1px solid #A8C4FF' : '1px solid #D4E2FF'),
                     }}>
                     <AnimatePresence mode="wait">
                       {postDone  ? <motion.span key="done" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Posted</motion.span>
@@ -628,19 +628,19 @@ export default function TeamPage() {
             {/* Feed */}
             {loading ? (
               <div className="flex-1 flex items-center justify-center">
-                <Loader2 className="w-5 h-5 animate-spin" style={{ color: '#8B84A0' }} />
+                <Loader2 className="w-5 h-5 animate-spin" style={{ color: '#96989B' }} />
               </div>
             ) : (
               <div ref={feedRef} className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
                 {pinnedPosts.length > 0 && (
                   <>
                     <div className="flex items-center gap-2">
-                      <Pin className="w-2.5 h-2.5" style={{ color: '#8B84A0' }} />
-                      <p className="text-[8px] uppercase tracking-[0.14em] font-semibold" style={{ color: '#8B84A0' }}>Pinned</p>
+                      <Pin className="w-2.5 h-2.5" style={{ color: '#96989B' }} />
+                      <p className="text-[8px] uppercase tracking-[0.14em] font-semibold" style={{ color: '#96989B' }}>Pinned</p>
                     </div>
                     {pinnedPosts.map(p => <PostCard key={p.id} post={p} onLike={handleLike} />)}
-                    <div className="h-px" style={{ backgroundColor: '#EBE5FF' }} />
-                    <p className="text-[8px] uppercase tracking-[0.14em] font-semibold" style={{ color: '#8B84A0' }}>Recent</p>
+                    <div className="h-px" style={{ backgroundColor: '#D4E2FF' }} />
+                    <p className="text-[8px] uppercase tracking-[0.14em] font-semibold" style={{ color: '#96989B' }}>Recent</p>
                   </>
                 )}
                 <AnimatePresence>
@@ -655,35 +655,35 @@ export default function TeamPage() {
 
       {/* ===== RIGHT: AT A GLANCE ===== */}
       <div className="w-[248px] flex-shrink-0 flex flex-col overflow-hidden">
-        <div className="px-4 py-4 flex-shrink-0" style={{ borderBottom: '1px solid #EBE5FF' }}>
-          <p className="text-[8px] uppercase tracking-[0.28em] font-semibold" style={{ color: '#8B84A0' }}>At a Glance</p>
+        <div className="px-4 py-4 flex-shrink-0" style={{ borderBottom: '1px solid #D4E2FF' }}>
+          <p className="text-[8px] uppercase tracking-[0.28em] font-semibold" style={{ color: '#96989B' }}>At a Glance</p>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-5">
 
           {/* AI Team Pulse */}
-          <div className="px-3 py-3 rounded-xl" style={{ backgroundColor: 'rgba(124,58,237,0.05)', border: '1px solid #D5CCFF' }}>
+          <div className="px-3 py-3 rounded-xl" style={{ backgroundColor: 'rgba(124,58,237,0.05)', border: '1px solid #A8C4FF' }}>
             <div className="flex items-center gap-1.5 mb-1.5">
-              <Sparkles className="w-3 h-3" style={{ color: '#7C3AED' }} />
-              <p className="text-[8px] uppercase tracking-[0.14em] font-semibold" style={{ color: '#7C3AED' }}>Team Pulse</p>
+              <Sparkles className="w-3 h-3" style={{ color: '#0058E6' }} />
+              <p className="text-[8px] uppercase tracking-[0.14em] font-semibold" style={{ color: '#0058E6' }}>Team Pulse</p>
             </div>
-            <p className="text-[10px] leading-relaxed" style={{ color: '#524D66' }}>
+            <p className="text-[10px] leading-relaxed" style={{ color: '#3D4451' }}>
               {onlineCount} staff online. {pinnedPosts.length > 0 ? `${pinnedPosts.length} pinned item${pinnedPosts.length > 1 ? 's' : ''} need attention.` : 'No urgent pinned items.'} {posts.filter(p => p.category === 'task').length} open tasks in the feed.
             </p>
           </div>
 
           {/* Activity */}
           <div>
-            <p className="text-[8px] uppercase tracking-[0.14em] font-semibold mb-3" style={{ color: '#8B84A0' }}>Activity Today</p>
+            <p className="text-[8px] uppercase tracking-[0.14em] font-semibold mb-3" style={{ color: '#96989B' }}>Activity Today</p>
             <div className="grid grid-cols-2 gap-2">
               {[
-                { label: 'Posts',   value: posts.filter(p => { const d = new Date(p.created_at); return d.toDateString() === new Date().toDateString(); }).length.toString(), color: '#7C3AED' },
+                { label: 'Posts',   value: posts.filter(p => { const d = new Date(p.created_at); return d.toDateString() === new Date().toDateString(); }).length.toString(), color: '#0058E6' },
                 { label: 'Online',  value: onlineCount.toString(), color: '#059669' },
-                { label: 'Pinned',  value: pinnedPosts.length.toString(), color: '#D97706' },
-                { label: 'Tasks',   value: posts.filter(p => p.category === 'task').length.toString(), color: '#7C3AED' },
+                { label: 'Pinned',  value: pinnedPosts.length.toString(), color: '#D8A600' },
+                { label: 'Tasks',   value: posts.filter(p => p.category === 'task').length.toString(), color: '#0058E6' },
               ].map(({ label, value, color }) => (
-                <div key={label} className="px-3 py-2.5 rounded-xl" style={{ border: '1px solid #EBE5FF' }}>
+                <div key={label} className="px-3 py-2.5 rounded-xl" style={{ border: '1px solid #D4E2FF' }}>
                   <p className="text-[18px] font-black tracking-tight" style={{ color }}>{value}</p>
-                  <p className="text-[9px] mt-0.5" style={{ color: '#8B84A0' }}>{label}</p>
+                  <p className="text-[9px] mt-0.5" style={{ color: '#96989B' }}>{label}</p>
                 </div>
               ))}
             </div>
@@ -691,32 +691,32 @@ export default function TeamPage() {
 
           {/* Kudos */}
           <div>
-            <p className="text-[8px] uppercase tracking-[0.14em] font-semibold mb-3" style={{ color: '#8B84A0' }}>Recognition</p>
+            <p className="text-[8px] uppercase tracking-[0.14em] font-semibold mb-3" style={{ color: '#96989B' }}>Recognition</p>
             {posts.filter(p => p.category === 'kudos').length === 0 ? (
-              <p className="text-[10px]" style={{ color: '#8B84A0' }}>No kudos yet — be the first!</p>
+              <p className="text-[10px]" style={{ color: '#96989B' }}>No kudos yet — be the first!</p>
             ) : posts.filter(p => p.category === 'kudos').slice(0, 2).map(p => (
               <div key={p.id} className="mb-2 px-3 py-2.5 rounded-xl" style={{ backgroundColor: 'rgba(236,72,153,0.06)', border: '1px solid rgba(236,72,153,0.15)' }}>
                 <div className="flex items-center gap-1.5 mb-1">
                   <Heart className="w-2.5 h-2.5" style={{ color: '#EC4899' }} />
                   <p className="text-[9px] font-semibold" style={{ color: '#EC4899' }}>KUDOS</p>
-                  <p className="text-[9px]" style={{ color: '#8B84A0' }}>from {p.author_name.split(' ')[0]}</p>
+                  <p className="text-[9px]" style={{ color: '#96989B' }}>from {p.author_name.split(' ')[0]}</p>
                 </div>
-                <p className="text-[10px] line-clamp-2 leading-relaxed" style={{ color: '#524D66' }}>{p.body}</p>
+                <p className="text-[10px] line-clamp-2 leading-relaxed" style={{ color: '#3D4451' }}>{p.body}</p>
               </div>
             ))}
           </div>
 
           {/* Open tasks */}
           <div>
-            <p className="text-[8px] uppercase tracking-[0.14em] font-semibold mb-3" style={{ color: '#8B84A0' }}>Open Tasks</p>
+            <p className="text-[8px] uppercase tracking-[0.14em] font-semibold mb-3" style={{ color: '#96989B' }}>Open Tasks</p>
             {posts.filter(p => p.category === 'task').length === 0 ? (
-              <p className="text-[10px]" style={{ color: '#8B84A0' }}>No open tasks</p>
+              <p className="text-[10px]" style={{ color: '#96989B' }}>No open tasks</p>
             ) : posts.filter(p => p.category === 'task').slice(0, 3).map(p => (
               <div key={p.id} className="mb-2 flex items-start gap-2 px-3 py-2.5 rounded-xl" style={{ backgroundColor: 'rgba(124,58,237,0.05)', border: '1px solid rgba(124,58,237,0.15)' }}>
-                <CheckCircle2 className="w-3 h-3 mt-0.5 flex-shrink-0" style={{ color: '#7C3AED' }} />
+                <CheckCircle2 className="w-3 h-3 mt-0.5 flex-shrink-0" style={{ color: '#0058E6' }} />
                 <div>
-                  <p className="text-[10px] font-medium line-clamp-1" style={{ color: '#1A1035' }}>{p.title ?? p.body.slice(0, 40)}</p>
-                  {p.metadata.task_due && <p className="text-[9px] mt-0.5" style={{ color: '#7C3AED' }}>{String(p.metadata.task_due)}</p>}
+                  <p className="text-[10px] font-medium line-clamp-1" style={{ color: '#181D23' }}>{p.title ?? p.body.slice(0, 40)}</p>
+                  {p.metadata.task_due && <p className="text-[9px] mt-0.5" style={{ color: '#0058E6' }}>{String(p.metadata.task_due)}</p>}
                 </div>
               </div>
             ))}
@@ -724,11 +724,11 @@ export default function TeamPage() {
 
           {/* Latest Handover */}
           <div>
-            <p className="text-[8px] uppercase tracking-[0.14em] font-semibold mb-3" style={{ color: '#8B84A0' }}>Latest Handover</p>
+            <p className="text-[8px] uppercase tracking-[0.14em] font-semibold mb-3" style={{ color: '#96989B' }}>Latest Handover</p>
             {posts.filter(p => p.category === 'handover').slice(0, 1).map(p => (
               <div key={p.id} className="px-3 py-3 rounded-xl" style={{ backgroundColor: 'rgba(59,130,246,0.05)', border: '1px solid rgba(59,130,246,0.15)' }}>
                 <p className="text-[9px] font-semibold mb-1" style={{ color: '#3B82F6' }}>{p.author_name} · {fmtTime(p.created_at)}</p>
-                <p className="text-[10px] leading-relaxed line-clamp-3" style={{ color: '#524D66' }}>{p.body}</p>
+                <p className="text-[10px] leading-relaxed line-clamp-3" style={{ color: '#3D4451' }}>{p.body}</p>
               </div>
             ))}
           </div>
@@ -736,11 +736,11 @@ export default function TeamPage() {
           {/* Resources */}
           {posts.filter(p => p.category === 'resource').length > 0 && (
             <div>
-              <p className="text-[8px] uppercase tracking-[0.14em] font-semibold mb-3" style={{ color: '#8B84A0' }}>Resources</p>
+              <p className="text-[8px] uppercase tracking-[0.14em] font-semibold mb-3" style={{ color: '#96989B' }}>Resources</p>
               {posts.filter(p => p.category === 'resource').slice(0, 3).map(p => (
                 <div key={p.id} className="mb-2 flex items-center gap-2 px-3 py-2 rounded-xl" style={{ backgroundColor: 'rgba(13,148,136,0.05)', border: '1px solid rgba(13,148,136,0.15)' }}>
-                  <LinkIcon className="w-3 h-3 flex-shrink-0" style={{ color: '#0D9488' }} />
-                  <p className="text-[10px] truncate" style={{ color: '#1A1035' }}>{p.title ?? p.body.slice(0, 40)}</p>
+                  <LinkIcon className="w-3 h-3 flex-shrink-0" style={{ color: '#00A693' }} />
+                  <p className="text-[10px] truncate" style={{ color: '#181D23' }}>{p.title ?? p.body.slice(0, 40)}</p>
                 </div>
               ))}
             </div>

@@ -45,7 +45,7 @@ function SectionCard({
   const statusConfig = {
     active:      { color: '#4ade80', label: section.statusLabel || 'Active' },
     connected:   { color: '#4ade80', label: section.statusLabel || 'Connected' },
-    coming_soon: { color: '#8B84A0', label: 'Coming Soon' },
+    coming_soon: { color: '#96989B', label: 'Coming Soon' },
     configure:   { color: '#f59e0b', label: section.statusLabel || 'Configure' },
   }[section.status];
 
@@ -56,16 +56,16 @@ function SectionCard({
       whileHover={isAvailable ? { y: -2 } : undefined}
       whileTap={isAvailable ? { scale: 0.99 } : undefined}
       onClick={isAvailable ? () => router.push(`${section.href}?userId=${userId}`) : undefined}
-      className={`bg-white border border-[#EBE5FF] rounded-2xl p-6 flex flex-col gap-4 transition-all ${
+      className={`bg-white border border-[#D4E2FF] rounded-2xl p-6 flex flex-col gap-4 transition-all ${
         isAvailable
-          ? 'cursor-pointer hover:bg-[#FAF7F2] hover:border-white/[0.12]'
+          ? 'cursor-pointer hover:bg-[#F8FAFF] hover:border-white/[0.12]'
           : 'opacity-50 cursor-default'
       }`}
     >
       {/* Icon + status */}
       <div className="flex items-start justify-between">
         <div className="w-11 h-11 rounded-xl bg-[#FAF9F5] flex items-center justify-center flex-shrink-0">
-          <Icon size={20} className="text-[#524D66]" />
+          <Icon size={20} className="text-[#3D4451]" />
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: statusConfig.color }} />
@@ -78,19 +78,19 @@ function SectionCard({
       {/* Content */}
       <div className="flex-1">
         <div className="flex items-center gap-2 mb-1.5">
-          <h3 className="text-[14px] font-medium text-[#1A1035]">{section.title}</h3>
+          <h3 className="text-[14px] font-medium text-[#181D23]">{section.title}</h3>
           {section.badge && (
-            <span className="text-[8px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-[#FAF9F5] text-[#6E6688]">
+            <span className="text-[8px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-[#FAF9F5] text-[#5A6475]">
               {section.badge}
             </span>
           )}
         </div>
-        <p className="text-[11px] text-[#6E6688] leading-relaxed">{section.description}</p>
+        <p className="text-[11px] text-[#5A6475] leading-relaxed">{section.description}</p>
       </div>
 
       {/* Footer */}
       {isAvailable && (
-        <div className="flex items-center gap-1 text-[11px] text-[#6E6688] hover:text-[#524D66] transition-colors">
+        <div className="flex items-center gap-1 text-[11px] text-[#5A6475] hover:text-[#3D4451] transition-colors">
           <span>Open</span>
           <ArrowRight size={11} />
         </div>
@@ -113,7 +113,7 @@ export default function AccountPage() {
   const [clinikoConnected, setClinikoConnected] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const brandColor = profile?.brandColor || '#8A6CFF';
+  const brandColor = profile?.brandColor || '#0058E6';
 
   useEffect(() => {
     (async () => {
@@ -138,7 +138,7 @@ export default function AccountPage() {
 
   if (loading || !profile) {
     return (
-      <div className="min-h-screen pl-[240px] bg-[#FAF7F2] flex items-center justify-center">
+      <div className="min-h-screen pl-[240px] bg-[#F8FAFF] flex items-center justify-center">
         <motion.div animate={{ opacity: [0.2, 0.5, 0.2] }} transition={{ duration: 1.8, repeat: Infinity }}
           className="w-1.5 h-1.5 rounded-full bg-[#F0EDE5]" />
       </div>
@@ -222,29 +222,29 @@ export default function AccountPage() {
 
           {/* Header */}
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-10">
-            <p className="text-[11px] uppercase tracking-[0.18em] text-[#6E6688] mb-2">Administration</p>
-            <h1 className="text-[26px] font-semibold tracking-tight text-[#1A1035]">Account</h1>
-            <p className="text-[13px] text-[#6E6688] mt-1">{profile.companyName} · Configuration, integrations & settings</p>
+            <p className="text-[11px] uppercase tracking-[0.18em] text-[#5A6475] mb-2">Administration</p>
+            <h1 className="text-[26px] font-semibold tracking-tight text-[#181D23]">Account</h1>
+            <p className="text-[13px] text-[#5A6475] mt-1">{profile.companyName} · Configuration, integrations & settings</p>
           </motion.div>
 
           {/* Summary strip */}
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-            className="flex items-center gap-6 mb-8 px-5 py-3 bg-[#F0ECFF] border border-[#EBE5FF] rounded-xl">
+            className="flex items-center gap-6 mb-8 px-5 py-3 bg-[#F0ECFF] border border-[#D4E2FF] rounded-xl">
             <div className="flex items-center gap-2">
               <CheckCircle2 size={13} className="text-[#4ade80]" />
-              <span className="text-[12px] text-[#6E6688]">
+              <span className="text-[12px] text-[#5A6475]">
                 {clinikoConnected ? 'Cliniko connected' : 'Cliniko not connected'}
               </span>
             </div>
             <div className="w-px h-4 bg-[#FAF9F5]" />
             <div className="flex items-center gap-2">
-              <Clock size={13} className="text-[#6E6688]" />
-              <span className="text-[12px] text-[#6E6688]">Week 2: Vapi, Twilio, Stripe, n8n</span>
+              <Clock size={13} className="text-[#5A6475]" />
+              <span className="text-[12px] text-[#5A6475]">Week 2: Vapi, Twilio, Stripe, n8n</span>
             </div>
             <div className="ml-auto">
               <button
                 onClick={() => router.push(`/staff/integrations?userId=${userId}`)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] bg-[#8A6CFF] text-[#1A1035] font-medium hover:bg-[#8A6CFF]/10 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] bg-[#0058E6] text-[#181D23] font-medium hover:bg-[#0058E6]/10 transition-colors"
               >
                 <Wifi size={11} />
                 Manage Integrations
@@ -266,7 +266,7 @@ export default function AccountPage() {
 
           {/* Footer note */}
           <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}
-            className="text-center text-[11px] text-[#8B84A0] mt-12">
+            className="text-center text-[11px] text-[#96989B] mt-12">
             {profile.companyName} · EWC Intelligence Platform · All configuration changes are logged to audit trail
           </motion.p>
         </div>

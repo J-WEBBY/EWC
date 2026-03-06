@@ -11,19 +11,24 @@ const config: Config = {
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
-        // EWC Design Tokens — Light Theme
-        sidebar:    "#080517",   // sidebar background (dark)
-        card:       "#FFFFFF",   // card backgrounds
-        border:     "#EBE5FF",   // subtle violet-tinted border
-        "border-strong": "#D5CCFF",
-        accent:     "#8A6CFF",   // Pulse Violet — primary
-        "accent-light":  "#A98DFF",
-        "accent-dark":   "#6B4FE0",
-        "accent-bg":     "#F0ECFF",
-        "scale-cyan":    "#4B7BFF",
-        ink:        "#1A1035",   // primary text
-        "ink-secondary": "#6B6490",
-        "ink-muted":     "#9E99B5",
+        // EWC Brand Design Tokens
+        sidebar:         "#181D23",   // EWC dark navy — nav/sidebar
+        card:            "#FFFFFF",
+        border:          "#D4E2FF",   // blue-tinted border
+        "border-strong": "#A8C4FF",   // stronger blue border
+        // Brand Blue — primary
+        accent:          "#0058E6",
+        "accent-hover":  "#0048BD",
+        "accent-light":  "#80B1FF",
+        "accent-bg":     "#EBF2FF",
+        // Brand Gold — premium accent
+        gold:            "#D8A600",
+        "gold-light":    "#FFF8D6",
+        // Text hierarchy
+        ink:             "#181D23",   // primary text
+        "ink-secondary": "#3D4451",
+        "ink-tertiary":  "#5A6475",
+        "ink-muted":     "#96989B",
       },
     },
   },

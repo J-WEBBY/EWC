@@ -114,9 +114,9 @@ function shortDate(dateStr: string | null | undefined): string {
 const CATEGORY_COLOR: Record<string, string> = {
   appointments: '#0284C7',
   revenue:      '#059669',
-  patients:     '#7C3AED',
-  compliance:   '#D97706',
-  training:     '#8A6CFF',
+  patients:     '#0058E6',
+  compliance:   '#D8A600',
+  training:     '#0058E6',
   operational:  '#6B7280',
   personal:     '#EC4899',
   retention:    '#059669',
@@ -139,29 +139,29 @@ function statusColor(status: string): [string, string] {
   const MAP: Record<string, [string, string]> = {
     on_track:    ['#059669', '#ECFDF5'],
     completed:   ['#059669', '#ECFDF5'],
-    at_risk:     ['#D97706', '#FFFBEB'],
+    at_risk:     ['#D8A600', '#FFFBEB'],
     missed:      ['#DC2626', '#FFF1F2'],
     in_progress: ['#0284C7', '#EFF6FF'],
-    active:      ['#8A6CFF', '#F5F3FF'],
-    not_started: ['#8B84A0', '#F5F4FA'],
-    paused:      ['#8B84A0', '#F5F4FA'],
-    draft:       ['#8B84A0', '#F5F4FA'],
+    active:      ['#0058E6', '#F5F3FF'],
+    not_started: ['#96989B', '#F5F4FA'],
+    paused:      ['#96989B', '#F5F4FA'],
+    draft:       ['#96989B', '#F5F4FA'],
   };
-  return MAP[status] ?? ['#8B84A0', '#F5F4FA'];
+  return MAP[status] ?? ['#96989B', '#F5F4FA'];
 }
 
 function compStatusColor(status: string): [string, string] {
   const MAP: Record<string, [string, string]> = {
     compliant:   ['#059669', '#ECFDF5'],
-    due_soon:    ['#D97706', '#FFFBEB'],
+    due_soon:    ['#D8A600', '#FFFBEB'],
     overdue:     ['#DC2626', '#FFF1F2'],
     expired:     ['#DC2626', '#FFF1F2'],
     in_progress: ['#0284C7', '#EFF6FF'],
-    not_started: ['#8B84A0', '#F5F4FA'],
-    waived:      ['#8B84A0', '#F5F3FF'],
-    draft:       ['#8B84A0', '#F5F4FA'],
+    not_started: ['#96989B', '#F5F4FA'],
+    waived:      ['#96989B', '#F5F3FF'],
+    draft:       ['#96989B', '#F5F4FA'],
   };
-  return MAP[status] ?? ['#8B84A0', '#F5F4FA'];
+  return MAP[status] ?? ['#96989B', '#F5F4FA'];
 }
 
 // =============================================================================
@@ -171,7 +171,7 @@ function compStatusColor(status: string): [string, string] {
 function Panel({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
     <div className={`rounded-2xl overflow-hidden ${className}`}
-      style={{ backgroundColor: '#FFFFFF', border: '1px solid #EBE5FF' }}>
+      style={{ backgroundColor: '#FFFFFF', border: '1px solid #D4E2FF' }}>
       {children}
     </div>
   );
@@ -182,9 +182,9 @@ function PanelHeader({ title, badge, action }: {
 }) {
   return (
     <div className="flex items-center justify-between px-5 py-3.5"
-      style={{ borderBottom: '1px solid #EBE5FF' }}>
+      style={{ borderBottom: '1px solid #D4E2FF' }}>
       <div className="flex items-center gap-2">
-        <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#8B84A0]">{title}</p>
+        <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#96989B]">{title}</p>
         {badge !== undefined && badge > 0 && (
           <span className="inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold text-white"
             style={{ backgroundColor: '#DC2626' }}>{badge}</span>
@@ -199,11 +199,11 @@ function StatTile({ label, value, sub, accent, delta }: {
   label: string; value: string | number; sub?: string; accent?: string; delta?: number;
 }) {
   return (
-    <div className="rounded-xl p-4" style={{ backgroundColor: '#FDFCFB', border: '1px solid #EBE5FF' }}>
-      <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-1.5">{label}</p>
+    <div className="rounded-xl p-4" style={{ backgroundColor: '#FDFCFB', border: '1px solid #D4E2FF' }}>
+      <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B] mb-1.5">{label}</p>
       <div className="flex items-end justify-between">
         <p className="text-[22px] font-black tracking-[-0.02em] leading-none"
-          style={{ color: accent ?? '#1A1035' }}>{value}</p>
+          style={{ color: accent ?? '#181D23' }}>{value}</p>
         {delta !== undefined && delta !== 0 && (
           <div className={`flex items-center gap-0.5 text-[10px] font-semibold mb-0.5 ${delta > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
             {delta > 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
@@ -211,7 +211,7 @@ function StatTile({ label, value, sub, accent, delta }: {
           </div>
         )}
       </div>
-      {sub && <p className="text-[10px] text-[#8B84A0] mt-1.5">{sub}</p>}
+      {sub && <p className="text-[10px] text-[#96989B] mt-1.5">{sub}</p>}
     </div>
   );
 }
@@ -222,10 +222,10 @@ function PerformanceRing({ score, size = 88, color }: {
   const r    = size / 2 - 7;
   const circ = 2 * Math.PI * r;
   const fill = (score / 100) * circ;
-  const c    = color ?? (score >= 80 ? '#059669' : score >= 60 ? '#D97706' : '#DC2626');
+  const c    = color ?? (score >= 80 ? '#059669' : score >= 60 ? '#D8A600' : '#DC2626');
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="flex-shrink-0">
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#EBE5FF" strokeWidth="6" />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#D4E2FF" strokeWidth="6" />
       <motion.circle
         cx={size / 2} cy={size / 2} r={r}
         fill="none" stroke={c} strokeWidth="6"
@@ -241,7 +241,7 @@ function PerformanceRing({ score, size = 88, color }: {
   );
 }
 
-function GoalProgressRing({ pct, size = 44, color = '#8A6CFF' }: {
+function GoalProgressRing({ pct, size = 44, color = '#0058E6' }: {
   pct: number; size?: number; color?: string;
 }) {
   const r    = size / 2 - 3.5;
@@ -249,7 +249,7 @@ function GoalProgressRing({ pct, size = 44, color = '#8A6CFF' }: {
   const fill = (pct / 100) * circ;
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="flex-shrink-0">
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#EBE5FF" strokeWidth="3" />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#D4E2FF" strokeWidth="3" />
       <motion.circle
         cx={size / 2} cy={size / 2} r={r}
         fill="none" stroke={color} strokeWidth="3"
@@ -265,7 +265,7 @@ function GoalProgressRing({ pct, size = 44, color = '#8A6CFF' }: {
   );
 }
 
-function AreaChart({ points, color = '#8A6CFF', height = 56 }: {
+function AreaChart({ points, color = '#0058E6', height = 56 }: {
   points: SparklinePoint[]; color?: string; height?: number;
 }) {
   if (!points || points.length < 2) return null;
@@ -299,9 +299,9 @@ function AreaChart({ points, color = '#8A6CFF', height = 56 }: {
 }
 
 // Kept for ProgressModal
-function Bar({ pct, color = 'bg-[#8A6CFF]' }: { pct: number; color?: string }) {
+function Bar({ pct, color = 'bg-[#0058E6]' }: { pct: number; color?: string }) {
   return (
-    <div className="h-[3px] w-full bg-[#EBE5FF] rounded-full overflow-hidden">
+    <div className="h-[3px] w-full bg-[#D4E2FF] rounded-full overflow-hidden">
       <motion.div
         className={`h-full ${color} rounded-full`}
         initial={{ width: 0 }}
@@ -312,9 +312,9 @@ function Bar({ pct, color = 'bg-[#8A6CFF]' }: { pct: number; color?: string }) {
   );
 }
 
-function MiniBar({ pct, color = '#8A6CFF' }: { pct: number; color?: string }) {
+function MiniBar({ pct, color = '#0058E6' }: { pct: number; color?: string }) {
   return (
-    <div className="h-[3px] w-full rounded-full overflow-hidden" style={{ backgroundColor: '#EBE5FF' }}>
+    <div className="h-[3px] w-full rounded-full overflow-hidden" style={{ backgroundColor: '#D4E2FF' }}>
       <motion.div
         className="h-full rounded-full"
         style={{ backgroundColor: color }}
@@ -331,19 +331,19 @@ function StatusPill({ status, size = 'md' }: { status: string; size?: 'sm' | 'md
     on_track:    ['#059669', '#ECFDF5'],
     completed:   ['#059669', '#ECFDF5'],
     compliant:   ['#059669', '#ECFDF5'],
-    at_risk:     ['#D97706', '#FFFBEB'],
-    due_soon:    ['#D97706', '#FFFBEB'],
+    at_risk:     ['#D8A600', '#FFFBEB'],
+    due_soon:    ['#D8A600', '#FFFBEB'],
     missed:      ['#DC2626', '#FFF1F2'],
     overdue:     ['#DC2626', '#FFF1F2'],
     expired:     ['#DC2626', '#FFF1F2'],
     in_progress: ['#0284C7', '#EFF6FF'],
-    active:      ['#8A6CFF', '#F5F3FF'],
-    not_started: ['#8B84A0', '#F5F4FA'],
-    paused:      ['#8B84A0', '#F5F4FA'],
-    draft:       ['#8B84A0', '#F5F4FA'],
-    waived:      ['#8B84A0', '#F5F3FF'],
+    active:      ['#0058E6', '#F5F3FF'],
+    not_started: ['#96989B', '#F5F4FA'],
+    paused:      ['#96989B', '#F5F4FA'],
+    draft:       ['#96989B', '#F5F4FA'],
+    waived:      ['#96989B', '#F5F3FF'],
   };
-  const [color, bg] = MAP[status] ?? ['#8B84A0', '#F5F4FA'];
+  const [color, bg] = MAP[status] ?? ['#96989B', '#F5F4FA'];
   const cls = size === 'sm' ? 'px-1.5 py-0.5 text-[8px]' : 'px-2 py-0.5 text-[9px]';
   return (
     <span className={`${cls} font-bold uppercase tracking-[0.08em] rounded-full whitespace-nowrap flex-shrink-0`}
@@ -354,7 +354,7 @@ function StatusPill({ status, size = 'md' }: { status: string; size?: 'sm' | 'md
 }
 
 function CategoryChip({ category }: { category: string }) {
-  const color = CATEGORY_COLOR[category] ?? '#8B84A0';
+  const color = CATEGORY_COLOR[category] ?? '#96989B';
   return (
     <span className="text-[8px] font-semibold uppercase tracking-[0.1em] px-1.5 py-0.5 rounded"
       style={{ backgroundColor: color + '18', color }}>{category}</span>
@@ -431,7 +431,7 @@ function GoalModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
       <motion.div
-        className="relative w-full max-w-lg bg-[#0a0a0a] border border-white/[0.10] rounded-2xl p-6 z-10"
+        className="relative w-full max-w-lg bg-[#0D1420] border border-white/[0.10] rounded-2xl p-6 z-10"
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 8 }}
@@ -536,7 +536,7 @@ function ProgressModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
       <motion.div
-        className="relative w-full max-w-md bg-[#0a0a0a] border border-white/[0.10] rounded-2xl p-6 z-10"
+        className="relative w-full max-w-md bg-[#0D1420] border border-white/[0.10] rounded-2xl p-6 z-10"
         initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}
       >
         <div className="mb-5">
@@ -632,7 +632,7 @@ function ComplianceModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
       <motion.div
-        className="relative w-full max-w-md bg-[#0a0a0a] border border-white/[0.10] rounded-2xl p-6 z-10"
+        className="relative w-full max-w-md bg-[#0D1420] border border-white/[0.10] rounded-2xl p-6 z-10"
         initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}
       >
         <div className="mb-5">
@@ -719,7 +719,7 @@ function DashboardTab({
   const atRiskGoals    = goals.filter(g => g.status === 'at_risk');
   const urgentActions  = [
     ...overdueItems.slice(0, 2).map(c => ({ label: c.title, detail: 'Compliance overdue', color: '#DC2626' })),
-    ...atRiskGoals.slice(0, 2).map(g => ({ label: g.title, detail: 'Goal at risk', color: '#D97706' })),
+    ...atRiskGoals.slice(0, 2).map(g => ({ label: g.title, detail: 'Goal at risk', color: '#D8A600' })),
   ].slice(0, 4);
 
   const apptPct  = metrics.appointments_target > 0 ? (metrics.appointments_this_month / metrics.appointments_target) * 100 : 0;
@@ -739,13 +739,13 @@ function DashboardTab({
           <PanelHeader title="Performance Overview" />
           <div className="p-5">
             <div className="mb-5">
-              <p className="text-[8px] uppercase tracking-[0.22em] text-[#8B84A0] mb-0.5">
+              <p className="text-[8px] uppercase tracking-[0.22em] text-[#96989B] mb-0.5">
                 {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
               </p>
-              <h2 className="text-[20px] font-bold text-[#1A1035] tracking-[-0.02em]">
+              <h2 className="text-[20px] font-bold text-[#181D23] tracking-[-0.02em]">
                 {greeting}, {profile.firstName}.
               </h2>
-              <p className="text-[12px] text-[#6E6688] mt-1">
+              <p className="text-[12px] text-[#5A6475] mt-1">
                 {metrics.goals_total > 0
                   ? `${metrics.goals_total} active goal${metrics.goals_total !== 1 ? 's' : ''} · ${metrics.goals_on_track} on track${metrics.goals_at_risk > 0 ? ` · ${metrics.goals_at_risk} at risk` : ''}`
                   : 'No goals set yet. Use the Goals tab to create your first goal.'}
@@ -758,20 +758,20 @@ function DashboardTab({
                   value={metrics.appointments_this_month}
                   sub={`of ${metrics.appointments_target} target`}
                   delta={apptDelta}
-                  accent={apptPct >= 100 ? '#059669' : apptPct >= 60 ? '#1A1035' : '#D97706'}
+                  accent={apptPct >= 100 ? '#059669' : apptPct >= 60 ? '#181D23' : '#D8A600'}
                 />
               )}
               <StatTile
                 label="Goals Completed"
                 value={`${metrics.goals_completed}/${metrics.goals_total}`}
                 sub={`${Math.round(goalsPct)}% completion rate`}
-                accent={goalsPct >= 80 ? '#059669' : goalsPct >= 50 ? '#D97706' : '#DC2626'}
+                accent={goalsPct >= 80 ? '#059669' : goalsPct >= 50 ? '#D8A600' : '#DC2626'}
               />
               <StatTile
                 label="Compliance Score"
                 value={`${compScore}%`}
                 sub={`${metrics.compliance_overdue} overdue · ${metrics.compliance_compliant}/${metrics.compliance_total} compliant`}
-                accent={compScore >= 80 ? '#059669' : compScore >= 60 ? '#D97706' : '#DC2626'}
+                accent={compScore >= 80 ? '#059669' : compScore >= 60 ? '#D8A600' : '#DC2626'}
               />
               {isDirector && (
                 <StatTile
@@ -798,7 +798,7 @@ function DashboardTab({
                 </div>
               }
             />
-            <div className="divide-y" style={{ borderColor: '#EBE5FF' }}>
+            <div className="divide-y" style={{ borderColor: '#D4E2FF' }}>
               {goals.slice(0, 5).map((goal, idx) => {
                 const pct = progressPct(goal);
                 const [sc] = statusColor(goal.status);
@@ -812,13 +812,13 @@ function DashboardTab({
                   >
                     <GoalProgressRing pct={pct} size={40} color={sc} />
                     <div className="flex-1 min-w-0">
-                      <p className="text-[12px] font-semibold text-[#1A1035] truncate">{goal.title}</p>
+                      <p className="text-[12px] font-semibold text-[#181D23] truncate">{goal.title}</p>
                       <div className="flex items-center gap-2 mt-0.5">
                         <CategoryChip category={goal.category} />
-                        <span className="text-[10px] text-[#8B84A0]">
+                        <span className="text-[10px] text-[#96989B]">
                           {formatGoalValue(goal.current_value, goal.unit)} / {formatGoalValue(goal.target_value, goal.unit)}
                         </span>
-                        <span className="text-[10px] text-[#8B84A0]">Due {shortDate(goal.due_date)}</span>
+                        <span className="text-[10px] text-[#96989B]">Due {shortDate(goal.due_date)}</span>
                       </div>
                     </div>
                     <StatusPill status={goal.status} size="sm" />
@@ -836,12 +836,12 @@ function DashboardTab({
               title="Compliance Brief"
               badge={overdueItems.length}
               action={
-                <span className="text-[9px] text-[#8B84A0]">
+                <span className="text-[9px] text-[#96989B]">
                   {complianceItems.filter(c => c.status === 'compliant').length} / {complianceItems.length} compliant
                 </span>
               }
             />
-            <div className="divide-y" style={{ borderColor: '#EBE5FF' }}>
+            <div className="divide-y" style={{ borderColor: '#D4E2FF' }}>
               {[...overdueItems, ...dueSoonItems].slice(0, 5).map((item) => {
                 const [sc] = compStatusColor(item.status);
                 const days = daysUntil(item.expiry_date ?? item.due_date ?? null);
@@ -849,7 +849,7 @@ function DashboardTab({
                   <div key={item.id} className="flex items-center gap-3 px-5 py-3">
                     <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: sc }} />
                     <div className="flex-1 min-w-0">
-                      <p className="text-[12px] text-[#1A1035] font-medium truncate">{item.title}</p>
+                      <p className="text-[12px] text-[#181D23] font-medium truncate">{item.title}</p>
                       {item.is_cqc_critical && (
                         <span className="text-[8px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-full">CQC Critical</span>
                       )}
@@ -877,8 +877,8 @@ function DashboardTab({
                 { label: 'Team Goals', desc: 'Full access', color: '#059669' },
                 { label: 'Compliance Audit', desc: 'Full access', color: '#059669' },
               ].map(item => (
-                <div key={item.label} className="rounded-xl p-3" style={{ backgroundColor: '#FDFCFB', border: '1px solid #EBE5FF' }}>
-                  <p className="text-[8px] uppercase tracking-[0.18em] font-semibold text-[#8B84A0] mb-1">{item.label}</p>
+                <div key={item.label} className="rounded-xl p-3" style={{ backgroundColor: '#FDFCFB', border: '1px solid #D4E2FF' }}>
+                  <p className="text-[8px] uppercase tracking-[0.18em] font-semibold text-[#96989B] mb-1">{item.label}</p>
                   <p className="text-[11px] font-bold" style={{ color: item.color }}>{item.desc}</p>
                 </div>
               ))}
@@ -909,8 +909,8 @@ function DashboardTab({
                   <p className="text-[8px] uppercase tracking-[0.22em] font-semibold"
                     style={{ color: brandColor }}>EWC — Intelligence</p>
                 </div>
-                <p className="text-[13px] font-bold text-[#1A1035]">Chat with EWC</p>
-                <p className="text-[11px] text-[#6E6688] mt-1 leading-relaxed">
+                <p className="text-[13px] font-bold text-[#181D23]">Chat with EWC</p>
+                <p className="text-[11px] text-[#5A6475] mt-1 leading-relaxed">
                   Intelligent analysis of your performance, goals, compliance, and clinic data.
                 </p>
               </div>
@@ -940,7 +940,7 @@ function DashboardTab({
           <div className="p-5 flex flex-col items-center gap-3">
             <PerformanceRing score={compScore} size={88} />
             <div className="text-center">
-              <p className="text-[11px] text-[#6E6688]">
+              <p className="text-[11px] text-[#5A6475]">
                 {compScore >= 80 ? 'Strong compliance posture' : compScore >= 60 ? 'Some items need attention' : 'Immediate action required'}
               </p>
               {metrics.cqc_critical_overdue > 0 && (
@@ -956,14 +956,14 @@ function DashboardTab({
         {urgentActions.length > 0 && (
           <Panel>
             <PanelHeader title="Requires Attention" badge={urgentActions.length} />
-            <div className="divide-y" style={{ borderColor: '#EBE5FF' }}>
+            <div className="divide-y" style={{ borderColor: '#D4E2FF' }}>
               {urgentActions.map((item, i) => (
                 <div key={i} className="px-5 py-3.5">
                   <div className="flex items-start gap-2">
                     <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5"
                       style={{ backgroundColor: item.color }} />
                     <div>
-                      <p className="text-[11px] font-semibold text-[#1A1035] leading-snug">{item.label}</p>
+                      <p className="text-[11px] font-semibold text-[#181D23] leading-snug">{item.label}</p>
                       <p className="text-[9px] uppercase tracking-[0.1em] font-bold mt-0.5"
                         style={{ color: item.color }}>{item.detail}</p>
                     </div>
@@ -981,8 +981,8 @@ function DashboardTab({
               <div className="w-9 h-9 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-3">
                 <div className="w-3.5 h-3.5 rounded-full bg-emerald-500" />
               </div>
-              <p className="text-[13px] font-bold text-[#1A1035]">All on track</p>
-              <p className="text-[11px] text-[#8B84A0] mt-1">No urgent items require attention</p>
+              <p className="text-[13px] font-bold text-[#181D23]">All on track</p>
+              <p className="text-[11px] text-[#96989B] mt-1">No urgent items require attention</p>
             </div>
           </Panel>
         )}
@@ -1045,8 +1045,8 @@ function GoalsTab({
               onClick={() => setFilterScope(s)}
               className="px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-[0.14em] font-semibold transition-colors"
               style={{
-                backgroundColor: filterScope === s ? '#EBE5FF' : 'transparent',
-                color: filterScope === s ? '#1A1035' : '#8B84A0',
+                backgroundColor: filterScope === s ? '#D4E2FF' : 'transparent',
+                color: filterScope === s ? '#181D23' : '#96989B',
               }}
             >{s}</button>
           ))}
@@ -1054,7 +1054,7 @@ function GoalsTab({
         <div className="flex items-center gap-2">
           <select
             className="rounded-lg px-3 py-1.5 text-[11px] focus:outline-none cursor-pointer"
-            style={{ backgroundColor: '#FFFFFF', border: '1px solid #EBE5FF', color: '#6E6688' }}
+            style={{ backgroundColor: '#FFFFFF', border: '1px solid #D4E2FF', color: '#5A6475' }}
             value={filterStatus}
             onChange={e => setFilterStatus(e.target.value as 'all' | GoalStatus)}
           >
@@ -1067,7 +1067,7 @@ function GoalsTab({
             <button
               onClick={() => setShowCreate(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-white"
-              style={{ backgroundColor: '#8A6CFF' }}
+              style={{ backgroundColor: '#0058E6' }}
             >
               <Plus size={12} /> New Goal
             </button>
@@ -1079,14 +1079,14 @@ function GoalsTab({
         <Panel>
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <Target size={32} className="mb-3" style={{ color: '#C4B9FF' }} />
-            <p className="text-[14px] font-semibold text-[#1A1035] mb-1">No goals match your filter</p>
-            <p className="text-[12px] text-[#8B84A0] mb-4">
+            <p className="text-[14px] font-semibold text-[#181D23] mb-1">No goals match your filter</p>
+            <p className="text-[12px] text-[#96989B] mb-4">
               {goals.length === 0 ? 'Set your first performance goal to start tracking progress.' : 'Try adjusting the filters above.'}
             </p>
             {canEdit && goals.length === 0 && (
               <button onClick={() => setShowCreate(true)}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl text-[12px] font-bold text-white"
-                style={{ backgroundColor: '#8A6CFF' }}>
+                style={{ backgroundColor: '#0058E6' }}>
                 <Plus size={13} /> Create First Goal
               </button>
             )}
@@ -1105,13 +1105,13 @@ function GoalsTab({
                     canEdit ? (
                       <button onClick={() => setShowCreate(true)}
                         className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-bold text-white"
-                        style={{ backgroundColor: '#8A6CFF' }}>
+                        style={{ backgroundColor: '#0058E6' }}>
                         <Plus size={9} /> Add
                       </button>
                     ) : undefined
                   }
                 />
-                <div className="divide-y" style={{ borderColor: '#EBE5FF' }}>
+                <div className="divide-y" style={{ borderColor: '#D4E2FF' }}>
                   {catGoals.map((goal, idx) => {
                     const pct = progressPct(goal);
                     const [sc] = statusColor(goal.status);
@@ -1128,34 +1128,34 @@ function GoalsTab({
                           <GoalProgressRing pct={pct} size={48} color={sc} />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between gap-2 mb-1">
-                              <p className="text-[13px] font-bold text-[#1A1035] leading-snug">{goal.title}</p>
+                              <p className="text-[13px] font-bold text-[#181D23] leading-snug">{goal.title}</p>
                               <StatusPill status={goal.status} />
                             </div>
                             <div className="flex items-center gap-2 mb-2.5 flex-wrap">
                               <CategoryChip category={goal.category} />
-                              <span className="text-[10px] text-[#8B84A0] capitalize">{goal.period}</span>
-                              <span className="text-[10px] text-[#8B84A0]">Due {shortDate(goal.due_date)}</span>
+                              <span className="text-[10px] text-[#96989B] capitalize">{goal.period}</span>
+                              <span className="text-[10px] text-[#96989B]">Due {shortDate(goal.due_date)}</span>
                               {goal.scope !== 'personal' && (
-                                <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-[#F5F3FF] text-[#8A6CFF] uppercase tracking-[0.08em]">{goal.scope}</span>
+                                <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-[#F5F3FF] text-[#0058E6] uppercase tracking-[0.08em]">{goal.scope}</span>
                               )}
                             </div>
                             <div className="flex items-center gap-3 mb-2">
                               <div className="flex-1">
                                 <MiniBar pct={pct} color={sc} />
                               </div>
-                              <span className="text-[10px] font-semibold text-[#8B84A0] flex-shrink-0">
+                              <span className="text-[10px] font-semibold text-[#96989B] flex-shrink-0">
                                 {formatGoalValue(goal.current_value, goal.unit)} / {formatGoalValue(goal.target_value, goal.unit)}
                               </span>
                             </div>
                             {goal.description && (
-                              <p className="text-[11px] text-[#8B84A0] leading-relaxed mb-3">{goal.description}</p>
+                              <p className="text-[11px] text-[#96989B] leading-relaxed mb-3">{goal.description}</p>
                             )}
                             {canEdit && (
                               <div className="flex items-center gap-2">
                                 <button
                                   onClick={() => setProgressGoal(goal)}
                                   className="px-3 py-1 rounded-lg text-[10px] font-bold border transition-colors"
-                                  style={{ borderColor: '#EBE5FF', color: '#6E6688' }}
+                                  style={{ borderColor: '#D4E2FF', color: '#5A6475' }}
                                 >
                                   Update Progress
                                 </button>
@@ -1183,7 +1183,7 @@ function GoalsTab({
             <button
               onClick={() => setShowCreate(true)}
               className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border-2 border-dashed text-[12px] font-bold transition-colors"
-              style={{ borderColor: '#EBE5FF', color: '#8B84A0' }}
+              style={{ borderColor: '#D4E2FF', color: '#96989B' }}
             >
               <Plus size={14} /> Add New Goal
             </button>
@@ -1234,8 +1234,8 @@ function ResponsibilitiesTab({
         <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center mx-auto mb-3">
           <div className="w-5 h-5 rounded-full bg-emerald-500" />
         </div>
-        <p className="text-[14px] font-semibold text-[#1A1035] mb-1">No compliance items</p>
-        <p className="text-[12px] text-[#8B84A0]">Your compliance items will appear here once seeded.</p>
+        <p className="text-[14px] font-semibold text-[#181D23] mb-1">No compliance items</p>
+        <p className="text-[12px] text-[#96989B]">Your compliance items will appear here once seeded.</p>
       </div>
     </Panel>
   );
@@ -1289,12 +1289,12 @@ function ResponsibilitiesTab({
                 badge={overdueCount}
                 action={
                   <span className="text-[9px] font-semibold"
-                    style={{ color: compliant === items.length ? '#059669' : '#8B84A0' }}>
+                    style={{ color: compliant === items.length ? '#059669' : '#96989B' }}>
                     {compliant}/{items.length} compliant
                   </span>
                 }
               />
-              <div className="divide-y" style={{ borderColor: '#EBE5FF' }}>
+              <div className="divide-y" style={{ borderColor: '#D4E2FF' }}>
                 {items.map((item, idx) => {
                   const [sc] = compStatusColor(item.status);
                   const days = daysUntil(item.expiry_date ?? item.due_date ?? null);
@@ -1311,7 +1311,7 @@ function ResponsibilitiesTab({
                       <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: sc }} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <p className="text-[12px] font-semibold text-[#1A1035] truncate">{item.title}</p>
+                          <p className="text-[12px] font-semibold text-[#181D23] truncate">{item.title}</p>
                           {item.is_cqc_critical && (
                             <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 flex-shrink-0">CQC</span>
                           )}
@@ -1320,7 +1320,7 @@ function ResponsibilitiesTab({
                           )}
                         </div>
                         {item.description && (
-                          <p className="text-[10px] text-[#8B84A0] mt-0.5 truncate">{item.description}</p>
+                          <p className="text-[10px] text-[#96989B] mt-0.5 truncate">{item.description}</p>
                         )}
                       </div>
                       {days !== null && (
@@ -1377,7 +1377,7 @@ function ClinicTab({ metrics }: { metrics: ClinicKPIMetrics | null }) {
           action={
             <div className="flex items-center gap-1.5">
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              <span className="text-[9px] text-[#8B84A0] font-medium">Live</span>
+              <span className="text-[9px] text-[#96989B] font-medium">Live</span>
             </div>
           }
         />
@@ -1394,18 +1394,18 @@ function ClinicTab({ metrics }: { metrics: ClinicKPIMetrics | null }) {
               label="MRR"
               value={fmtGBP(metrics.mrr)}
               sub={`Last month: ${fmtGBP(metrics.mrr_last_month)}`}
-              accent="#1A1035"
+              accent="#181D23"
             />
             <StatTile
               label="Collection Rate"
               value={fmtPct(metrics.collection_rate)}
               sub={`${metrics.outstanding_invoices} outstanding`}
-              accent={metrics.collection_rate >= 0.9 ? '#059669' : '#D97706'}
+              accent={metrics.collection_rate >= 0.9 ? '#059669' : '#D8A600'}
             />
           </div>
           {metrics.sparkline_mrr && metrics.sparkline_mrr.length >= 2 && (
             <div>
-              <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#8B84A0] mb-2">MRR Trend — Last 6 Months</p>
+              <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B] mb-2">MRR Trend — Last 6 Months</p>
               <AreaChart points={metrics.sparkline_mrr} color="#059669" height={60} />
             </div>
           )}
@@ -1420,8 +1420,8 @@ function ClinicTab({ metrics }: { metrics: ClinicKPIMetrics | null }) {
             {metrics.revenue_by_treatment.map(t => (
               <div key={t.name}>
                 <div className="flex justify-between mb-1.5">
-                  <span className="text-[12px] font-medium text-[#1A1035]">{t.name}</span>
-                  <span className="text-[11px] text-[#8B84A0]">{fmtGBP(t.value)} · {t.pct}%</span>
+                  <span className="text-[12px] font-medium text-[#181D23]">{t.name}</span>
+                  <span className="text-[11px] text-[#96989B]">{fmtGBP(t.value)} · {t.pct}%</span>
                 </div>
                 <MiniBar pct={t.pct} color="#059669" />
               </div>
@@ -1447,8 +1447,8 @@ function ClinicTab({ metrics }: { metrics: ClinicKPIMetrics | null }) {
               <PanelHeader title="Appointments" />
               <div className="p-4 space-y-3">
                 <StatTile label="Booked MTD" value={metrics.appointments_mtd} sub={`of ${metrics.appointments_target} target`} />
-                <StatTile label="Show Rate" value={fmtPct(metrics.show_rate)} sub="Attendance" accent={metrics.show_rate >= 0.85 ? '#059669' : '#D97706'} />
-                <StatTile label="Utilisation" value={fmtPct(metrics.utilisation_rate)} sub="Capacity used" accent={metrics.utilisation_rate >= 0.8 ? '#059669' : '#D97706'} />
+                <StatTile label="Show Rate" value={fmtPct(metrics.show_rate)} sub="Attendance" accent={metrics.show_rate >= 0.85 ? '#059669' : '#D8A600'} />
+                <StatTile label="Utilisation" value={fmtPct(metrics.utilisation_rate)} sub="Capacity used" accent={metrics.utilisation_rate >= 0.8 ? '#059669' : '#D8A600'} />
               </div>
             </Panel>
           </div>
@@ -1457,14 +1457,14 @@ function ClinicTab({ metrics }: { metrics: ClinicKPIMetrics | null }) {
           <Panel>
             <PanelHeader title="Operational Intelligence" />
             <div className="p-5 grid grid-cols-3 gap-3">
-              <StatTile label="Open Signals" value={metrics.signals_open} sub="Active" accent={metrics.signals_open > 5 ? '#D97706' : '#1A1035'} />
-              <StatTile label="Komal Calls MTD" value={metrics.komal_calls_mtd} sub="Voice calls" accent="#8A6CFF" />
+              <StatTile label="Open Signals" value={metrics.signals_open} sub="Active" accent={metrics.signals_open > 5 ? '#D8A600' : '#181D23'} />
+              <StatTile label="Komal Calls MTD" value={metrics.komal_calls_mtd} sub="Voice calls" accent="#0058E6" />
               <StatTile label="Booking Conversions" value={metrics.booking_conversions} sub="From calls" accent="#059669" />
             </div>
             <div className="px-5 pb-5 grid grid-cols-3 gap-3">
               <StatTile label="Resolved MTD" value={metrics.signals_resolved_mtd} sub="Signals closed" />
               <StatTile label="Avg Resolution" value={`${metrics.avg_resolution_hours}h`} sub="Time to close" />
-              <StatTile label="Missed Call Rate" value={`${metrics.missed_calls_pct}%`} sub="Unans. calls" accent={metrics.missed_calls_pct > 10 ? '#DC2626' : '#1A1035'} />
+              <StatTile label="Missed Call Rate" value={`${metrics.missed_calls_pct}%`} sub="Unans. calls" accent={metrics.missed_calls_pct > 10 ? '#DC2626' : '#181D23'} />
             </div>
           </Panel>
         </div>
@@ -1475,7 +1475,7 @@ function ClinicTab({ metrics }: { metrics: ClinicKPIMetrics | null }) {
             <PanelHeader title="CQC Readiness" />
             <div className="p-5 flex flex-col items-center gap-3">
               <PerformanceRing score={metrics.cqc_readiness_score} size={88} />
-              <p className="text-[11px] text-[#6E6688] text-center">
+              <p className="text-[11px] text-[#5A6475] text-center">
                 {metrics.cqc_readiness_score >= 90 ? 'Inspection ready' : metrics.cqc_readiness_score >= 70 ? 'Minor gaps remain' : 'Preparation required'}
               </p>
               {metrics.cqc_critical_overdue > 0 && (
@@ -1491,21 +1491,21 @@ function ClinicTab({ metrics }: { metrics: ClinicKPIMetrics | null }) {
             <div className="p-4 space-y-3">
               <div>
                 <div className="flex justify-between mb-1.5">
-                  <span className="text-[11px] text-[#6E6688]">Staff Certifications</span>
-                  <span className="text-[11px] font-bold" style={{ color: metrics.staff_cert_compliance_pct >= 80 ? '#059669' : '#D97706' }}>
+                  <span className="text-[11px] text-[#5A6475]">Staff Certifications</span>
+                  <span className="text-[11px] font-bold" style={{ color: metrics.staff_cert_compliance_pct >= 80 ? '#059669' : '#D8A600' }}>
                     {metrics.staff_cert_compliance_pct}%
                   </span>
                 </div>
-                <MiniBar pct={metrics.staff_cert_compliance_pct} color={metrics.staff_cert_compliance_pct >= 80 ? '#059669' : '#D97706'} />
+                <MiniBar pct={metrics.staff_cert_compliance_pct} color={metrics.staff_cert_compliance_pct >= 80 ? '#059669' : '#D8A600'} />
               </div>
               <div>
                 <div className="flex justify-between mb-1.5">
-                  <span className="text-[11px] text-[#6E6688]">Equipment</span>
-                  <span className="text-[11px] font-bold" style={{ color: metrics.equipment_compliance_pct >= 80 ? '#059669' : '#D97706' }}>
+                  <span className="text-[11px] text-[#5A6475]">Equipment</span>
+                  <span className="text-[11px] font-bold" style={{ color: metrics.equipment_compliance_pct >= 80 ? '#059669' : '#D8A600' }}>
                     {metrics.equipment_compliance_pct}%
                   </span>
                 </div>
-                <MiniBar pct={metrics.equipment_compliance_pct} color={metrics.equipment_compliance_pct >= 80 ? '#059669' : '#D97706'} />
+                <MiniBar pct={metrics.equipment_compliance_pct} color={metrics.equipment_compliance_pct >= 80 ? '#059669' : '#D8A600'} />
               </div>
             </div>
           </Panel>
@@ -1513,16 +1513,16 @@ function ClinicTab({ metrics }: { metrics: ClinicKPIMetrics | null }) {
           {/* Appointment detail */}
           <Panel>
             <PanelHeader title="Appointment Detail" />
-            <div className="divide-y p-1" style={{ borderColor: '#EBE5FF' }}>
+            <div className="divide-y p-1" style={{ borderColor: '#D4E2FF' }}>
               {[
-                { label: 'DNA Rate',       val: fmtPct(metrics.dna_rate),         color: metrics.dna_rate > 0.1 ? '#DC2626' : '#1A1035' },
-                { label: 'Late Cancel',    val: fmtPct(metrics.late_cancel_rate), color: '#1A1035' },
-                { label: 'Avg Wait',       val: `${metrics.avg_wait_days}d`,       color: '#1A1035' },
-                { label: 'Rebooking Rate', val: fmtPct(metrics.rebooking_rate),   color: metrics.rebooking_rate >= 0.6 ? '#059669' : '#D97706' },
-                { label: 'NPS Score',      val: String(metrics.nps_score),         color: metrics.nps_score >= 8 ? '#059669' : '#D97706' },
+                { label: 'DNA Rate',       val: fmtPct(metrics.dna_rate),         color: metrics.dna_rate > 0.1 ? '#DC2626' : '#181D23' },
+                { label: 'Late Cancel',    val: fmtPct(metrics.late_cancel_rate), color: '#181D23' },
+                { label: 'Avg Wait',       val: `${metrics.avg_wait_days}d`,       color: '#181D23' },
+                { label: 'Rebooking Rate', val: fmtPct(metrics.rebooking_rate),   color: metrics.rebooking_rate >= 0.6 ? '#059669' : '#D8A600' },
+                { label: 'NPS Score',      val: String(metrics.nps_score),         color: metrics.nps_score >= 8 ? '#059669' : '#D8A600' },
               ].map(r => (
                 <div key={r.label} className="flex justify-between items-center px-4 py-2.5">
-                  <span className="text-[11px] text-[#6E6688]">{r.label}</span>
+                  <span className="text-[11px] text-[#5A6475]">{r.label}</span>
                   <span className="text-[12px] font-bold" style={{ color: r.color }}>{r.val}</span>
                 </div>
               ))}
@@ -1553,8 +1553,8 @@ function TeamTab({ summaries }: { summaries: StaffGoalsSummary[] }) {
     <Panel>
       <div className="flex flex-col items-center justify-center py-16 text-center">
         <Users size={32} className="mb-3" style={{ color: '#C4B9FF' }} />
-        <p className="text-[14px] font-semibold text-[#1A1035] mb-1">No team data</p>
-        <p className="text-[12px] text-[#8B84A0]">Team performance will appear here once staff have goals set.</p>
+        <p className="text-[14px] font-semibold text-[#181D23] mb-1">No team data</p>
+        <p className="text-[12px] text-[#96989B]">Team performance will appear here once staff have goals set.</p>
       </div>
     </Panel>
   );
@@ -1569,26 +1569,26 @@ function TeamTab({ summaries }: { summaries: StaffGoalsSummary[] }) {
       {/* Team summary tiles */}
       <div className="grid grid-cols-4 gap-3">
         <StatTile label="Staff Members" value={summaries.length} sub="All roles" />
-        <StatTile label="Avg Compliance" value={`${avgCompliance}%`} sub="Team score" accent={avgCompliance >= 80 ? '#059669' : '#D97706'} />
+        <StatTile label="Avg Compliance" value={`${avgCompliance}%`} sub="Team score" accent={avgCompliance >= 80 ? '#059669' : '#D8A600'} />
         <StatTile label="Total Goals" value={totalGoals} sub="Across team" />
-        <StatTile label="At Risk" value={totalAtRisk} sub="Need support" accent={totalAtRisk > 0 ? '#D97706' : '#059669'} />
+        <StatTile label="At Risk" value={totalAtRisk} sub="Need support" accent={totalAtRisk > 0 ? '#D8A600' : '#059669'} />
       </div>
 
       {/* Sort controls */}
       <div className="flex items-center justify-between">
-        <p className="text-[10px] uppercase tracking-[0.18em] font-semibold text-[#8B84A0]">
+        <p className="text-[10px] uppercase tracking-[0.18em] font-semibold text-[#96989B]">
           {summaries.length} staff members
         </p>
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] text-[#8B84A0]">Sort:</span>
+          <span className="text-[10px] text-[#96989B]">Sort:</span>
           {(['name','compliance','completion','at_risk'] as const).map(s => (
             <button
               key={s}
               onClick={() => setSortBy(s)}
               className="px-2.5 py-1 rounded text-[9px] uppercase tracking-[0.12em] font-bold transition-colors"
               style={{
-                backgroundColor: sortBy === s ? '#EBE5FF' : 'transparent',
-                color: sortBy === s ? '#1A1035' : '#8B84A0',
+                backgroundColor: sortBy === s ? '#D4E2FF' : 'transparent',
+                color: sortBy === s ? '#181D23' : '#96989B',
               }}
             >{s.replace('_', ' ')}</button>
           ))}
@@ -1597,11 +1597,11 @@ function TeamTab({ summaries }: { summaries: StaffGoalsSummary[] }) {
 
       <Panel>
         <PanelHeader title="Team Performance" />
-        <div className="divide-y" style={{ borderColor: '#EBE5FF' }}>
+        <div className="divide-y" style={{ borderColor: '#D4E2FF' }}>
           <AnimatePresence initial={false}>
             {sorted.map((s, idx) => {
               const compScore = s.compliance_score;
-              const compColor = compScore >= 80 ? '#059669' : compScore >= 60 ? '#D97706' : '#DC2626';
+              const compColor = compScore >= 80 ? '#059669' : compScore >= 60 ? '#D8A600' : '#DC2626';
               const initials  = s.displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
               return (
                 <motion.div
@@ -1613,37 +1613,37 @@ function TeamTab({ summaries }: { summaries: StaffGoalsSummary[] }) {
                 >
                   {/* Avatar */}
                   <div className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0"
-                    style={{ backgroundColor: '#EBE5FF', color: '#8A6CFF' }}>
+                    style={{ backgroundColor: '#D4E2FF', color: '#0058E6' }}>
                     {initials}
                   </div>
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
-                      <p className="text-[12px] font-bold text-[#1A1035]">{s.displayName}</p>
-                      <div className="flex items-center gap-2 text-[9px] text-[#8B84A0] font-medium">
+                      <p className="text-[12px] font-bold text-[#181D23]">{s.displayName}</p>
+                      <div className="flex items-center gap-2 text-[9px] text-[#96989B] font-medium">
                         <span className="text-emerald-600">{s.goals_on_track} on track</span>
                         {s.goals_at_risk > 0 && <span className="text-amber-600">{s.goals_at_risk} at risk</span>}
                         {s.goals_missed > 0 && <span className="text-red-500">{s.goals_missed} missed</span>}
                       </div>
                     </div>
-                    <p className="text-[10px] text-[#8B84A0] mb-2">
+                    <p className="text-[10px] text-[#96989B] mb-2">
                       {s.roleName}{s.departmentName ? ` · ${s.departmentName}` : ''}{s.appointments_mtd > 0 ? ` · ${s.appointments_mtd} appts MTD` : ''}
                     </p>
                     <div className="flex items-center gap-4">
                       <div className="flex-1">
                         <div className="flex justify-between mb-1">
-                          <span className="text-[8px] uppercase tracking-[0.14em] text-[#8B84A0]">Goals</span>
-                          <span className="text-[8px] text-[#8B84A0]">{s.goals_completed}/{s.goals_total}</span>
+                          <span className="text-[8px] uppercase tracking-[0.14em] text-[#96989B]">Goals</span>
+                          <span className="text-[8px] text-[#96989B]">{s.goals_completed}/{s.goals_total}</span>
                         </div>
                         <MiniBar
                           pct={s.goals_total > 0 ? (s.completion_rate * 100) : 0}
-                          color={s.completion_rate >= 0.8 ? '#059669' : s.completion_rate >= 0.5 ? '#D97706' : '#DC2626'}
+                          color={s.completion_rate >= 0.8 ? '#059669' : s.completion_rate >= 0.5 ? '#D8A600' : '#DC2626'}
                         />
                       </div>
                       <div className="flex-1">
                         <div className="flex justify-between mb-1">
-                          <span className="text-[8px] uppercase tracking-[0.14em] text-[#8B84A0]">Compliance</span>
+                          <span className="text-[8px] uppercase tracking-[0.14em] text-[#96989B]">Compliance</span>
                           <span className="text-[8px] font-bold" style={{ color: compColor }}>{compScore}%</span>
                         </div>
                         <MiniBar pct={compScore} color={compColor} />
@@ -1671,7 +1671,7 @@ export default function KPIsPage() {
   const router = useRouter();
   const [profile, setProfile]                 = useState<StaffProfile | null>(null);
   const [userId, setUserId]                   = useState('');
-  const [brandColor, setBrandColor]           = useState('#8A6CFF');
+  const [brandColor, setBrandColor]           = useState('#0058E6');
   const [roleView, setRoleView]               = useState<RoleView>('practitioner');
   const [tab, setTab]                         = useState<Tab>('dashboard');
   const [loading, setLoading]                 = useState(true);
@@ -1711,7 +1711,7 @@ export default function KPIsPage() {
       if (!profileRes.success || !profileRes.data?.profile) { setLoading(false); return; }
       const p = profileRes.data.profile;
       setProfile(p);
-      setBrandColor(p.brandColor || '#8A6CFF');
+      setBrandColor(p.brandColor || '#0058E6');
       const rv = getRoleView(p);
       setRoleView(rv);
       await seedComplianceItemsForUser(p.userId, p.roleName ?? 'practitioner');
@@ -1737,13 +1737,13 @@ export default function KPIsPage() {
   }, [router, goals, personalMetrics]);
 
   if (loading) return (
-    <div className="min-h-screen bg-[#FAF7F2] flex items-center justify-center">
+    <div className="min-h-screen bg-[#F8FAFF] flex items-center justify-center">
       <div className="text-[12px] text-[#9CA3AF] uppercase tracking-[0.2em]">Loading…</div>
     </div>
   );
 
   if (!profile) return (
-    <div className="min-h-screen bg-[#FAF7F2] flex items-center justify-center">
+    <div className="min-h-screen bg-[#F8FAFF] flex items-center justify-center">
       <div className="text-[12px] text-[#6B7280]">Unable to load profile.</div>
     </div>
   );
@@ -1758,7 +1758,7 @@ export default function KPIsPage() {
   const TABS = ALL_TABS.filter(t => t.show);
 
   return (
-    <div className="min-h-screen bg-[#FAF7F2] text-[#1A1035]">
+    <div className="min-h-screen bg-[#F8FAFF] text-[#181D23]">
       <StaffNav profile={profile} userId={userId} brandColor={brandColor} currentPath="KPIs" />
 
       <div style={{ paddingLeft: 'var(--nav-w, 240px)', transition: 'padding-left 0.32s ease' }}>
@@ -1767,14 +1767,14 @@ export default function KPIsPage() {
           {/* Page header */}
           <div className="flex items-start justify-between mb-8">
             <div>
-              <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#8B84A0] mb-3">Performance & KPIs</p>
+              <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#96989B] mb-3">Performance & KPIs</p>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center text-[13px] font-bold flex-shrink-0"
                   style={{ backgroundColor: `${brandColor}18`, color: brandColor }}>
                   {profile.firstName.charAt(0)}{profile.lastName.charAt(0)}
                 </div>
                 <div>
-                  <h1 className="text-[24px] font-black tracking-[-0.02em] leading-none text-[#1A1035]">
+                  <h1 className="text-[24px] font-black tracking-[-0.02em] leading-none text-[#181D23]">
                     {roleView === 'director' || roleView === 'support_admin'
                       ? 'Performance Intelligence'
                       : 'My Performance'}
@@ -1793,19 +1793,19 @@ export default function KPIsPage() {
                 </div>
               </div>
             </div>
-            <p className="text-[10px] text-[#8B84A0] uppercase tracking-[0.14em] mt-1">
+            <p className="text-[10px] text-[#96989B] uppercase tracking-[0.14em] mt-1">
               {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
             </p>
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-0.5 mb-8 border-b" style={{ borderColor: '#EBE5FF' }}>
+          <div className="flex gap-0.5 mb-8 border-b" style={{ borderColor: '#D4E2FF' }}>
             {TABS.map(t => (
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
                 className="px-4 py-2.5 text-[11px] uppercase tracking-[0.16em] font-semibold transition-colors relative"
-                style={{ color: tab === t.id ? '#1A1035' : '#8B84A0' }}
+                style={{ color: tab === t.id ? '#181D23' : '#96989B' }}
               >
                 {t.label}
                 {tab === t.id && (

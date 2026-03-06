@@ -31,14 +31,14 @@ function Field({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-[11px] uppercase tracking-[0.15em] text-[#6E6688] font-medium">{label}</label>
+      <label className="text-[11px] uppercase tracking-[0.15em] text-[#5A6475] font-medium">{label}</label>
       <input
         type={type}
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="px-4 py-2.5 bg-[#FAF9F5] border border-[#D5CCFF] rounded-xl text-[13px] text-[#1A1035] placeholder:text-[#6E6688] outline-none focus:border-[#D5CCFF] focus:bg-[#FAF9F5] transition-all"
+        className="px-4 py-2.5 bg-[#FAF9F5] border border-[#A8C4FF] rounded-xl text-[13px] text-[#181D23] placeholder:text-[#5A6475] outline-none focus:border-[#A8C4FF] focus:bg-[#FAF9F5] transition-all"
       />
-      {hint && <p className="text-[11px] text-[#6E6688]">{hint}</p>}
+      {hint && <p className="text-[11px] text-[#5A6475]">{hint}</p>}
     </div>
   );
 }
@@ -53,11 +53,11 @@ function SelectField({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-[11px] uppercase tracking-[0.15em] text-[#6E6688] font-medium">{label}</label>
+      <label className="text-[11px] uppercase tracking-[0.15em] text-[#5A6475] font-medium">{label}</label>
       <select
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="px-4 py-2.5 bg-[#FAF9F5] border border-[#D5CCFF] rounded-xl text-[13px] text-[#1A1035] outline-none focus:border-[#D5CCFF] transition-all appearance-none"
+        className="px-4 py-2.5 bg-[#FAF9F5] border border-[#A8C4FF] rounded-xl text-[13px] text-[#181D23] outline-none focus:border-[#A8C4FF] transition-all appearance-none"
       >
         {options.map(o => (
           <option key={o.value} value={o.value} className="bg-neutral-900">{o.label}</option>
@@ -77,12 +77,12 @@ function TextAreaField({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-[11px] uppercase tracking-[0.15em] text-[#6E6688] font-medium">{label}</label>
+      <label className="text-[11px] uppercase tracking-[0.15em] text-[#5A6475] font-medium">{label}</label>
       <textarea
         value={value}
         onChange={e => onChange(e.target.value)}
         rows={rows}
-        className="px-4 py-2.5 bg-[#FAF9F5] border border-[#D5CCFF] rounded-xl text-[13px] text-[#1A1035] placeholder:text-[#6E6688] outline-none focus:border-[#D5CCFF] focus:bg-[#FAF9F5] transition-all resize-none"
+        className="px-4 py-2.5 bg-[#FAF9F5] border border-[#A8C4FF] rounded-xl text-[13px] text-[#181D23] placeholder:text-[#5A6475] outline-none focus:border-[#A8C4FF] focus:bg-[#FAF9F5] transition-all resize-none"
       />
     </div>
   );
@@ -168,7 +168,7 @@ export default function SettingsPage() {
 
   if (loading || !profile) {
     return (
-      <div className="min-h-screen pl-[240px] bg-[#FAF7F2] flex items-center justify-center">
+      <div className="min-h-screen pl-[240px] bg-[#F8FAFF] flex items-center justify-center">
         <motion.div
           animate={{ opacity: [0.2, 0.5, 0.2] }}
           transition={{ duration: 1.8, repeat: Infinity }}
@@ -178,7 +178,7 @@ export default function SettingsPage() {
     );
   }
 
-  const displayBrandColor = brandColor || profile.brandColor || '#8A6CFF';
+  const displayBrandColor = brandColor || profile.brandColor || '#0058E6';
 
   return (
     <div className="min-h-screen pl-[240px]">
@@ -189,9 +189,9 @@ export default function SettingsPage() {
 
           {/* Header */}
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-            <p className="text-[11px] uppercase tracking-[0.18em] text-[#6E6688] mb-2">Configuration</p>
-            <h1 className="text-[26px] font-semibold tracking-tight text-[#1A1035]">Clinic Settings</h1>
-            <p className="text-[13px] text-[#6E6688] mt-1">Manage clinic identity, AI persona, and system configuration.</p>
+            <p className="text-[11px] uppercase tracking-[0.18em] text-[#5A6475] mb-2">Configuration</p>
+            <h1 className="text-[26px] font-semibold tracking-tight text-[#181D23]">Clinic Settings</h1>
+            <p className="text-[13px] text-[#5A6475] mt-1">Manage clinic identity, AI persona, and system configuration.</p>
           </motion.div>
 
           {/* Clinic Identity */}
@@ -201,8 +201,8 @@ export default function SettingsPage() {
             transition={{ delay: 0.05 }}
             className="mb-8"
           >
-            <h2 className="text-[11px] uppercase tracking-[0.18em] text-[#6E6688] font-medium mb-4">Clinic Identity</h2>
-            <div className="bg-[#F0ECFF] border border-[#EBE5FF] rounded-xl p-5 space-y-4">
+            <h2 className="text-[11px] uppercase tracking-[0.18em] text-[#5A6475] font-medium mb-4">Clinic Identity</h2>
+            <div className="bg-[#F0ECFF] border border-[#D4E2FF] rounded-xl p-5 space-y-4">
               <Field label="Clinic Name" value={clinicName} onChange={setClinicName} />
               <Field
                 label="Brand Colour"
@@ -227,8 +227,8 @@ export default function SettingsPage() {
             transition={{ delay: 0.10 }}
             className="mb-8"
           >
-            <h2 className="text-[11px] uppercase tracking-[0.18em] text-[#6E6688] font-medium mb-4">AI Configuration</h2>
-            <div className="bg-[#F0ECFF] border border-[#EBE5FF] rounded-xl p-5 space-y-4">
+            <h2 className="text-[11px] uppercase tracking-[0.18em] text-[#5A6475] font-medium mb-4">AI Configuration</h2>
+            <div className="bg-[#F0ECFF] border border-[#D4E2FF] rounded-xl p-5 space-y-4">
               <Field
                 label="AI Name"
                 value={aiName}
@@ -259,7 +259,7 @@ export default function SettingsPage() {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-medium bg-[#8A6CFF] text-[#1A1035] hover:bg-[#8A6CFF]/10 transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-medium bg-[#0058E6] text-[#181D23] hover:bg-[#0058E6]/10 transition-colors disabled:opacity-50"
             >
               {saving ? (
                 <RefreshCw size={13} className="animate-spin" />
@@ -281,37 +281,37 @@ export default function SettingsPage() {
         </main>
 
         {/* Sidebar */}
-        <aside className="w-[240px] flex-shrink-0 px-6 py-10 border-l border-[#EBE5FF]">
+        <aside className="w-[240px] flex-shrink-0 px-6 py-10 border-l border-[#D4E2FF]">
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
             {settings && (
               <div className="mb-6">
-                <h3 className="text-[11px] uppercase tracking-[0.18em] text-[#6E6688] font-medium mb-3">Current Config</h3>
+                <h3 className="text-[11px] uppercase tracking-[0.18em] text-[#5A6475] font-medium mb-3">Current Config</h3>
                 <div className="space-y-2">
                   {[
                     { label: 'Clinic',     value: settings.clinic_name },
                     { label: 'AI Name',    value: settings.ai_name },
                     { label: 'Tone',       value: settings.tone },
                   ].map(item => (
-                    <div key={item.label} className="flex items-center justify-between px-3 py-2 bg-[#F0ECFF] border border-[#EBE5FF] rounded-lg">
-                      <span className="text-[11px] text-[#6E6688]">{item.label}</span>
-                      <span className="text-[11px] text-[#524D66] truncate ml-2 max-w-[100px]">{item.value}</span>
+                    <div key={item.label} className="flex items-center justify-between px-3 py-2 bg-[#F0ECFF] border border-[#D4E2FF] rounded-lg">
+                      <span className="text-[11px] text-[#5A6475]">{item.label}</span>
+                      <span className="text-[11px] text-[#3D4451] truncate ml-2 max-w-[100px]">{item.value}</span>
                     </div>
                   ))}
-                  <div className="flex items-center justify-between px-3 py-2 bg-[#F0ECFF] border border-[#EBE5FF] rounded-lg">
-                    <span className="text-[11px] text-[#6E6688]">Colour</span>
+                  <div className="flex items-center justify-between px-3 py-2 bg-[#F0ECFF] border border-[#D4E2FF] rounded-lg">
+                    <span className="text-[11px] text-[#5A6475]">Colour</span>
                     <div className="flex items-center gap-1.5">
                       <div
-                        className="w-3 h-3 rounded-full border border-[#D5CCFF]"
+                        className="w-3 h-3 rounded-full border border-[#A8C4FF]"
                         style={{ backgroundColor: settings.brand_color }}
                       />
-                      <span className="text-[11px] text-[#6E6688]">{settings.brand_color}</span>
+                      <span className="text-[11px] text-[#5A6475]">{settings.brand_color}</span>
                     </div>
                   </div>
                 </div>
               </div>
             )}
 
-            <h3 className="text-[11px] uppercase tracking-[0.18em] text-[#6E6688] font-medium mb-3">Quick Actions</h3>
+            <h3 className="text-[11px] uppercase tracking-[0.18em] text-[#5A6475] font-medium mb-3">Quick Actions</h3>
             <div className="space-y-1">
               {[
                 { label: 'Manage Agents',      href: `/staff/agents?userId=${userId}` },
@@ -321,7 +321,7 @@ export default function SettingsPage() {
                 <button
                   key={a.label}
                   onClick={() => router.push(a.href)}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-[12px] text-[#6E6688] hover:text-[#524D66] hover:bg-[#FAF9F5] transition-all text-left"
+                  className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-[12px] text-[#5A6475] hover:text-[#3D4451] hover:bg-[#FAF9F5] transition-all text-left"
                 >
                   <Settings2 size={12} className="flex-shrink-0" />
                   {a.label}

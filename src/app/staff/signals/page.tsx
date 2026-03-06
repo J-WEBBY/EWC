@@ -109,7 +109,7 @@ function TrailRow({ entry, isLast }: { entry: ActionLogEntry; isLast: boolean })
       {!isLast && (
         <div
           className="absolute left-[7px] top-5 bottom-0 w-px"
-          style={{ background: '#EBE5FF' }}
+          style={{ background: '#D4E2FF' }}
         />
       )}
       <div
@@ -119,11 +119,11 @@ function TrailRow({ entry, isLast }: { entry: ActionLogEntry; isLast: boolean })
       <div className="flex-1 min-w-0 pb-4">
         <div className="flex items-center gap-2 flex-wrap mb-0.5">
           <span className="text-[11px] font-semibold" style={{ color: cfg.color }}>{cfg.label}</span>
-          <span className="text-[11px] text-[#6E6688]">·</span>
-          <span className="text-[11px] text-[#6E6688]">{actionLabel(entry.action)}</span>
-          <span className="text-[11px] text-[#6E6688] ml-auto">{formatTrailTime(entry.timestamp)}</span>
+          <span className="text-[11px] text-[#5A6475]">·</span>
+          <span className="text-[11px] text-[#5A6475]">{actionLabel(entry.action)}</span>
+          <span className="text-[11px] text-[#5A6475] ml-auto">{formatTrailTime(entry.timestamp)}</span>
         </div>
-        <p className="text-[12px] text-[#524D66] leading-relaxed">{entry.note}</p>
+        <p className="text-[12px] text-[#3D4451] leading-relaxed">{entry.note}</p>
       </div>
     </div>
   );
@@ -195,7 +195,7 @@ function SignalCard({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, height: 0, marginBottom: 0 }}
       transition={{ duration: 0.22 }}
-      className="rounded-xl overflow-hidden border border-[#EBE5FF] relative"
+      className="rounded-xl overflow-hidden border border-[#D4E2FF] relative"
       style={{ background: isResolved ? '#F5F2EB' : '#FFFFFF' }}
     >
       {/* Priority left edge */}
@@ -239,12 +239,12 @@ function SignalCard({
           <div className="flex-1 min-w-0">
             <p
               className="text-[14px] font-medium leading-snug mb-1"
-              style={{ color: isResolved ? '#6E6688' : '#1A1035' }}
+              style={{ color: isResolved ? '#5A6475' : '#181D23' }}
             >
               {signal.title}
             </p>
             <p className="text-[12px] leading-relaxed line-clamp-2"
-              style={{ color: isResolved ? '#8B84A0' : '#6E6688' }}>
+              style={{ color: isResolved ? '#96989B' : '#5A6475' }}>
               {signal.description}
             </p>
 
@@ -252,7 +252,7 @@ function SignalCard({
             {signal.tags.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mt-2">
                 {signal.tags.slice(0, 4).map(tag => (
-                  <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full border border-[#EBE5FF] text-[#6E6688]">
+                  <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full border border-[#D4E2FF] text-[#5A6475]">
                     {tag}
                   </span>
                 ))}
@@ -263,29 +263,29 @@ function SignalCard({
             <div className="flex items-center gap-3 mt-2">
               <span
                 className="text-[11px] uppercase tracking-[0.08em] font-medium"
-                style={{ color: isResolved ? '#4b5563' : '#6E6688' }}
+                style={{ color: isResolved ? '#4b5563' : '#5A6475' }}
               >
                 {signal.status.replace(/_/g, ' ')}
               </span>
-              <span className="text-[11px] text-[#6E6688]">{relativeTime(signal.created_at)}</span>
+              <span className="text-[11px] text-[#5A6475]">{relativeTime(signal.created_at)}</span>
               {signal.last_action_at && signal.last_action_at !== signal.created_at && (
-                <span className="text-[11px] text-[#8B84A0]">· updated {relativeTime(signal.last_action_at)}</span>
+                <span className="text-[11px] text-[#96989B]">· updated {relativeTime(signal.last_action_at)}</span>
               )}
             </div>
           </div>
 
           {/* Expand toggle */}
-          <div className="flex-shrink-0 mt-0.5 text-[#6E6688] hover:text-[#524D66] transition-colors">
+          <div className="flex-shrink-0 mt-0.5 text-[#5A6475] hover:text-[#3D4451] transition-colors">
             {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </div>
         </button>
 
         {/* Trail preview (always visible, last 2 entries) */}
         {!expanded && trailPreview.length > 0 && (
-          <div className="px-4 pb-4 border-t border-[#EBE5FF] pt-3">
+          <div className="px-4 pb-4 border-t border-[#D4E2FF] pt-3">
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-[10px] uppercase tracking-[0.12em] text-[#6E6688] font-medium">Trail</span>
-              <span className="text-[10px] text-[#8B84A0]">· {signal.action_log.length} events</span>
+              <span className="text-[10px] uppercase tracking-[0.12em] text-[#5A6475] font-medium">Trail</span>
+              <span className="text-[10px] text-[#96989B]">· {signal.action_log.length} events</span>
             </div>
             <div className="space-y-1">
               {trailPreview.map((entry, i) => {
@@ -296,7 +296,7 @@ function SignalCard({
                       className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5"
                       style={{ background: cfg.color }}
                     />
-                    <p className="text-[11px] text-[#6E6688] leading-relaxed line-clamp-1">
+                    <p className="text-[11px] text-[#5A6475] leading-relaxed line-clamp-1">
                       <span className="font-medium" style={{ color: cfg.color }}>{cfg.label}</span>
                       {' · '}{actionLabel(entry.action)} — {entry.note}
                     </p>
@@ -318,12 +318,12 @@ function SignalCard({
             transition={{ duration: 0.25, ease: 'easeInOut' }}
             className="overflow-hidden"
           >
-            <div className="border-t border-[#EBE5FF] mx-4" />
+            <div className="border-t border-[#D4E2FF] mx-4" />
 
             <div className="p-4 pl-4 flex gap-6">
               {/* Trail timeline */}
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] uppercase tracking-[0.12em] text-[#6E6688] font-medium mb-4">
+                <p className="text-[10px] uppercase tracking-[0.12em] text-[#5A6475] font-medium mb-4">
                   Activity Trail · {signal.action_log.length} events
                 </p>
                 <div>
@@ -332,15 +332,15 @@ function SignalCard({
                       <TrailRow key={i} entry={entry} isLast={i === signal.action_log.length - 1} />
                     ))
                   ) : (
-                    <p className="text-[12px] text-[#6E6688]">No trail entries yet.</p>
+                    <p className="text-[12px] text-[#5A6475]">No trail entries yet.</p>
                   )}
                 </div>
               </div>
 
               {/* Ask Aria */}
-              <div className="mt-5 pt-4 border-t border-[#EBE5FF]">
-                <p className="text-[10px] uppercase tracking-[0.12em] text-[#6E6688] font-medium mb-3 flex items-center gap-1.5">
-                  <Bot size={11} className="text-[#8B84A0]" /> Ask Aria
+              <div className="mt-5 pt-4 border-t border-[#D4E2FF]">
+                <p className="text-[10px] uppercase tracking-[0.12em] text-[#5A6475] font-medium mb-3 flex items-center gap-1.5">
+                  <Bot size={11} className="text-[#96989B]" /> Ask Aria
                 </p>
                 <div className="flex gap-2">
                   <input
@@ -348,19 +348,19 @@ function SignalCard({
                     onChange={e => setAriaQuestion(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') handleAskAria(); }}
                     placeholder="Ask about this signal..."
-                    className="flex-1 bg-white border border-[#EBE5FF] rounded-lg px-3 py-2 text-[12px] text-[#524D66] placeholder:text-[#8B84A0] outline-none focus:border-[#D5CCFF] transition-colors"
+                    className="flex-1 bg-white border border-[#D4E2FF] rounded-lg px-3 py-2 text-[12px] text-[#3D4451] placeholder:text-[#96989B] outline-none focus:border-[#A8C4FF] transition-colors"
                   />
                   <button
                     onClick={handleAskAria}
                     disabled={ariaLoading || !ariaQuestion.trim()}
-                    className="px-3 py-2 rounded-lg bg-[#1A1035] text-white text-[12px] font-medium disabled:opacity-30 hover:bg-[#2d1d5e] transition-colors flex-shrink-0"
+                    className="px-3 py-2 rounded-lg bg-[#181D23] text-white text-[12px] font-medium disabled:opacity-30 hover:bg-[#2d1d5e] transition-colors flex-shrink-0"
                   >
                     {ariaLoading ? '...' : 'Ask'}
                   </button>
                 </div>
                 {ariaResponse && (
-                  <div className="mt-3 p-3 rounded-lg bg-[#F5F2EB] border border-[#EBE5FF]">
-                    <p className="text-[12px] text-[#524D66] leading-relaxed">{ariaResponse}</p>
+                  <div className="mt-3 p-3 rounded-lg bg-[#F5F2EB] border border-[#D4E2FF]">
+                    <p className="text-[12px] text-[#3D4451] leading-relaxed">{ariaResponse}</p>
                   </div>
                 )}
               </div>
@@ -368,7 +368,7 @@ function SignalCard({
               {/* Action zone */}
               {!isResolved && (
                 <div className="w-64 flex-shrink-0">
-                  <p className="text-[10px] uppercase tracking-[0.12em] text-[#6E6688] font-medium mb-4">Actions</p>
+                  <p className="text-[10px] uppercase tracking-[0.12em] text-[#5A6475] font-medium mb-4">Actions</p>
 
                   {/* Recommendation block for supervised */}
                   {recommendation && signal.response_mode === 'supervised' && (
@@ -379,7 +379,7 @@ function SignalCard({
                       <p className="text-[10px] uppercase tracking-[0.1em] font-medium mb-1.5" style={{ color: mode.color }}>
                         Recommendation
                       </p>
-                      <p className="text-[12px] text-[#524D66] leading-relaxed">{recommendation.note}</p>
+                      <p className="text-[12px] text-[#3D4451] leading-relaxed">{recommendation.note}</p>
                     </div>
                   )}
 
@@ -389,7 +389,7 @@ function SignalCard({
                       <button
                         onClick={() => { setBusy('approve'); onApprove(signal.id); }}
                         disabled={busy !== null}
-                        className="flex items-center justify-center gap-2 w-full py-2 rounded-lg text-[12px] font-medium border border-[#D5CCFF] bg-[#FAF9F5] hover:bg-white transition-colors disabled:opacity-30 text-[#1A1035]"
+                        className="flex items-center justify-center gap-2 w-full py-2 rounded-lg text-[12px] font-medium border border-[#A8C4FF] bg-[#FAF9F5] hover:bg-white transition-colors disabled:opacity-30 text-[#181D23]"
                       >
                         <CheckCircle2 size={12} className="text-green-400" />
                         Approve Signal
@@ -397,7 +397,7 @@ function SignalCard({
                       <button
                         onClick={() => { setBusy('reject'); onReject(signal.id); }}
                         disabled={busy !== null}
-                        className="flex items-center justify-center gap-2 w-full py-2 rounded-lg text-[12px] font-medium border border-[#EBE5FF] bg-[#F0ECFF] hover:bg-[#FAF7F2] transition-colors disabled:opacity-30 text-[#6E6688]"
+                        className="flex items-center justify-center gap-2 w-full py-2 rounded-lg text-[12px] font-medium border border-[#D4E2FF] bg-[#F0ECFF] hover:bg-[#F8FAFF] transition-colors disabled:opacity-30 text-[#5A6475]"
                       >
                         <X size={12} /> Reject
                       </button>
@@ -412,7 +412,7 @@ function SignalCard({
                         onChange={e => setNoteText(e.target.value)}
                         placeholder="Add a note (optional)..."
                         rows={3}
-                        className="w-full bg-white border border-[#EBE5FF] rounded-lg px-3 py-2 text-[12px] text-[#524D66] placeholder:text-[#6E6688] resize-none outline-none focus:border-[#D5CCFF] transition-colors mb-3"
+                        className="w-full bg-white border border-[#D4E2FF] rounded-lg px-3 py-2 text-[12px] text-[#3D4451] placeholder:text-[#5A6475] resize-none outline-none focus:border-[#A8C4FF] transition-colors mb-3"
                       />
 
                       {signal.response_mode !== 'auto' && (
@@ -420,7 +420,7 @@ function SignalCard({
                           <button
                             onClick={handleResolve}
                             disabled={busy !== null}
-                            className="flex items-center justify-center gap-2 w-full py-2 rounded-lg text-[12px] font-medium border border-[#D5CCFF] bg-[#FAF9F5] hover:bg-white transition-colors disabled:opacity-30 text-[#1A1035]"
+                            className="flex items-center justify-center gap-2 w-full py-2 rounded-lg text-[12px] font-medium border border-[#A8C4FF] bg-[#FAF9F5] hover:bg-white transition-colors disabled:opacity-30 text-[#181D23]"
                           >
                             <CheckCircle2 size={12} className="text-green-400" />
                             Mark Resolved
@@ -428,7 +428,7 @@ function SignalCard({
                           <button
                             onClick={handleDismiss}
                             disabled={busy !== null}
-                            className="flex items-center justify-center gap-2 w-full py-2 rounded-lg text-[12px] font-medium border border-[#EBE5FF] bg-transparent hover:bg-[#FAF7F2] transition-colors disabled:opacity-30 text-[#6E6688]"
+                            className="flex items-center justify-center gap-2 w-full py-2 rounded-lg text-[12px] font-medium border border-[#D4E2FF] bg-transparent hover:bg-[#F8FAFF] transition-colors disabled:opacity-30 text-[#5A6475]"
                           >
                             <X size={12} /> Dismiss
                           </button>
@@ -443,11 +443,11 @@ function SignalCard({
               {isResolved && (
                 <div className="w-48 flex-shrink-0 flex flex-col items-center justify-center gap-2 opacity-40">
                   <CheckCircle2 size={18} className="text-green-400" />
-                  <p className="text-[11px] text-[#6E6688] text-center">
+                  <p className="text-[11px] text-[#5A6475] text-center">
                     {signal.status === 'archived' ? 'Dismissed' : 'Resolved'}
                   </p>
                   {signal.resolved_at && (
-                    <p className="text-[10px] text-[#6E6688] text-center">{relativeTime(signal.resolved_at)}</p>
+                    <p className="text-[10px] text-[#5A6475] text-center">{relativeTime(signal.resolved_at)}</p>
                   )}
                 </div>
               )}
@@ -498,44 +498,44 @@ function CreatePanel({ onClose, onCreated, tenantId }: {
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 20 }}
       transition={{ duration: 0.2 }}
-      className="absolute right-0 top-0 bottom-0 w-80 bg-white border-l border-[#EBE5FF] z-20 flex flex-col shadow-xl"
+      className="absolute right-0 top-0 bottom-0 w-80 bg-white border-l border-[#D4E2FF] z-20 flex flex-col shadow-xl"
     >
-      <div className="p-5 border-b border-[#EBE5FF] flex items-center justify-between">
-        <p className="text-[13px] font-medium text-[#1A1035]">New Signal</p>
-        <button onClick={onClose} className="text-[#6E6688] hover:text-[#524D66] transition-colors">
+      <div className="p-5 border-b border-[#D4E2FF] flex items-center justify-between">
+        <p className="text-[13px] font-medium text-[#181D23]">New Signal</p>
+        <button onClick={onClose} className="text-[#5A6475] hover:text-[#3D4451] transition-colors">
           <X size={14} />
         </button>
       </div>
 
       <div className="flex-1 overflow-y-auto p-5 space-y-4">
         <div>
-          <label className="text-[11px] uppercase tracking-[0.1em] text-[#6E6688] font-medium block mb-1.5">Title</label>
+          <label className="text-[11px] uppercase tracking-[0.1em] text-[#5A6475] font-medium block mb-1.5">Title</label>
           <input
             value={title}
             onChange={e => setTitle(e.target.value)}
             placeholder="Signal title..."
-            className="w-full bg-white border border-[#EBE5FF] rounded-lg px-3 py-2 text-[13px] text-[#1A1035] placeholder:text-[#6E6688] outline-none focus:border-[#D5CCFF] transition-colors"
+            className="w-full bg-white border border-[#D4E2FF] rounded-lg px-3 py-2 text-[13px] text-[#181D23] placeholder:text-[#5A6475] outline-none focus:border-[#A8C4FF] transition-colors"
           />
         </div>
 
         <div>
-          <label className="text-[11px] uppercase tracking-[0.1em] text-[#6E6688] font-medium block mb-1.5">Description</label>
+          <label className="text-[11px] uppercase tracking-[0.1em] text-[#5A6475] font-medium block mb-1.5">Description</label>
           <textarea
             value={desc}
             onChange={e => setDesc(e.target.value)}
             placeholder="What needs attention..."
             rows={3}
-            className="w-full bg-white border border-[#EBE5FF] rounded-lg px-3 py-2 text-[13px] text-[#1A1035] placeholder:text-[#6E6688] resize-none outline-none focus:border-[#D5CCFF] transition-colors"
+            className="w-full bg-white border border-[#D4E2FF] rounded-lg px-3 py-2 text-[13px] text-[#181D23] placeholder:text-[#5A6475] resize-none outline-none focus:border-[#A8C4FF] transition-colors"
           />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-[11px] uppercase tracking-[0.1em] text-[#6E6688] font-medium block mb-1.5">Priority</label>
+            <label className="text-[11px] uppercase tracking-[0.1em] text-[#5A6475] font-medium block mb-1.5">Priority</label>
             <select
               value={priority}
               onChange={e => setPriority(e.target.value as SignalPriority)}
-              className="w-full bg-white border border-[#EBE5FF] rounded-lg px-3 py-2 text-[12px] text-[#524D66] outline-none"
+              className="w-full bg-white border border-[#D4E2FF] rounded-lg px-3 py-2 text-[12px] text-[#3D4451] outline-none"
             >
               <option value="low">Low</option>
               <option value="medium">Medium</option>
@@ -545,11 +545,11 @@ function CreatePanel({ onClose, onCreated, tenantId }: {
           </div>
 
           <div>
-            <label className="text-[11px] uppercase tracking-[0.1em] text-[#6E6688] font-medium block mb-1.5">Response</label>
+            <label className="text-[11px] uppercase tracking-[0.1em] text-[#5A6475] font-medium block mb-1.5">Response</label>
             <select
               value={mode}
               onChange={e => setMode(e.target.value as ResponseMode)}
-              className="w-full bg-white border border-[#EBE5FF] rounded-lg px-3 py-2 text-[12px] text-[#524D66] outline-none"
+              className="w-full bg-white border border-[#D4E2FF] rounded-lg px-3 py-2 text-[12px] text-[#3D4451] outline-none"
             >
               <option value="auto">Auto</option>
               <option value="agentic">Agentic</option>
@@ -560,11 +560,11 @@ function CreatePanel({ onClose, onCreated, tenantId }: {
         </div>
 
         <div>
-          <label className="text-[11px] uppercase tracking-[0.1em] text-[#6E6688] font-medium block mb-1.5">Category</label>
+          <label className="text-[11px] uppercase tracking-[0.1em] text-[#5A6475] font-medium block mb-1.5">Category</label>
           <select
             value={category}
             onChange={e => setCategory(e.target.value)}
-            className="w-full bg-white border border-[#EBE5FF] rounded-lg px-3 py-2 text-[12px] text-[#524D66] outline-none"
+            className="w-full bg-white border border-[#D4E2FF] rounded-lg px-3 py-2 text-[12px] text-[#3D4451] outline-none"
           >
             <option value="operations">Operations</option>
             <option value="governance">Governance / Compliance</option>
@@ -576,11 +576,11 @@ function CreatePanel({ onClose, onCreated, tenantId }: {
         </div>
       </div>
 
-      <div className="p-5 border-t border-[#EBE5FF]">
+      <div className="p-5 border-t border-[#D4E2FF]">
         <button
           onClick={submit}
           disabled={busy || !title.trim()}
-          className="w-full py-2.5 rounded-xl text-[13px] font-medium bg-[#1A1035] text-white hover:bg-[#2d1d5e] transition-colors disabled:opacity-30"
+          className="w-full py-2.5 rounded-xl text-[13px] font-medium bg-[#181D23] text-white hover:bg-[#2d1d5e] transition-colors disabled:opacity-30"
         >
           {busy ? 'Creating...' : 'Create Signal'}
         </button>
@@ -598,15 +598,15 @@ function StatCell({ label, value, color, sub, Icon }: {
   sub?: string; Icon?: LucideIcon;
 }) {
   return (
-    <div className="bg-white border border-[#EBE5FF] rounded-xl p-4 flex flex-col gap-2">
+    <div className="bg-white border border-[#D4E2FF] rounded-xl p-4 flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] uppercase tracking-[0.14em] text-[#6E6688] font-medium">{label}</span>
-        {Icon && <Icon size={12} className="text-[#8B84A0]" />}
+        <span className="text-[10px] uppercase tracking-[0.14em] text-[#5A6475] font-medium">{label}</span>
+        {Icon && <Icon size={12} className="text-[#96989B]" />}
       </div>
-      <p className="text-[26px] font-semibold tracking-tight leading-none" style={{ color: color || '#1A1035' }}>
+      <p className="text-[26px] font-semibold tracking-tight leading-none" style={{ color: color || '#181D23' }}>
         {value}
       </p>
-      {sub && <p className="text-[11px] text-[#6E6688]">{sub}</p>}
+      {sub && <p className="text-[11px] text-[#5A6475]">{sub}</p>}
     </div>
   );
 }
@@ -625,7 +625,7 @@ function ModeTab({ id, label, count, color, active, onClick }: {
       className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all relative"
       style={{
         background: active ? `${color}15` : 'transparent',
-        color: active ? color : '#6E6688',
+        color: active ? color : '#5A6475',
         border: active ? `1px solid ${color}30` : '1px solid transparent',
       }}
     >
@@ -635,7 +635,7 @@ function ModeTab({ id, label, count, color, active, onClick }: {
           className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold"
           style={{
             background: active ? `${color}25` : 'rgba(0,0,0,0.05)',
-            color: active ? color : '#6E6688',
+            color: active ? color : '#5A6475',
           }}
         >
           {count}
@@ -689,7 +689,7 @@ export default function SignalsPage() {
 
       if (profileRes.success && profileRes.data?.profile) {
         setProfile(profileRes.data.profile);
-        setBrandColor(profileRes.data.profile.brandColor || '#8A6CFF');
+        setBrandColor(profileRes.data.profile.brandColor || '#0058E6');
       }
       if (statsRes.success && statsRes.stats)         setStats(statsRes.stats);
       if (feedRes.success && feedRes.signals)         setSignals(feedRes.signals);
@@ -756,8 +756,8 @@ export default function SignalsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen pl-[240px] bg-[#FAF7F2] flex items-center justify-center">
-        <div className="w-5 h-5 border border-[#D5CCFF] border-t-[#8A6CFF] rounded-full animate-spin" />
+      <div className="min-h-screen pl-[240px] bg-[#F8FAFF] flex items-center justify-center">
+        <div className="w-5 h-5 border border-[#A8C4FF] border-t-[#0058E6] rounded-full animate-spin" />
       </div>
     );
   }
@@ -771,23 +771,23 @@ export default function SignalsPage() {
         {/* PAGE HEADER */}
         <div className="flex items-end justify-between mb-8">
           <div>
-            <h1 className="text-[28px] font-semibold tracking-tight text-[#1A1035] leading-none mb-1.5">
+            <h1 className="text-[28px] font-semibold tracking-tight text-[#181D23] leading-none mb-1.5">
               Signal Operations
             </h1>
-            <p className="text-[13px] text-[#6E6688]">
+            <p className="text-[13px] text-[#5A6475]">
               {activeSignals.length} active · {stats?.agentic_running || 0} agents working · {stats?.resolved_today || 0} resolved today
             </p>
           </div>
           <div className="flex items-center gap-3">
             <button
               onClick={() => load(true)}
-              className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#EBE5FF] text-[#6E6688] hover:text-[#524D66] transition-colors"
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#D4E2FF] text-[#5A6475] hover:text-[#3D4451] transition-colors"
             >
               <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
             </button>
             <button
               onClick={() => setShowCreate(s => !s)}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#D5CCFF] bg-[#FAF9F5] text-[12px] font-medium text-[#524D66] hover:bg-white hover:text-[#1A1035] transition-colors"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#A8C4FF] bg-[#FAF9F5] text-[12px] font-medium text-[#3D4451] hover:bg-white hover:text-[#181D23] transition-colors"
             >
               <Plus size={12} /> New Signal
             </button>
@@ -811,7 +811,7 @@ export default function SignalsPage() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               className="mb-6 p-4 rounded-xl border"
-              style={{ borderColor: '#D97706', background: '#FEF3C7' }}
+              style={{ borderColor: '#D8A600', background: '#FEF3C7' }}
             >
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -823,22 +823,22 @@ export default function SignalsPage() {
               </div>
               <div className="space-y-2">
                 {pending.map(p => (
-                  <div key={p.id} className="flex items-center gap-4 p-3 rounded-lg bg-white border border-[#EBE5FF]">
+                  <div key={p.id} className="flex items-center gap-4 p-3 rounded-lg bg-white border border-[#D4E2FF]">
                     <div className="w-1 self-stretch rounded-full" style={{ background: PRIO_COLOR[p.priority] }} />
                     <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-medium text-[#1A1035]">{p.title}</p>
-                      <p className="text-[11px] text-[#6E6688] mt-0.5">{p.description}</p>
+                      <p className="text-[13px] font-medium text-[#181D23]">{p.title}</p>
+                      <p className="text-[11px] text-[#5A6475] mt-0.5">{p.description}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => handleApprove(p.id)}
-                        className="px-3 py-1.5 rounded-lg text-[11px] font-medium bg-[#FAF9F5] border border-[#D5CCFF] text-[#524D66] hover:bg-[#EBE5FF] transition-colors"
+                        className="px-3 py-1.5 rounded-lg text-[11px] font-medium bg-[#FAF9F5] border border-[#A8C4FF] text-[#3D4451] hover:bg-[#D4E2FF] transition-colors"
                       >
                         Approve
                       </button>
                       <button
                         onClick={() => handleReject(p.id)}
-                        className="px-3 py-1.5 rounded-lg text-[11px] font-medium bg-transparent border border-[#EBE5FF] text-[#6E6688] hover:bg-[#FAF9F5] transition-colors"
+                        className="px-3 py-1.5 rounded-lg text-[11px] font-medium bg-transparent border border-[#D4E2FF] text-[#5A6475] hover:bg-[#FAF9F5] transition-colors"
                       >
                         Reject
                       </button>
@@ -853,12 +853,12 @@ export default function SignalsPage() {
         {/* MODE TABS + FILTERS */}
         <div className="flex items-center justify-between mb-4 gap-4">
           <div className="flex items-center gap-1 flex-wrap">
-            <ModeTab id="all"        label="All"        count={tabCounts.all}        color="#524D66" active={activeTab === 'all'}        onClick={() => setActiveTab('all')} />
+            <ModeTab id="all"        label="All"        count={tabCounts.all}        color="#3D4451" active={activeTab === 'all'}        onClick={() => setActiveTab('all')} />
             <ModeTab id="auto"       label="Auto"       count={tabCounts.auto}       color="#60a5fa" active={activeTab === 'auto'}       onClick={() => setActiveTab('auto')} />
             <ModeTab id="agentic"    label="Agentic"    count={tabCounts.agentic}    color="#c084fc" active={activeTab === 'agentic'}    onClick={() => setActiveTab('agentic')} />
             <ModeTab id="supervised" label="Supervised" count={tabCounts.supervised} color="#fbbf24" active={activeTab === 'supervised'} onClick={() => setActiveTab('supervised')} />
             <ModeTab id="human_only" label="Human Only" count={tabCounts.human_only} color="#f87171" active={activeTab === 'human_only'} onClick={() => setActiveTab('human_only')} />
-            <div className="w-px h-4 bg-[#D5CCFF] mx-1" />
+            <div className="w-px h-4 bg-[#A8C4FF] mx-1" />
             <ModeTab id="resolved"   label="Resolved"   count={tabCounts.resolved}   color="#34d399" active={activeTab === 'resolved'}   onClick={() => setActiveTab('resolved')} />
           </div>
 
@@ -866,7 +866,7 @@ export default function SignalsPage() {
             <select
               value={priorityFilter}
               onChange={e => setPriorityFilter(e.target.value as SignalPriority | '')}
-              className="bg-white border border-[#EBE5FF] rounded-lg px-3 py-1.5 text-[12px] text-[#524D66] outline-none"
+              className="bg-white border border-[#D4E2FF] rounded-lg px-3 py-1.5 text-[12px] text-[#3D4451] outline-none"
             >
               <option value="">All priorities</option>
               <option value="critical">Critical</option>
@@ -876,12 +876,12 @@ export default function SignalsPage() {
             </select>
 
             <div className="relative">
-              <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6E6688]" />
+              <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#5A6475]" />
               <input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Search signals..."
-                className="bg-white border border-[#EBE5FF] rounded-lg pl-8 pr-3 py-1.5 text-[12px] text-[#524D66] placeholder:text-[#6E6688] outline-none focus:border-[#D5CCFF] transition-colors w-44"
+                className="bg-white border border-[#D4E2FF] rounded-lg pl-8 pr-3 py-1.5 text-[12px] text-[#3D4451] placeholder:text-[#5A6475] outline-none focus:border-[#A8C4FF] transition-colors w-44"
               />
             </div>
           </div>
@@ -907,8 +907,8 @@ export default function SignalsPage() {
                   animate={{ opacity: 1 }}
                   className="flex flex-col items-center justify-center py-20 gap-3"
                 >
-                  <Cpu size={24} className="text-[#8B84A0]" />
-                  <p className="text-[13px] text-[#6E6688]">
+                  <Cpu size={24} className="text-[#96989B]" />
+                  <p className="text-[13px] text-[#5A6475]">
                     {activeTab === 'resolved'
                       ? 'No resolved signals yet'
                       : 'No signals in this category'}

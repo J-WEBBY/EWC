@@ -57,7 +57,7 @@ export function StaffNav({
   currentPath: string;
 }) {
   const router = useRouter();
-  const c = brandColor || '#8A6CFF';
+  const c = brandColor || '#0058E6';
   const [collapsed, setCollapsed] = useState(false);
 
   // Load persisted collapse state and set CSS var on mount
@@ -127,12 +127,12 @@ export function StaffNav({
       className="fixed top-0 left-0 h-screen flex flex-col z-50 select-none overflow-hidden"
       animate={{ width: collapsed ? NAV_COLLAPSED : NAV_EXPANDED }}
       transition={{ type: 'spring', stiffness: 320, damping: 32 }}
-      style={{ backgroundColor: '#080517', borderRight: '1px solid rgba(138,108,255,0.10)' }}
+      style={{ backgroundColor: '#181D23', borderRight: '1px solid rgba(0,88,230,0.10)' }}
     >
       {/* Brand */}
       <div
         className="flex items-center h-[64px] flex-shrink-0 px-[18px]"
-        style={{ borderBottom: '1px solid rgba(138,108,255,0.08)' }}
+        style={{ borderBottom: '1px solid rgba(0,88,230,0.08)' }}
       >
         <motion.div
           className="w-2 h-2 rounded-full flex-shrink-0"
@@ -189,7 +189,7 @@ export function StaffNav({
       </nav>
 
       {/* Bottom */}
-      <div style={{ padding: collapsed ? '0 8px 12px' : '0 12px 12px', borderTop: '1px solid rgba(138,108,255,0.08)' }}>
+      <div style={{ padding: collapsed ? '0 8px 12px' : '0 12px 12px', borderTop: '1px solid rgba(0,88,230,0.08)' }}>
         <div className="pt-3">
           {bottomItems.map((item) => (
             <NavButton
@@ -207,7 +207,7 @@ export function StaffNav({
         <div
           className="mt-2 flex items-center rounded-xl overflow-hidden"
           style={{
-            backgroundColor: 'rgba(138,108,255,0.06)',
+            backgroundColor: 'rgba(0,88,230,0.06)',
             padding: collapsed ? '10px 0' : '10px 12px',
             justifyContent: collapsed ? 'center' : 'flex-start',
             gap: collapsed ? 0 : 12,
@@ -258,7 +258,7 @@ export function StaffNav({
           style={{ color: 'rgba(235,240,255,0.18)' }}
           onMouseEnter={e => {
             (e.currentTarget as HTMLButtonElement).style.color = 'rgba(235,240,255,0.50)';
-            (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(138,108,255,0.06)';
+            (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(0,88,230,0.06)';
           }}
           onMouseLeave={e => {
             (e.currentTarget as HTMLButtonElement).style.color = 'rgba(235,240,255,0.18)';
@@ -300,8 +300,8 @@ function NavButton({
         onClick={onClick}
         className="w-full flex items-center rounded-xl transition-all text-left"
         style={{
-          color: isActive ? '#A98DFF' : 'rgba(235,240,255,0.38)',
-          backgroundColor: isActive ? 'rgba(138,108,255,0.10)' : 'transparent',
+          color: isActive ? '#80B1FF' : 'rgba(235,240,255,0.38)',
+          backgroundColor: isActive ? 'rgba(0,88,230,0.10)' : 'transparent',
           fontWeight: isActive ? 500 : 400,
           justifyContent: collapsed ? 'center' : 'flex-start',
           padding: collapsed ? '9px 0' : '8px 10px',
@@ -312,7 +312,7 @@ function NavButton({
         onMouseEnter={e => {
           if (!isActive) {
             (e.currentTarget as HTMLButtonElement).style.color = 'rgba(235,240,255,0.70)';
-            (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(138,108,255,0.05)';
+            (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(0,88,230,0.05)';
           }
           if (collapsed) setTooltip(true);
         }}
@@ -346,9 +346,9 @@ function NavButton({
           <motion.div
             className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-3 py-1.5 rounded-lg text-[12px] whitespace-nowrap z-[60] pointer-events-none"
             style={{
-              backgroundColor: '#1a1035',
+              backgroundColor: '#181D23',
               color: '#EBF0FF',
-              border: '1px solid rgba(138,108,255,0.20)',
+              border: '1px solid rgba(0,88,230,0.20)',
               boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
             }}
             initial={{ opacity: 0, x: -6 }}

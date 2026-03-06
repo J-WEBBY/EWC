@@ -124,9 +124,9 @@ const DEMO_POSTS: TeamPost[] = [
 ];
 
 const DEMO_MEMBERS: TeamMember[] = [
-  { id: 'u-001', full_name: 'Dr S. Ganata',   role: 'Medical Director',    status: 'online',   color: '#6D28D9' },
-  { id: 'u-002', full_name: 'Emma Clarke',     role: 'Senior Receptionist', status: 'online',   color: '#0D9488' },
-  { id: 'u-003', full_name: 'Nurse P. Patel',  role: 'Clinical Nurse',      status: 'away',     color: '#D97706' },
+  { id: 'u-001', full_name: 'Dr S. Ganata',   role: 'Medical Director',    status: 'online',   color: '#0058E6' },
+  { id: 'u-002', full_name: 'Emma Clarke',     role: 'Senior Receptionist', status: 'online',   color: '#00A693' },
+  { id: 'u-003', full_name: 'Nurse P. Patel',  role: 'Clinical Nurse',      status: 'away',     color: '#D8A600' },
   { id: 'u-004', full_name: 'James Mitchell',  role: 'Practice Manager',    status: 'online',   color: '#3B82F6' },
   { id: 'u-005', full_name: 'Dr S. Khan',      role: 'GP',                  status: 'offline',  color: '#EC4899' },
 ];
@@ -173,7 +173,7 @@ export async function getTeamRoster(): Promise<TeamMember[]> {
       .limit(20);
 
     if (data && data.length > 0) {
-      const COLORS = ['#6D28D9', '#0D9488', '#D97706', '#3B82F6', '#EC4899', '#22C55E'];
+      const COLORS = ['#0058E6', '#00A693', '#D8A600', '#3B82F6', '#EC4899', '#22C55E'];
       return (data as Record<string, unknown>[]).map((u, i) => ({
         id:        u.id as string,
         full_name: `${u.first_name} ${u.last_name}`.trim(),

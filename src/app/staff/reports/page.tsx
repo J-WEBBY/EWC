@@ -113,10 +113,10 @@ const REPORTS: Report[] = [
 ];
 
 const CATEGORY_META: Record<ReportCategory, { label: string; icon: React.ElementType; color: string }> = {
-  revenue:    { label: 'Revenue',    icon: PoundSterling, color: 'text-[#D97706]' },
-  patients:   { label: 'Patients',   icon: Users,         color: 'text-[#0D9488]' },
-  compliance: { label: 'Compliance', icon: Shield,        color: 'text-[#6D28D9]' },
-  operations: { label: 'Operations', icon: TrendingUp,    color: 'text-[#1A1035]' },
+  revenue:    { label: 'Revenue',    icon: PoundSterling, color: 'text-[#D8A600]' },
+  patients:   { label: 'Patients',   icon: Users,         color: 'text-[#00A693]' },
+  compliance: { label: 'Compliance', icon: Shield,        color: 'text-[#0058E6]' },
+  operations: { label: 'Operations', icon: TrendingUp,    color: 'text-[#181D23]' },
 };
 
 // =============================================================================
@@ -147,18 +147,18 @@ function ReportCard({ report, onDownload }: { report: Report; onDownload: (id: s
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
-      className="bg-white border border-[#EBE5FF] rounded-xl p-5 flex items-start gap-4"
+      className="bg-white border border-[#D4E2FF] rounded-xl p-5 flex items-start gap-4"
     >
-      <div className="w-9 h-9 rounded-lg bg-[#FAF7F2] border border-[#EBE5FF] flex items-center justify-center flex-shrink-0">
+      <div className="w-9 h-9 rounded-lg bg-[#F8FAFF] border border-[#D4E2FF] flex items-center justify-center flex-shrink-0">
         <Icon size={16} className={meta.color} />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-3 mb-1">
-          <p className="text-[13px] font-medium text-[#1A1035] leading-snug">{report.title}</p>
+          <p className="text-[13px] font-medium text-[#181D23] leading-snug">{report.title}</p>
           <StatusBadge status={report.status} />
         </div>
-        <p className="text-[12px] text-[#6E6688] leading-relaxed mb-3">{report.description}</p>
-        <div className="flex items-center gap-4 text-[11px] text-[#8B84A0]">
+        <p className="text-[12px] text-[#5A6475] leading-relaxed mb-3">{report.description}</p>
+        <div className="flex items-center gap-4 text-[11px] text-[#96989B]">
           <span className="flex items-center gap-1.5">
             <Calendar size={11} />
             {report.period}
@@ -180,7 +180,7 @@ function ReportCard({ report, onDownload }: { report: Report; onDownload: (id: s
       {report.status === 'ready' && (
         <button
           onClick={() => onDownload(report.id)}
-          className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium bg-[#1A1035] text-white hover:bg-[#1A1035]/90 transition-colors"
+          className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium bg-[#181D23] text-white hover:bg-[#181D23]/90 transition-colors"
         >
           <Download size={12} />
           Export
@@ -204,7 +204,7 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<ReportCategory | 'all'>('all');
 
-  const brandColor = profile?.brandColor || '#8A6CFF';
+  const brandColor = profile?.brandColor || '#0058E6';
 
   useEffect(() => {
     (async () => {
@@ -223,11 +223,11 @@ export default function ReportsPage() {
 
   if (loading || !profile) {
     return (
-      <div className="min-h-screen pl-[240px] bg-[#FAF7F2] flex items-center justify-center">
+      <div className="min-h-screen pl-[240px] bg-[#F8FAFF] flex items-center justify-center">
         <motion.div
           animate={{ opacity: [0.2, 0.5, 0.2] }}
           transition={{ duration: 1.8, repeat: Infinity }}
-          className="w-1.5 h-1.5 rounded-full bg-[#D5CCFF]"
+          className="w-1.5 h-1.5 rounded-full bg-[#A8C4FF]"
         />
       </div>
     );
@@ -263,9 +263,9 @@ export default function ReportsPage() {
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[11px] uppercase tracking-[0.18em] text-[#6E6688] mb-2">Governance</p>
-                <h1 className="text-[26px] font-semibold tracking-tight text-[#1A1035]">Reports</h1>
-                <p className="text-[13px] text-[#6E6688] mt-1">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-[#5A6475] mb-2">Governance</p>
+                <h1 className="text-[26px] font-semibold tracking-tight text-[#181D23]">Reports</h1>
+                <p className="text-[13px] text-[#5A6475] mt-1">
                   {readyCount} report{readyCount !== 1 ? 's' : ''} ready to export — simulated data (live reporting connects in Week 2).
                 </p>
               </div>
@@ -286,16 +286,16 @@ export default function ReportsPage() {
                   onClick={() => setActiveCategory(cat)}
                   className={`bg-white border rounded-xl p-5 cursor-pointer transition-all ${
                     activeCategory === cat
-                      ? 'border-[#1A1035] ring-1 ring-[#1A1035]/10'
-                      : 'border-[#EBE5FF] hover:border-[#D5CCFF]'
+                      ? 'border-[#181D23] ring-1 ring-[#181D23]/10'
+                      : 'border-[#D4E2FF] hover:border-[#A8C4FF]'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-[11px] uppercase tracking-[0.15em] text-[#6E6688] font-medium">{meta.label}</span>
+                    <span className="text-[11px] uppercase tracking-[0.15em] text-[#5A6475] font-medium">{meta.label}</span>
                     <Icon size={14} className={meta.color} />
                   </div>
-                  <p className="text-[26px] font-semibold tracking-tight text-[#1A1035] leading-none">{count}</p>
-                  <p className="text-[11px] text-[#6E6688] mt-1">ready to export</p>
+                  <p className="text-[26px] font-semibold tracking-tight text-[#181D23] leading-none">{count}</p>
+                  <p className="text-[11px] text-[#5A6475] mt-1">ready to export</p>
                 </motion.div>
               );
             })}
@@ -309,8 +309,8 @@ export default function ReportsPage() {
                 onClick={() => setActiveCategory(tab.id)}
                 className={`px-4 py-2 rounded-lg text-[13px] transition-colors ${
                   activeCategory === tab.id
-                    ? 'bg-white text-[#1A1035] font-medium border border-[#EBE5FF]'
-                    : 'text-[#6E6688] hover:text-[#524D66]'
+                    ? 'bg-white text-[#181D23] font-medium border border-[#D4E2FF]'
+                    : 'text-[#5A6475] hover:text-[#3D4451]'
                 }`}
               >
                 {tab.label}
@@ -330,9 +330,9 @@ export default function ReportsPage() {
         </main>
 
         {/* Sidebar */}
-        <aside className="w-[240px] flex-shrink-0 px-6 py-10 border-l border-[#EBE5FF]">
+        <aside className="w-[240px] flex-shrink-0 px-6 py-10 border-l border-[#D4E2FF]">
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-            <h3 className="text-[11px] uppercase tracking-[0.18em] text-[#6E6688] font-medium mb-3">Quick Access</h3>
+            <h3 className="text-[11px] uppercase tracking-[0.18em] text-[#5A6475] font-medium mb-3">Quick Access</h3>
             <div className="space-y-1 mb-6">
               {[
                 { label: 'KPIs Dashboard',  href: `/staff/kpis?userId=${userId}` },
@@ -342,7 +342,7 @@ export default function ReportsPage() {
                 <button
                   key={a.label}
                   onClick={() => router.push(a.href)}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-[12px] text-[#6E6688] hover:text-[#524D66] hover:bg-[#FAF7F2] transition-all text-left"
+                  className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-[12px] text-[#5A6475] hover:text-[#3D4451] hover:bg-[#F8FAFF] transition-all text-left"
                 >
                   <ChevronRight size={11} className="flex-shrink-0 opacity-40" />
                   {a.label}
@@ -350,12 +350,12 @@ export default function ReportsPage() {
               ))}
             </div>
 
-            <h3 className="text-[11px] uppercase tracking-[0.18em] text-[#6E6688] font-medium mb-3">Schedule</h3>
+            <h3 className="text-[11px] uppercase tracking-[0.18em] text-[#5A6475] font-medium mb-3">Schedule</h3>
             <div className="space-y-2">
               {REPORTS.filter(r => r.status === 'scheduled').map(r => (
-                <div key={r.id} className="p-3 bg-[#FAF7F2] border border-[#EBE5FF] rounded-lg">
-                  <p className="text-[11px] font-medium text-[#524D66] leading-snug">{r.title.split('—')[0].trim()}</p>
-                  <p className="text-[10px] text-[#8B84A0] mt-1">{r.period}</p>
+                <div key={r.id} className="p-3 bg-[#F8FAFF] border border-[#D4E2FF] rounded-lg">
+                  <p className="text-[11px] font-medium text-[#3D4451] leading-snug">{r.title.split('—')[0].trim()}</p>
+                  <p className="text-[10px] text-[#96989B] mt-1">{r.period}</p>
                 </div>
               ))}
             </div>

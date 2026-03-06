@@ -144,7 +144,7 @@ function PhaseIndicator({ current, color }: { current: Phase; color: string }) {
               className="h-1.5 rounded-full"
               style={{
                 width: i === idx ? 24 : 8,
-                backgroundColor: i <= idx ? color : '#8B84A0',
+                backgroundColor: i <= idx ? color : '#96989B',
                 boxShadow: i === idx ? `0 0 8px ${color}60` : 'none',
               }}
               animate={{ width: i === idx ? 24 : 8 }}
@@ -340,11 +340,11 @@ export default function StaffOnboardingPage() {
   // ─── Loading state ───
   if (!profile) {
     return (
-      <div className="min-h-screen pl-[240px] bg-[#FAF7F2] flex items-center justify-center">
+      <div className="min-h-screen pl-[240px] bg-[#F8FAFF] flex items-center justify-center">
         <motion.div
           animate={{ opacity: [0.3, 0.6, 0.3] }}
           transition={{ duration: 2, repeat: Infinity }}
-          className="text-[#6E6688] text-[13px]"
+          className="text-[#5A6475] text-[13px]"
         >
           Initializing...
         </motion.div>
@@ -420,7 +420,7 @@ export default function StaffOnboardingPage() {
                   {name.charAt(0)}
                 </div>
               )}
-              <span className="text-[13px] font-medium text-[#524D66]">{name}</span>
+              <span className="text-[13px] font-medium text-[#3D4451]">{name}</span>
               <motion.div
                 animate={{ scale: [1, 1.3, 1], opacity: [0.5, 1, 0.5] }}
                 transition={{ duration: 2, repeat: Infinity }}
@@ -467,11 +467,11 @@ export default function StaffOnboardingPage() {
                     transition={{ duration: 0.8 }}
                     className="space-y-2 mb-12"
                   >
-                    <p className="text-[15px] text-[#6E6688]">
+                    <p className="text-[15px] text-[#5A6475]">
                       I&apos;m <span style={{ color: `${c}cc` }}>{name}</span>.
                       I was built specifically for {profile.companyName}.
                     </p>
-                    <p className="text-[15px] text-[#6E6688]">
+                    <p className="text-[15px] text-[#5A6475]">
                       Let me show you what I can see.
                     </p>
                   </motion.div>
@@ -506,12 +506,12 @@ export default function StaffOnboardingPage() {
               className="w-full max-w-md space-y-6"
             >
               <div className="text-center mb-8">
-                <h2 className="text-[11px] uppercase tracking-[0.2em] text-[#6E6688] mb-2">Recognition</h2>
-                <p className="text-[15px] text-[#6E6688]">I already know a bit about you.</p>
+                <h2 className="text-[11px] uppercase tracking-[0.2em] text-[#5A6475] mb-2">Recognition</h2>
+                <p className="text-[15px] text-[#5A6475]">I already know a bit about you.</p>
               </div>
 
               {/* Profile card */}
-              <div className="bg-white border border-[#EBE5FF] rounded-2xl p-6 space-y-5">
+              <div className="bg-white border border-[#D4E2FF] rounded-2xl p-6 space-y-5">
                 <div className="flex items-center gap-4">
                   <div
                     className="w-14 h-14 rounded-xl flex items-center justify-center text-xl font-bold text-black flex-shrink-0"
@@ -521,7 +521,7 @@ export default function StaffOnboardingPage() {
                   </div>
                   <div>
                     <h3 className="text-[18px] font-semibold">{profile.firstName} {profile.lastName}</h3>
-                    <p className="text-[13px] text-[#6E6688]">{profile.jobTitle || 'Team Member'}</p>
+                    <p className="text-[13px] text-[#5A6475]">{profile.jobTitle || 'Team Member'}</p>
                   </div>
                 </div>
 
@@ -529,22 +529,22 @@ export default function StaffOnboardingPage() {
 
                 <div className="grid grid-cols-2 gap-4 text-[13px]">
                   <div>
-                    <p className="text-[#6E6688] mb-1">Department</p>
-                    <p className="text-[#1A1035]">{profile.departmentName || 'General'}</p>
+                    <p className="text-[#5A6475] mb-1">Department</p>
+                    <p className="text-[#181D23]">{profile.departmentName || 'General'}</p>
                   </div>
                   {profile.reportsTo && (
                     <div>
-                      <p className="text-[#6E6688] mb-1">Reports to</p>
-                      <p className="text-[#1A1035]">{profile.reportsTo}</p>
+                      <p className="text-[#5A6475] mb-1">Reports to</p>
+                      <p className="text-[#181D23]">{profile.reportsTo}</p>
                     </div>
                   )}
                   <div>
-                    <p className="text-[#6E6688] mb-1">Team</p>
-                    <p className="text-[#1A1035]">{profile.teamSize} colleague{profile.teamSize !== 1 ? 's' : ''}</p>
+                    <p className="text-[#5A6475] mb-1">Team</p>
+                    <p className="text-[#181D23]">{profile.teamSize} colleague{profile.teamSize !== 1 ? 's' : ''}</p>
                   </div>
                   <div>
-                    <p className="text-[#6E6688] mb-1">Access</p>
-                    <p className="text-[#1A1035]">{profile.isAdmin ? 'Administrator' : 'Staff'}</p>
+                    <p className="text-[#5A6475] mb-1">Access</p>
+                    <p className="text-[#181D23]">{profile.isAdmin ? 'Administrator' : 'Staff'}</p>
                   </div>
                 </div>
               </div>
@@ -562,7 +562,7 @@ export default function StaffOnboardingPage() {
                   className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0"
                   style={{ backgroundColor: c }}
                 />
-                <p className="text-[13px] text-[#524D66] italic leading-relaxed">
+                <p className="text-[13px] text-[#3D4451] italic leading-relaxed">
                   {roleInsight || 'Analyzing your position...'}
                 </p>
               </motion.div>
@@ -577,7 +577,7 @@ export default function StaffOnboardingPage() {
                 </button>
                 <button
                   onClick={() => setPhase('intelligence')}
-                  className="flex-1 h-12 rounded-xl font-semibold text-[14px] text-[#6E6688] bg-[#FAF7F2] border border-[#EBE5FF] transition-all hover:border-white/[0.15] active:scale-[0.97]"
+                  className="flex-1 h-12 rounded-xl font-semibold text-[14px] text-[#5A6475] bg-[#F8FAFF] border border-[#D4E2FF] transition-all hover:border-white/[0.15] active:scale-[0.97]"
                 >
                   Something&apos;s off
                 </button>
@@ -596,8 +596,8 @@ export default function StaffOnboardingPage() {
               className="w-full max-w-2xl space-y-6"
             >
               <div className="text-center mb-6">
-                <h2 className="text-[11px] uppercase tracking-[0.2em] text-[#6E6688] mb-2">Intelligence Maps</h2>
-                <p className="text-[15px] text-[#6E6688]">Your operational windows into {profile.companyName}</p>
+                <h2 className="text-[11px] uppercase tracking-[0.2em] text-[#5A6475] mb-2">Intelligence Maps</h2>
+                <p className="text-[15px] text-[#5A6475]">Your operational windows into {profile.companyName}</p>
               </div>
 
               {/* Three tiers as accordion sections */}
@@ -630,17 +630,17 @@ export default function StaffOnboardingPage() {
                       <div className="flex items-center gap-3">
                         <TierBadge tier={tier} color={c} />
                         <div className="text-left">
-                          <p className="text-[14px] font-medium text-[#1A1035]">{info.title}</p>
-                          <p className="text-[11px] text-[#6E6688]">{info.sub}</p>
+                          <p className="text-[14px] font-medium text-[#181D23]">{info.title}</p>
+                          <p className="text-[11px] text-[#5A6475]">{info.sub}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-[11px] text-[#6E6688]">{tierMaps.length} maps</span>
+                        <span className="text-[11px] text-[#5A6475]">{tierMaps.length} maps</span>
                         <motion.div
                           animate={{ rotate: isExpanded ? 180 : 0 }}
                           transition={{ duration: 0.2 }}
                         >
-                          <ChevronDown size={14} className="text-[#6E6688]" />
+                          <ChevronDown size={14} className="text-[#5A6475]" />
                         </motion.div>
                       </div>
                     </button>
@@ -664,7 +664,7 @@ export default function StaffOnboardingPage() {
                                   initial={{ opacity: 0, y: 10 }}
                                   animate={{ opacity: 1, y: 0 }}
                                   transition={{ delay: i * 0.08 }}
-                                  className="bg-white border border-[#EBE5FF] rounded-xl p-4 hover:bg-[#FAF7F2] hover:border-white/[0.12] transition-all"
+                                  className="bg-white border border-[#D4E2FF] rounded-xl p-4 hover:bg-[#F8FAFF] hover:border-white/[0.12] transition-all"
                                 >
                                   <div className="flex items-start gap-3">
                                     <div
@@ -675,7 +675,7 @@ export default function StaffOnboardingPage() {
                                     </div>
                                     <div className="min-w-0">
                                       <div className="flex items-center gap-2 mb-1">
-                                        <h4 className="text-[13px] font-semibold text-[#1A1035] truncate">{m.title}</h4>
+                                        <h4 className="text-[13px] font-semibold text-[#181D23] truncate">{m.title}</h4>
                                         {m.live && (
                                           <motion.div
                                             animate={{ opacity: [0.4, 1, 0.4] }}
@@ -685,7 +685,7 @@ export default function StaffOnboardingPage() {
                                           />
                                         )}
                                       </div>
-                                      <p className="text-[11px] text-[#6E6688] leading-relaxed">{m.description}</p>
+                                      <p className="text-[11px] text-[#5A6475] leading-relaxed">{m.description}</p>
                                     </div>
                                   </div>
                                 </motion.div>
@@ -704,7 +704,7 @@ export default function StaffOnboardingPage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.6 }}
-                className="text-[12px] text-[#6E6688] text-center"
+                className="text-[12px] text-[#5A6475] text-center"
               >
                 {maps.length} intelligence maps across 3 tiers — all updating in real-time
               </motion.p>
@@ -730,9 +730,9 @@ export default function StaffOnboardingPage() {
               className="w-full max-w-2xl space-y-6"
             >
               <div className="text-center mb-4">
-                <h2 className="text-[11px] uppercase tracking-[0.2em] text-[#6E6688] mb-2">Your Toolkit</h2>
-                <p className="text-[15px] text-[#6E6688]">Select the tools you use day-to-day</p>
-                <p className="text-[12px] text-[#6E6688] mt-1">
+                <h2 className="text-[11px] uppercase tracking-[0.2em] text-[#5A6475] mb-2">Your Toolkit</h2>
+                <p className="text-[15px] text-[#5A6475]">Select the tools you use day-to-day</p>
+                <p className="text-[12px] text-[#5A6475] mt-1">
                   This helps me integrate with your workflow
                 </p>
               </div>
@@ -741,7 +741,7 @@ export default function StaffOnboardingPage() {
               <div className="space-y-5 max-h-[55vh] overflow-y-auto pr-2 scrollbar-thin">
                 {Object.entries(toolCategories).map(([cat, catTools]) => (
                   <div key={cat}>
-                    <p className="text-[11px] uppercase tracking-wider text-[#6E6688] mb-2.5 px-1">
+                    <p className="text-[11px] uppercase tracking-wider text-[#5A6475] mb-2.5 px-1">
                       {categoryLabels[cat] || cat}
                     </p>
                     <div className="flex flex-wrap gap-2">
@@ -757,7 +757,7 @@ export default function StaffOnboardingPage() {
                             style={{
                               backgroundColor: selected ? `${c}15` : 'rgba(0,0,0,0.02)',
                               borderColor: selected ? `${c}50` : 'rgba(0,0,0,0.06)',
-                              color: selected ? c : '#6E6688',
+                              color: selected ? c : '#5A6475',
                             }}
                           >
                             <Icon size={14} style={{ opacity: selected ? 1 : 0.5 }} />
@@ -781,11 +781,11 @@ export default function StaffOnboardingPage() {
 
               {/* Counter */}
               <div className="flex items-center justify-between px-1">
-                <p className="text-[12px] text-[#6E6688]">
+                <p className="text-[12px] text-[#5A6475]">
                   {selectedTools.size} tool{selectedTools.size !== 1 ? 's' : ''} selected
                 </p>
                 {selectedTools.size === 0 && (
-                  <p className="text-[12px] text-[#8B84A0] italic">Select at least a few to continue</p>
+                  <p className="text-[12px] text-[#96989B] italic">Select at least a few to continue</p>
                 )}
               </div>
 
@@ -800,7 +800,7 @@ export default function StaffOnboardingPage() {
                 </button>
                 <button
                   onClick={() => { setPhase('agents'); }}
-                  className="px-6 h-12 rounded-xl text-[13px] text-[#6E6688] bg-white border border-[#EBE5FF] hover:border-white/[0.12] transition-all"
+                  className="px-6 h-12 rounded-xl text-[13px] text-[#5A6475] bg-white border border-[#D4E2FF] hover:border-white/[0.12] transition-all"
                 >
                   Skip
                 </button>
@@ -819,11 +819,11 @@ export default function StaffOnboardingPage() {
               className="w-full max-w-2xl space-y-6"
             >
               <div className="text-center mb-4">
-                <h2 className="text-[11px] uppercase tracking-[0.2em] text-[#6E6688] mb-2">Your AI Agents</h2>
-                <p className="text-[15px] text-[#6E6688]">
+                <h2 className="text-[11px] uppercase tracking-[0.2em] text-[#5A6475] mb-2">Your AI Agents</h2>
+                <p className="text-[15px] text-[#5A6475]">
                   {agents.length} agents working for {profile.companyName}
                 </p>
-                <p className="text-[12px] text-[#6E6688] mt-1">
+                <p className="text-[12px] text-[#5A6475] mt-1">
                   Set how each agent communicates with you
                 </p>
               </div>
@@ -831,7 +831,7 @@ export default function StaffOnboardingPage() {
               {/* Industry Agents */}
               {industryAgents.length > 0 && (
                 <div>
-                  <p className="text-[11px] uppercase tracking-wider text-[#6E6688] mb-3 px-1 flex items-center gap-2">
+                  <p className="text-[11px] uppercase tracking-wider text-[#5A6475] mb-3 px-1 flex items-center gap-2">
                     <span className="px-1.5 py-0.5 rounded text-[9px] font-bold tracking-widest" style={{ backgroundColor: `${c}15`, color: `${c}99` }}>
                       SHARED
                     </span>
@@ -847,7 +847,7 @@ export default function StaffOnboardingPage() {
                           initial={{ opacity: 0, y: 15 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: i * 0.1 }}
-                          className="bg-white border border-[#EBE5FF] rounded-xl p-5 space-y-4 hover:border-white/[0.12] transition-all"
+                          className="bg-white border border-[#D4E2FF] rounded-xl p-5 space-y-4 hover:border-white/[0.12] transition-all"
                         >
                           <div className="flex items-start gap-3">
                             <div
@@ -857,13 +857,13 @@ export default function StaffOnboardingPage() {
                               <Icon size={20} style={{ color: c }} />
                             </div>
                             <div className="min-w-0">
-                              <h4 className="text-[14px] font-semibold text-[#1A1035]">{agent.name}</h4>
+                              <h4 className="text-[14px] font-semibold text-[#181D23]">{agent.name}</h4>
                               {agent.badge && (
-                                <span className="text-[10px] text-[#6E6688]">{agent.badge}</span>
+                                <span className="text-[10px] text-[#5A6475]">{agent.badge}</span>
                               )}
                             </div>
                           </div>
-                          <p className="text-[12px] text-[#6E6688] leading-relaxed">{agent.description}</p>
+                          <p className="text-[12px] text-[#5A6475] leading-relaxed">{agent.description}</p>
 
                           {/* Notification toggle */}
                           <div className="flex gap-1.5">
@@ -875,7 +875,7 @@ export default function StaffOnboardingPage() {
                                 style={{
                                   backgroundColor: pref === level ? `${c}15` : 'transparent',
                                   borderColor: pref === level ? `${c}40` : 'rgba(0,0,0,0.05)',
-                                  color: pref === level ? c : '#6E6688',
+                                  color: pref === level ? c : '#5A6475',
                                 }}
                                 title={prefLabels[level].desc}
                               >
@@ -893,7 +893,7 @@ export default function StaffOnboardingPage() {
               {/* Company Agents */}
               {companyAgents.length > 0 && (
                 <div>
-                  <p className="text-[11px] uppercase tracking-wider text-[#6E6688] mb-3 px-1 flex items-center gap-2">
+                  <p className="text-[11px] uppercase tracking-wider text-[#5A6475] mb-3 px-1 flex items-center gap-2">
                     <span className="px-1.5 py-0.5 rounded text-[9px] font-bold tracking-widest" style={{ backgroundColor: `${c}25`, color: c, border: `1px solid ${c}40` }}>
                       CUSTOM
                     </span>
@@ -927,11 +927,11 @@ export default function StaffOnboardingPage() {
                               />
                             </div>
                             <div className="min-w-0">
-                              <h4 className="text-[14px] font-semibold text-[#1A1035]">{agent.name}</h4>
+                              <h4 className="text-[14px] font-semibold text-[#181D23]">{agent.name}</h4>
                               <span className="text-[10px]" style={{ color: `${c}80` }}>Custom Agent</span>
                             </div>
                           </div>
-                          <p className="text-[12px] text-[#6E6688] leading-relaxed">{agent.description}</p>
+                          <p className="text-[12px] text-[#5A6475] leading-relaxed">{agent.description}</p>
 
                           <div className="flex gap-1.5">
                             {(['quiet', 'nudge', 'active'] as const).map((level) => (
@@ -942,7 +942,7 @@ export default function StaffOnboardingPage() {
                                 style={{
                                   backgroundColor: pref === level ? `${c}15` : 'transparent',
                                   borderColor: pref === level ? `${c}40` : 'rgba(0,0,0,0.05)',
-                                  color: pref === level ? c : '#6E6688',
+                                  color: pref === level ? c : '#5A6475',
                                 }}
                                 title={prefLabels[level].desc}
                               >
@@ -971,7 +971,7 @@ export default function StaffOnboardingPage() {
                   className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0"
                   style={{ backgroundColor: c }}
                 />
-                <p className="text-[12px] text-[#6E6688] leading-relaxed">
+                <p className="text-[12px] text-[#5A6475] leading-relaxed">
                   These agents run continuously in the background. You can change their notification levels anytime from your dashboard.
                 </p>
               </motion.div>
@@ -998,13 +998,13 @@ export default function StaffOnboardingPage() {
               className="w-full max-w-md space-y-8"
             >
               <div className="text-center">
-                <h2 className="text-[11px] uppercase tracking-[0.2em] text-[#6E6688] mb-2">Calibration</h2>
-                <p className="text-[15px] text-[#6E6688]">Last step — how should I talk to you?</p>
+                <h2 className="text-[11px] uppercase tracking-[0.2em] text-[#5A6475] mb-2">Calibration</h2>
+                <p className="text-[15px] text-[#5A6475]">Last step — how should I talk to you?</p>
               </div>
 
               {/* Communication Style */}
               <div className="space-y-3">
-                <p className="text-[13px] text-[#524D66]">When I brief you, how much context do you want?</p>
+                <p className="text-[13px] text-[#3D4451]">When I brief you, how much context do you want?</p>
                 <div className="grid grid-cols-3 gap-2">
                   {([
                     { key: 'concise' as const, label: 'Concise', desc: 'Just the facts' },
@@ -1020,10 +1020,10 @@ export default function StaffOnboardingPage() {
                         borderColor: commStyle === key ? `${c}50` : 'rgba(0,0,0,0.06)',
                       }}
                     >
-                      <p className="text-[13px] font-medium" style={{ color: commStyle === key ? c : '#6E6688' }}>
+                      <p className="text-[13px] font-medium" style={{ color: commStyle === key ? c : '#5A6475' }}>
                         {label}
                       </p>
-                      <p className="text-[10px] mt-0.5" style={{ color: commStyle === key ? `${c}80` : '#8B84A0' }}>
+                      <p className="text-[10px] mt-0.5" style={{ color: commStyle === key ? `${c}80` : '#96989B' }}>
                         {desc}
                       </p>
                     </button>
@@ -1033,7 +1033,7 @@ export default function StaffOnboardingPage() {
 
               {/* Proactivity Level */}
               <div className="space-y-3">
-                <p className="text-[13px] text-[#524D66]">Should I flag things I notice, or wait until you ask?</p>
+                <p className="text-[13px] text-[#3D4451]">Should I flag things I notice, or wait until you ask?</p>
                 <div className="grid grid-cols-3 gap-2">
                   {([
                     { key: 'reactive' as const, label: 'Wait', desc: 'I\'ll be quiet' },
@@ -1049,10 +1049,10 @@ export default function StaffOnboardingPage() {
                         borderColor: proactivity === key ? `${c}50` : 'rgba(0,0,0,0.06)',
                       }}
                     >
-                      <p className="text-[13px] font-medium" style={{ color: proactivity === key ? c : '#6E6688' }}>
+                      <p className="text-[13px] font-medium" style={{ color: proactivity === key ? c : '#5A6475' }}>
                         {label}
                       </p>
-                      <p className="text-[10px] mt-0.5" style={{ color: proactivity === key ? `${c}80` : '#8B84A0' }}>
+                      <p className="text-[10px] mt-0.5" style={{ color: proactivity === key ? `${c}80` : '#96989B' }}>
                         {desc}
                       </p>
                     </button>
@@ -1071,9 +1071,9 @@ export default function StaffOnboardingPage() {
                   className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0"
                   style={{ backgroundColor: c }}
                 />
-                <p className="text-[13px] text-[#6E6688] leading-relaxed">
-                  I&apos;ll keep it <span className="text-[#524D66]">{commStyle}</span> and be{' '}
-                  <span className="text-[#524D66]">
+                <p className="text-[13px] text-[#5A6475] leading-relaxed">
+                  I&apos;ll keep it <span className="text-[#3D4451]">{commStyle}</span> and be{' '}
+                  <span className="text-[#3D4451]">
                     {proactivity === 'reactive' ? 'silent until you ask' : proactivity === 'gentle' ? 'gently nudging when something matters' : 'proactively flagging everything I spot'}
                   </span>. You can change this anytime.
                 </p>
@@ -1136,7 +1136,7 @@ export default function StaffOnboardingPage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.5 }}
-                className="text-[14px] text-[#6E6688] mb-2"
+                className="text-[14px] text-[#5A6475] mb-2"
               >
                 {maps.length} intelligence maps loaded
               </motion.p>
@@ -1145,7 +1145,7 @@ export default function StaffOnboardingPage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.7 }}
-                className="text-[14px] text-[#6E6688] mb-1"
+                className="text-[14px] text-[#5A6475] mb-1"
               >
                 {selectedTools.size} tools integrated &middot; {agents.length} agents online
               </motion.p>
@@ -1154,7 +1154,7 @@ export default function StaffOnboardingPage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 1 }}
-                className="text-[13px] text-[#6E6688] mt-4"
+                className="text-[13px] text-[#5A6475] mt-4"
               >
                 Initializing your workspace...
               </motion.p>

@@ -140,7 +140,7 @@ function UserModal({
         exit={{ opacity: 0, scale: 0.96 }}
         transition={{ duration: 0.15 }}
         className="w-full max-w-[440px] rounded-2xl border overflow-hidden"
-        style={{ background: '#0a0a0a', borderColor: 'rgba(255,255,255,0.08)' }}
+        style={{ background: '#0D1420', borderColor: 'rgba(255,255,255,0.08)' }}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b"
@@ -233,12 +233,12 @@ function UserModal({
               <select
                 value={roleId} onChange={e => setRoleId(e.target.value)} required
                 className="w-full h-[38px] rounded-lg border px-3 pr-8 text-[13px] text-white bg-transparent outline-none appearance-none cursor-pointer"
-                style={{ borderColor: 'rgba(255,255,255,0.1)', background: '#0a0a0a' }}
+                style={{ borderColor: 'rgba(255,255,255,0.1)', background: '#0D1420' }}
                 onFocus={e => (e.target.style.borderColor = 'rgba(255,255,255,0.3)')}
                 onBlur={e  => (e.target.style.borderColor = 'rgba(255,255,255,0.1)')}
               >
                 {roles.map(r => (
-                  <option key={r.id} value={r.id} style={{ background: '#0a0a0a' }}>
+                  <option key={r.id} value={r.id} style={{ background: '#0D1420' }}>
                     {r.name}
                   </option>
                 ))}
@@ -368,7 +368,7 @@ function ResetPasswordModal({
         initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.15 }}
         className="w-full max-w-[380px] rounded-2xl border p-6"
-        style={{ background: '#0a0a0a', borderColor: 'rgba(255,255,255,0.08)' }}>
+        style={{ background: '#0D1420', borderColor: 'rgba(255,255,255,0.08)' }}>
         <div className="flex items-center gap-3 mb-4">
           <div className="w-8 h-8 rounded-lg flex items-center justify-center"
             style={{ background: 'rgba(255,165,0,0.1)', border: '1px solid rgba(255,165,0,0.2)' }}>

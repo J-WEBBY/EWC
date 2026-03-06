@@ -57,7 +57,7 @@ interface TranscriptLine { speaker: 'komal' | 'caller'; text: string }
 // CONSTANTS
 // =============================================================================
 
-const ACCENT = '#6D28D9';
+const ACCENT = '#0058E6';
 
 const VOICE_OPTIONS = [
   { id: 'XB0fDUnXU5powFXDhCwa', label: 'Charlotte', desc: 'Warm · British female', detail: 'Default voice. Warm, professional, natural-sounding.' },
@@ -77,11 +77,11 @@ const DEFAULT_REDLINES = [
 ];
 
 const KB_CATEGORIES = [
-  { key: 'treatment_protocols', label: 'Treatments',   color: '#6D28D9', desc: 'Procedures, what to expect, recovery' },
-  { key: 'pricing',             label: 'Pricing',      color: '#D97706', desc: 'Costs, packages, promotions' },
+  { key: 'treatment_protocols', label: 'Treatments',   color: '#0058E6', desc: 'Procedures, what to expect, recovery' },
+  { key: 'pricing',             label: 'Pricing',      color: '#D8A600', desc: 'Costs, packages, promotions' },
   { key: 'faqs',                label: 'FAQs',         color: '#0284C7', desc: 'Common caller questions' },
   { key: 'aftercare',           label: 'After-care',   color: '#059669', desc: 'Post-treatment instructions' },
-  { key: 'sops',                label: 'Policies',     color: '#0D9488', desc: 'Clinic policies and procedures' },
+  { key: 'sops',                label: 'Policies',     color: '#00A693', desc: 'Clinic policies and procedures' },
   { key: 'consent_templates',   label: 'Consents',     color: '#6B7280', desc: 'Forms and consent templates' },
   { key: 'cqc_guidance',        label: 'CQC',          color: '#DC2626', desc: 'Regulatory compliance notes' },
   { key: 'contraindications',   label: 'Safety',       color: '#1D4ED8', desc: 'Contraindications and precautions' },
@@ -102,9 +102,9 @@ const DEMO_TOOLS_FIRED = ['identify_caller', 'get_clinic_info', 'search_knowledg
 
 const OUTCOME_CFG: Record<CallOutcome, { label: string; color: string; bg: string }> = {
   booked:    { label: 'Booked',    color: '#059669', bg: '#ECFDF5' },
-  lead:      { label: 'Lead',      color: '#6D28D9', bg: '#F5F3FF' },
+  lead:      { label: 'Lead',      color: '#0058E6', bg: '#F5F3FF' },
   concern:   { label: 'Concern',   color: '#DC2626', bg: '#FFF1F2' },
-  escalated: { label: 'Escalated', color: '#D97706', bg: '#FFFBEB' },
+  escalated: { label: 'Escalated', color: '#D8A600', bg: '#FFFBEB' },
   missed:    { label: 'Missed',    color: '#6B7280', bg: '#F9FAFB' },
   unknown:   { label: 'Handled',   color: '#0284C7', bg: '#EFF6FF' },
 };
@@ -216,11 +216,11 @@ function PulseOrb({ active, color = ACCENT }: { active: boolean; color?: string 
       ))}
       <motion.div
         className="w-14 h-14 rounded-full flex items-center justify-center"
-        style={{ backgroundColor: active ? color : '#EBE5FF', border: `2px solid ${active ? color : '#D5CCFF'}` }}
+        style={{ backgroundColor: active ? color : '#D4E2FF', border: `2px solid ${active ? color : '#A8C4FF'}` }}
         animate={active ? { boxShadow: [`0 0 0 0 ${color}40`, `0 0 0 18px ${color}00`] } : {}}
         transition={{ duration: 1.6, repeat: Infinity }}
       >
-        <Mic size={22} style={{ color: active ? '#fff' : '#8B84A0' }} />
+        <Mic size={22} style={{ color: active ? '#fff' : '#96989B' }} />
       </motion.div>
     </div>
   );
@@ -229,7 +229,7 @@ function PulseOrb({ active, color = ACCENT }: { active: boolean; color?: string 
 // ── Section Label ──────────────────────────────────────────────────────────
 
 function SLabel({ children }: { children: React.ReactNode }) {
-  return <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#8B84A0] mb-3">{children}</p>;
+  return <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#96989B] mb-3">{children}</p>;
 }
 
 // ── Outcome Badge ──────────────────────────────────────────────────────────
@@ -258,20 +258,20 @@ function CallListItem({ call, selected, onClick }: { call: VapiCall; selected: b
       className="w-full flex items-start gap-3 px-4 py-3 text-left transition-all"
       style={{
         backgroundColor: selected ? `${ACCENT}08` : 'transparent',
-        borderBottom: '1px solid #EBE5FF',
+        borderBottom: '1px solid #D4E2FF',
         borderLeft: selected ? `2px solid ${ACCENT}` : '2px solid transparent',
       }}>
       <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
-        style={{ backgroundColor: type === 'missed' ? '#FFF1F2' : '#F5F0FF', border: '1px solid #EBE5FF' }}>
+        style={{ backgroundColor: type === 'missed' ? '#FFF1F2' : '#F5F0FF', border: '1px solid #D4E2FF' }}>
         <Icon size={12} style={{ color: type === 'missed' ? '#DC2626' : ACCENT }} />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-          <span className="text-[12px] font-semibold text-[#1A1035] truncate">{caller}</span>
+          <span className="text-[12px] font-semibold text-[#181D23] truncate">{caller}</span>
           <OutcomeBadge outcome={outcome} />
         </div>
-        <p className="text-[11px] text-[#8B84A0] truncate">{call.analysis?.summary?.slice(0, 60) ?? (type === 'missed' ? 'Missed — no answer' : 'Handled by Komal')}{(call.analysis?.summary?.length ?? 0) > 60 ? '…' : ''}</p>
-        <p className="text-[10px] text-[#8B84A0] mt-0.5">{fmtDate(call.startedAt)} · {fmtDuration(call.durationSeconds)}</p>
+        <p className="text-[11px] text-[#96989B] truncate">{call.analysis?.summary?.slice(0, 60) ?? (type === 'missed' ? 'Missed — no answer' : 'Handled by Komal')}{(call.analysis?.summary?.length ?? 0) > 60 ? '…' : ''}</p>
+        <p className="text-[10px] text-[#96989B] mt-0.5">{fmtDate(call.startedAt)} · {fmtDuration(call.durationSeconds)}</p>
       </div>
     </motion.button>
   );
@@ -303,7 +303,7 @@ function RecordingPlayer({ url }: { url: string }) {
         {playing ? <Pause size={13} color="#fff" /> : <Play size={13} color="#fff" />}
       </button>
       <div className="flex-1">
-        <div className="h-1 rounded-full bg-[#EBE5FF] relative cursor-pointer"
+        <div className="h-1 rounded-full bg-[#D4E2FF] relative cursor-pointer"
           onClick={e => {
             if (!audioRef.current) return;
             const rect = e.currentTarget.getBoundingClientRect();
@@ -314,8 +314,8 @@ function RecordingPlayer({ url }: { url: string }) {
         </div>
       </div>
       <div className="flex items-center gap-1 flex-shrink-0">
-        <Volume2 size={11} style={{ color: '#8B84A0' }} />
-        <span className="text-[10px] text-[#8B84A0]">{duration ? fmtDuration(Math.floor(duration)) : '—'}</span>
+        <Volume2 size={11} style={{ color: '#96989B' }} />
+        <span className="text-[10px] text-[#96989B]">{duration ? fmtDuration(Math.floor(duration)) : '—'}</span>
       </div>
     </div>
   );
@@ -325,7 +325,7 @@ function RecordingPlayer({ url }: { url: string }) {
 
 function TranscriptView({ lines }: { lines: TranscriptLine[] }) {
   if (lines.length === 0) return (
-    <div className="text-center py-8 text-[12px] text-[#8B84A0]">No transcript available for this call.</div>
+    <div className="text-center py-8 text-[12px] text-[#96989B]">No transcript available for this call.</div>
   );
   return (
     <div className="space-y-3 max-h-[320px] overflow-y-auto pr-1">
@@ -340,7 +340,7 @@ function TranscriptView({ lines }: { lines: TranscriptLine[] }) {
           <div className="max-w-[75%] px-3 py-2 rounded-xl text-[11px] leading-relaxed"
             style={{
               backgroundColor: l.speaker === 'komal' ? `${ACCENT}08` : '#F0F9FF',
-              color: '#1A1035',
+              color: '#181D23',
               borderRadius: l.speaker === 'komal' ? '12px 4px 12px 12px' : '4px 12px 12px 12px',
             }}>
             {l.text}
@@ -354,7 +354,7 @@ function TranscriptView({ lines }: { lines: TranscriptLine[] }) {
 // ── Missed Priority Pill ───────────────────────────────────────────────────
 
 function PriorityPill({ p }: { p: 'hot' | 'warm' | 'cold' }) {
-  const cfg = { hot: { label: 'Hot lead', color: '#DC2626', bg: '#FFF1F2' }, warm: { label: 'Warm', color: '#D97706', bg: '#FFFBEB' }, cold: { label: 'Cold', color: '#6B7280', bg: '#F9FAFB' } };
+  const cfg = { hot: { label: 'Hot lead', color: '#DC2626', bg: '#FFF1F2' }, warm: { label: 'Warm', color: '#D8A600', bg: '#FFFBEB' }, cold: { label: 'Cold', color: '#6B7280', bg: '#F9FAFB' } };
   const { label, color, bg } = cfg[p];
   return <span className="text-[9px] font-bold px-2 py-0.5 rounded-full" style={{ color, backgroundColor: bg }}>{label}</span>;
 }
@@ -366,14 +366,14 @@ function VoiceCard({ opt, selected, onSelect }: { opt: typeof VOICE_OPTIONS[0]; 
     <motion.button whileHover={{ y: -1 }} onClick={onSelect}
       className="w-full text-left p-3 rounded-xl transition-all"
       style={{
-        border: `1.5px solid ${selected ? ACCENT : '#EBE5FF'}`,
+        border: `1.5px solid ${selected ? ACCENT : '#D4E2FF'}`,
         backgroundColor: selected ? `${ACCENT}06` : 'transparent',
       }}>
       <div className="flex items-center justify-between mb-1">
-        <span className="text-[12px] font-bold text-[#1A1035]">{opt.label}</span>
+        <span className="text-[12px] font-bold text-[#181D23]">{opt.label}</span>
         {selected && <Check size={12} style={{ color: ACCENT }} />}
       </div>
-      <span className="text-[10px] text-[#8B84A0]">{opt.desc}</span>
+      <span className="text-[10px] text-[#96989B]">{opt.desc}</span>
     </motion.button>
   );
 }
@@ -386,16 +386,16 @@ function PersonalitySlider({
   return (
     <div>
       <div className="flex items-center justify-between mb-1.5">
-        <span className="text-[11px] font-medium text-[#1A1035]">{label}</span>
-        <span className="text-[10px] text-[#8B84A0]">{value}/5</span>
+        <span className="text-[11px] font-medium text-[#181D23]">{label}</span>
+        <span className="text-[10px] text-[#96989B]">{value}/5</span>
       </div>
       <input type="range" min={1} max={5} step={1} value={value}
         onChange={e => onChange(Number(e.target.value))}
         className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
         style={{ accentColor: ACCENT }} />
       <div className="flex justify-between mt-1">
-        <span className="text-[9px] text-[#8B84A0]">{minLabel}</span>
-        <span className="text-[9px] text-[#8B84A0]">{maxLabel}</span>
+        <span className="text-[9px] text-[#96989B]">{minLabel}</span>
+        <span className="text-[9px] text-[#96989B]">{maxLabel}</span>
       </div>
     </div>
   );
@@ -405,10 +405,10 @@ function PersonalitySlider({
 
 function KBCategoryCard({ cat, count }: { cat: { key: string; label: string; color: string; desc: string }; count: number }) {
   const status = count === 0 ? 'empty' : count < 3 ? 'sparse' : 'good';
-  const statusCfg = { empty: { label: 'Empty', color: '#DC2626' }, sparse: { label: 'Sparse', color: '#D97706' }, good: { label: 'Good', color: '#059669' } };
+  const statusCfg = { empty: { label: 'Empty', color: '#DC2626' }, sparse: { label: 'Sparse', color: '#D8A600' }, good: { label: 'Good', color: '#059669' } };
   return (
     <motion.div whileHover={{ y: -2 }} className="p-4 rounded-xl transition-all cursor-pointer"
-      style={{ border: '1px solid #EBE5FF', backgroundColor: 'transparent' }}
+      style={{ border: '1px solid #D4E2FF', backgroundColor: 'transparent' }}
       onMouseEnter={e => (e.currentTarget as HTMLElement).style.backgroundColor = `${cat.color}06`}
       onMouseLeave={e => (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'}>
       <div className="flex items-start justify-between mb-2">
@@ -417,13 +417,13 @@ function KBCategoryCard({ cat, count }: { cat: { key: string; label: string; col
         </div>
         <span className="text-[9px] font-bold" style={{ color: statusCfg[status].color }}>{statusCfg[status].label}</span>
       </div>
-      <p className="text-[12px] font-bold text-[#1A1035] mb-0.5">{cat.label}</p>
-      <p className="text-[10px] text-[#8B84A0] mb-2">{cat.desc}</p>
+      <p className="text-[12px] font-bold text-[#181D23] mb-0.5">{cat.label}</p>
+      <p className="text-[10px] text-[#96989B] mb-2">{cat.desc}</p>
       <div className="flex items-center justify-between">
-        <div className="h-1 flex-1 rounded-full bg-[#EBE5FF] mr-2">
+        <div className="h-1 flex-1 rounded-full bg-[#D4E2FF] mr-2">
           <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, count / 10 * 100)}%`, backgroundColor: cat.color }} />
         </div>
-        <span className="text-[10px] font-bold text-[#524D66]">{count}</span>
+        <span className="text-[10px] font-bold text-[#3D4451]">{count}</span>
       </div>
     </motion.div>
   );
@@ -648,7 +648,7 @@ export default function ReceptionPage() {
   // ---------- loading ----------
   if (!profile) {
     return (
-      <div className="min-h-screen pl-[240px] flex items-center justify-center" style={{ backgroundColor: '#FAF7F2' }}>
+      <div className="min-h-screen pl-[240px] flex items-center justify-center" style={{ backgroundColor: '#F8FAFF' }}>
         <motion.div animate={{ opacity: [0.2, 0.5, 0.2] }} transition={{ duration: 1.8, repeat: Infinity }}
           className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: ACCENT }} />
       </div>
@@ -669,16 +669,16 @@ export default function ReceptionPage() {
   ];
 
   return (
-    <div className="min-h-screen pl-[240px]" style={{ backgroundColor: '#FAF7F2' }}>
+    <div className="min-h-screen pl-[240px]" style={{ backgroundColor: '#F8FAFF' }}>
       <StaffNav profile={profile} userId={profile.userId ?? ''} brandColor={profile.brandColor ?? ACCENT} currentPath="Receptionist" />
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
-      <div className="sticky top-0 z-20" style={{ backgroundColor: '#FAF7F2', borderBottom: '1px solid #EBE5FF' }}>
+      <div className="sticky top-0 z-20" style={{ backgroundColor: '#F8FAFF', borderBottom: '1px solid #D4E2FF' }}>
         <div className="flex items-center justify-between px-10 pt-5 pb-3">
           <div>
-            <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#8B84A0] mb-1">Voice Layer</p>
+            <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#96989B] mb-1">Voice Layer</p>
             <div className="flex items-center gap-3">
-              <h1 className="text-[28px] font-black tracking-[-0.035em] text-[#1A1035]">Komal</h1>
+              <h1 className="text-[28px] font-black tracking-[-0.035em] text-[#181D23]">Komal</h1>
               {isKomalLive && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                   className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#059669]">
@@ -688,18 +688,18 @@ export default function ReceptionPage() {
                 </motion.div>
               )}
               {vapiConnected === true && !komalStatus?.provisioned && (
-                <span className="text-[10px] font-semibold text-[#D97706]">Not deployed</span>
+                <span className="text-[10px] font-semibold text-[#D8A600]">Not deployed</span>
               )}
               {vapiConnected === false && (
                 <span className="text-[10px] font-semibold text-[#DC2626]">Disconnected</span>
               )}
             </div>
-            <p className="text-[12px] text-[#6E6688] mt-0.5">AI Voice Receptionist · {identity.displayName} · Charlotte</p>
+            <p className="text-[12px] text-[#5A6475] mt-0.5">AI Voice Receptionist · {identity.displayName} · Charlotte</p>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={refreshCalls} className="w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:opacity-70"
-              style={{ border: '1px solid #EBE5FF' }}>
-              <RefreshCw size={12} className={callsLoading ? 'animate-spin' : ''} style={{ color: '#8B84A0' }} />
+              style={{ border: '1px solid #D4E2FF' }}>
+              <RefreshCw size={12} className={callsLoading ? 'animate-spin' : ''} style={{ color: '#96989B' }} />
             </button>
             <button onClick={() => openChatWithContext('receptionist_intelligence')}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-bold transition-all hover:opacity-90"
@@ -717,7 +717,7 @@ export default function ReceptionPage() {
             return (
               <button key={t.key} onClick={() => setTab(t.key)}
                 className="flex items-center gap-1.5 px-4 py-2.5 text-[11px] font-semibold transition-all relative"
-                style={{ color: active ? ACCENT : '#8B84A0' }}>
+                style={{ color: active ? ACCENT : '#96989B' }}>
                 <Icon size={12} />
                 {t.label}
                 {active && (
@@ -756,13 +756,13 @@ export default function ReceptionPage() {
                   const Icon = k.icon;
                   return (
                     <motion.div key={k.label} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
-                      className="rounded-2xl p-5" style={{ border: '1px solid #EBE5FF', backgroundColor: 'transparent' }}>
+                      className="rounded-2xl p-5" style={{ border: '1px solid #D4E2FF', backgroundColor: 'transparent' }}>
                       <div className="flex items-center justify-between mb-3">
                         <SLabel>{k.label}</SLabel>
                         <Icon size={13} style={{ color: k.color }} />
                       </div>
-                      <p className="text-[32px] font-black tracking-[-0.04em] text-[#1A1035] leading-none">{k.value}</p>
-                      <p className="text-[10px] text-[#8B84A0] mt-1">{k.sub}</p>
+                      <p className="text-[32px] font-black tracking-[-0.04em] text-[#181D23] leading-none">{k.value}</p>
+                      <p className="text-[10px] text-[#96989B] mt-1">{k.sub}</p>
                     </motion.div>
                   );
                 })}
@@ -772,13 +772,13 @@ export default function ReceptionPage() {
 
                 {/* ── Call Monitor ──────────────────────────────────────── */}
                 <div className="col-span-3">
-                  <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #EBE5FF' }}>
+                  <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #D4E2FF' }}>
 
                     {/* Monitor header */}
-                    <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #EBE5FF' }}>
+                    <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #D4E2FF' }}>
                       <div className="flex items-center gap-2">
-                        <Radio size={13} style={{ color: demoActive ? '#059669' : '#8B84A0' }} />
-                        <span className="text-[11px] font-bold text-[#1A1035]">
+                        <Radio size={13} style={{ color: demoActive ? '#059669' : '#96989B' }} />
+                        <span className="text-[11px] font-bold text-[#181D23]">
                           {demoActive ? 'Active Call' : 'Monitoring'}
                         </span>
                         {demoActive && (
@@ -808,10 +808,10 @@ export default function ReceptionPage() {
                         <div className="flex flex-col items-center py-8">
                           <PulseOrb active={isKomalLive} />
                           <div className="mt-5 text-center">
-                            <p className="text-[13px] font-bold text-[#1A1035] mb-1">
+                            <p className="text-[13px] font-bold text-[#181D23] mb-1">
                               {isKomalLive ? 'Monitoring — ready to receive' : 'Not deployed'}
                             </p>
-                            <p className="text-[11px] text-[#8B84A0]">
+                            <p className="text-[11px] text-[#96989B]">
                               {isKomalLive
                                 ? 'Komal is active and listening. Live call data will appear here.'
                                 : 'Deploy Komal in the Settings tab to go live.'}
@@ -830,8 +830,8 @@ export default function ReceptionPage() {
                           <div className="flex items-center gap-3 mb-5 p-3 rounded-xl" style={{ backgroundColor: '#ECFDF5', border: '1px solid #A7F3D0' }}>
                             <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#059669', color: '#fff', fontSize: 14, fontWeight: 900 }}>S</div>
                             <div>
-                              <p className="text-[12px] font-bold text-[#1A1035]">Sarah Mitchell — existing patient</p>
-                              <p className="text-[10px] text-[#6E6688]">07711 234 501 · Last visit: 3 weeks ago</p>
+                              <p className="text-[12px] font-bold text-[#181D23]">Sarah Mitchell — existing patient</p>
+                              <p className="text-[10px] text-[#5A6475]">07711 234 501 · Last visit: 3 weeks ago</p>
                             </div>
                             <div className="ml-auto flex items-center gap-2">
                               <motion.span className="text-[10px] font-bold text-[#059669]"
@@ -860,7 +860,7 @@ export default function ReceptionPage() {
                                   <div className="max-w-[78%] px-3 py-2 rounded-xl text-[11px] leading-relaxed"
                                     style={{
                                       backgroundColor: l.speaker === 'komal' ? `${ACCENT}08` : '#F0F9FF',
-                                      color: '#1A1035',
+                                      color: '#181D23',
                                       borderRadius: l.speaker === 'komal' ? '10px 3px 10px 10px' : '3px 10px 10px 10px',
                                     }}>
                                     {l.text}
@@ -873,7 +873,7 @@ export default function ReceptionPage() {
                           {/* Tool activations */}
                           {demoTools.length > 0 && (
                             <div>
-                              <p className="text-[8px] uppercase tracking-[0.2em] font-semibold text-[#8B84A0] mb-2">Tools activated</p>
+                              <p className="text-[8px] uppercase tracking-[0.2em] font-semibold text-[#96989B] mb-2">Tools activated</p>
                               <div className="flex flex-wrap gap-1.5">
                                 {demoTools.map((t, i) => <ToolBadge key={t} label={t} delay={0} />)}
                               </div>
@@ -888,7 +888,7 @@ export default function ReceptionPage() {
                               onKeyDown={e => e.key === 'Enter' && handleWhisperSend()}
                               placeholder="Whisper to Komal — caller can't hear this..."
                               className="flex-1 px-3 py-2 rounded-xl text-[11px] outline-none transition-all"
-                              style={{ border: `1px solid ${ACCENT}40`, backgroundColor: `${ACCENT}04`, color: '#1A1035' }} />
+                              style={{ border: `1px solid ${ACCENT}40`, backgroundColor: `${ACCENT}04`, color: '#181D23' }} />
                             <button onClick={handleWhisperSend}
                               className="px-3 py-2 rounded-xl text-[10px] font-bold flex items-center gap-1 transition-all hover:opacity-90"
                               style={{ backgroundColor: `${ACCENT}15`, color: ACCENT }}>
@@ -906,8 +906,8 @@ export default function ReceptionPage() {
                 <div className="col-span-2 space-y-5">
 
                   {/* Today's call feed */}
-                  <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #EBE5FF' }}>
-                    <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: '1px solid #EBE5FF' }}>
+                  <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #D4E2FF' }}>
+                    <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: '1px solid #D4E2FF' }}>
                       <SLabel>Today&apos;s calls</SLabel>
                       <button onClick={() => setTab('calls')} className="text-[10px] font-semibold hover:opacity-70 transition-opacity" style={{ color: ACCENT }}>
                         View all
@@ -915,19 +915,19 @@ export default function ReceptionPage() {
                     </div>
                     <div className="max-h-[220px] overflow-y-auto">
                       {todayCalls.length === 0 ? (
-                        <div className="text-center py-8 text-[12px] text-[#8B84A0]">No calls yet today</div>
+                        <div className="text-center py-8 text-[12px] text-[#96989B]">No calls yet today</div>
                       ) : todayCalls.slice(0, 8).map(c => {
                         const t = getCallType(c);
                         const o = getCallOutcome(c);
                         const Icon = t === 'missed' ? PhoneMissed : t === 'outbound' ? PhoneCall : Phone;
                         return (
                           <button key={c.id} onClick={() => { setSelectedCall(c); setTab('calls'); }}
-                            className="w-full flex items-center gap-3 px-5 py-2.5 transition-all text-left hover:bg-[#FAF7F2]"
-                            style={{ borderBottom: '1px solid #EBE5FF' }}>
+                            className="w-full flex items-center gap-3 px-5 py-2.5 transition-all text-left hover:bg-[#F8FAFF]"
+                            style={{ borderBottom: '1px solid #D4E2FF' }}>
                             <Icon size={11} style={{ color: t === 'missed' ? '#DC2626' : ACCENT }} className="flex-shrink-0" />
-                            <span className="text-[11px] text-[#1A1035] flex-1 truncate">{c.customer?.name ?? c.customer?.number ?? 'Unknown'}</span>
+                            <span className="text-[11px] text-[#181D23] flex-1 truncate">{c.customer?.name ?? c.customer?.number ?? 'Unknown'}</span>
                             <OutcomeBadge outcome={o} />
-                            <span className="text-[10px] text-[#8B84A0] flex-shrink-0">{fmtTime(c.startedAt)}</span>
+                            <span className="text-[10px] text-[#96989B] flex-shrink-0">{fmtTime(c.startedAt)}</span>
                           </button>
                         );
                       })}
@@ -947,8 +947,8 @@ export default function ReceptionPage() {
                           <div key={c.id} className="flex items-center gap-3 px-5 py-3 transition-all"
                             style={{ borderBottom: '1px solid #FECDD3' }}>
                             <div className="flex-1 min-w-0">
-                              <p className="text-[11px] font-semibold text-[#1A1035] truncate">{c.customer?.name ?? c.customer?.number ?? 'Unknown'}</p>
-                              <p className="text-[10px] text-[#8B84A0]">{fmtDate(c.startedAt)}</p>
+                              <p className="text-[11px] font-semibold text-[#181D23] truncate">{c.customer?.name ?? c.customer?.number ?? 'Unknown'}</p>
+                              <p className="text-[10px] text-[#96989B]">{fmtDate(c.startedAt)}</p>
                             </div>
                             <PriorityPill p={pri} />
                             <button className="text-[10px] font-bold hover:opacity-70 transition-opacity" style={{ color: ACCENT }}>
@@ -971,18 +971,18 @@ export default function ReceptionPage() {
             <div className="flex h-[calc(100vh-120px)]">
 
               {/* Call list */}
-              <div className="w-[360px] flex-shrink-0 flex flex-col" style={{ borderRight: '1px solid #EBE5FF' }}>
+              <div className="w-[360px] flex-shrink-0 flex flex-col" style={{ borderRight: '1px solid #D4E2FF' }}>
 
                 {/* Filter bar */}
-                <div className="px-4 py-3 space-y-2" style={{ borderBottom: '1px solid #EBE5FF' }}>
+                <div className="px-4 py-3 space-y-2" style={{ borderBottom: '1px solid #D4E2FF' }}>
                   <div className="relative">
-                    <Search size={11} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8B84A0]" />
+                    <Search size={11} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#96989B]" />
                     <input
                       value={callSearch}
                       onChange={e => setCallSearch(e.target.value)}
                       placeholder="Search calls..."
                       className="w-full pl-8 pr-3 py-2 rounded-xl text-[11px] outline-none"
-                      style={{ border: '1px solid #EBE5FF', backgroundColor: 'transparent', color: '#1A1035' }} />
+                      style={{ border: '1px solid #D4E2FF', backgroundColor: 'transparent', color: '#181D23' }} />
                   </div>
                   <div className="flex gap-1">
                     {(['all', 'inbound', 'outbound', 'missed'] as CallFilter[]).map(f => (
@@ -990,8 +990,8 @@ export default function ReceptionPage() {
                         className="px-2.5 py-1 rounded-lg text-[10px] font-semibold capitalize transition-all"
                         style={{
                           backgroundColor: callFilter === f ? ACCENT : 'transparent',
-                          color: callFilter === f ? '#fff' : '#8B84A0',
-                          border: callFilter === f ? 'none' : '1px solid #EBE5FF',
+                          color: callFilter === f ? '#fff' : '#96989B',
+                          border: callFilter === f ? 'none' : '1px solid #D4E2FF',
                         }}>
                         {f}
                       </button>
@@ -1006,7 +1006,7 @@ export default function ReceptionPage() {
                       <Loader2 size={18} className="animate-spin" style={{ color: ACCENT }} />
                     </div>
                   ) : filteredCalls.length === 0 ? (
-                    <div className="text-center py-12 text-[12px] text-[#8B84A0]">No calls found</div>
+                    <div className="text-center py-12 text-[12px] text-[#96989B]">No calls found</div>
                   ) : filteredCalls.map(c => (
                     <CallListItem key={c.id} call={c} selected={selectedCall?.id === c.id} onClick={() => setSelectedCall(c)} />
                   ))}
@@ -1018,7 +1018,7 @@ export default function ReceptionPage() {
                 <AnimatePresence mode="wait">
                   {!selectedCall ? (
                     <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                      className="h-full flex flex-col items-center justify-center gap-3 text-[#8B84A0]">
+                      className="h-full flex flex-col items-center justify-center gap-3 text-[#96989B]">
                       <Headphones size={32} style={{ opacity: 0.3 }} />
                       <p className="text-[13px]">Select a call to review</p>
                     </motion.div>
@@ -1030,7 +1030,7 @@ export default function ReceptionPage() {
                       <div className="flex items-start justify-between mb-6">
                         <div>
                           <div className="flex items-center gap-3 mb-1 flex-wrap">
-                            <h2 className="text-[22px] font-black tracking-[-0.03em] text-[#1A1035]">
+                            <h2 className="text-[22px] font-black tracking-[-0.03em] text-[#181D23]">
                               {selectedCall.customer?.name ?? selectedCall.customer?.number ?? 'Unknown caller'}
                             </h2>
                             <OutcomeBadge outcome={getCallOutcome(selectedCall)} />
@@ -1039,7 +1039,7 @@ export default function ReceptionPage() {
                             )}
                           </div>
                           {selectedCall.customer?.number && selectedCall.customer?.name && (
-                            <p className="text-[12px] text-[#6E6688]">{selectedCall.customer.number}</p>
+                            <p className="text-[12px] text-[#5A6475]">{selectedCall.customer.number}</p>
                           )}
                         </div>
                         <button onClick={() => openChatWithContext(`Call with ${selectedCall.customer?.name ?? selectedCall.customer?.number ?? 'unknown'} on ${fmtDate(selectedCall.startedAt)}. Summary: ${selectedCall.analysis?.summary ?? 'none'}`)}
@@ -1056,9 +1056,9 @@ export default function ReceptionPage() {
                           { label: 'Duration',    value: fmtDuration(selectedCall.durationSeconds) },
                           { label: 'Ended reason', value: selectedCall.endedReason ?? 'completed' },
                         ].map(m => (
-                          <div key={m.label} className="p-3 rounded-xl" style={{ border: '1px solid #EBE5FF' }}>
+                          <div key={m.label} className="p-3 rounded-xl" style={{ border: '1px solid #D4E2FF' }}>
                             <SLabel>{m.label}</SLabel>
-                            <p className="text-[12px] font-semibold text-[#1A1035]">{m.value}</p>
+                            <p className="text-[12px] font-semibold text-[#181D23]">{m.value}</p>
                           </div>
                         ))}
                       </div>
@@ -1067,7 +1067,7 @@ export default function ReceptionPage() {
                       {selectedCall.analysis?.summary && (
                         <div className="p-4 rounded-xl mb-5" style={{ backgroundColor: `${ACCENT}06`, border: `1px solid ${ACCENT}20` }}>
                           <SLabel>AI Call Summary</SLabel>
-                          <p className="text-[12px] text-[#524D66] leading-relaxed">{selectedCall.analysis.summary}</p>
+                          <p className="text-[12px] text-[#3D4451] leading-relaxed">{selectedCall.analysis.summary}</p>
                         </div>
                       )}
 
@@ -1082,11 +1082,11 @@ export default function ReceptionPage() {
                       {/* Transcript */}
                       <div>
                         <SLabel>Transcript</SLabel>
-                        <div className="rounded-xl p-4" style={{ border: '1px solid #EBE5FF' }}>
+                        <div className="rounded-xl p-4" style={{ border: '1px solid #D4E2FF' }}>
                           {selectedCall.transcript ? (
                             <TranscriptView lines={parseTranscript(selectedCall.transcript)} />
                           ) : (
-                            <div className="text-center py-6 text-[12px] text-[#8B84A0]">Transcript not available for this call.</div>
+                            <div className="text-center py-6 text-[12px] text-[#96989B]">Transcript not available for this call.</div>
                           )}
                         </div>
                       </div>
@@ -1108,8 +1108,8 @@ export default function ReceptionPage() {
                   <Brain size={16} style={{ color: ACCENT }} />
                 </div>
                 <div>
-                  <h2 className="text-[16px] font-black text-[#1A1035]">EWC Intelligence</h2>
-                  <p className="text-[11px] text-[#6E6688]">Ask EWC about calls, leads, bookings, and receptionist performance.</p>
+                  <h2 className="text-[16px] font-black text-[#181D23]">EWC Intelligence</h2>
+                  <p className="text-[11px] text-[#5A6475]">Ask EWC about calls, leads, bookings, and receptionist performance.</p>
                 </div>
               </div>
 
@@ -1120,7 +1120,7 @@ export default function ReceptionPage() {
                   { label: 'Bookings',         value: String(todayBooked),         color: '#059669'  },
                   { label: 'Need follow-up',   value: String(todayMissed.length),  color: '#DC2626'  },
                 ].map(k => (
-                  <div key={k.label} className="rounded-xl p-4" style={{ border: '1px solid #EBE5FF' }}>
+                  <div key={k.label} className="rounded-xl p-4" style={{ border: '1px solid #D4E2FF' }}>
                     <SLabel>{k.label}</SLabel>
                     <p className="text-[28px] font-black tracking-[-0.04em]" style={{ color: k.color }}>{k.value}</p>
                   </div>
@@ -1137,14 +1137,14 @@ export default function ReceptionPage() {
                       <motion.button key={p.label} whileHover={{ x: 2 }}
                         onClick={() => openChatWithContext(p.label)}
                         className="flex items-center gap-3 px-4 py-3.5 rounded-xl text-left transition-all"
-                        style={{ border: '1px solid #EBE5FF', backgroundColor: 'transparent' }}
+                        style={{ border: '1px solid #D4E2FF', backgroundColor: 'transparent' }}
                         onMouseEnter={e => (e.currentTarget as HTMLElement).style.backgroundColor = `${ACCENT}06`}
                         onMouseLeave={e => (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'}>
                         <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${ACCENT}12` }}>
                           <Icon size={13} style={{ color: ACCENT }} />
                         </div>
-                        <span className="text-[12px] font-medium text-[#1A1035]">{p.label}</span>
-                        <ArrowUpRight size={12} className="ml-auto text-[#8B84A0]" />
+                        <span className="text-[12px] font-medium text-[#181D23]">{p.label}</span>
+                        <ArrowUpRight size={12} className="ml-auto text-[#96989B]" />
                       </motion.button>
                     );
                   })}
@@ -1154,8 +1154,8 @@ export default function ReceptionPage() {
               {/* Open chat CTA */}
               <div className="rounded-2xl p-6 flex items-center justify-between" style={{ border: `1px solid ${ACCENT}30`, backgroundColor: `${ACCENT}06` }}>
                 <div>
-                  <p className="text-[13px] font-bold text-[#1A1035] mb-1">Full conversation interface</p>
-                  <p className="text-[11px] text-[#6E6688]">Open the EWC chat for a deeper conversation with full tool access, conversation history, and signal management.</p>
+                  <p className="text-[13px] font-bold text-[#181D23] mb-1">Full conversation interface</p>
+                  <p className="text-[11px] text-[#5A6475]">Open the EWC chat for a deeper conversation with full tool access, conversation history, and signal management.</p>
                 </div>
                 <button onClick={() => openChatWithContext('receptionist_intelligence')}
                   className="ml-6 flex items-center gap-2 px-5 py-2.5 rounded-xl text-[12px] font-bold flex-shrink-0 transition-all hover:opacity-90"
@@ -1168,23 +1168,23 @@ export default function ReceptionPage() {
               {calls.length > 0 && (
                 <div className="mt-6">
                   <SLabel>Recent calls for context</SLabel>
-                  <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #EBE5FF' }}>
+                  <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #D4E2FF' }}>
                     {calls.slice(0, 5).map((c, i) => {
                       const o = getCallOutcome(c);
                       const t = getCallType(c);
                       const Icon = t === 'missed' ? PhoneMissed : t === 'outbound' ? PhoneCall : Phone;
                       return (
                         <button key={c.id} onClick={() => openChatWithContext(`Tell me about the call with ${c.customer?.name ?? c.customer?.number ?? 'unknown caller'} on ${fmtDate(c.startedAt)}. Outcome: ${o}. ${c.analysis?.summary ?? ''}`)}
-                          className="w-full flex items-center gap-3 px-5 py-3 text-left transition-all hover:bg-[#FAF7F2]"
-                          style={{ borderBottom: i < 4 ? '1px solid #EBE5FF' : 'none' }}>
+                          className="w-full flex items-center gap-3 px-5 py-3 text-left transition-all hover:bg-[#F8FAFF]"
+                          style={{ borderBottom: i < 4 ? '1px solid #D4E2FF' : 'none' }}>
                           <Icon size={11} style={{ color: t === 'missed' ? '#DC2626' : ACCENT }} className="flex-shrink-0" />
                           <div className="flex-1 min-w-0">
-                            <span className="text-[11px] font-semibold text-[#1A1035]">{c.customer?.name ?? c.customer?.number ?? 'Unknown'}</span>
-                            {c.analysis?.summary && <span className="text-[10px] text-[#8B84A0] ml-2 truncate">{c.analysis.summary.slice(0, 50)}…</span>}
+                            <span className="text-[11px] font-semibold text-[#181D23]">{c.customer?.name ?? c.customer?.number ?? 'Unknown'}</span>
+                            {c.analysis?.summary && <span className="text-[10px] text-[#96989B] ml-2 truncate">{c.analysis.summary.slice(0, 50)}…</span>}
                           </div>
                           <OutcomeBadge outcome={o} />
-                          <span className="text-[10px] text-[#8B84A0] ml-2 flex-shrink-0">{fmtRelative(c.startedAt ?? '')}</span>
-                          <ArrowUpRight size={11} className="text-[#8B84A0] flex-shrink-0" />
+                          <span className="text-[10px] text-[#96989B] ml-2 flex-shrink-0">{fmtRelative(c.startedAt ?? '')}</span>
+                          <ArrowUpRight size={11} className="text-[#96989B] flex-shrink-0" />
                         </button>
                       );
                     })}
@@ -1205,20 +1205,20 @@ export default function ReceptionPage() {
                 <div className="col-span-2 space-y-6">
 
                   {/* Name */}
-                  <div className="rounded-2xl p-6" style={{ border: '1px solid #EBE5FF' }}>
+                  <div className="rounded-2xl p-6" style={{ border: '1px solid #D4E2FF' }}>
                     <SLabel>Display name</SLabel>
-                    <p className="text-[12px] text-[#6E6688] mb-3">The name Komal introduces herself as on every call.</p>
+                    <p className="text-[12px] text-[#5A6475] mb-3">The name Komal introduces herself as on every call.</p>
                     <input
                       value={identity.displayName}
                       onChange={e => setIdentity(p => ({ ...p, displayName: e.target.value }))}
                       className="w-full px-4 py-3 rounded-xl text-[14px] font-semibold outline-none transition-all"
-                      style={{ border: `1.5px solid ${ACCENT}40`, backgroundColor: 'transparent', color: '#1A1035' }} />
+                      style={{ border: `1.5px solid ${ACCENT}40`, backgroundColor: 'transparent', color: '#181D23' }} />
                   </div>
 
                   {/* Voice */}
-                  <div className="rounded-2xl p-6" style={{ border: '1px solid #EBE5FF' }}>
+                  <div className="rounded-2xl p-6" style={{ border: '1px solid #D4E2FF' }}>
                     <SLabel>Voice</SLabel>
-                    <p className="text-[12px] text-[#6E6688] mb-4">The voice used for all calls. Charlotte is the default and recommended choice.</p>
+                    <p className="text-[12px] text-[#5A6475] mb-4">The voice used for all calls. Charlotte is the default and recommended choice.</p>
                     <div className="grid grid-cols-2 gap-3">
                       {VOICE_OPTIONS.map(opt => (
                         <VoiceCard key={opt.id} opt={opt} selected={identity.voiceId === opt.id} onSelect={() => setIdentity(p => ({ ...p, voiceId: opt.id }))} />
@@ -1227,15 +1227,15 @@ export default function ReceptionPage() {
                   </div>
 
                   {/* Messages */}
-                  <div className="rounded-2xl p-6" style={{ border: '1px solid #EBE5FF' }}>
+                  <div className="rounded-2xl p-6" style={{ border: '1px solid #D4E2FF' }}>
                     <SLabel>Opening message</SLabel>
-                    <p className="text-[12px] text-[#6E6688] mb-3">The first words spoken on every inbound call. The compliance statement should always be included.</p>
+                    <p className="text-[12px] text-[#5A6475] mb-3">The first words spoken on every inbound call. The compliance statement should always be included.</p>
                     <textarea
                       value={identity.firstMessage}
                       onChange={e => setIdentity(p => ({ ...p, firstMessage: e.target.value }))}
                       rows={4}
                       className="w-full px-4 py-3 rounded-xl text-[12px] outline-none transition-all resize-none"
-                      style={{ border: `1.5px solid ${ACCENT}40`, backgroundColor: 'transparent', color: '#1A1035', lineHeight: 1.6 }} />
+                      style={{ border: `1.5px solid ${ACCENT}40`, backgroundColor: 'transparent', color: '#181D23', lineHeight: 1.6 }} />
 
                     <div className="mt-5">
                       <SLabel>End of call message</SLabel>
@@ -1244,20 +1244,20 @@ export default function ReceptionPage() {
                         onChange={e => setIdentity(p => ({ ...p, endCallMessage: e.target.value }))}
                         rows={2}
                         className="w-full px-4 py-3 rounded-xl text-[12px] outline-none transition-all resize-none"
-                        style={{ border: `1.5px solid ${ACCENT}40`, backgroundColor: 'transparent', color: '#1A1035', lineHeight: 1.6 }} />
+                        style={{ border: `1.5px solid ${ACCENT}40`, backgroundColor: 'transparent', color: '#181D23', lineHeight: 1.6 }} />
                     </div>
                   </div>
 
                   {/* Personality */}
-                  <div className="rounded-2xl p-6" style={{ border: '1px solid #EBE5FF' }}>
+                  <div className="rounded-2xl p-6" style={{ border: '1px solid #D4E2FF' }}>
                     <SLabel>Personality</SLabel>
-                    <p className="text-[12px] text-[#6E6688] mb-5">Tune how Komal communicates with callers. Changes take effect after deployment.</p>
+                    <p className="text-[12px] text-[#5A6475] mb-5">Tune how Komal communicates with callers. Changes take effect after deployment.</p>
                     <div className="space-y-5 mb-6">
                       <PersonalitySlider label="Warmth" value={identity.personality.warmth} onChange={v => setIdentity(p => ({ ...p, personality: { ...p.personality, warmth: v } }))} minLabel="Professional" maxLabel="Very warm" />
                       <PersonalitySlider label="Verbosity" value={identity.personality.verbosity} onChange={v => setIdentity(p => ({ ...p, personality: { ...p.personality, verbosity: v } }))} minLabel="Brief" maxLabel="Detailed" />
                       <PersonalitySlider label="Assertiveness" value={identity.personality.assertiveness} onChange={v => setIdentity(p => ({ ...p, personality: { ...p.personality, assertiveness: v } }))} minLabel="Soft" maxLabel="Confident" />
                     </div>
-                    <div className="space-y-3" style={{ borderTop: '1px solid #EBE5FF', paddingTop: 16 }}>
+                    <div className="space-y-3" style={{ borderTop: '1px solid #D4E2FF', paddingTop: 16 }}>
                       {[
                         { key: 'valueBeforePrice',   label: 'Lead with value before quoting price', desc: 'Komal emphasises outcomes and experience before mentioning costs.' },
                         { key: 'complianceStatement', label: 'Open every call with compliance notice', desc: 'Required: "This call may be recorded for quality and training purposes."' },
@@ -1273,8 +1273,8 @@ export default function ReceptionPage() {
                               transition={{ type: 'spring', stiffness: 400 }} />
                           </button>
                           <div>
-                            <p className="text-[11px] font-semibold text-[#1A1035]">{item.label}</p>
-                            <p className="text-[10px] text-[#8B84A0]">{item.desc}</p>
+                            <p className="text-[11px] font-semibold text-[#181D23]">{item.label}</p>
+                            <p className="text-[10px] text-[#96989B]">{item.desc}</p>
                           </div>
                         </div>
                       ))}
@@ -1320,28 +1320,28 @@ export default function ReceptionPage() {
                         </div>
                       </div>
                       <div className="p-5">
-                        <p className="text-[10px] text-[#8B84A0] mb-3">Opening message</p>
-                        <div className="p-3 rounded-xl text-[11px] leading-relaxed text-[#1A1035]"
+                        <p className="text-[10px] text-[#96989B] mb-3">Opening message</p>
+                        <div className="p-3 rounded-xl text-[11px] leading-relaxed text-[#181D23]"
                           style={{ backgroundColor: `${ACCENT}08`, border: `1px solid ${ACCENT}20` }}>
                           {identity.firstMessage || 'Enter an opening message…'}
                         </div>
                         <div className="mt-4 space-y-2">
-                          <p className="text-[10px] text-[#8B84A0]">Voice</p>
-                          <p className="text-[12px] font-semibold text-[#1A1035]">{VOICE_OPTIONS.find(v => v.id === identity.voiceId)?.label ?? 'Charlotte'}</p>
-                          <p className="text-[10px] text-[#8B84A0]">{VOICE_OPTIONS.find(v => v.id === identity.voiceId)?.desc ?? ''}</p>
+                          <p className="text-[10px] text-[#96989B]">Voice</p>
+                          <p className="text-[12px] font-semibold text-[#181D23]">{VOICE_OPTIONS.find(v => v.id === identity.voiceId)?.label ?? 'Charlotte'}</p>
+                          <p className="text-[10px] text-[#96989B]">{VOICE_OPTIONS.find(v => v.id === identity.voiceId)?.desc ?? ''}</p>
                         </div>
                         <div className="mt-4 space-y-2">
-                          <p className="text-[10px] text-[#8B84A0]">Personality at a glance</p>
+                          <p className="text-[10px] text-[#96989B]">Personality at a glance</p>
                           {[
                             { l: 'Warmth', v: identity.personality.warmth },
                             { l: 'Verbosity', v: identity.personality.verbosity },
                             { l: 'Assertiveness', v: identity.personality.assertiveness },
                           ].map(p => (
                             <div key={p.l} className="flex items-center gap-2">
-                              <span className="text-[10px] text-[#6E6688] w-20">{p.l}</span>
+                              <span className="text-[10px] text-[#5A6475] w-20">{p.l}</span>
                               <div className="flex gap-0.5">
                                 {[1,2,3,4,5].map(n => (
-                                  <div key={n} className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: n <= p.v ? ACCENT : '#EBE5FF' }} />
+                                  <div key={n} className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: n <= p.v ? ACCENT : '#D4E2FF' }} />
                                 ))}
                               </div>
                             </div>
@@ -1362,14 +1362,14 @@ export default function ReceptionPage() {
             <div className="px-10 py-8 max-w-[1100px]">
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <p className="text-[13px] text-[#6E6688]">Manage what Komal knows. The richer the knowledge base, the more intelligently she can answer callers.</p>
+                  <p className="text-[13px] text-[#5A6475]">Manage what Komal knows. The richer the knowledge base, the more intelligently she can answer callers.</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="relative">
-                    <Search size={11} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8B84A0]" />
+                    <Search size={11} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#96989B]" />
                     <input value={kbSearch} onChange={e => setKbSearch(e.target.value)}
                       placeholder="Test a question..." className="pl-8 pr-3 py-2 rounded-xl text-[11px] outline-none"
-                      style={{ border: '1px solid #EBE5FF', backgroundColor: 'transparent', color: '#1A1035', width: 200 }} />
+                      style={{ border: '1px solid #D4E2FF', backgroundColor: 'transparent', color: '#181D23', width: 200 }} />
                   </div>
                   {kbSearch && (
                     <button onClick={() => openChatWithContext(`Search my knowledge base for: ${kbSearch}`)}
@@ -1403,9 +1403,9 @@ export default function ReceptionPage() {
                     { label: 'In draft',         value: kbStats.draft           },
                     { label: 'Under review',     value: kbStats.under_review    },
                   ].map(s => (
-                    <div key={s.label} className="rounded-xl p-4" style={{ border: '1px solid #EBE5FF' }}>
+                    <div key={s.label} className="rounded-xl p-4" style={{ border: '1px solid #D4E2FF' }}>
                       <SLabel>{s.label}</SLabel>
-                      <p className="text-[28px] font-black tracking-[-0.04em] text-[#1A1035]">{s.value}</p>
+                      <p className="text-[28px] font-black tracking-[-0.04em] text-[#181D23]">{s.value}</p>
                     </div>
                   ))}
                 </div>
@@ -1418,12 +1418,12 @@ export default function ReceptionPage() {
                 onDrop={e => { e.preventDefault(); setUploadDrag(false); /* handle files */ }}
                 className="rounded-2xl p-8 text-center transition-all cursor-pointer"
                 style={{
-                  border: `2px dashed ${uploadDrag ? ACCENT : '#D5CCFF'}`,
+                  border: `2px dashed ${uploadDrag ? ACCENT : '#A8C4FF'}`,
                   backgroundColor: uploadDrag ? `${ACCENT}06` : 'transparent',
                 }}>
-                <Upload size={24} className="mx-auto mb-3" style={{ color: uploadDrag ? ACCENT : '#8B84A0' }} />
-                <p className="text-[13px] font-bold text-[#1A1035] mb-1">Upload knowledge documents</p>
-                <p className="text-[11px] text-[#8B84A0] mb-4">Drag and drop PDFs, Word documents, or text files. Komal will learn from them on next deployment.</p>
+                <Upload size={24} className="mx-auto mb-3" style={{ color: uploadDrag ? ACCENT : '#96989B' }} />
+                <p className="text-[13px] font-bold text-[#181D23] mb-1">Upload knowledge documents</p>
+                <p className="text-[11px] text-[#96989B] mb-4">Drag and drop PDFs, Word documents, or text files. Komal will learn from them on next deployment.</p>
                 <label className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-[12px] font-bold cursor-pointer transition-all hover:opacity-90"
                   style={{ backgroundColor: `${ACCENT}12`, color: ACCENT }}>
                   <Plus size={13} /> Choose files
@@ -1435,8 +1435,8 @@ export default function ReceptionPage() {
               <div className="mt-6 rounded-2xl p-5 flex items-start gap-4" style={{ backgroundColor: `${ACCENT}06`, border: `1px solid ${ACCENT}20` }}>
                 <Sparkles size={16} style={{ color: ACCENT, flexShrink: 0, marginTop: 2 }} />
                 <div>
-                  <p className="text-[12px] font-bold text-[#1A1035] mb-1">How Komal uses this knowledge</p>
-                  <p className="text-[11px] text-[#6E6688] leading-relaxed">When a caller asks about a treatment or policy, Komal searches this knowledge base in real time. The more complete each category, the more confident and accurate her answers. Sparse categories trigger a graceful fallback: &ldquo;Let me have a specialist follow up with you on that.&rdquo;</p>
+                  <p className="text-[12px] font-bold text-[#181D23] mb-1">How Komal uses this knowledge</p>
+                  <p className="text-[11px] text-[#5A6475] leading-relaxed">When a caller asks about a treatment or policy, Komal searches this knowledge base in real time. The more complete each category, the more confident and accurate her answers. Sparse categories trigger a graceful fallback: &ldquo;Let me have a specialist follow up with you on that.&rdquo;</p>
                 </div>
               </div>
             </div>
@@ -1449,12 +1449,12 @@ export default function ReceptionPage() {
             <div className="px-10 py-8 max-w-[800px]">
 
               {/* Redlines */}
-              <div className="rounded-2xl p-6 mb-6" style={{ border: '1px solid #EBE5FF' }}>
+              <div className="rounded-2xl p-6 mb-6" style={{ border: '1px solid #D4E2FF' }}>
                 <div className="flex items-center gap-2 mb-1">
                   <Shield size={13} style={{ color: '#DC2626' }} />
                   <SLabel>Redlines</SLabel>
                 </div>
-                <p className="text-[12px] text-[#6E6688] mb-4">Topics and phrases Komal will never discuss. She gracefully redirects if a caller raises them.</p>
+                <p className="text-[12px] text-[#5A6475] mb-4">Topics and phrases Komal will never discuss. She gracefully redirects if a caller raises them.</p>
                 <div className="flex flex-wrap gap-2 mb-4">
                   <AnimatePresence>
                     {redlines.map(r => (
@@ -1469,40 +1469,40 @@ export default function ReceptionPage() {
                     onKeyDown={e => e.key === 'Enter' && handleAddRedline()}
                     placeholder="Add a redline topic..."
                     className="flex-1 px-3 py-2 rounded-xl text-[11px] outline-none"
-                    style={{ border: '1px solid #EBE5FF', backgroundColor: 'transparent', color: '#1A1035' }} />
+                    style={{ border: '1px solid #D4E2FF', backgroundColor: 'transparent', color: '#181D23' }} />
                   <button onClick={handleAddRedline}
                     className="px-4 py-2 rounded-xl text-[11px] font-bold transition-all hover:opacity-80"
-                    style={{ border: '1px solid #EBE5FF', color: ACCENT }}>
+                    style={{ border: '1px solid #D4E2FF', color: ACCENT }}>
                     Add
                   </button>
                 </div>
               </div>
 
               {/* Escalation rules */}
-              <div className="rounded-2xl p-6 mb-6" style={{ border: '1px solid #EBE5FF' }}>
+              <div className="rounded-2xl p-6 mb-6" style={{ border: '1px solid #D4E2FF' }}>
                 <div className="flex items-center gap-2 mb-1">
-                  <AlertTriangle size={13} style={{ color: '#D97706' }} />
+                  <AlertTriangle size={13} style={{ color: '#D8A600' }} />
                   <SLabel>Escalation threshold</SLabel>
                 </div>
-                <p className="text-[12px] text-[#6E6688] mb-4">Komal escalates to a human after this many consecutive unresolved turns on the same question.</p>
+                <p className="text-[12px] text-[#5A6475] mb-4">Komal escalates to a human after this many consecutive unresolved turns on the same question.</p>
                 <div className="flex items-center gap-5">
                   <input type="range" min={1} max={6} step={1} value={escalation} onChange={e => setEscalation(Number(e.target.value))}
                     className="flex-1 h-1.5 rounded-full appearance-none cursor-pointer" style={{ accentColor: ACCENT }} />
-                  <span className="text-[20px] font-black text-[#1A1035] w-12 text-right">{escalation}</span>
+                  <span className="text-[20px] font-black text-[#181D23] w-12 text-right">{escalation}</span>
                 </div>
                 <div className="flex justify-between mt-1">
-                  <span className="text-[9px] text-[#8B84A0]">1 turn (very quick)</span>
-                  <span className="text-[9px] text-[#8B84A0]">6 turns (patient)</span>
+                  <span className="text-[9px] text-[#96989B]">1 turn (very quick)</span>
+                  <span className="text-[9px] text-[#96989B]">6 turns (patient)</span>
                 </div>
               </div>
 
               {/* Working hours */}
-              <div className="rounded-2xl p-6 mb-6" style={{ border: '1px solid #EBE5FF' }}>
+              <div className="rounded-2xl p-6 mb-6" style={{ border: '1px solid #D4E2FF' }}>
                 <div className="flex items-center gap-2 mb-1">
                   <Clock size={13} style={{ color: '#0284C7' }} />
                   <SLabel>Working hours</SLabel>
                 </div>
-                <p className="text-[12px] text-[#6E6688] mb-4">Komal operates 24/7 but uses these hours when answering availability questions.</p>
+                <p className="text-[12px] text-[#5A6475] mb-4">Komal operates 24/7 but uses these hours when answering availability questions.</p>
                 <div className="grid grid-cols-2 gap-3">
                   {[
                     { day: 'Monday – Friday', hours: '9:00am – 6:00pm' },
@@ -1510,22 +1510,22 @@ export default function ReceptionPage() {
                     { day: 'Sunday',          hours: 'Closed' },
                     { day: 'Bank holidays',   hours: 'Closed' },
                   ].map(h => (
-                    <div key={h.day} className="flex items-center justify-between px-4 py-3 rounded-xl" style={{ border: '1px solid #EBE5FF' }}>
-                      <span className="text-[11px] text-[#6E6688]">{h.day}</span>
-                      <span className="text-[11px] font-semibold text-[#1A1035]">{h.hours}</span>
+                    <div key={h.day} className="flex items-center justify-between px-4 py-3 rounded-xl" style={{ border: '1px solid #D4E2FF' }}>
+                      <span className="text-[11px] text-[#5A6475]">{h.day}</span>
+                      <span className="text-[11px] font-semibold text-[#181D23]">{h.hours}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
               {/* Compliance */}
-              <div className="rounded-2xl p-6 mb-6" style={{ border: '1px solid #EBE5FF' }}>
+              <div className="rounded-2xl p-6 mb-6" style={{ border: '1px solid #D4E2FF' }}>
                 <div className="flex items-center gap-2 mb-1">
                   <Shield size={13} style={{ color: '#059669' }} />
                   <SLabel>Compliance statement</SLabel>
                 </div>
-                <p className="text-[12px] text-[#6E6688] mb-3">Komal opens every call with this statement. Required by UK recording law.</p>
-                <div className="px-4 py-3 rounded-xl text-[11px] text-[#524D66] leading-relaxed" style={{ backgroundColor: '#ECFDF5', border: '1px solid #A7F3D0' }}>
+                <p className="text-[12px] text-[#5A6475] mb-3">Komal opens every call with this statement. Required by UK recording law.</p>
+                <div className="px-4 py-3 rounded-xl text-[11px] text-[#3D4451] leading-relaxed" style={{ backgroundColor: '#ECFDF5', border: '1px solid #A7F3D0' }}>
                   &ldquo;This call may be recorded for quality and training purposes.&rdquo;
                 </div>
               </div>
@@ -1534,8 +1534,8 @@ export default function ReceptionPage() {
               <div className="rounded-2xl p-6" style={{ border: `1px solid ${ACCENT}30`, backgroundColor: `${ACCENT}04` }}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-[13px] font-bold text-[#1A1035] mb-1">Deploy Komal</p>
-                    <p className="text-[11px] text-[#6E6688]">Push all current settings — identity, voice, behavior, knowledge — live to the phone line.</p>
+                    <p className="text-[13px] font-bold text-[#181D23] mb-1">Deploy Komal</p>
+                    <p className="text-[11px] text-[#5A6475]">Push all current settings — identity, voice, behavior, knowledge — live to the phone line.</p>
                     {komalStatus?.provisioned && (
                       <div className="flex items-center gap-1.5 mt-2">
                         <span className="w-1.5 h-1.5 rounded-full bg-[#059669]" />
