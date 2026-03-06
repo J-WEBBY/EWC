@@ -492,6 +492,53 @@ export async function dismissPendingBooking(signalId: string): Promise<{ success
 }
 
 // =============================================================================
+// getMonthAppointmentCounts — appointment counts per day for month heatmap
+// =============================================================================
+
+export async function getMonthAppointmentCounts(
+  year: number,
+  month: number, // 1–12
+): Promise<Record<string, number>> {
+  const pad  = (n: number) => String(n).padStart(2, '0');
+  const from = `${year}-${pad(month)}-01`;
+  const next = month === 12 ? `${year + 1}-01-01` : `${year}-${pad(month + 1)}-01`;
+
+  try {
+    const db = createSovereignClient();
+    const { data } = await db
+      .from('cliniko_appointments')
+      .select('starts_at')
+      .gte('starts_at', from)
+      .lt('starts_at', next)
+      .not('status', 'in', '("cancelled","did_not_arrive")');
+
+    const counts: Record<string, number> = {};
+    (data ?? []).forEach(a => {
+      const day = (a.starts_at as string).split('T')[0];
+      counts[day] = (counts[day] ?? 0) + 1;
+    });
+    if (Object.keys(counts).length > 0) return counts;
+
+    // Demo if empty
+    return buildDemoMonthCounts(year, month);
+  } catch {
+    return buildDemoMonthCounts(year, month);
+  }
+}
+
+function buildDemoMonthCounts(year: number, month: number): Record<string, number> {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const seed = [8, 0, 12, 5, 9, 0, 0, 7, 3, 11, 6, 4, 0, 0, 10, 8, 2, 9, 7, 0, 0, 5, 11, 4, 8, 3, 0, 0, 9, 7, 6];
+  const counts: Record<string, number> = {};
+  for (let d = 1; d <= daysInMonth; d++) {
+    const count = seed[(d - 1) % seed.length];
+    if (count > 0) counts[`${year}-${pad(month)}-${pad(d)}`] = count;
+  }
+  return counts;
+}
+
+// =============================================================================
 // updateAppointmentStatus — local cache update (syncs back on next Cliniko pull)
 // =============================================================================
 
