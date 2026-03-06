@@ -7,7 +7,7 @@
 --   3. booking_requests        — staging table for Komal-sourced bookings
 --
 -- Flow:
---   Komal call → create_booking_request tool → webhook → booking_requests row
+--   Komal call → create_booking_r  equest tool → webhook → booking_requests row
 --   Staff confirms on Calendar/Receptionist page → Cliniko write → appointment created
 -- =============================================================================
 

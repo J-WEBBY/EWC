@@ -178,7 +178,7 @@ export async function POST(req: NextRequest) {
         model:       HAIKU_MODEL,
         messages:    [{ role: 'system', content: KOMAL_SYSTEM_PROMPT }],
         temperature: 0.6,
-        maxTokens:   150,  // Cap Komal responses — shorter = faster TTS
+        maxTokens:   400,  // 400 gives Haiku room to reason after tool results without looping
         tools:       komalTools,
       },
       voice:                 { ...KOMAL_VOICE, ...(savedIdentity.voiceId ? { voiceId: savedIdentity.voiceId } : {}) },

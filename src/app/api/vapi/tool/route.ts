@@ -4,23 +4,33 @@
 // Routes to the correct handler in VAPI_TOOL_REGISTRY and returns a result.
 //
 // Vapi POST format:
-//   { "message": { "type": "tool-calls", "toolCallList": [{ "id", "function": { "name", "arguments" } }] } }
+//   { "message": { "type": "tool-calls", "call": { "id": "..." }, "toolCallList": [{ "id", "function": { "name", "arguments" } }] } }
 //
 // Response format:
 //   { "results": [{ "toolCallId": string, "result": string }] }
 //
 // Security: validates x-vapi-secret header.
 // Error policy: NEVER expose internal errors — always return graceful strings.
-// Timeouts: Tier 1 = 3s, Tier 2 (ask_agent) = 8s (enforced inside handler).
+// Timeouts: Tier 1 = 3s, write tools = 6s, ask_agent = 8s (self-managed).
+// Deduplication: write tools are idempotent per (vapi_call_id, tool_name).
+//   If Haiku calls create_booking_request 7× for the same call, only the first
+//   write hits the DB. All subsequent calls return the cached result instantly.
 // =============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
 import { VAPI_TOOL_REGISTRY } from '@/lib/vapi/tool-registry';
+import { createSovereignClient } from '@/lib/supabase/service';
 
-// Tier 1 read tools: 3s timeout. Write tools (multi-step DB): 6s timeout. ask_agent: 8s (self-managed).
-const TIER1_TIMEOUT_MS  = 3_000;
-const WRITE_TIMEOUT_MS  = 6_000;
-const WRITE_TOOLS = new Set(['create_booking_request', 'capture_lead', 'log_call_concern', 'escalate_to_human']);
+const TIER1_TIMEOUT_MS = 3_000;
+const WRITE_TIMEOUT_MS = 6_000;
+
+// Write tools that must be deduplicated — one execution per (call_id, tool_name)
+const WRITE_TOOLS = new Set([
+  'create_booking_request',
+  'capture_lead',
+  'log_call_concern',
+  'escalate_to_human',
+]);
 
 const GENERIC_FALLBACK = "I wasn't able to get that information right now — let me have our team follow up with you shortly.";
 
@@ -35,8 +45,9 @@ interface VapiToolCall {
 
 interface VapiToolMessage {
   type: string;
+  call?: { id?: string };            // Vapi includes the call object mid-call
   toolCallList?: VapiToolCall[];
-  toolWithToolCallList?: VapiToolCall[]; // some Vapi versions
+  toolWithToolCallList?: VapiToolCall[];
 }
 
 interface VapiToolPayload {
@@ -44,7 +55,7 @@ interface VapiToolPayload {
 }
 
 // ---------------------------------------------------------------------------
-// Execute a single tool call with timeout for Tier 1 tools
+// Execute a single tool call with timeout
 // ---------------------------------------------------------------------------
 
 async function executeWithTimeout(
@@ -82,6 +93,59 @@ async function executeWithTimeout(
 }
 
 // ---------------------------------------------------------------------------
+// Deduplication: check call_sessions for write tools
+// Returns cached result if already executed, null if first call.
+// ---------------------------------------------------------------------------
+
+async function checkCallSession(
+  callId: string,
+  toolName: string,
+): Promise<string | null> {
+  if (!callId) return null;
+  try {
+    const db = createSovereignClient();
+    const { data } = await db
+      .from('call_sessions')
+      .select('first_result, call_count')
+      .eq('vapi_call_id', callId)
+      .eq('tool_name', toolName)
+      .single();
+
+    if (data?.first_result) {
+      void db
+        .from('call_sessions')
+        .update({ call_count: (data.call_count ?? 1) + 1 })
+        .eq('vapi_call_id', callId)
+        .eq('tool_name', toolName);
+
+      console.warn(`[vapi/tool] Dedup: ${toolName} already fired for call ${callId} (total: ${(data.call_count ?? 1) + 1}×). Returning cached result.`);
+      return data.first_result;
+    }
+  } catch { /* table may not exist yet — fail open, proceed with execution */ }
+  return null;
+}
+
+async function saveCallSession(
+  callId: string,
+  toolName: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  args: Record<string, any>,
+  result: string,
+): Promise<void> {
+  if (!callId) return;
+  try {
+    const db = createSovereignClient();
+    await db.from('call_sessions').insert({
+      vapi_call_id: callId,
+      tool_name:    toolName,
+      call_count:   1,
+      first_args:   args,
+      first_result: result,
+    });
+  } catch { /* non-fatal — dedup is best-effort */ }
+}
+
+// ---------------------------------------------------------------------------
 // Route handler
 // ---------------------------------------------------------------------------
 
@@ -97,14 +161,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const body = await req.json() as VapiToolPayload;
+    const body     = await req.json() as VapiToolPayload;
     const { message } = body;
 
-    // Accept both message types Vapi may send
     if (message.type !== 'tool-calls' && message.type !== 'tool-call') {
-      // Not a tool call — return empty results gracefully
       return NextResponse.json({ results: [] });
     }
+
+    // Call ID — used for write-tool deduplication
+    const callId: string = message.call?.id ?? '';
 
     const toolCalls: VapiToolCall[] = (
       message.toolCallList ?? message.toolWithToolCallList ?? []
@@ -114,11 +179,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ results: [] });
     }
 
-    // ── Execute tool calls (parallel for Tier 1, sequential for ask_agent) ──
+    // ── Execute tool calls ───────────────────────────────────────────────────
     const results = await Promise.all(
       toolCalls.map(async (tc) => {
-        const toolName = tc.function?.name ?? '';
+        const toolName   = tc.function?.name ?? '';
         const isAskAgent = toolName === 'ask_agent';
+        const isWrite    = WRITE_TOOLS.has(toolName);
 
         let args: Record<string, unknown> = {};
         try {
@@ -127,17 +193,27 @@ export async function POST(req: NextRequest) {
           console.warn(`[vapi/tool] Failed to parse arguments for ${toolName}`);
         }
 
-        console.log(`[vapi/tool] Executing: ${toolName}`, isAskAgent ? `(agent: ${args.agent})` : '');
+        console.log(`[vapi/tool] Executing: ${toolName}`, isAskAgent ? `(agent: ${(args as {agent?: string}).agent})` : '');
         const start = Date.now();
 
-        const result = await executeWithTimeout(toolName, args, isAskAgent);
+        let result: string;
+
+        if (isWrite && callId) {
+          // Deduplication: return cached result if this write tool already fired
+          const cached = await checkCallSession(callId, toolName);
+          if (cached !== null) {
+            result = cached;
+          } else {
+            result = await executeWithTimeout(toolName, args, false);
+            void saveCallSession(callId, toolName, args, result);
+          }
+        } else {
+          result = await executeWithTimeout(toolName, args, isAskAgent);
+        }
 
         console.log(`[vapi/tool] ${toolName} completed in ${Date.now() - start}ms`);
 
-        return {
-          toolCallId: tc.id,
-          result,
-        };
+        return { toolCallId: tc.id, result };
       })
     );
 
@@ -145,12 +221,8 @@ export async function POST(req: NextRequest) {
 
   } catch (err) {
     console.error('[vapi/tool] Fatal error:', err);
-    // Return a graceful fallback result for any outstanding tool calls
     return NextResponse.json({
-      results: [{
-        toolCallId: 'error',
-        result: GENERIC_FALLBACK,
-      }],
+      results: [{ toolCallId: 'error', result: GENERIC_FALLBACK }],
     });
   }
 }

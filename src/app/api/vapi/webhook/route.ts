@@ -292,32 +292,61 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Enrich caller name: prefer booking tool args > Vapi customer object
+    const bookingArgCall = callMessages
+      .flatMap(m => m.toolCalls ?? [])
+      .find(tc => tc.function?.name === 'create_booking_request');
+    let enrichedCallerName = call.customer?.name ?? null;
+    let enrichedCallerPhone = call.customer?.number ?? null;
+    if (bookingArgCall) {
+      try {
+        const bArgs = JSON.parse(bookingArgCall.function.arguments ?? '{}') as { patient_name?: string; phone?: string };
+        if (bArgs.patient_name) enrichedCallerName  = bArgs.patient_name;
+        if (bArgs.phone)        enrichedCallerPhone  = bArgs.phone;
+      } catch { /* ignore parse error */ }
+    }
+    // Also check capture_lead args if no booking
+    if (!enrichedCallerName) {
+      const leadCall = callMessages
+        .flatMap(m => m.toolCalls ?? [])
+        .find(tc => tc.function?.name === 'capture_lead');
+      if (leadCall) {
+        try {
+          const lArgs = JSON.parse(leadCall.function.arguments ?? '{}') as { name?: string; phone?: string };
+          if (lArgs.name)  enrichedCallerName  = lArgs.name;
+          if (lArgs.phone) enrichedCallerPhone  = lArgs.phone;
+        } catch { /* ignore */ }
+      }
+    }
+
+    // Update signal title with enriched name
+    if (enrichedCallerName && enrichedCallerName !== caller) {
+      signalTitle = signalTitle.replace(caller, enrichedCallerName);
+    }
+
     await supabase.from('signals').insert({
       title:         signalTitle,
-      description:   summary || `${direction} call with ${caller}. Duration: ${duration}s. Ended: ${call.endedReason ?? 'normal'}. Outcome: ${outcome}.`,
-      signal_type:   'task',           // Only valid values: task/event/alert/objective/insight
+      description:   summary || `${direction} call with ${enrichedCallerName ?? caller}. Duration: ${duration}s. Ended: ${call.endedReason ?? 'normal'}. Outcome: ${outcome}.`,
+      signal_type:   'task',
       priority:      signalPriority,
       category:      signalCategory,
       status:        signalStatus,
       source_type:   'vapi_call',
       tags:          [direction, agentMode, outcome].filter(Boolean),
       data: {
-        // Call metadata
         vapi_call_id:     call.id,
-        caller_number:    call.customer?.number,
-        caller_name:      call.customer?.name,
+        caller_number:    enrichedCallerPhone ?? call.customer?.number,
+        caller_name:      enrichedCallerName,
         direction,
         duration_seconds: duration,
         ended_reason:     call.endedReason,
         recording_url:    message.artifact?.recordingUrl,
         success:          succeeded,
-        // Intelligence
         tools_used:       toolsUsed,
         agent_consulted:  agentConsulted,
         mode_detected:    agentMode,
         outcome,
         response_mode:    responseMode,
-        // Action log stored in data (no action_log column in schema)
         action_log:       actionLog,
       },
     });

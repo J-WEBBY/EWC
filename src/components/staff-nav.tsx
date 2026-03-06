@@ -28,6 +28,7 @@ import {
   Building2,
   GraduationCap,
   Stethoscope,
+  CalendarCheck,
 } from 'lucide-react';
 import type { StaffProfile } from '@/lib/actions/staff-onboarding';
 
@@ -83,7 +84,8 @@ export function StaffNav({
         { label: 'Signals',    href: `/staff/signals?userId=${userId}`,    icon: Activity },
         { label: 'Patients',   href: `/staff/patients?userId=${userId}`,   icon: Users },
         { label: 'Bridge',     href: `/staff/bridge?userId=${userId}`,     icon: Link2 },
-        { label: 'Calendar',   href: `/staff/calendar?userId=${userId}`,   icon: CalendarDays },
+        { label: 'Calendar',      href: `/staff/calendar?userId=${userId}`,      icon: CalendarDays },
+        { label: 'Appointments',  href: `/staff/appointments?userId=${userId}`, icon: CalendarCheck },
         { label: 'Team',       href: `/staff/team?userId=${userId}`,       icon: LayoutGrid },
         { label: 'Inventory',  href: `/staff/inventory?userId=${userId}`,  icon: Package },
         { label: 'Corporate',  href: `/staff/corporate?userId=${userId}`,  icon: Building2 },
