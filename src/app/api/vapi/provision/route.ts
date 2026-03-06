@@ -30,14 +30,11 @@ const WEBHOOK_SECRET = process.env.VAPI_WEBHOOK_SECRET ?? '';
 const HAIKU_MODEL = 'claude-haiku-4-5-20251001';  // Komal — fast, voice latency critical
 
 // ---------------------------------------------------------------------------
-// Voice — Komal (ElevenLabs Raquel / custom voice).
+// Voice — Komal (ElevenLabs Raquel, GDzHdQOi6jjf8zaXhCYD).
 // eleven_turbo_v2_5 is ElevenLabs' lowest-latency model (~60ms TTFB).
-// TODO: Replace RAQUEL_VOICE_ID with the actual voice ID from your ElevenLabs
-//       account — go to Voice Lab → find "Raquel" → three dots → Copy Voice ID.
-//       Fallback is Alice (Xb7hH8MSUJpSbSDYk0k2) until replaced.
 // ---------------------------------------------------------------------------
 
-const RAQUEL_VOICE_ID = 'Xb7hH8MSUJpSbSDYk0k2'; // TODO: replace with Raquel's voice ID
+const RAQUEL_VOICE_ID = 'GDzHdQOi6jjf8zaXhCYD'; // Raquel — 11labs
 
 const KOMAL_VOICE = {
   provider:         '11labs',
