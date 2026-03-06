@@ -152,12 +152,13 @@ export function buildKomalToolDefinitions(appUrl: string, toolSecret?: string): 
       type: 'function',
       function: {
         name: 'create_booking_request',
-        description: 'Create a booking request when a caller wants to book an appointment. Collect name, treatment, date, time, contact number, referral source, and practitioner preference before calling this.',
+        description: 'Create a booking request when a caller wants to book an appointment. Collect full name (spell it back to confirm), treatment, preferred date and time, phone, email, referral source, and practitioner preference before calling this. Call this tool EXACTLY ONCE per booking — never call it again after it returns a result.',
         parameters: {
           type: 'object',
           properties: {
-            patient_name:            { type: 'string', description: 'Patient full name' },
+            patient_name:            { type: 'string', description: 'Patient full name (first and last, confirmed with caller)' },
             phone:                   { type: 'string', description: 'Phone number for confirmation callback' },
+            email:                   { type: 'string', description: 'Email address for booking confirmation (ask and confirm)' },
             treatment:               { type: 'string', description: 'Treatment to book (e.g. "Botox", "CoolSculpting", "IV therapy")' },
             preferred_date:          { type: 'string', description: 'Preferred date as spoken (e.g. "next Monday", "15 April")' },
             preferred_time:          { type: 'string', description: 'Preferred time of day (e.g. "morning", "after 2pm", "10:30")' },
