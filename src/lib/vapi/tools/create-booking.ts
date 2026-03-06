@@ -1,16 +1,18 @@
 // =============================================================================
 // Vapi Tool: create_booking_request
-// Creates a booking signal for staff + attempts direct Cliniko appointment.
-// Also stores a booking_requests staging row (via webhook extraction).
-// Stores memories for both sales_agent and crm_agent.
 //
-// Direct booking flow:
-//   1. Resolve patient in Cliniko from phone (cliniko_patients cache)
-//   2. Find matching appointment type by name (cliniko → appointment_types)
-//   3. Find first available practitioner from cliniko_practitioners
-//   4. Get business_id from Cliniko
-//   5. POST /individual_appointments to Cliniko
-//   6. If any step fails → graceful fallback (staff signal only)
+// Two-path booking flow:
+//
+// PATH A — Direct (patient in Cliniko cache + date parseable):
+//   • Signal: response_mode='auto', priority='medium'
+//   • booking_requests row inserted (status='pending')
+//   • Cliniko appointment created async (updates row → 'synced_to_cliniko')
+//   • Komal: "I've submitted that directly to our system."
+//
+// PATH B — Fallback (no Cliniko match or unparseable date):
+//   • Signal: response_mode='supervised', priority='high'
+//   • booking_requests row inserted (status='pending')
+//   • Komal: "Our team will call to confirm."
 // =============================================================================
 
 import { createSovereignClient } from '@/lib/supabase/service';
@@ -39,16 +41,16 @@ function addMinutes(isoStr: string, mins: number): string {
 }
 
 export async function createBookingRequest(args: {
-  patient_name:           string;
-  phone:                  string;
-  treatment:              string;
-  preferred_date:         string;
-  preferred_time?:        string;
-  service_detail?:        string;
+  patient_name:            string;
+  phone:                   string;
+  treatment:               string;
+  preferred_date:          string;
+  preferred_time?:         string;
+  service_detail?:         string;
   preferred_practitioner?: string;
-  referral_source?:       string;
-  referral_name?:         string;
-  notes?:                 string;
+  referral_source?:        string;
+  referral_name?:          string;
+  notes?:                  string;
 }): Promise<string> {
   const {
     patient_name, phone, treatment, preferred_date,
@@ -64,7 +66,21 @@ export async function createBookingRequest(args: {
   const now = new Date().toISOString();
   const ref = `BK-${Date.now().toString(36).toUpperCase()}`;
 
-  // Build description with all available details
+  // ── 1. Pre-validate for direct booking path ─────────────────────────────
+  const phoneNorm  = phone.replace(/\s/g, '');
+  const dateStr    = preferred_time ? `${preferred_date} ${preferred_time}` : preferred_date;
+  const parsedDate = parsePreferredDate(dateStr);
+
+  const { data: patientCheck } = await db
+    .from('cliniko_patients')
+    .select('cliniko_id')
+    .ilike('phone', `%${phoneNorm}%`)
+    .limit(1);
+
+  const patientInCliniko = (patientCheck?.length ?? 0) > 0;
+  const clinikoPatientId = patientInCliniko ? String((patientCheck as {cliniko_id: string}[])[0].cliniko_id) : null;
+  const directBooking    = patientInCliniko && parsedDate !== null;
+
   const descLines = [
     `Booking request captured via voice call.`,
     `Preferred date: ${preferred_date}${preferred_time ? ` ${preferred_time}` : ''}`,
@@ -72,48 +88,82 @@ export async function createBookingRequest(args: {
     preferred_practitioner ? `Practitioner preference: ${preferred_practitioner}` : '',
     referral_source        ? `Referral: ${referral_source}${referral_name ? ` (${referral_name})` : ''}` : '',
     notes                  ? `Notes: ${notes}` : '',
+    directBooking          ? `Direct booking path: patient found in Cliniko, date parseable.` : `Fallback path: staff confirmation required.`,
   ].filter(Boolean).join('\n');
 
   try {
-    // ── 1. Signal + memories (always, regardless of Cliniko outcome) ─────
-    await db.from('signals').insert({
-      signal_type:   'task',
-      title:         `Booking request: ${patient_name} — ${treatment}`,
-      description:   descLines,
-      priority:      'high',
-      status:        'new',
-      category:      'Booking',
-      response_mode: 'supervised',
-      source_type:   'vapi_call',
-      action_log: [{
-        timestamp: now,
-        actor:     'automation:komal',
-        action:    'booking_requested',
-        note:      `${patient_name} | ${phone} | ${treatment} | ${preferred_date} | Ref: ${ref}`,
-      }],
-      data: {
-        patient_name,
-        phone,
-        treatment,
-        service_detail:          service_detail          ?? null,
-        preferred_date,
-        preferred_time:          preferred_time          ?? null,
-        preferred_practitioner:  preferred_practitioner  ?? null,
-        referral_source:         referral_source         ?? null,
-        referral_name:           referral_name           ?? null,
-        notes:                   notes                   ?? null,
-        reference:               ref,
-        source:                  'komal_voice_booking',
-      },
-    });
+    // ── 2. Signal ─────────────────────────────────────────────────────────
+    const { data: signalRow } = await db
+      .from('signals')
+      .insert({
+        signal_type:   'task',
+        title:         `Booking request: ${patient_name} — ${treatment}`,
+        description:   descLines,
+        priority:      directBooking ? 'medium' : 'high',
+        status:        'new',
+        category:      'Booking',
+        response_mode: directBooking ? 'auto' : 'supervised',
+        source_type:   'vapi_call',
+        action_log: [{
+          timestamp: now,
+          actor:     'automation:komal',
+          action:    'booking_requested',
+          note:      `${patient_name} | ${phone} | ${treatment} | ${preferred_date} | Ref: ${ref} | Direct: ${directBooking}`,
+        }],
+        data: {
+          patient_name,
+          phone,
+          treatment,
+          service_detail:           service_detail           ?? null,
+          preferred_date,
+          preferred_time:           preferred_time           ?? null,
+          preferred_practitioner:   preferred_practitioner   ?? null,
+          referral_source:          referral_source          ?? null,
+          referral_name:            referral_name            ?? null,
+          notes:                    notes                    ?? null,
+          reference:                ref,
+          source:                   'komal_voice_booking',
+          direct_booking_attempted: directBooking,
+          cliniko_patient_id:       clinikoPatientId,
+        },
+      })
+      .select('id')
+      .single();
 
+    const signalId = (signalRow as { id: string } | null)?.id ?? null;
+
+    // ── 3. booking_requests staging row ────────────────────────────────────
+    const { data: brRow } = await db
+      .from('booking_requests')
+      .insert({
+        signal_id:              signalId,
+        caller_name:            patient_name,
+        caller_phone:           phone,
+        service:                treatment,
+        service_detail:         service_detail          ?? null,
+        preferred_date:         preferred_date,
+        preferred_date_iso:     parsedDate ? parsedDate.substring(0, 10) : null,
+        preferred_time:         preferred_time          ?? null,
+        preferred_practitioner: preferred_practitioner  ?? null,
+        referral_source:        referral_source         ?? null,
+        referral_name:          referral_name           ?? null,
+        call_notes:             notes                   ?? null,
+        status:                 'pending',
+        cliniko_patient_id:     clinikoPatientId,
+      })
+      .select('id')
+      .single();
+
+    const brId = (brRow as { id: string } | null)?.id ?? null;
+
+    // ── 4. Memories ─────────────────────────────────────────────────────────
     const memContent = [
       `BOOKING REQUEST via Komal — ${now}`,
       `Patient: ${patient_name} | Phone: ${phone}`,
       `Treatment: ${treatment}${service_detail ? ` (${service_detail})` : ''} | Preferred: ${preferred_date}${preferred_time ? ` ${preferred_time}` : ''}`,
       preferred_practitioner ? `Practitioner: ${preferred_practitioner}` : '',
       referral_source        ? `Source: ${referral_source}${referral_name ? ` via ${referral_name}` : ''}` : '',
-      `Ref: ${ref}`,
+      `Ref: ${ref} | Direct booking: ${directBooking}`,
       notes ? `Notes: ${notes}` : '',
     ].filter(Boolean).join('\n');
 
@@ -122,84 +172,103 @@ export async function createBookingRequest(args: {
         agent_key:   'sales_agent',
         memory_type: 'conversation',
         content:     memContent,
-        importance:  0.9,
-        metadata:    { source: 'komal_booking', patient_name, phone, treatment, reference: ref },
+        importance:  directBooking ? 0.8 : 0.9,
+        metadata:    { source: 'komal_booking', patient_name, phone, treatment, reference: ref, direct: directBooking },
       }),
       db.from('agent_memories').insert({
         agent_key:   'crm_agent',
         memory_type: 'conversation',
         content:     memContent,
-        importance:  0.8,
-        metadata:    { source: 'komal_booking', patient_name, phone, treatment, reference: ref },
+        importance:  directBooking ? 0.9 : 0.8,
+        metadata:    { source: 'komal_booking', patient_name, phone, treatment, reference: ref, direct: directBooking },
       }),
     ]);
 
-    // ── 2. Attempt direct Cliniko booking (fire-and-forget) ───────────────
+    // ── 5. Cliniko appointment (fire-and-forget) ────────────────────────────
     void (async () => {
       try {
         const clinikoClient = await getClinikoClient();
         if (!clinikoClient) return;
 
-        // 2a. Resolve patient by phone in local cache
-        const { data: patientRows } = await db
-          .from('cliniko_patients')
-          .select('cliniko_id')
-          .ilike('phone', `%${phone.replace(/\s/g, '')}%`)
-          .limit(1);
+        // 5a. Resolve patient — use pre-validated id if available, else re-query
+        let resolvedPatientId = clinikoPatientId;
+        if (!resolvedPatientId) {
+          const { data: rows } = await db
+            .from('cliniko_patients')
+            .select('cliniko_id')
+            .ilike('phone', `%${phoneNorm}%`)
+            .limit(1);
+          if (!rows || rows.length === 0) return;
+          resolvedPatientId = String((rows as {cliniko_id: string}[])[0].cliniko_id);
+        }
 
-        if (!patientRows || patientRows.length === 0) return;
-        const clinikoPatientId = String(patientRows[0].cliniko_id);
-
-        // 2b. Find appointment type by treatment name (fuzzy)
+        // 5b. Find appointment type by treatment name (fuzzy)
         const apptTypes = await clinikoClient.getAppointmentTypes();
-        const matched = apptTypes.find(t =>
+        const matched   = apptTypes.find(t =>
           t.name.toLowerCase().includes(treatment.toLowerCase()) ||
           treatment.toLowerCase().includes(t.name.toLowerCase()),
         );
-        if (!matched) return;
+        if (!matched) {
+          if (brId) await db.from('booking_requests').update({ cliniko_error: `No appointment type matched: ${treatment}` }).eq('id', brId);
+          return;
+        }
 
         const apptTypeId      = matched.links?.self?.split('/').pop() ?? String(matched.id);
         const durationMinutes = matched.duration_in_minutes || 60;
 
-        // 2c. Find practitioner — prefer name match, else first active
+        // 5c. Resolve practitioner — prefer name match, else first active
         let clinikoPractitionerId: string | null = null;
+        let practitionerName: string | null = null;
+
         if (preferred_practitioner) {
           const { data: namedPract } = await db
             .from('cliniko_practitioners')
-            .select('cliniko_id')
+            .select('cliniko_id, full_name')
             .ilike('full_name', `%${preferred_practitioner}%`)
             .eq('is_active', true)
             .limit(1);
           if (namedPract && namedPract.length > 0) {
-            clinikoPractitionerId = String(namedPract[0].cliniko_id);
+            const p = (namedPract as {cliniko_id: string; full_name: string}[])[0];
+            clinikoPractitionerId = String(p.cliniko_id);
+            practitionerName      = p.full_name;
           }
         }
+
         if (!clinikoPractitionerId) {
           const { data: practRows } = await db
             .from('cliniko_practitioners')
-            .select('cliniko_id')
+            .select('cliniko_id, full_name')
             .eq('is_active', true)
             .limit(1);
-          if (!practRows || practRows.length === 0) return;
-          clinikoPractitionerId = String(practRows[0].cliniko_id);
+          if (!practRows || practRows.length === 0) {
+            if (brId) await db.from('booking_requests').update({ cliniko_error: 'No active practitioners found' }).eq('id', brId);
+            return;
+          }
+          const p = (practRows as {cliniko_id: string; full_name: string}[])[0];
+          clinikoPractitionerId = String(p.cliniko_id);
+          practitionerName      = p.full_name;
         }
 
-        // 2d. Get business_id
+        // 5d. Get business_id
         const businessId = await clinikoClient.getBusinessId();
-        if (!businessId) return;
+        if (!businessId) {
+          if (brId) await db.from('booking_requests').update({ cliniko_error: 'Could not retrieve business_id' }).eq('id', brId);
+          return;
+        }
 
-        // 2e. Parse preferred date
-        const dateStr  = preferred_time
-          ? `${preferred_date} ${preferred_time}`
-          : preferred_date;
-        const startsAt = parsePreferredDate(dateStr);
-        if (!startsAt) return;
+        // 5e. Parse date (use pre-validated parsedDate if available)
+        const resolvedDate = parsedDate ?? parsePreferredDate(dateStr);
+        if (!resolvedDate) {
+          if (brId) await db.from('booking_requests').update({ cliniko_error: `Could not parse date: ${dateStr}` }).eq('id', brId);
+          return;
+        }
 
-        const endsAt = addMinutes(startsAt, durationMinutes);
+        const startsAt = resolvedDate;
+        const endsAt   = addMinutes(startsAt, durationMinutes);
 
-        // 2f. Create appointment in Cliniko
+        // 5f. Create appointment in Cliniko
         const appt = await clinikoClient.createAppointment({
-          patient_id:          clinikoPatientId,
+          patient_id:          resolvedPatientId,
           practitioner_id:     clinikoPractitionerId,
           appointment_type_id: apptTypeId,
           business_id:         businessId,
@@ -208,30 +277,58 @@ export async function createBookingRequest(args: {
           notes:               notes ?? `Booked via Komal AI. Ref: ${ref}`,
         });
 
-        // 2g. Log success
         const apptClinikoId = appt.links?.self?.split('/').pop() ?? 'unknown';
-        await db.from('signals')
-          .update({
+
+        // 5g. Update booking_requests → synced
+        if (brId) {
+          await db.from('booking_requests').update({
+            status:                  'synced_to_cliniko',
+            cliniko_appointment_id:  apptClinikoId,
+            practitioner_cliniko_id: clinikoPractitionerId,
+            practitioner_name:       practitionerName,
+            confirmed_at:            new Date().toISOString(),
+          }).eq('id', brId);
+        }
+
+        // 5h. Update signal data with confirmed booking info
+        if (signalId) {
+          await db.from('signals').update({
             data: {
               patient_name, phone, treatment,
-              service_detail:         service_detail         ?? null,
-              preferred_date, preferred_time:  preferred_time         ?? null,
-              preferred_practitioner: preferred_practitioner ?? null,
-              referral_source:        referral_source        ?? null,
-              notes: notes ?? null, reference: ref,
-              source: 'komal_voice_booking',
-              cliniko_appointment_id: apptClinikoId,
-              cliniko_booked: true,
+              service_detail:          service_detail          ?? null,
+              preferred_date,
+              preferred_time:          preferred_time          ?? null,
+              preferred_practitioner:  preferred_practitioner  ?? null,
+              referral_source:         referral_source         ?? null,
+              notes:                   notes                   ?? null,
+              reference:               ref,
+              source:                  'komal_voice_booking',
+              direct_booking_attempted: true,
+              cliniko_booked:           true,
+              cliniko_appointment_id:   apptClinikoId,
+              cliniko_patient_id:       resolvedPatientId,
+              cliniko_practitioner_id:  clinikoPractitionerId,
+              practitioner_name:        practitionerName,
             },
-          })
-          .eq('title', `Booking request: ${patient_name} — ${treatment}`);
+          }).eq('id', signalId);
+        }
 
         console.log(`[vapi/create-booking] Cliniko appointment created: ${apptClinikoId} for ${patient_name}`);
 
       } catch (clinikoErr) {
-        console.error('[vapi/create-booking] Cliniko direct booking failed (non-fatal):', clinikoErr);
+        console.error('[vapi/create-booking] Cliniko booking failed (non-fatal):', clinikoErr);
+        if (brId) {
+          await db.from('booking_requests').update({
+            cliniko_error: String(clinikoErr),
+          }).eq('id', brId);
+        }
       }
     })();
+
+    // ── 6. Return message ─────────────────────────────────────────────────
+    if (directBooking) {
+      return `Perfect, ${patient_name} — I have submitted your ${treatment} booking directly to our system. Your reference is ${ref}. We have your details on file${preferred_date ? ` and have noted your preference for ${preferred_date}` : ''}. You should receive a confirmation from us shortly. Is there anything else I can help with today?`;
+    }
 
     return `Brilliant — I have put in a booking request for you, ${patient_name}. Your reference is ${ref}. One of our team will confirm the appointment for your ${treatment}${preferred_date ? ` around ${preferred_date}` : ''}. We will give you a call back to confirm. Is there anything else I can help with today?`;
 

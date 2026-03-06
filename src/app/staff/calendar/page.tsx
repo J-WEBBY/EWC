@@ -34,6 +34,7 @@ import {
   getWorkingHours, upsertWorkingHours,
   type WorkingHours as WorkingHoursRow,
 } from '@/lib/actions/booking-pipeline';
+import { createSignal } from '@/lib/actions/signals';
 
 // =============================================================================
 // CONSTANTS & HELPERS
@@ -298,6 +299,15 @@ export default function SmartCalendarPage() {
   const [whSaving,      setWhSaving]      = useState(false);
   const [whSaved,       setWhSaved]       = useState(false);
 
+  // ── Team view toggle ──
+  const [teamView,      setTeamView]      = useState<'cards' | 'agenda'>('cards');
+
+  // ── Request Coverage (Availability tab) ──
+  const [coverReqDate,  setCoverReqDate]  = useState('');
+  const [coverReqNote,  setCoverReqNote]  = useState('');
+  const [coverSending,  setCoverSending]  = useState(false);
+  const [coverSent,     setCoverSent]     = useState(false);
+
   // ── Auth ──
   useEffect(() => {
     getCurrentUser().then(r => {
@@ -427,6 +437,33 @@ export default function SmartCalendarPage() {
     return lines.length > 0 ? lines : ['No critical alerts today. Schedule is running smoothly.'];
   }, [pending, monthCounts, calData, todayStr]);
 
+  // ── 14-day capacity preview (computed from workingHours + appointments already loaded) ──
+  const next14Days = useMemo(() => {
+    const result: {
+      date: string;
+      label: string;
+      dow: number;          // 0=Sun
+      practitioners: { id: string; name: string; color: string; initials: string; totalSlots: number; bookedSlots: number; isWorking: boolean }[];
+    }[] = [];
+    for (let i = 0; i < 14; i++) {
+      const d    = addDays(new Date(), i);
+      const dStr = fmtDate(d);
+      const dow  = d.getDay();
+      const label = i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+      const practData = practitioners.map(p => {
+        const wh = workingHours.find(w => w.practitioner_id === p.cliniko_id && w.day_of_week === dow && w.is_active);
+        if (!wh) return { id: p.cliniko_id, name: p.name, color: p.color, initials: p.initials, totalSlots: 0, bookedSlots: 0, isWorking: false };
+        const startMins = parseInt(wh.start_time.split(':')[0]) * 60 + parseInt(wh.start_time.split(':')[1]);
+        const endMins   = parseInt(wh.end_time.split(':')[0])   * 60 + parseInt(wh.end_time.split(':')[1]);
+        const totalSlots  = Math.floor((endMins - startMins) / wh.slot_duration_min);
+        const bookedSlots = appointments.filter(a => a.starts_at.startsWith(dStr) && a.practitioner_cliniko_id === p.cliniko_id && a.status !== 'cancelled').length;
+        return { id: p.cliniko_id, name: p.name, color: p.color, initials: p.initials, totalSlots, bookedSlots, isWorking: true };
+      });
+      result.push({ date: dStr, label, dow, practitioners: practData });
+    }
+    return result;
+  }, [practitioners, workingHours, appointments]);
+
   // ── Handlers ──
   const handleStatusUpdate = async (appt: AppointmentRow, status: 'arrived' | 'cancelled') => {
     setStatusBusy(appt.id);
@@ -533,6 +570,31 @@ export default function SmartCalendarPage() {
     setWorkingHours(refreshed);
     setWhSaving(false); setWhSaved(true);
     setTimeout(() => setWhSaved(false), 2500);
+  };
+
+  const handleRequestCoverage = async () => {
+    if (!coverReqDate) return;
+    setCoverSending(true);
+    const practName = profile ? `${profile.firstName} ${profile.lastName}`.trim() : 'Staff member';
+    const dateLabel = new Date(coverReqDate).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' });
+    await createSignal('clinic', {
+      signalType:    'task',
+      title:         `Coverage requested: ${practName} — ${dateLabel}`,
+      description:   coverReqNote
+        ? `${practName} is requesting coverage.\nDate: ${coverReqDate}\nNote: ${coverReqNote}`
+        : `${practName} is requesting coverage on ${coverReqDate}.`,
+      priority:      'medium',
+      status:        'new',
+      category:      'Operations',
+      responseMode:  'supervised',
+      sourceType:    'manual',
+      createdByUserId: userId || null,
+    });
+    setCoverSending(false);
+    setCoverSent(true);
+    setCoverReqDate('');
+    setCoverReqNote('');
+    setTimeout(() => setCoverSent(false), 3000);
   };
 
   const openCreateAppt = (prefilledDate?: string) => {
@@ -875,151 +937,322 @@ export default function SmartCalendarPage() {
               {/* ═══ TEAM ═══ */}
               {mainTab === 'team' && (
                 <motion.div key="team" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
-                    <AnimatePresence>
-                      {practitioners.map((p, i) => {
-                        const pracAppts  = appointments.filter(a => a.practitioner_cliniko_id === p.cliniko_id);
-                        const todayCount = pracAppts.filter(a => a.starts_at.startsWith(todayStr)).length;
-                        const weekCount  = pracAppts.length;
-                        const arrivedCnt = pracAppts.filter(a => a.status === 'arrived').length;
-                        const nextAppt   = pracAppts.find(a => new Date(a.starts_at) > new Date() && a.status !== 'cancelled');
-                        return (
-                          <motion.div key={p.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07 }} style={panel({ borderLeft: `4px solid ${p.color}`, padding: 20 })}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-                              <div style={{ width: 46, height: 46, borderRadius: '50%', background: `${p.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, color: p.color, flexShrink: 0 }}>{p.initials}</div>
-                              <div>
-                                <div style={{ fontSize: 14, fontWeight: 800, color: C.navy }}>{p.name}</div>
-                                {p.email && <div style={{ fontSize: 10, color: C.ter }}>{p.email}</div>}
-                              </div>
-                            </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 12 }}>
-                              {[{ label: 'Today', val: todayCount, color: p.color }, { label: 'This week', val: weekCount, color: C.navy }, { label: 'Arrived', val: arrivedCnt, color: C.komal }].map(kpi => (
-                                <div key={kpi.label} style={{ background: `${kpi.color}0a`, borderRadius: 10, padding: '8px 10px', border: `1px solid ${kpi.color}20` }}>
-                                  <div style={{ fontSize: 20, fontWeight: 900, color: kpi.color }}>{kpi.val}</div>
-                                  <div style={{ fontSize: 8, textTransform: 'uppercase' as const, letterSpacing: '0.12em', color: C.muted, marginTop: 2 }}>{kpi.label}</div>
+                  {/* View toggle */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: `${C.border}60`, borderRadius: 10, padding: 3 }}>
+                      {(['cards', 'agenda'] as const).map(v => (
+                        <button key={v} onClick={() => setTeamView(v)}
+                          style={{ padding: '6px 16px', borderRadius: 8, border: 'none', background: teamView === v ? '#fff' : 'transparent', color: teamView === v ? C.navy : C.ter, fontSize: 11, fontWeight: teamView === v ? 700 : 500, cursor: 'pointer', boxShadow: teamView === v ? '0 1px 4px rgba(26,16,53,0.1)' : 'none', transition: 'all 0.15s' }}>
+                          {v.charAt(0).toUpperCase() + v.slice(1)}
+                        </button>
+                      ))}
+                    </div>
+                    <div style={{ fontSize: 10, color: C.muted }}>{weekLabel}</div>
+                  </div>
+
+                  {teamView === 'cards' && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+                      <AnimatePresence>
+                        {practitioners.map((p, i) => {
+                          const pracAppts   = appointments.filter(a => a.practitioner_cliniko_id === p.cliniko_id);
+                          const todayCount  = pracAppts.filter(a => a.starts_at.startsWith(todayStr)).length;
+                          const weekCount   = pracAppts.length;
+                          const arrivedCnt  = pracAppts.filter(a => a.status === 'arrived').length;
+                          const nextAppt    = pracAppts.find(a => new Date(a.starts_at) > new Date() && a.status !== 'cancelled');
+                          const todayDow    = new Date().getDay();
+                          const wh          = workingHours.find(w => w.practitioner_id === p.cliniko_id && w.day_of_week === todayDow && w.is_active);
+                          const isWorking   = !!wh;
+                          return (
+                            <motion.div key={p.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07 }} style={panel({ borderLeft: `4px solid ${p.color}`, padding: 20 })}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                                <div style={{ width: 46, height: 46, borderRadius: '50%', background: `${p.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, color: p.color, flexShrink: 0 }}>{p.initials}</div>
+                                <div style={{ flex: 1 }}>
+                                  <div style={{ fontSize: 14, fontWeight: 800, color: C.navy }}>{p.name}</div>
+                                  {p.email && <div style={{ fontSize: 10, color: C.ter }}>{p.email}</div>}
                                 </div>
-                              ))}
-                            </div>
-                            {nextAppt ? (
-                              <div style={{ background: `${accentColor}06`, borderRadius: 10, padding: '10px 14px', marginBottom: 10, border: `1px solid ${C.border}` }}>
-                                <div style={{ fontSize: 9, textTransform: 'uppercase' as const, letterSpacing: '0.15em', color: C.muted, marginBottom: 4 }}>Next</div>
-                                <div style={{ fontSize: 12, fontWeight: 700, color: C.navy }}>{nextAppt.patient_name}</div>
-                                <div style={{ fontSize: 10, color: C.sec }}>{nextAppt.appointment_type}</div>
-                                <div style={{ fontSize: 10, color: C.ter, marginTop: 2 }}>{fmtTime(nextAppt.starts_at)} &mdash; {fmtDateShort(nextAppt.starts_at)}</div>
+                                <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.1em', padding: '3px 8px', borderRadius: 6, background: isWorking ? '#05966914' : `${C.border}80`, color: isWorking ? C.komal : C.muted }}>
+                                  {isWorking ? `Working ${wh!.start_time.slice(0,5)}–${wh!.end_time.slice(0,5)}` : 'Day off'}
+                                </span>
                               </div>
-                            ) : (
-                              <div style={{ textAlign: 'center', fontSize: 10, color: C.muted, padding: '10px 0', marginBottom: 10 }}>No upcoming appointments</div>
-                            )}
-                            <button onClick={() => { setFilterPrac(p.cliniko_id); setMainTab('appointments'); }}
-                              style={{ width: '100%', padding: '8px 0', borderRadius: 10, border: `1px solid ${p.color}40`, background: `${p.color}0a`, fontSize: 10, fontWeight: 700, color: p.color, cursor: 'pointer' }}>
-                              View Schedule <ArrowRight size={11} style={{ display: 'inline', verticalAlign: 'middle' }} />
-                            </button>
-                          </motion.div>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 12 }}>
+                                {[{ label: 'Today', val: todayCount, color: p.color }, { label: 'This week', val: weekCount, color: C.navy }, { label: 'Arrived', val: arrivedCnt, color: C.komal }].map(kpi => (
+                                  <div key={kpi.label} style={{ background: `${kpi.color}0a`, borderRadius: 10, padding: '8px 10px', border: `1px solid ${kpi.color}20` }}>
+                                    <div style={{ fontSize: 20, fontWeight: 900, color: kpi.color }}>{kpi.val}</div>
+                                    <div style={{ fontSize: 8, textTransform: 'uppercase' as const, letterSpacing: '0.12em', color: C.muted, marginTop: 2 }}>{kpi.label}</div>
+                                  </div>
+                                ))}
+                              </div>
+                              {/* Week schedule strip */}
+                              <div style={{ display: 'flex', gap: 3, marginBottom: 12 }}>
+                                {([1,2,3,4,5,6,0] as const).map(dow => {
+                                  const dayWh = workingHours.find(w => w.practitioner_id === p.cliniko_id && w.day_of_week === dow && w.is_active);
+                                  const dayLabel = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dow];
+                                  return (
+                                    <div key={dow} style={{ flex: 1, textAlign: 'center' as const }}>
+                                      <div style={{ fontSize: 7, textTransform: 'uppercase' as const, letterSpacing: '0.1em', color: dayWh ? p.color : C.muted, fontWeight: dayWh ? 700 : 400, marginBottom: 2 }}>{dayLabel}</div>
+                                      <div style={{ height: 4, borderRadius: 2, background: dayWh ? p.color : `${C.border}80` }} />
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                              {nextAppt ? (
+                                <div style={{ background: `${accentColor}06`, borderRadius: 10, padding: '10px 14px', marginBottom: 10, border: `1px solid ${C.border}` }}>
+                                  <div style={{ fontSize: 9, textTransform: 'uppercase' as const, letterSpacing: '0.15em', color: C.muted, marginBottom: 4 }}>Next</div>
+                                  <div style={{ fontSize: 12, fontWeight: 700, color: C.navy }}>{nextAppt.patient_name}</div>
+                                  <div style={{ fontSize: 10, color: C.sec }}>{nextAppt.appointment_type}</div>
+                                  <div style={{ fontSize: 10, color: C.ter, marginTop: 2 }}>{fmtTime(nextAppt.starts_at)} &mdash; {fmtDateShort(nextAppt.starts_at)}</div>
+                                </div>
+                              ) : (
+                                <div style={{ textAlign: 'center', fontSize: 10, color: C.muted, padding: '10px 0', marginBottom: 10 }}>No upcoming appointments</div>
+                              )}
+                              <button onClick={() => { setFilterPrac(p.cliniko_id); setMainTab('appointments'); }}
+                                style={{ width: '100%', padding: '8px 0', borderRadius: 10, border: `1px solid ${p.color}40`, background: `${p.color}0a`, fontSize: 10, fontWeight: 700, color: p.color, cursor: 'pointer' }}>
+                                View Schedule <ArrowRight size={11} style={{ display: 'inline', verticalAlign: 'middle' }} />
+                              </button>
+                            </motion.div>
+                          );
+                        })}
+                      </AnimatePresence>
+                    </div>
+                  )}
+
+                  {teamView === 'agenda' && (
+                    <div style={panel({ padding: 0 })}>
+                      {/* Practitioner column headers */}
+                      <div style={{ display: 'grid', gridTemplateColumns: `120px repeat(${practitioners.length}, 1fr)`, borderBottom: `1px solid ${C.border}`, background: `${accentColor}04` }}>
+                        <div style={{ padding: '10px 14px', fontSize: 8, textTransform: 'uppercase' as const, letterSpacing: '0.2em', color: C.muted, fontWeight: 600 }}>Day</div>
+                        {practitioners.map(p => (
+                          <div key={p.cliniko_id} style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8, borderLeft: `1px solid ${C.border}` }}>
+                            <div style={{ width: 22, height: 22, borderRadius: '50%', background: `${p.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 800, color: p.color, flexShrink: 0 }}>{p.initials}</div>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: C.navy }}>{p.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                      {/* Day rows — current week */}
+                      {weekDays.map((day, di) => {
+                        const dStr   = fmtDate(day);
+                        const isToday_ = isToday(day);
+                        return (
+                          <div key={dStr} style={{ display: 'grid', gridTemplateColumns: `120px repeat(${practitioners.length}, 1fr)`, borderBottom: di < 6 ? `1px solid ${C.border}` : 'none', background: isToday_ ? `${accentColor}04` : 'transparent' }}>
+                            {/* Date cell */}
+                            <div style={{ padding: '12px 14px', borderRight: `1px solid ${C.border}` }}>
+                              <div style={{ fontSize: 12, fontWeight: isToday_ ? 800 : 600, color: isToday_ ? accentColor : C.navy }}>{day.toLocaleDateString('en-GB', { weekday: 'short' })}</div>
+                              <div style={{ fontSize: 10, color: isToday_ ? accentColor : C.ter }}>{day.getDate()} {MONTH_SHORT[day.getMonth()]}</div>
+                              {isToday_ && <div style={{ fontSize: 8, textTransform: 'uppercase' as const, letterSpacing: '0.1em', color: accentColor, fontWeight: 700, marginTop: 2 }}>Today</div>}
+                            </div>
+                            {/* Per-practitioner appointment list */}
+                            {practitioners.map(p => {
+                              const wh   = workingHours.find(w => w.practitioner_id === p.cliniko_id && w.day_of_week === day.getDay() && w.is_active);
+                              const appts = appointments.filter(a => a.starts_at.startsWith(dStr) && a.practitioner_cliniko_id === p.cliniko_id && a.status !== 'cancelled').sort((a, b) => a.starts_at.localeCompare(b.starts_at));
+                              return (
+                                <div key={p.cliniko_id} style={{ padding: '8px 12px', borderLeft: `1px solid ${C.border}`, minHeight: 52 }}>
+                                  {!wh ? (
+                                    <div style={{ fontSize: 9, color: C.muted, fontStyle: 'italic' as const, paddingTop: 6 }}>Day off</div>
+                                  ) : appts.length === 0 ? (
+                                    <div style={{ fontSize: 9, color: C.muted, paddingTop: 6 }}>Free — {wh.start_time.slice(0,5)} to {wh.end_time.slice(0,5)}</div>
+                                  ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 4 }}>
+                                      {appts.map(a => (
+                                        <button key={a.id} onClick={() => setSelected(a)}
+                                          style={{ textAlign: 'left' as const, background: `${p.color}10`, border: `1px solid ${p.color}30`, borderRadius: 6, padding: '4px 7px', cursor: 'pointer' }}>
+                                          <div style={{ fontSize: 10, fontWeight: 700, color: C.navy, whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{a.patient_name}</div>
+                                          <div style={{ fontSize: 9, color: C.ter }}>{fmtTime(a.starts_at)} · {a.appointment_type || 'Appointment'}</div>
+                                        </button>
+                                      ))}
+                                      <div style={{ fontSize: 8, color: C.muted, textAlign: 'right' as const }}>{appts.length} appt{appts.length > 1 ? 's' : ''}</div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
                         );
                       })}
-                    </AnimatePresence>
-                  </div>
+                    </div>
+                  )}
                 </motion.div>
               )}
 
               {/* ═══ AVAILABILITY ═══ */}
               {mainTab === 'availability' && (
                 <motion.div key="availability" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 20, alignItems: 'start' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 20, alignItems: 'start' }}>
 
-                    {/* Main editor */}
-                    <div style={panel({ padding: 0 })}>
-                      {/* Practitioner selector */}
-                      <div style={{ padding: '14px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', gap: 8, flexWrap: 'wrap' as const, alignItems: 'center' }}>
-                        <span style={{ fontSize: 9, textTransform: 'uppercase' as const, letterSpacing: '0.2em', color: C.muted, fontWeight: 600, marginRight: 4 }}>Practitioner</span>
-                        {practitioners.map(p => (
-                          <button key={p.cliniko_id} onClick={() => setWhPractId(p.cliniko_id)}
-                            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 10, border: `1px solid ${whPractId === p.cliniko_id ? p.color : C.border}`, background: whPractId === p.cliniko_id ? `${p.color}14` : 'transparent', cursor: 'pointer', fontSize: 11, fontWeight: 600, color: whPractId === p.cliniko_id ? p.color : C.ter }}>
-                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.color }} />
-                            {p.name}
-                          </button>
-                        ))}
-                      </div>
+                    {/* ── Left: Working hours editor ── */}
+                    <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 16 }}>
+                      <div style={panel({ padding: 0 })}>
+                        {/* Practitioner selector */}
+                        <div style={{ padding: '14px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', gap: 8, flexWrap: 'wrap' as const, alignItems: 'center' }}>
+                          <span style={{ fontSize: 9, textTransform: 'uppercase' as const, letterSpacing: '0.2em', color: C.muted, fontWeight: 600, marginRight: 4 }}>Practitioner</span>
+                          {practitioners.map(p => (
+                            <button key={p.cliniko_id} onClick={() => setWhPractId(p.cliniko_id)}
+                              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 10, border: `1px solid ${whPractId === p.cliniko_id ? p.color : C.border}`, background: whPractId === p.cliniko_id ? `${p.color}14` : 'transparent', cursor: 'pointer', fontSize: 11, fontWeight: 600, color: whPractId === p.cliniko_id ? p.color : C.ter }}>
+                              <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.color }} />
+                              {p.name}
+                            </button>
+                          ))}
+                        </div>
 
-                      {/* Column headers */}
-                      <div style={{ display: 'grid', gridTemplateColumns: '130px 60px 110px 110px 90px', padding: '10px 20px', borderBottom: `1px solid ${C.border}`, background: `${accentColor}04` }}>
-                        {['Day', 'Active', 'From', 'To', 'Slot'].map(h => (
-                          <span key={h} style={{ fontSize: 8, textTransform: 'uppercase' as const, letterSpacing: '0.2em', fontWeight: 600, color: C.muted }}>{h}</span>
-                        ))}
-                      </div>
+                        {/* Column headers */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '130px 60px 110px 110px 90px', padding: '10px 20px', borderBottom: `1px solid ${C.border}`, background: `${accentColor}04` }}>
+                          {['Day', 'Active', 'From', 'To', 'Slot'].map(h => (
+                            <span key={h} style={{ fontSize: 8, textTransform: 'uppercase' as const, letterSpacing: '0.2em', fontWeight: 600, color: C.muted }}>{h}</span>
+                          ))}
+                        </div>
 
-                      {/* Day rows — Mon-first then Sun */}
-                      {([1,2,3,4,5,6,0] as const).map((dow, i) => {
-                        const dayName = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][dow];
-                        const edit    = whEdits[dow] ?? { start: '09:00', end: '17:00', slots: 30, active: false };
-                        return (
-                          <div key={dow} style={{ display: 'grid', gridTemplateColumns: '130px 60px 110px 110px 90px', padding: '11px 20px', borderBottom: i < 6 ? `1px solid ${C.border}` : 'none', alignItems: 'center', background: edit.active ? `${accentColor}03` : 'transparent', transition: 'background 0.15s' }}>
-                            <span style={{ fontSize: 12, fontWeight: 600, color: edit.active ? C.navy : C.muted }}>{dayName}</span>
-                            <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-                              <input type="checkbox" checked={edit.active} onChange={e => setWhEdits(prev => ({ ...prev, [dow]: { ...(prev[dow] ?? { start: '09:00', end: '17:00', slots: 30, active: false }), active: e.target.checked } }))}
-                                style={{ width: 15, height: 15, accentColor: accentColor, cursor: 'pointer' }} />
-                            </label>
-                            {edit.active ? (
-                              <>
-                                <input type="time" value={edit.start} onChange={e => setWhEdits(prev => ({ ...prev, [dow]: { ...prev[dow], start: e.target.value } }))}
-                                  style={{ border: `1px solid ${C.border}`, borderRadius: 7, padding: '5px 8px', fontSize: 11, color: C.navy, background: 'transparent', outline: 'none', width: 90 }} />
-                                <input type="time" value={edit.end} onChange={e => setWhEdits(prev => ({ ...prev, [dow]: { ...prev[dow], end: e.target.value } }))}
-                                  style={{ border: `1px solid ${C.border}`, borderRadius: 7, padding: '5px 8px', fontSize: 11, color: C.navy, background: 'transparent', outline: 'none', width: 90 }} />
-                                <select value={edit.slots} onChange={e => setWhEdits(prev => ({ ...prev, [dow]: { ...prev[dow], slots: parseInt(e.target.value) } }))}
-                                  style={{ border: `1px solid ${C.border}`, borderRadius: 7, padding: '5px 8px', fontSize: 11, color: C.navy, background: 'transparent', outline: 'none', width: 82 }}>
-                                  {[15,20,30,45,60].map(s => <option key={s} value={s}>{s} min</option>)}
-                                </select>
-                              </>
-                            ) : (
-                              <span style={{ fontSize: 10, color: C.muted, fontStyle: 'italic' as const }}>Day off</span>
-                            )}
-                          </div>
-                        );
-                      })}
-
-                      {/* Save footer */}
-                      <div style={{ padding: '14px 20px', borderTop: `1px solid ${C.border}`, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12 }}>
-                        {whSaved && (
-                          <span style={{ fontSize: 11, color: '#059669', display: 'flex', alignItems: 'center', gap: 5 }}>
-                            <Check size={13} /> Saved
-                          </span>
-                        )}
-                        <button onClick={handleSaveWorkingHours} disabled={whSaving || !whPractId}
-                          style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 20px', borderRadius: 10, border: 'none', background: whSaving ? C.muted : accentColor, color: '#fff', fontSize: 11, fontWeight: 700, cursor: whSaving ? 'not-allowed' : 'pointer' }}>
-                          <Save size={13} /> {whSaving ? 'Saving...' : 'Save Schedule'}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Overview sidebar */}
-                    <div style={panel({ padding: 20, background: 'rgba(255,255,255,0.7)' })}>
-                      <Lbl>Schedule overview</Lbl>
-                      <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 10 }}>
-                        {practitioners.map(p => {
-                          const pRows = workingHours.filter(w => w.practitioner_id === p.cliniko_id && w.is_active);
-                          const dayLabels = pRows.map(r => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][r.day_of_week]).join(', ');
-                          const times = pRows.length > 0 ? `${pRows[0].start_time} – ${pRows[0].end_time}` : null;
+                        {/* Day rows */}
+                        {([1,2,3,4,5,6,0] as const).map((dow, i) => {
+                          const dayName = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][dow];
+                          const edit    = whEdits[dow] ?? { start: '09:00', end: '17:00', slots: 30, active: false };
                           return (
-                            <div key={p.cliniko_id} onClick={() => setWhPractId(p.cliniko_id)} style={{ padding: '12px 14px', borderRadius: 10, background: `${p.color}08`, border: `1px solid ${whPractId === p.cliniko_id ? p.color : `${p.color}20`}`, cursor: 'pointer', transition: 'border-color 0.15s' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
-                                <div style={{ width: 28, height: 28, borderRadius: '50%', background: `${p.color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: p.color }}>{p.initials}</div>
-                                <span style={{ fontSize: 12, fontWeight: 700, color: C.navy }}>{p.name}</span>
-                              </div>
-                              {pRows.length > 0 ? (
+                            <div key={dow} style={{ display: 'grid', gridTemplateColumns: '130px 60px 110px 110px 90px', padding: '11px 20px', borderBottom: i < 6 ? `1px solid ${C.border}` : 'none', alignItems: 'center', background: edit.active ? `${accentColor}03` : 'transparent', transition: 'background 0.15s' }}>
+                              <span style={{ fontSize: 12, fontWeight: 600, color: edit.active ? C.navy : C.muted }}>{dayName}</span>
+                              <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                                <input type="checkbox" checked={edit.active} onChange={e => setWhEdits(prev => ({ ...prev, [dow]: { ...(prev[dow] ?? { start: '09:00', end: '17:00', slots: 30, active: false }), active: e.target.checked } }))}
+                                  style={{ width: 15, height: 15, accentColor: accentColor, cursor: 'pointer' }} />
+                              </label>
+                              {edit.active ? (
                                 <>
-                                  <div style={{ fontSize: 10, color: C.ter }}>{pRows.length} day{pRows.length > 1 ? 's' : ''}: {dayLabels}</div>
-                                  {times && <div style={{ fontSize: 10, color: C.ter, marginTop: 2 }}>{times} · {pRows[0].slot_duration_min} min slots</div>}
+                                  <input type="time" value={edit.start} onChange={e => setWhEdits(prev => ({ ...prev, [dow]: { ...prev[dow], start: e.target.value } }))}
+                                    style={{ border: `1px solid ${C.border}`, borderRadius: 7, padding: '5px 8px', fontSize: 11, color: C.navy, background: 'transparent', outline: 'none', width: 90 }} />
+                                  <input type="time" value={edit.end} onChange={e => setWhEdits(prev => ({ ...prev, [dow]: { ...prev[dow], end: e.target.value } }))}
+                                    style={{ border: `1px solid ${C.border}`, borderRadius: 7, padding: '5px 8px', fontSize: 11, color: C.navy, background: 'transparent', outline: 'none', width: 90 }} />
+                                  <select value={edit.slots} onChange={e => setWhEdits(prev => ({ ...prev, [dow]: { ...prev[dow], slots: parseInt(e.target.value) } }))}
+                                    style={{ border: `1px solid ${C.border}`, borderRadius: 7, padding: '5px 8px', fontSize: 11, color: C.navy, background: 'transparent', outline: 'none', width: 82 }}>
+                                    {[15,20,30,45,60].map(s => <option key={s} value={s}>{s} min</option>)}
+                                  </select>
                                 </>
                               ) : (
-                                <div style={{ fontSize: 10, color: C.muted, fontStyle: 'italic' as const }}>No schedule configured</div>
+                                <span style={{ fontSize: 10, color: C.muted, fontStyle: 'italic' as const }}>Day off</span>
                               )}
                             </div>
                           );
                         })}
+
+                        {/* Save footer */}
+                        <div style={{ padding: '14px 20px', borderTop: `1px solid ${C.border}`, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12 }}>
+                          {whSaved && (
+                            <span style={{ fontSize: 11, color: '#059669', display: 'flex', alignItems: 'center', gap: 5 }}>
+                              <Check size={13} /> Saved
+                            </span>
+                          )}
+                          <button onClick={handleSaveWorkingHours} disabled={whSaving || !whPractId}
+                            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 20px', borderRadius: 10, border: 'none', background: whSaving ? C.muted : accentColor, color: '#fff', fontSize: 11, fontWeight: 700, cursor: whSaving ? 'not-allowed' : 'pointer' }}>
+                            <Save size={13} /> {whSaving ? 'Saving...' : 'Save Schedule'}
+                          </button>
+                        </div>
                       </div>
-                      <div style={{ marginTop: 16, padding: '12px 14px', background: `${accentColor}06`, borderRadius: 10, border: `1px solid ${C.border}` }}>
-                        <div style={{ fontSize: 10, fontWeight: 600, color: C.navy, marginBottom: 4 }}>Working hours overlay</div>
-                        <div style={{ fontSize: 10, color: C.ter, lineHeight: 1.6 }}>Active schedules appear as a subtle green tint on the week calendar view behind appointments.</div>
+
+                      {/* ── Team Coverage Grid ── */}
+                      <div style={panel({ padding: 0 })}>
+                        <div style={{ padding: '14px 20px', borderBottom: `1px solid ${C.border}` }}>
+                          <Lbl>Team coverage — weekly grid</Lbl>
+                          <div style={{ fontSize: 10, color: C.ter }}>Which days each practitioner is scheduled to work</div>
+                        </div>
+                        <div style={{ padding: '14px 20px' }}>
+                          {/* Day-of-week header */}
+                          <div style={{ display: 'grid', gridTemplateColumns: '140px repeat(7, 1fr)', gap: 4, marginBottom: 8 }}>
+                            <div />
+                            {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d => (
+                              <div key={d} style={{ textAlign: 'center' as const, fontSize: 8, textTransform: 'uppercase' as const, letterSpacing: '0.15em', fontWeight: 600, color: C.muted }}>{d}</div>
+                            ))}
+                          </div>
+                          {practitioners.map(p => (
+                            <div key={p.cliniko_id} style={{ display: 'grid', gridTemplateColumns: '140px repeat(7, 1fr)', gap: 4, marginBottom: 6, alignItems: 'center' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                                <div style={{ width: 22, height: 22, borderRadius: '50%', background: `${p.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 800, color: p.color }}>{p.initials}</div>
+                                <span style={{ fontSize: 11, fontWeight: 600, color: C.navy }}>{p.name}</span>
+                              </div>
+                              {([1,2,3,4,5,6,0] as const).map(dow => {
+                                const wh = workingHours.find(w => w.practitioner_id === p.cliniko_id && w.day_of_week === dow && w.is_active);
+                                return (
+                                  <div key={dow} title={wh ? `${wh.start_time.slice(0,5)}–${wh.end_time.slice(0,5)}, ${wh.slot_duration_min}min slots` : 'Day off'}
+                                    style={{ height: 28, borderRadius: 6, background: wh ? `${p.color}20` : `${C.border}50`, border: `1px solid ${wh ? `${p.color}40` : `${C.border}60`}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    {wh && <span style={{ fontSize: 7, fontWeight: 700, color: p.color }}>{wh.start_time.slice(0,5)}</span>}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* ── Right: Capacity preview + Request Coverage ── */}
+                    <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 16 }}>
+
+                      {/* 14-day capacity preview */}
+                      <div style={panel({ padding: 0 })}>
+                        <div style={{ padding: '14px 20px', borderBottom: `1px solid ${C.border}` }}>
+                          <Lbl>14-day capacity</Lbl>
+                          <div style={{ fontSize: 10, color: C.ter }}>Open slots across the team</div>
+                        </div>
+                        <div style={{ padding: '8px 0', maxHeight: 380, overflowY: 'auto' as const }}>
+                          {next14Days.map((day, di) => {
+                            const totalOpen   = day.practitioners.reduce((s, p) => s + Math.max(0, p.totalSlots - p.bookedSlots), 0);
+                            const totalSlots  = day.practitioners.reduce((s, p) => s + p.totalSlots, 0);
+                            const fullPct     = totalSlots > 0 ? Math.round((1 - totalOpen / totalSlots) * 100) : 0;
+                            const isWeekend   = day.dow === 0 || day.dow === 6;
+                            const barColor    = fullPct >= 90 ? '#DC2626' : fullPct >= 70 ? '#D97706' : '#059669';
+                            return (
+                              <div key={day.date} style={{ padding: '8px 16px', borderBottom: di < 13 ? `1px solid ${C.border}` : 'none', background: isWeekend ? `${C.border}30` : 'transparent' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                                  <div>
+                                    <span style={{ fontSize: 11, fontWeight: 700, color: C.navy }}>{day.label}</span>
+                                    {isWeekend && <span style={{ fontSize: 8, color: C.muted, marginLeft: 6 }}>Weekend</span>}
+                                  </div>
+                                  <span style={{ fontSize: 10, fontWeight: 600, color: totalSlots === 0 ? C.muted : barColor }}>
+                                    {totalSlots === 0 ? 'No schedule' : `${totalOpen} open`}
+                                  </span>
+                                </div>
+                                {totalSlots > 0 && (
+                                  <>
+                                    <div style={{ height: 4, borderRadius: 2, background: `${C.border}80`, overflow: 'hidden', marginBottom: 4 }}>
+                                      <div style={{ height: '100%', width: `${fullPct}%`, background: barColor, borderRadius: 2, transition: 'width 0.3s' }} />
+                                    </div>
+                                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' as const }}>
+                                      {day.practitioners.filter(p => p.isWorking).map(p => (
+                                        <span key={p.id} title={`${p.name}: ${Math.max(0, p.totalSlots - p.bookedSlots)} / ${p.totalSlots} slots`}
+                                          style={{ fontSize: 8, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: `${p.color}14`, color: p.color }}>
+                                          {p.initials} {Math.max(0, p.totalSlots - p.bookedSlots)}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Request Coverage */}
+                      <div style={panel({ padding: 20 })}>
+                        <Lbl>Request coverage</Lbl>
+                        <div style={{ fontSize: 10, color: C.ter, marginBottom: 12, lineHeight: 1.6 }}>Notify the team that you need someone to cover a day. A task signal will be raised for the team to action.</div>
+                        <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 8 }}>
+                          <div>
+                            <div style={{ fontSize: 9, textTransform: 'uppercase' as const, letterSpacing: '0.15em', color: C.muted, fontWeight: 600, marginBottom: 4 }}>Date</div>
+                            <input type="date" value={coverReqDate} onChange={e => setCoverReqDate(e.target.value)} min={todayStr}
+                              style={{ width: '100%', border: `1px solid ${C.border}`, borderRadius: 8, padding: '8px 10px', fontSize: 11, color: C.navy, background: 'transparent', outline: 'none', boxSizing: 'border-box' as const }} />
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 9, textTransform: 'uppercase' as const, letterSpacing: '0.15em', color: C.muted, fontWeight: 600, marginBottom: 4 }}>Note (optional)</div>
+                            <textarea value={coverReqNote} onChange={e => setCoverReqNote(e.target.value)} rows={2}
+                              placeholder="Reason or any context for the team..."
+                              style={{ width: '100%', border: `1px solid ${C.border}`, borderRadius: 8, padding: '8px 10px', fontSize: 11, color: C.navy, background: 'transparent', outline: 'none', resize: 'vertical' as const, boxSizing: 'border-box' as const, fontFamily: 'inherit' }} />
+                          </div>
+                          {coverSent && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 8, background: '#ECFDF5', border: '1px solid #A7F3D0' }}>
+                              <Check size={13} color="#059669" />
+                              <span style={{ fontSize: 11, color: '#059669', fontWeight: 600 }}>Coverage request sent to the team</span>
+                            </div>
+                          )}
+                          <button onClick={handleRequestCoverage} disabled={!coverReqDate || coverSending}
+                            style={{ width: '100%', padding: '9px 0', borderRadius: 10, border: 'none', background: !coverReqDate ? C.border : accentColor, color: !coverReqDate ? C.muted : '#fff', fontSize: 11, fontWeight: 700, cursor: !coverReqDate ? 'not-allowed' : 'pointer', transition: 'background 0.15s' }}>
+                            {coverSending ? 'Sending...' : 'Send Coverage Request'}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>

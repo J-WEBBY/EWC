@@ -29,6 +29,10 @@ import {
   getPatientCallHistory, type CallRecord,
 } from '@/lib/actions/booking-pipeline';
 import {
+  getPatientWaitList, addToWaitList, updateWaitListStatus, removeFromWaitList,
+  type WaitListEntry, type AddToWaitListInput,
+} from '@/lib/actions/waiting-list';
+import {
   getClinicalRecord, getSOAPNotes, getPatientConsents, getClinicalPhotos,
   addSOAPNote, updateSOAPNote, signOffSOAPNote, addPatientConsent, updateConsentStatus,
   getVitalsHistory, generateAINotesDraft, generateClinicalSummary,
@@ -285,12 +289,13 @@ function TimelineItem({ ev, last }: { ev: TimelineEvent; last: boolean }) {
 // TABS
 // =============================================================================
 
-type Tab = 'overview' | 'lifecycle' | 'appointments' | 'practitioners' | 'communications' | 'payments' | 'files' | 'intelligence' | 'treatment_log' | 'plan' | 'client_detail' | 'clinical_record' | 'soap_notes' | 'consents' | 'photos' | 'prescriptions' | 'lab_results' | 'referrals';
+type Tab = 'overview' | 'lifecycle' | 'appointments' | 'practitioners' | 'communications' | 'payments' | 'files' | 'intelligence' | 'treatment_log' | 'plan' | 'client_detail' | 'clinical_record' | 'soap_notes' | 'consents' | 'photos' | 'prescriptions' | 'lab_results' | 'referrals' | 'waiting_list';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'overview',         label: 'Overview' },
   { id: 'lifecycle',        label: 'Lifecycle' },
   { id: 'appointments',     label: 'Appointments' },
+  { id: 'waiting_list',     label: 'Waiting List' },
   { id: 'practitioners',    label: 'Practitioners' },
   { id: 'communications',   label: 'Communications' },
   { id: 'payments',         label: 'Payments' },
@@ -3840,6 +3845,331 @@ function ReferralsTab({ patient }: { patient: PatientIntelligenceRow }) {
 }
 
 // =============================================================================
+// TAB: WAITING LIST
+// =============================================================================
+
+const PRIORITY_CFG = {
+  high:   { label: 'High',   color: '#DC2626', bg: '#FEE2E2' },
+  medium: { label: 'Medium', color: '#D8A600', bg: '#FEF3C7' },
+  low:    { label: 'Low',    color: '#6B7280', bg: '#F3F4F6' },
+};
+
+const STATUS_CFG = {
+  waiting:   { label: 'Waiting',   color: '#0058E6', bg: '#EFF6FF' },
+  offered:   { label: 'Offered',   color: '#D8A600', bg: '#FFFBEB' },
+  confirmed: { label: 'Confirmed', color: '#059669', bg: '#ECFDF5' },
+  cancelled: { label: 'Cancelled', color: '#6B7280', bg: '#F3F4F6' },
+};
+
+const TREATMENT_OPTIONS = [
+  'Anti-Wrinkle (Botox)', 'Dermal Fillers', 'CoolSculpting', 'IV Therapy',
+  'Weight Management Consultation', 'Health Screening / MOT', 'B12 Injection',
+  'Profhilo', 'Skin Booster', 'PRP Treatment', 'Chemical Peel',
+  'Laser Treatment', 'GP Consultation', 'Other',
+];
+
+function WaitingListTab({ patient }: { patient: PatientIntelligenceRow }) {
+  const BLUE = '#0058E6';
+
+  const [entries,   setEntries]   = useState<WaitListEntry[]>([]);
+  const [loading,   setLoading]   = useState(true);
+  const [showForm,  setShowForm]  = useState(false);
+  const [saving,    setSaving]    = useState(false);
+  const [busy,      setBusy]      = useState<string | null>(null);
+  const [msg,       setMsg]       = useState<{ text: string; ok: boolean } | null>(null);
+
+  const [form, setForm] = useState<Partial<AddToWaitListInput>>({
+    treatment_type: '',
+    preferred_time: 'any',
+    priority: 'medium',
+  });
+
+  const clinikoId = String(patient.cliniko_id ?? patient.id ?? '');
+
+  useEffect(() => {
+    setLoading(true);
+    getPatientWaitList(clinikoId).then(r => {
+      setEntries(r.entries);
+      setLoading(false);
+    });
+  }, [clinikoId]);
+
+  const showMsg = (text: string, ok: boolean) => {
+    setMsg({ text, ok });
+    setTimeout(() => setMsg(null), 3500);
+  };
+
+  const handleAdd = async () => {
+    if (!form.treatment_type) return;
+    setSaving(true);
+    const r = await addToWaitList({
+      cliniko_patient_id: clinikoId,
+      patient_name: `${patient.first_name} ${patient.last_name}`,
+      treatment_type: form.treatment_type!,
+      preferred_practitioner: form.preferred_practitioner,
+      preferred_date_from: form.preferred_date_from,
+      preferred_date_to: form.preferred_date_to,
+      preferred_time: form.preferred_time ?? 'any',
+      priority: form.priority ?? 'medium',
+      notes: form.notes,
+    });
+    setSaving(false);
+    if (r.success && r.entry) {
+      setEntries(prev => [r.entry!, ...prev]);
+      setShowForm(false);
+      setForm({ treatment_type: '', preferred_time: 'any', priority: 'medium' });
+      showMsg('Added to waiting list', true);
+    } else {
+      showMsg(r.error ?? 'Failed to add', false);
+    }
+  };
+
+  const handleStatus = async (id: string, status: WaitListEntry['status']) => {
+    setBusy(id);
+    const r = await updateWaitListStatus(id, status);
+    setBusy(null);
+    if (r.success) {
+      setEntries(prev => prev.map(e => e.id === id ? { ...e, status,
+        offered_at: status === 'offered' ? new Date().toISOString() : e.offered_at,
+        confirmed_at: status === 'confirmed' ? new Date().toISOString() : e.confirmed_at,
+      } : e));
+    }
+  };
+
+  const handleRemove = async (id: string) => {
+    setBusy(id);
+    const r = await removeFromWaitList(id);
+    setBusy(null);
+    if (r.success) {
+      setEntries(prev => prev.filter(e => e.id !== id));
+      showMsg('Removed from waiting list', true);
+    }
+  };
+
+  if (loading) return (
+    <div className="py-16 text-center text-[13px] text-[#96989B]">Loading waiting list…</div>
+  );
+
+  return (
+    <div>
+      {/* Header bar */}
+      <div className="flex items-center justify-between mb-5">
+        <div>
+          <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#96989B] mb-1">Patient Waiting List</p>
+          <p className="text-[13px] font-semibold text-[#181D23]">
+            {entries.filter(e => e.status !== 'cancelled').length} active {entries.filter(e => e.status !== 'cancelled').length === 1 ? 'entry' : 'entries'}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {msg && (
+            <span className="text-[11px] font-semibold px-3 py-1.5 rounded-xl"
+              style={{ backgroundColor: msg.ok ? '#ECFDF5' : '#FEE2E2', color: msg.ok ? '#059669' : '#DC2626' }}>
+              {msg.text}
+            </span>
+          )}
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-bold transition-all hover:opacity-90"
+            style={{ backgroundColor: BLUE, color: '#fff' }}>
+            <Plus size={12} /> Add to List
+          </button>
+        </div>
+      </div>
+
+      {/* Add form */}
+      <AnimatePresence>
+        {showForm && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+            className="mb-5 rounded-2xl overflow-hidden" style={{ border: `1px solid ${BLUE}30`, backgroundColor: `${BLUE}04` }}>
+            <div className="p-5">
+              <p className="text-[11px] font-bold text-[#181D23] mb-4">Add to Waiting List</p>
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="text-[9px] uppercase tracking-[0.2em] font-semibold text-[#96989B] mb-1.5 block">Treatment *</label>
+                  <select
+                    value={form.treatment_type ?? ''}
+                    onChange={e => setForm(p => ({ ...p, treatment_type: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl text-[11px] outline-none"
+                    style={{ border: '1px solid #D4E2FF', backgroundColor: 'transparent', color: '#181D23' }}>
+                    <option value="">Select treatment…</option>
+                    {TREATMENT_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[9px] uppercase tracking-[0.2em] font-semibold text-[#96989B] mb-1.5 block">Priority</label>
+                  <select
+                    value={form.priority ?? 'medium'}
+                    onChange={e => setForm(p => ({ ...p, priority: e.target.value as 'high' | 'medium' | 'low' }))}
+                    className="w-full px-3 py-2 rounded-xl text-[11px] outline-none"
+                    style={{ border: '1px solid #D4E2FF', backgroundColor: 'transparent', color: '#181D23' }}>
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[9px] uppercase tracking-[0.2em] font-semibold text-[#96989B] mb-1.5 block">Earliest Date</label>
+                  <input type="date"
+                    value={form.preferred_date_from ?? ''}
+                    onChange={e => setForm(p => ({ ...p, preferred_date_from: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl text-[11px] outline-none"
+                    style={{ border: '1px solid #D4E2FF', backgroundColor: 'transparent', color: '#181D23' }} />
+                </div>
+                <div>
+                  <label className="text-[9px] uppercase tracking-[0.2em] font-semibold text-[#96989B] mb-1.5 block">Latest Date</label>
+                  <input type="date"
+                    value={form.preferred_date_to ?? ''}
+                    onChange={e => setForm(p => ({ ...p, preferred_date_to: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl text-[11px] outline-none"
+                    style={{ border: '1px solid #D4E2FF', backgroundColor: 'transparent', color: '#181D23' }} />
+                </div>
+                <div>
+                  <label className="text-[9px] uppercase tracking-[0.2em] font-semibold text-[#96989B] mb-1.5 block">Preferred Time</label>
+                  <select
+                    value={form.preferred_time ?? 'any'}
+                    onChange={e => setForm(p => ({ ...p, preferred_time: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl text-[11px] outline-none"
+                    style={{ border: '1px solid #D4E2FF', backgroundColor: 'transparent', color: '#181D23' }}>
+                    <option value="any">Any time</option>
+                    <option value="morning">Morning</option>
+                    <option value="afternoon">Afternoon</option>
+                    <option value="evening">Evening</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[9px] uppercase tracking-[0.2em] font-semibold text-[#96989B] mb-1.5 block">Notes</label>
+                  <input type="text"
+                    value={form.notes ?? ''}
+                    onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
+                    placeholder="Any preferences or clinical notes…"
+                    className="w-full px-3 py-2 rounded-xl text-[11px] outline-none"
+                    style={{ border: '1px solid #D4E2FF', backgroundColor: 'transparent', color: '#181D23' }} />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <button onClick={() => setShowForm(false)}
+                  className="px-4 py-2 rounded-xl text-[11px] font-semibold text-[#96989B] hover:opacity-70 transition-opacity"
+                  style={{ border: '1px solid #D4E2FF' }}>
+                  Cancel
+                </button>
+                <button onClick={handleAdd} disabled={saving || !form.treatment_type}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-bold transition-all hover:opacity-90 disabled:opacity-40"
+                  style={{ backgroundColor: BLUE, color: '#fff' }}>
+                  {saving ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+                  {saving ? 'Adding…' : 'Add Entry'}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Waiting list entries */}
+      {entries.filter(e => e.status !== 'cancelled').length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 rounded-2xl text-[#96989B]"
+          style={{ border: '1px dashed #D4E2FF' }}>
+          <Clock size={28} style={{ opacity: 0.25, marginBottom: 12 }} />
+          <p className="text-[13px]">No waiting list entries</p>
+          <p className="text-[11px] mt-1 text-[#B0B8C8]">Add this patient when a preferred slot isn&apos;t available</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {entries.filter(e => e.status !== 'cancelled').map((entry, i) => {
+            const pCfg = PRIORITY_CFG[entry.priority] ?? PRIORITY_CFG.medium;
+            const sCfg = STATUS_CFG[entry.status]   ?? STATUS_CFG.waiting;
+            const isBusy = busy === entry.id;
+            return (
+              <motion.div key={entry.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
+                className="rounded-2xl p-5" style={{ border: '1px solid #D4E2FF', backgroundColor: 'transparent' }}>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                      <p className="text-[14px] font-bold text-[#181D23]">{entry.treatment_type}</p>
+                      <span className="text-[9px] font-bold px-2 py-0.5 rounded-full"
+                        style={{ backgroundColor: sCfg.bg, color: sCfg.color }}>
+                        {sCfg.label}
+                      </span>
+                      <span className="text-[9px] font-bold px-2 py-0.5 rounded-full"
+                        style={{ backgroundColor: pCfg.bg, color: pCfg.color }}>
+                        {pCfg.label} priority
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-[#5A6475]">
+                      {(entry.preferred_date_from || entry.preferred_date_to) && (
+                        <span>
+                          Date window: {entry.preferred_date_from ?? '—'} → {entry.preferred_date_to ?? '—'}
+                        </span>
+                      )}
+                      {entry.preferred_time && entry.preferred_time !== 'any' && (
+                        <span>Time: {entry.preferred_time}</span>
+                      )}
+                      <span>Added: {new Date(entry.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                      {entry.offered_at && (
+                        <span>Offered: {new Date(entry.offered_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
+                      )}
+                    </div>
+                    {entry.notes && (
+                      <p className="text-[11px] text-[#3D4451] mt-2 italic">{entry.notes}</p>
+                    )}
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {entry.status === 'waiting' && (
+                      <button onClick={() => handleStatus(entry.id, 'offered')} disabled={isBusy}
+                        className="px-2.5 py-1.5 rounded-lg text-[10px] font-semibold transition-all hover:opacity-80 disabled:opacity-40"
+                        style={{ backgroundColor: '#FFFBEB', color: '#D8A600', border: '1px solid #FDE68A' }}>
+                        {isBusy ? '…' : 'Mark Offered'}
+                      </button>
+                    )}
+                    {entry.status === 'offered' && (
+                      <button onClick={() => handleStatus(entry.id, 'confirmed')} disabled={isBusy}
+                        className="px-2.5 py-1.5 rounded-lg text-[10px] font-semibold transition-all hover:opacity-80 disabled:opacity-40"
+                        style={{ backgroundColor: '#ECFDF5', color: '#059669', border: '1px solid #A7F3D0' }}>
+                        {isBusy ? '…' : 'Confirm Slot'}
+                      </button>
+                    )}
+                    {entry.status === 'confirmed' && (
+                      <span className="flex items-center gap-1 text-[10px] text-[#059669] font-semibold">
+                        <CheckCircle size={12} /> Confirmed
+                      </span>
+                    )}
+                    <button onClick={() => handleRemove(entry.id)} disabled={isBusy}
+                      className="p-1.5 rounded-lg transition-all hover:bg-[#FEE2E2] disabled:opacity-40"
+                      style={{ color: '#96989B' }}
+                      title="Remove">
+                      <X size={13} />
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Cancelled entries (collapsed) */}
+      {entries.filter(e => e.status === 'cancelled').length > 0 && (
+        <div className="mt-6">
+          <p className="text-[9px] uppercase tracking-[0.2em] font-semibold text-[#96989B] mb-2">
+            Cancelled ({entries.filter(e => e.status === 'cancelled').length})
+          </p>
+          <div className="space-y-2 opacity-50">
+            {entries.filter(e => e.status === 'cancelled').map(entry => (
+              <div key={entry.id} className="rounded-xl px-4 py-2.5 flex items-center gap-3"
+                style={{ border: '1px solid #D4E2FF' }}>
+                <span className="text-[11px] text-[#96989B] line-through">{entry.treatment_type}</span>
+                <span className="text-[9px] text-[#96989B]">{new Date(entry.updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// =============================================================================
 // MAIN PAGE
 // =============================================================================
 
@@ -4057,6 +4387,7 @@ export default function PatientHubPage() {
                   {activeTab === 'overview'       && <OverviewTab patient={patient} />}
                   {activeTab === 'lifecycle'      && <LifecycleTab patient={patient} timeline={hub!.timeline} />}
                   {activeTab === 'appointments'   && <AppointmentsTab patient={patient} appointments={hub!.appointments} />}
+                  {activeTab === 'waiting_list'   && <WaitingListTab patient={patient} />}
                   {activeTab === 'practitioners'  && <PractitionersTab patient={patient} appointments={hub!.appointments} />}
                   {activeTab === 'communications' && <CommunicationsTab patient={patient} timeline={hub!.timeline} />}
                   {activeTab === 'payments'       && <PaymentsTab patient={patient} appointments={hub!.appointments} />}
