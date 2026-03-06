@@ -30,19 +30,22 @@ const WEBHOOK_SECRET = process.env.VAPI_WEBHOOK_SECRET ?? '';
 const HAIKU_MODEL = 'claude-haiku-4-5-20251001';  // Komal — fast, voice latency critical
 
 // ---------------------------------------------------------------------------
-// Voice — Komal (ElevenLabs Alice, British).
+// Voice — Komal (ElevenLabs Raquel / custom voice).
 // eleven_turbo_v2_5 is ElevenLabs' lowest-latency model (~60ms TTFB).
-// Alice (Xb7hH8MSUJpSbSDYk0k2) — articulate, young British female. More natural
-// than Charlotte and lower latency under load.
+// TODO: Replace RAQUEL_VOICE_ID with the actual voice ID from your ElevenLabs
+//       account — go to Voice Lab → find "Raquel" → three dots → Copy Voice ID.
+//       Fallback is Alice (Xb7hH8MSUJpSbSDYk0k2) until replaced.
 // ---------------------------------------------------------------------------
+
+const RAQUEL_VOICE_ID = 'Xb7hH8MSUJpSbSDYk0k2'; // TODO: replace with Raquel's voice ID
 
 const KOMAL_VOICE = {
   provider:         '11labs',
-  voiceId:          'Xb7hH8MSUJpSbSDYk0k2',  // Alice — articulate British female
+  voiceId:          RAQUEL_VOICE_ID,
   model:            'eleven_turbo_v2_5',
   stability:        0.5,
   similarityBoost:  0.8,
-  style:            0.15,
+  style:            0.2,
   useSpeakerBoost:  true,
 };
 
@@ -185,7 +188,7 @@ export async function POST(req: NextRequest) {
       recordingEnabled:      true,
       backchannelingEnabled: true,
       responseDelaySeconds:  0,
-      silenceTimeoutSeconds: 30,
+      silenceTimeoutSeconds: 10,  // End call after 10s of true silence (shorter = more natural)
       maxDurationSeconds:    600,
       startSpeakingPlan: {
         waitSeconds: 0.1,
