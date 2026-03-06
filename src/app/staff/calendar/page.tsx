@@ -1077,19 +1077,14 @@ export default function SmartCalendarPage() {
               {/* ═══ AVAILABILITY ═══ */}
               {mainTab === 'availability' && (
                 <motion.div key="availability" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
-                  {/* Summary cards + CTA to dedicated sub-page */}
                   <div style={{ marginBottom: 20 }}>
-                    <div style={{ fontSize: 11, color: C.ter, marginBottom: 16 }}>
-                      Manage your personal schedule, configure working hours with AI assistance, view team coverage, and request delegation — all in the full Availability Manager.
-                    </div>
                     <Link href="/staff/calendar/availability" style={{ textDecoration: 'none' }}>
                       <motion.div whileHover={{ scale: 1.01 }} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '20px 24px', borderRadius: 16, border: `2px solid ${accentColor}`, background: `${accentColor}06`, cursor: 'pointer' }}>
                         <div style={{ width: 48, height: 48, borderRadius: 14, background: `${accentColor}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                           <Clock size={22} color={accentColor} />
                         </div>
                         <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: 15, fontWeight: 800, color: C.navy, marginBottom: 3 }}>Open Availability Manager</div>
-                          <div style={{ fontSize: 11, color: C.ter }}>EWC AI assistant · Working hours editor · Team coverage grid · 14-day capacity · Delegation requests</div>
+                          <div style={{ fontSize: 15, fontWeight: 800, color: C.navy }}>My Availability</div>
                         </div>
                         <ArrowRight size={18} color={accentColor} />
                       </motion.div>

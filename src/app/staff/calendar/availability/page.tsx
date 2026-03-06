@@ -102,14 +102,9 @@ export default function AvailabilityPage() {
   const [whSaving,       setWhSaving]       = useState(false);
   const [whSaved,        setWhSaved]        = useState(false);
 
-  // ── EWC Chat ──
-  const [chatMsgs,       setChatMsgs]       = useState<ChatMsg[]>([
-    {
-      id:   'intro',
-      role: 'ewc',
-      text: `Hi! I'm EWC — your AI scheduling assistant. I can help you set up your working hours using natural language.\n\nJust tell me when you work, for example:\n• "I work Monday to Friday 9am to 6pm with 30 min slots"\n• "Tuesday and Thursday 10-4, Wednesday 9-1 only"\n• "Day off on Fridays, everything else 9 to 5"\n\nI can also help you request coverage for specific days.`,
-    },
-  ]);
+  // ── EWC Chat — intro deferred until profile loads ──
+  const [chatMsgs,       setChatMsgs]       = useState<ChatMsg[]>([]);
+  const [chatIntroSent,  setChatIntroSent]  = useState(false);
   const [chatInput,      setChatInput]      = useState('');
   const [chatLoading,    setChatLoading]    = useState(false);
   const chatEndRef                           = useRef<HTMLDivElement>(null);
@@ -152,6 +147,18 @@ export default function AvailabilityPage() {
     }
     setWhEdits(edits);
   }, [myPractId, workingHours]);
+
+  // ── Personalised intro once profile + working hours load ──
+  useEffect(() => {
+    if (!profile || chatIntroSent) return;
+    const firstName = profile.firstName ?? 'Doctor';
+    const hasSchedule = workingHours.some(w => w.is_active);
+    const intro = hasSchedule
+      ? `Hi ${firstName}. Your current schedule is loaded in the editor on the right — you can adjust it directly or just tell me what you'd like to change.\n\nFor example: "Day off on Wednesdays" or "Move Fridays to 9–1 only".`
+      : `Hi ${firstName}. You don't have a schedule set up yet. Just tell me when you work and I'll configure it for you.\n\nFor example: "Monday to Friday, 9am to 6pm, 30 minute slots" or "Tuesdays and Thursdays only, 10 to 4".`;
+    setChatMsgs([{ id: 'intro', role: 'ewc', text: intro }]);
+    setChatIntroSent(true);
+  }, [profile, workingHours, chatIntroSent]);
 
   // ── Scroll chat to bottom ──
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [chatMsgs]);
@@ -293,35 +300,20 @@ export default function AvailabilityPage() {
 
           {/* ── Header ── */}
           <div style={{ padding: '32px 0 24px', borderBottom: `1px solid ${C.border}` }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-              <Link href="/staff/calendar" style={{ display: 'flex', alignItems: 'center', gap: 5, color: C.muted, fontSize: 11, textDecoration: 'none', transition: 'color 0.15s' }}
-                onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = accentColor}
-                onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = C.muted}>
-                <ChevronLeft size={14} /> Calendar
-              </Link>
-              <span style={{ color: C.muted, fontSize: 11 }}>/</span>
-              <span style={{ fontSize: 11, color: C.sec, fontWeight: 600 }}>Availability Manager</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-              <div>
-                <div style={{ fontSize: 9, textTransform: 'uppercase' as const, letterSpacing: '0.28em', fontWeight: 600, color: C.muted, marginBottom: 6 }}>Personal Availability</div>
-                <h1 style={{ fontSize: 32, fontWeight: 900, color: C.navy, letterSpacing: '-0.03em', margin: 0 }}>
-                  {profile ? `${profile.firstName}'s Schedule` : 'Availability Manager'}
-                </h1>
-                {myActiveDays.length > 0 && (
-                  <p style={{ fontSize: 12, color: C.sec, marginTop: 6 }}>
-                    Working {myActiveDays.length} day{myActiveDays.length > 1 ? 's' : ''} per week
-                    {myHours ? ` · ${myHours}` : ''}
-                  </p>
-                )}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 10, background: `${accentColor}10`, border: `1px solid ${accentColor}30` }}>
-                  <Bot size={14} color={accentColor} />
-                  <span style={{ fontSize: 11, fontWeight: 600, color: accentColor }}>EWC AI Active</span>
-                </div>
-              </div>
-            </div>
+            <Link href="/staff/calendar" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: C.muted, fontSize: 11, textDecoration: 'none', marginBottom: 12 }}
+              onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = accentColor}
+              onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = C.muted}>
+              <ChevronLeft size={14} /> Back to Calendar
+            </Link>
+            <div style={{ fontSize: 9, textTransform: 'uppercase' as const, letterSpacing: '0.28em', fontWeight: 600, color: C.muted, marginBottom: 6 }}>My Availability</div>
+            <h1 style={{ fontSize: 38, fontWeight: 900, color: C.navy, letterSpacing: '-0.035em', margin: 0 }}>
+              {profile ? `${profile.firstName}'s Schedule` : 'My Schedule'}
+            </h1>
+            {myActiveDays.length > 0 && myHours && (
+              <p style={{ fontSize: 12, color: C.sec, margin: '6px 0 0' }}>
+                {myActiveDays.map(d => DAY_SHORT[d]).join(', ')} &nbsp;·&nbsp; {myHours}
+              </p>
+            )}
           </div>
 
           {/* ── Body — 2-column layout ── */}
@@ -340,8 +332,8 @@ export default function AvailabilityPage() {
                     <Bot size={16} color={accentColor} />
                   </div>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: C.navy }}>EWC Scheduling Assistant</div>
-                    <div style={{ fontSize: 10, color: C.ter }}>Natural language availability setup</div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: C.navy }}>EWC</div>
+                    <div style={{ fontSize: 10, color: C.ter }}>Your scheduling assistant</div>
                   </div>
                   <div style={{ marginLeft: 'auto', width: 8, height: 8, borderRadius: '50%', background: '#059669', boxShadow: '0 0 0 2px #ECFDF5' }} />
                 </div>
@@ -426,10 +418,7 @@ export default function AvailabilityPage() {
 
               {/* Request Coverage */}
               <div style={panel({ padding: 20 })}>
-                <Lbl>Request Coverage / Delegation</Lbl>
-                <p style={{ fontSize: 11, color: C.ter, marginTop: 0, marginBottom: 14, lineHeight: 1.6 }}>
-                  Need a colleague to cover for you? Send a request to the team — it raises a task for the receptionist and Dr Ganata to arrange cover.
-                </p>
+                <Lbl>Request coverage</Lbl>
                 <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 10 }}>
                   <div>
                     <div style={{ fontSize: 9, textTransform: 'uppercase' as const, letterSpacing: '0.15em', color: C.muted, fontWeight: 600, marginBottom: 5 }}>Date needed</div>
@@ -469,19 +458,17 @@ export default function AvailabilityPage() {
               <div style={panel({ padding: 0 })}>
                 <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
-                    <Lbl>Working hours</Lbl>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: C.navy }}>My Weekly Schedule</div>
+                    <Lbl>My availability</Lbl>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: C.navy }}>
+                      {profile ? `${profile.firstName} ${profile.lastName}` : 'My'} — Weekly Schedule
+                    </div>
                   </div>
-                  {/* Practitioner selector */}
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' as const }}>
-                    {practitioners.map(p => (
-                      <button key={p.cliniko_id} onClick={() => setMyPractId(p.cliniko_id)}
-                        style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 9, border: `1px solid ${myPractId === p.cliniko_id ? p.color : C.border}`, background: myPractId === p.cliniko_id ? `${p.color}14` : 'transparent', cursor: 'pointer', fontSize: 11, fontWeight: 600, color: myPractId === p.cliniko_id ? p.color : C.ter }}>
-                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: p.color }} />
-                        {p.name}
-                      </button>
-                    ))}
-                  </div>
+                  {myActiveDays.length > 0 && (
+                    <div style={{ fontSize: 10, color: C.ter, textAlign: 'right' as const }}>
+                      <div style={{ fontWeight: 600, color: C.navy }}>{myActiveDays.length} day{myActiveDays.length !== 1 ? 's' : ''} / week</div>
+                      <div>{myActiveDays.map(d => DAY_SHORT[d]).join(' · ')}</div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Column headers */}
@@ -583,9 +570,8 @@ export default function AvailabilityPage() {
               {/* ── 14-Day Capacity Preview ── */}
               <div style={panel({ padding: 0 })}>
                 <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.border}` }}>
-                  <Lbl>Capacity forecast</Lbl>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: C.navy }}>14-Day Availability</div>
-                  <div style={{ fontSize: 10, color: C.ter, marginTop: 2 }}>Slot capacity based on configured working hours</div>
+                  <Lbl>Next 14 days</Lbl>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: C.navy }}>Clinic Capacity</div>
                 </div>
                 <div style={{ padding: '4px 0' }}>
                   {next14Days.map((day, di) => {
