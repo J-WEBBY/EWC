@@ -211,8 +211,13 @@ export async function getWeekAppointments(weekStart: string): Promise<{
       .not('status', 'in', '("cancelled","did_not_arrive")')
       .order('starts_at', { ascending: true });
 
-    if (error || !appts || appts.length === 0) {
+    if (error) {
+      console.error('[appointments] getWeekAppointments query error:', error.message);
       return { appointments: buildDemoWeek(new Date(weekStart)), isDemo: true };
+    }
+    if (!appts || appts.length === 0) {
+      // No appointments this week — return empty (NOT demo). Caller decides when to show demo.
+      return { appointments: [], isDemo: false };
     }
 
     // Collect IDs for join queries
@@ -264,6 +269,108 @@ export async function getWeekAppointments(weekStart: string): Promise<{
   } catch (err) {
     console.error('[appointments] getWeekAppointments error:', err);
     return { appointments: buildDemoWeek(new Date(weekStart)), isDemo: true };
+  }
+}
+
+// =============================================================================
+// getMonthAppointments — fetch ALL appointments in a calendar month in one query
+// Returns real data or demo data (never a mix). isDemo=true only if 0 real rows found.
+// =============================================================================
+
+export async function getMonthAppointments(
+  year: number,
+  month: number, // 0-based (JS Date style)
+): Promise<{ appointments: AppointmentRow[]; isDemo: boolean }> {
+  const pad  = (n: number) => String(n).padStart(2, '0');
+  const m1   = month + 1; // 1-based for SQL
+  const from = `${year}-${pad(m1)}-01`;
+  const next = m1 === 12 ? `${year + 1}-01-01` : `${year}-${pad(m1 + 1)}-01`;
+
+  try {
+    const db = createSovereignClient();
+
+    const { data: appts, error } = await db
+      .from('cliniko_appointments')
+      .select('id, cliniko_id, cliniko_patient_id, cliniko_practitioner_id, appointment_type, starts_at, ends_at, duration_minutes, status, notes')
+      .gte('starts_at', from)
+      .lt('starts_at', next)
+      .not('status', 'in', '("cancelled","did_not_arrive")')
+      .order('starts_at', { ascending: true });
+
+    if (error) {
+      console.error('[appointments] getMonthAppointments query error:', error.message);
+      // Fall through to demo
+    }
+
+    if (!error && appts && appts.length > 0) {
+      // Enrich with patient + practitioner names
+      const patientIds = Array.from(new Set(appts.map(a => a.cliniko_patient_id).filter(Boolean)));
+      const practIds   = Array.from(new Set(appts.map(a => a.cliniko_practitioner_id).filter(Boolean)));
+
+      const [patRes, practRes, allPractRes] = await Promise.all([
+        patientIds.length > 0
+          ? db.from('cliniko_patients').select('id, cliniko_id, first_name, last_name, email, phone').in('cliniko_id', patientIds)
+          : Promise.resolve({ data: [] }),
+        practIds.length > 0
+          ? db.from('cliniko_practitioners').select('id, cliniko_id, first_name, last_name').in('cliniko_id', practIds)
+          : Promise.resolve({ data: [] }),
+        db.from('cliniko_practitioners').select('cliniko_id').eq('is_active', true).order('created_at', { ascending: true }),
+      ]);
+
+      // Build lookup maps using string keys (handles both BIGINT-as-number and TEXT)
+      const patMap   = new Map((patRes.data  ?? []).map(p => [String(p.cliniko_id), p]));
+      const practMap = new Map((practRes.data ?? []).map(p => [String(p.cliniko_id), p]));
+      const colorMap = new Map((allPractRes.data ?? []).map((p, i) => [String(p.cliniko_id), practColor(i)]));
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rows: AppointmentRow[] = appts.map((a: any) => {
+        const pid   = String(a.cliniko_patient_id  ?? '');
+        const prid  = String(a.cliniko_practitioner_id ?? '');
+        const pat   = pid  ? patMap.get(pid)   : null;
+        const pract = prid ? practMap.get(prid) : null;
+        const color = prid ? (colorMap.get(prid) ?? '#5A6475') : '#5A6475';
+        return {
+          id:                     a.id,
+          cliniko_id:             String(a.cliniko_id ?? ''),
+          cliniko_patient_id:     pid || null,
+          patient_name:           pat ? `${pat.first_name} ${pat.last_name}` : 'Patient',
+          patient_email:          pat?.email ?? null,
+          patient_phone:          pat?.phone ?? null,
+          patient_db_id:          pat?.id ?? null,
+          practitioner_name:      pract ? `${pract.first_name} ${pract.last_name}` : 'Practitioner',
+          practitioner_cliniko_id: prid || null,
+          practitioner_color:     color,
+          appointment_type:       a.appointment_type ?? 'Appointment',
+          starts_at:              a.starts_at,
+          ends_at:                a.ends_at,
+          duration_minutes:       a.duration_minutes ?? 30,
+          status:                 (a.status as AppointmentStatus) ?? 'booked',
+          notes:                  a.notes,
+          source:                 'cliniko',
+          is_new_lead:            false,
+        } satisfies AppointmentRow;
+      });
+
+      return { appointments: rows, isDemo: false };
+    }
+
+    // No real data — return demo for the current week only
+    const now = new Date();
+    const isCurrentMonth = now.getFullYear() === year && now.getMonth() === month;
+    const weekStart = isCurrentMonth ? now : new Date(year, month, 1);
+    // Snap to Monday
+    const dow = (weekStart.getDay() + 6) % 7;
+    weekStart.setDate(weekStart.getDate() - dow);
+    return { appointments: buildDemoWeek(weekStart), isDemo: true };
+
+  } catch (err) {
+    console.error('[appointments] getMonthAppointments error:', err);
+    const now = new Date();
+    const isCurrentMonth = now.getFullYear() === year && now.getMonth() === month;
+    const weekStart = isCurrentMonth ? now : new Date(year, month, 1);
+    const dow = (weekStart.getDay() + 6) % 7;
+    weekStart.setDate(weekStart.getDate() - dow);
+    return { appointments: buildDemoWeek(weekStart), isDemo: true };
   }
 }
 

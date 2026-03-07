@@ -17,7 +17,7 @@ import { useRouter } from 'next/navigation';
 import { StaffNav } from '@/components/staff-nav';
 import { getCurrentUser, getStaffProfile, type StaffProfile } from '@/lib/actions/staff-onboarding';
 import {
-  getWeekAppointments, getPractitioners, getPendingBookings,
+  getMonthAppointments, getPractitioners, getPendingBookings,
   type AppointmentRow, type PractitionerRow,
 } from '@/lib/actions/appointments';
 
@@ -78,21 +78,6 @@ function fmtTime(iso: string) {
   return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
-async function loadMonthAppointments(year: number, month: number): Promise<AppointmentRow[]> {
-  const first = new Date(year, month, 1);
-  const last  = new Date(year, month + 1, 0);
-  const seen  = new Set<string>();
-  const all:  AppointmentRow[] = [];
-  const cur = new Date(first);
-  while (cur <= last) {
-    const res = await getWeekAppointments(cur.toISOString().split('T')[0]);
-    for (const a of res.appointments) {
-      if (!seen.has(a.id)) { seen.add(a.id); all.push(a); }
-    }
-    cur.setDate(cur.getDate() + 7);
-  }
-  return all;
-}
 
 // =============================================================================
 // PAGE COMPONENT
@@ -109,6 +94,7 @@ export default function CalendarPage() {
   const [todayAppts,    setTodayAppts]    = useState<AppointmentRow[]>([]);
   const [pendingCount,  setPendingCount]  = useState(0);
   const [loading,       setLoading]       = useState(true);
+  const [isDemo,        setIsDemo]        = useState(false);
 
   const [year,  setYear]  = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
@@ -118,16 +104,30 @@ export default function CalendarPage() {
   const [syncing,        setSyncing]        = useState(false);
   const [syncMsg,        setSyncMsg]        = useState<string | null>(null);
 
+  // ── Load month appointments ────────────────────────────────────────────────
+  const loadMonth = async (y: number, m: number) => {
+    try {
+      const res = await getMonthAppointments(y, m);
+      setAllAppts(res.appointments);
+      setIsDemo(res.isDemo);
+      // Today's appointments from the loaded month (if viewing current month)
+      const todayStr = today.toISOString().split('T')[0];
+      if (y === today.getFullYear() && m === today.getMonth()) {
+        setTodayAppts(res.appointments.filter(a => a.starts_at.startsWith(todayStr)));
+      }
+    } catch (err) {
+      console.error('[Calendar] loadMonth error:', err);
+    }
+  };
+
   // ── Load initial data ──────────────────────────────────────────────────────
   useEffect(() => {
     (async () => {
-      // Each action is isolated — one failure cannot block the rest
       try {
         const u = await getCurrentUser();
         if (!u.success || !u.userId) { router.push('/login'); return; }
         setUserId(u.userId);
 
-        // Profile
         try {
           const profRes = await getStaffProfile('clinic', u.userId);
           if (profRes.success && profRes.data) {
@@ -137,24 +137,15 @@ export default function CalendarPage() {
           }
         } catch { /* use fallback profile */ }
 
-        // Practitioners
         try {
           const practs = await getPractitioners();
           setPractitioners(practs);
         } catch { /* no filter chips */ }
 
-        // Pending count
         try {
           const pending = await getPendingBookings();
           setPendingCount(pending.bookings.length);
         } catch { /* no badge */ }
-
-        // Today's appointments
-        try {
-          const todayStr = today.toISOString().split('T')[0];
-          const todayW = await getWeekAppointments(todayStr);
-          setTodayAppts(todayW.appointments.filter(a => a.starts_at.startsWith(todayStr)));
-        } catch { /* sidebar shows empty */ }
 
       } catch (err) {
         console.error('Calendar load error:', err);
@@ -165,9 +156,10 @@ export default function CalendarPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Load month appointments when year/month changes ────────────────────────
+  // ── Reload when year/month changes ────────────────────────────────────────
   useEffect(() => {
-    loadMonthAppointments(year, month).then(setAllAppts).catch(() => {});
+    loadMonth(year, month);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [year, month]);
 
   // ── Derived: map date string → appointments ────────────────────────────────
@@ -219,11 +211,7 @@ export default function CalendarPage() {
       if (res.success) {
         setSyncMsg(`Synced — ${res.appointments} appointment${res.appointments !== 1 ? 's' : ''} updated`);
         // Reload month appointments after sync
-        const fresh = await loadMonthAppointments(year, month);
-        setAllAppts(fresh);
-        const todayStr = today.toISOString().split('T')[0];
-        const todayW = await getWeekAppointments(todayStr);
-        setTodayAppts(todayW.appointments.filter(a => a.starts_at.startsWith(todayStr)));
+        await loadMonth(year, month);
       } else {
         setSyncMsg(res.error ?? 'Sync failed — check Cliniko connection');
       }
@@ -409,6 +397,14 @@ export default function CalendarPage() {
               <span className="text-[16px] font-bold" style={{ color: NAVY }}>
                 {MONTH_NAMES[month]} {year}
               </span>
+              {isDemo && (
+                <span
+                  className="text-[9px] font-semibold uppercase tracking-[0.2em] px-2 py-0.5 rounded"
+                  style={{ background: '#EA580C14', border: '1px solid #EA580C30', color: '#EA580C' }}
+                >
+                  Demo data — sync Cliniko to see real appointments
+                </span>
+              )}
             </div>
 
             {/* Sync controls */}
