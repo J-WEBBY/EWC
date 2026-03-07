@@ -93,7 +93,7 @@ export interface ConfirmBookingParams {
 // CONSTANTS
 // =============================================================================
 
-export const PRAC_COLORS = [
+const PRAC_COLORS = [
   '#0058E6', '#00A693', '#D8A600', '#0284C7',
   '#DC2626', '#EC4899', '#059669', '#181D23',
 ];

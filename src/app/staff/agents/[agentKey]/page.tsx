@@ -63,8 +63,9 @@ import {
 } from '@/lib/actions/chat';
 import {
   getAgentPreferences, saveAgentPreferences,
-  type AgentPreferences, DEFAULT_AGENT_PREFS,
 } from '@/lib/actions/agent-preferences';
+import type { AgentPreferences } from '@/lib/constants/agent-preferences';
+import { DEFAULT_AGENT_PREFS } from '@/lib/constants/agent-preferences';
 import { StaffNav } from '@/components/staff-nav';
 import ReactMarkdown from 'react-markdown';
 

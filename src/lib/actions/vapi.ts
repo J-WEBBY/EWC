@@ -19,14 +19,14 @@ const PRIVATE_KEY = process.env.VAPI_PRIVATE_KEY ?? '';
 // ---------------------------------------------------------------------------
 // Assistant name constants (used for lookup — do not change without migrating)
 // ---------------------------------------------------------------------------
-export const ASSISTANT_NAMES = {
+const ASSISTANT_NAMES = {
   KOMAL: 'Komal — EWC Receptionist',
   EWC:   'EWC — Inbound Receptionist',
   ORION: 'Orion — Outbound Sales',
   ARIA:  'Aria — Patient Retention',
 } as const;
 
-export type AssistantKey = keyof typeof ASSISTANT_NAMES;
+type AssistantKey = keyof typeof ASSISTANT_NAMES;
 
 // ---------------------------------------------------------------------------
 // System prompts
