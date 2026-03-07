@@ -22,13 +22,14 @@ import {
   getBookingRequests, confirmBookingRequest, dismissBookingRequest,
   getPractitioners, type BookingRequest, type ClinikoPractitionerRow,
 } from '@/lib/actions/booking-pipeline';
+import { triggerFullSync } from '@/lib/actions/cliniko';
 
 // =============================================================================
 // DESIGN TOKENS
 // =============================================================================
 
-const BG      = '#F8FAFF';
-const NAVY    = '#181D23';
+const BG      = '#FAF7F2';
+const NAVY    = '#1A1035';
 const SEC     = '#3D4451';
 const TER     = '#5A6475';
 const MUTED   = '#96989B';
@@ -496,6 +497,8 @@ export default function AppointmentsPage() {
   const [loading, setLoading]         = useState(true);
   const [confirmTarget, setConfirmTarget] = useState<string | null>(null);
   const [saving, setSaving]           = useState(false);
+  const [syncing, setSyncing]         = useState(false);
+  const [syncMsg, setSyncMsg]         = useState<string | null>(null);
   const [toast, setToast]             = useState<{ msg: string; ok: boolean } | null>(null);
 
   const showToast = (msg: string, ok = true) => {
@@ -539,6 +542,25 @@ export default function AppointmentsPage() {
   });
 
   const pendingCount = bookings.filter(b => b.status === 'pending').length;
+
+  async function handleSyncCliniko() {
+    setSyncing(true);
+    setSyncMsg(null);
+    try {
+      const res = await triggerFullSync();
+      if (res.success) {
+        setSyncMsg(`Synced — ${res.appointments} appointment${res.appointments !== 1 ? 's' : ''} updated`);
+        await loadData();
+      } else {
+        setSyncMsg(res.error ?? 'Sync failed — check Cliniko connection in Integrations');
+      }
+    } catch (err) {
+      setSyncMsg(String(err));
+    } finally {
+      setSyncing(false);
+      setTimeout(() => setSyncMsg(null), 6000);
+    }
+  }
 
   async function handleConfirm(params: { confirmedDate: string; confirmedTime: string; practitionerClinikoId?: string }) {
     if (!confirmTarget) return;
@@ -639,6 +661,24 @@ export default function AppointmentsPage() {
                   {pendingCount} pending
                 </div>
               )}
+              {syncMsg && (
+                <span style={{ fontSize: 11, fontWeight: 600, color: syncMsg.startsWith('Synced') ? '#059669' : '#DC2626' }}>
+                  {syncMsg}
+                </span>
+              )}
+              <button
+                onClick={handleSyncCliniko}
+                disabled={syncing}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '8px 14px', borderRadius: 8, fontSize: 12,
+                  border: `1px solid ${ACCENT}40`, background: `${ACCENT}12`, color: NAVY,
+                  cursor: syncing ? 'not-allowed' : 'pointer', fontWeight: 600, opacity: syncing ? 0.6 : 1,
+                }}
+              >
+                <RefreshCw size={12} style={{ animation: syncing ? 'spin 1s linear infinite' : 'none' }} />
+                {syncing ? 'Syncing…' : 'Sync from Cliniko'}
+              </button>
               <button
                 onClick={loadData}
                 style={{

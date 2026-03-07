@@ -11,7 +11,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ChevronLeft, ChevronRight, Plus, X, Clock, User, ArrowUpRight,
+  ChevronLeft, ChevronRight, Plus, X, Clock, User, ArrowUpRight, RefreshCw,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { StaffNav } from '@/components/staff-nav';
@@ -20,6 +20,7 @@ import {
   getWeekAppointments, getPractitioners, getPendingBookings,
   type AppointmentRow, type PractitionerRow,
 } from '@/lib/actions/appointments';
+import { triggerFullSync } from '@/lib/actions/cliniko';
 
 const FALLBACK: StaffProfile = {
   userId: '', firstName: '—', lastName: '', email: '', jobTitle: null,
@@ -115,6 +116,8 @@ export default function CalendarPage() {
 
   const [selectedDay,    setSelectedDay]    = useState<Date | null>(null);
   const [filterPractId,  setFilterPractId]  = useState<string | null>(null);
+  const [syncing,        setSyncing]        = useState(false);
+  const [syncMsg,        setSyncMsg]        = useState<string | null>(null);
 
   // ── Load initial data ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -190,6 +193,30 @@ export default function CalendarPage() {
     setYear(today.getFullYear());
     setMonth(today.getMonth());
     setSelectedDay(today);
+  }
+
+  async function handleSync() {
+    setSyncing(true);
+    setSyncMsg(null);
+    try {
+      const res = await triggerFullSync();
+      if (res.success) {
+        setSyncMsg(`Synced — ${res.appointments} appointment${res.appointments !== 1 ? 's' : ''} updated`);
+        // Reload month appointments after sync
+        const fresh = await loadMonthAppointments(year, month);
+        setAllAppts(fresh);
+        const todayStr = today.toISOString().split('T')[0];
+        const todayW = await getWeekAppointments(todayStr);
+        setTodayAppts(todayW.appointments.filter(a => a.starts_at.startsWith(todayStr)));
+      } else {
+        setSyncMsg(res.error ?? 'Sync failed — check Cliniko connection');
+      }
+    } catch (err) {
+      setSyncMsg(String(err));
+    } finally {
+      setSyncing(false);
+      setTimeout(() => setSyncMsg(null), 5000);
+    }
   }
 
   if (loading) {
@@ -366,6 +393,31 @@ export default function CalendarPage() {
               <span className="text-[16px] font-bold" style={{ color: NAVY }}>
                 {MONTH_NAMES[month]} {year}
               </span>
+            </div>
+
+            {/* Sync controls */}
+            <div className="flex items-center gap-3">
+              {syncMsg && (
+                <span
+                  className="text-[11px] font-medium"
+                  style={{ color: syncMsg.includes('Synced') ? '#059669' : '#DC2626' }}
+                >
+                  {syncMsg}
+                </span>
+              )}
+              <button
+                onClick={handleSync}
+                disabled={syncing}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all disabled:opacity-50"
+                style={{
+                  background: `${BLUE}12`,
+                  border:     `1px solid ${BLUE}30`,
+                  color:      NAVY,
+                }}
+              >
+                <RefreshCw size={12} className={syncing ? 'animate-spin' : ''} />
+                {syncing ? 'Syncing…' : 'Sync Cliniko'}
+              </button>
             </div>
           </div>
 
