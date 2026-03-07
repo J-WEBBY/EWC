@@ -765,6 +765,36 @@ export async function getUpcomingAppointments(days = 30): Promise<{
 }
 
 // =============================================================================
+// confirmPendingBooking — marks a pending booking request as confirmed
+// Simpler than confirmBooking — does NOT push to Cliniko, just updates DB status.
+// Use this when you want to log a booking confirmed via phone/manual channel.
+// =============================================================================
+
+export async function confirmPendingBooking(
+  signalId: string,
+  bookingRequestId: string | null,
+  params: { confirmed_date: string; confirmed_time: string; practitioner_cliniko_id?: string },
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const db = createSovereignClient();
+    if (bookingRequestId) {
+      await db.from('booking_requests').update({
+        status:         'confirmed',
+        preferred_date: params.confirmed_date,
+        preferred_time: params.confirmed_time,
+        ...(params.practitioner_cliniko_id
+          ? { preferred_practitioner: params.practitioner_cliniko_id }
+          : {}),
+      }).eq('id', bookingRequestId);
+    }
+    await db.from('signals').update({ status: 'resolved' }).eq('id', signalId);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: String(err) };
+  }
+}
+
+// =============================================================================
 // updateAppointmentStatus — local cache update (syncs back on next Cliniko pull)
 // =============================================================================
 
