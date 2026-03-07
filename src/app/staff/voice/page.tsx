@@ -40,9 +40,9 @@ import { getCallLogs, getCallStats, type CallLog } from '@/lib/actions/call-logs
 // TYPES
 // =============================================================================
 
-type Tab = 'live' | 'calls' | 'intelligence' | 'identity' | 'knowledge' | 'settings';
+type Tab = 'calls' | 'intelligence' | 'identity' | 'knowledge' | 'settings';
 type CallFilter = 'all' | 'inbound' | 'outbound' | 'missed';
-type CallOutcome = 'booked' | 'lead' | 'enquiry' | 'concern' | 'escalated' | 'missed' | 'info_only' | 'unknown';
+type CallOutcome = 'booked' | 'confirmed' | 'lead' | 'enquiry' | 'concern' | 'escalated' | 'missed' | 'info_only' | 'unknown';
 type CallsView = 'history' | 'pending';
 
 interface BookingRequest {
@@ -115,7 +115,8 @@ const KB_CATEGORIES = [
 ] as const;
 
 const OUTCOME_CFG: Record<CallOutcome, { label: string; color: string; bg: string }> = {
-  booked:    { label: 'Booked',    color: '#059669', bg: '#ECFDF5' },
+  booked:    { label: 'Pending',   color: '#D8A600', bg: '#FFFBEB' },   // yellow — booking requested, awaiting confirmation
+  confirmed: { label: 'Confirmed', color: '#059669', bg: '#ECFDF5' },   // green — practitioner confirmed
   lead:      { label: 'Lead',      color: '#0058E6', bg: '#F5F3FF' },
   enquiry:   { label: 'Enquiry',   color: '#0284C7', bg: '#EFF6FF' },
   concern:   { label: 'Concern',   color: '#DC2626', bg: '#FFF1F2' },
@@ -233,8 +234,17 @@ function OutcomeBadge({ outcome }: { outcome: CallOutcome }) {
 
 // ── Call Log List Item ─────────────────────────────────────────────────────
 
+function resolveDisplayOutcome(log: CallLog): CallOutcome {
+  if (log.outcome === 'booked') {
+    const s = log.booking_request_status;
+    if (s === 'confirmed' || s === 'synced_to_cliniko') return 'confirmed';
+    return 'booked'; // pending
+  }
+  return (log.outcome ?? 'unknown') as CallOutcome;
+}
+
 function CallLogListItem({ log, selected, onClick }: { log: CallLog; selected: boolean; onClick: () => void }) {
-  const outcome  = (log.outcome ?? 'unknown') as CallOutcome;
+  const outcome  = resolveDisplayOutcome(log);
   const cfg      = OUTCOME_CFG[outcome] ?? OUTCOME_CFG.unknown;
   const Icon     = outcome === 'missed' ? PhoneMissed : log.direction === 'outbound' ? PhoneCall : Phone;
   const iconColor = outcome === 'missed' ? '#DC2626' : ACCENT;
@@ -261,10 +271,10 @@ function CallLogListItem({ log, selected, onClick }: { log: CallLog; selected: b
           </span>
           <span className="text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide"
             style={{ backgroundColor: cfg.bg, color: cfg.color }}>{cfg.label}</span>
-          {log.direction && log.direction !== 'web' && (
+          {log.direction && (
             <span className="text-[9px] font-medium px-1.5 py-0.5 rounded-full"
-              style={{ backgroundColor: log.direction === 'inbound' ? '#F0FDF4' : '#EFF6FF', color: log.direction === 'inbound' ? '#059669' : '#0284C7' }}>
-              {log.direction === 'inbound' ? 'Inbound' : 'Outbound'}
+              style={{ backgroundColor: log.direction === 'outbound' ? '#EFF6FF' : '#F0FDF4', color: log.direction === 'outbound' ? '#0284C7' : '#059669' }}>
+              {log.direction === 'outbound' ? 'Outbound' : 'Inbound'}
             </span>
           )}
         </div>
@@ -463,7 +473,7 @@ export default function ReceptionPage() {
   const router = useRouter();
 
   const [profile,       setProfile]       = useState<StaffProfile | null>(null);
-  const [tab,           setTab]           = useState<Tab>('live');
+  const [tab,           setTab]           = useState<Tab>('calls');
 
   // Komal status
   const [komalStatus,   setKomalStatus]   = useState<{ provisioned: boolean; id?: string } | null>(null);
@@ -485,7 +495,7 @@ export default function ReceptionPage() {
   const [bookingMsg,       setBookingMsg]       = useState<{ id: string; text: string; ok: boolean } | null>(null);
 
   // Live tab
-  const [callStats,     setCallStats]     = useState<{ total: number; today: number; booked: number; leads: number; missed: number; avg_duration: number } | null>(null);
+  const [callStats,     setCallStats]     = useState<{ total: number; today: number; booked: number; pending_bookings: number; confirmed_bookings: number; leads: number; missed: number; avg_duration: number } | null>(null);
   const [liveRefresh,   setLiveRefresh]   = useState(0); // increment to trigger re-fetch
 
   // Identity
@@ -551,17 +561,16 @@ export default function ReceptionPage() {
       .finally(() => setKbLoading(false));
   }, [tab]);
 
-  // ---------- live + calls tabs: call logs from DB ----------
+  // ---------- calls tab: call logs from DB ----------
   useEffect(() => {
-    if (tab !== 'live' && tab !== 'calls') return;
+    if (tab !== 'calls') return;
     setCallLogsLoading(true);
     Promise.all([getCallStats(), getCallLogs(50)]).then(([stats, logs]) => {
       setCallStats(stats);
       setCallLogs(logs);
     }).catch(console.error)
       .finally(() => setCallLogsLoading(false));
-    if (tab === 'live') refreshKomalStatus();
-  }, [tab, liveRefresh, refreshKomalStatus]);
+  }, [tab, liveRefresh]);
 
   // ---------- pending bookings ----------
   useEffect(() => {
@@ -657,7 +666,7 @@ export default function ReceptionPage() {
     const matchFilter =
       callFilter === 'all'      ? true :
       callFilter === 'missed'   ? l.outcome === 'missed' :
-      callFilter === 'inbound'  ? l.direction === 'inbound' :
+      callFilter === 'inbound'  ? (l.direction === 'inbound' || l.direction === 'web') :
                                   l.direction === 'outbound';
     const matchSearch = !callSearch || [
       l.caller_name, l.caller_phone, l.service_requested, l.call_summary,
@@ -683,7 +692,6 @@ export default function ReceptionPage() {
 
   const TAB_CFG: { key: Tab; label: string; icon: React.ElementType }[] = [
     { key: 'calls',        label: 'Calls',        icon: Phone         },
-    { key: 'live',         label: 'Live',         icon: Radio         },
     { key: 'intelligence', label: 'Intelligence', icon: Brain         },
     { key: 'identity',     label: 'Identity',     icon: User          },
     { key: 'knowledge',    label: 'Knowledge',    icon: BookOpen      },
@@ -746,7 +754,7 @@ export default function ReceptionPage() {
                   <motion.div layoutId="tab-underline" className="absolute bottom-0 left-0 right-0 h-[2px] rounded-t-full"
                     style={{ backgroundColor: ACCENT }} />
                 )}
-                {t.key === 'live' && todayMissedLogs.length > 0 && (
+                {t.key === 'calls' && todayMissedLogs.length > 0 && (
                   <span className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold -mt-2 -ml-1"
                     style={{ backgroundColor: '#DC2626', color: '#fff' }}>{todayMissedLogs.length}</span>
                 )}
@@ -764,155 +772,21 @@ export default function ReceptionPage() {
           {/* ================================================================
               TAB: LIVE
           ================================================================ */}
-          {tab === 'live' && (
-            <div className="px-10 py-8">
-
-              <div className="grid grid-cols-5 gap-6">
-
-                {/* ── Call Monitor ──────────────────────────────────────── */}
-                <div className="col-span-3">
-                  <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #D4E2FF' }}>
-
-                    {/* Monitor header */}
-                    <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #D4E2FF' }}>
-                      <div className="flex items-center gap-2">
-                        <Radio size={13} style={{ color: isKomalLive ? ACCENT : '#96989B' }} />
-                        <span className="text-[11px] font-bold text-[#181D23]">Live Monitor</span>
-                        {isKomalLive && (
-                          <motion.span className="text-[9px] font-bold px-2 py-0.5 rounded-full"
-                            style={{ backgroundColor: '#ECFDF5', color: '#059669' }}
-                            animate={{ opacity: [1, 0.5, 1] }} transition={{ duration: 1.8, repeat: Infinity }}>
-                            LIVE
-                          </motion.span>
-                        )}
-                      </div>
-                      <button onClick={() => setLiveRefresh(n => n + 1)}
-                        className="flex items-center gap-1 text-[10px] font-semibold hover:opacity-70 transition-opacity" style={{ color: ACCENT }}>
-                        <RefreshCw size={11} /> Refresh
-                      </button>
-                    </div>
-
-                    <div className="p-6">
-                      <div className="flex gap-6">
-                        {/* Status orb */}
-                        <div className="flex flex-col items-center flex-shrink-0">
-                          <PulseOrb active={isKomalLive} />
-                          <p className="text-[12px] font-bold text-[#181D23] mt-3">
-                            {isKomalLive ? 'Monitoring' : 'Not deployed'}
-                          </p>
-                          <p className="text-[10px] text-[#96989B] text-center mt-1 max-w-[120px]">
-                            {isKomalLive ? 'Komal is live and ready' : 'Go to Settings → Deploy'}
-                          </p>
-                          {!isKomalLive && (
-                            <button onClick={() => setTab('settings')} className="mt-2 text-[10px] font-bold hover:opacity-70 transition-opacity" style={{ color: ACCENT }}>
-                              Deploy →
-                            </button>
-                          )}
-                        </div>
-
-                        {/* Activity feed */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-3">
-                            <p className="text-[8px] uppercase tracking-[0.2em] font-semibold text-[#96989B]">Recent Call Activity</p>
-                            {callStats && (
-                              <div className="flex items-center gap-3">
-                                {[
-                                  { l: 'Total', v: callStats.total, c: ACCENT },
-                                  { l: 'Booked', v: callStats.booked, c: '#059669' },
-                                  { l: 'Leads', v: callStats.leads, c: '#0284C7' },
-                                ].map(s => (
-                                  <span key={s.l} className="text-[10px] font-bold" style={{ color: s.c }}>
-                                    {s.v} <span className="font-normal text-[#96989B]">{s.l}</span>
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                          {callLogs.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-8 rounded-xl" style={{ border: '1px dashed #D4E2FF' }}>
-                              <Headphones size={22} style={{ color: '#D4E2FF', marginBottom: 8 }} />
-                              <p className="text-[12px] text-[#96989B]">No call activity yet</p>
-                              <p className="text-[10px] text-[#B0B8C8] mt-1">Komal call records appear here after the first call</p>
-                            </div>
-                          ) : (
-                            <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #D4E2FF' }}>
-                              {callLogs.slice(0, 6).map((l, i) => {
-                                const outcome = (l.outcome ?? 'unknown') as CallOutcome;
-                                const outcfg  = OUTCOME_CFG[outcome] ?? OUTCOME_CFG.unknown;
-                                return (
-                                  <motion.button key={l.id} initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.04 }}
-                                    onClick={() => { setSelectedLog(l); setTab('calls'); }}
-                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-all hover:bg-[#F8FAFF]"
-                                    style={{ borderBottom: i < Math.min(callLogs.length - 1, 5) ? '1px solid #D4E2FF' : 'none' }}>
-                                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: outcfg.color }} />
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-[11px] font-semibold text-[#181D23] truncate">{l.caller_name ?? l.caller_phone ?? 'Unknown caller'}</p>
-                                      <p className="text-[10px] text-[#96989B] truncate">{l.service_requested ?? l.call_summary?.slice(0, 50) ?? 'Handled by Komal'}</p>
-                                    </div>
-                                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded flex-shrink-0"
-                                      style={{ backgroundColor: outcfg.bg, color: outcfg.color }}>
-                                      {outcfg.label}
-                                    </span>
-                                    {l.duration_seconds > 0 && <span className="text-[9px] text-[#96989B] flex-shrink-0">{fmtDuration(l.duration_seconds)}</span>}
-                                    <span className="text-[9px] text-[#96989B] flex-shrink-0">{fmtRelative(l.created_at)}</span>
-                                  </motion.button>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* ── Right Column: Missed Queue ─────────────────────── */}
-                <div className="col-span-2 space-y-5">
-
-                  {/* Missed call recovery */}
-                  {todayMissedLogs.length > 0 && (
-                    <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #FECDD3' }}>
-                      <div className="flex items-center gap-2 px-5 py-3" style={{ borderBottom: '1px solid #FECDD3', backgroundColor: '#FFF1F2' }}>
-                        <PhoneMissed size={12} color="#DC2626" />
-                        <SLabel>Missed — callback queue</SLabel>
-                      </div>
-                      {todayMissedLogs.slice(0, 4).map(l => {
-                        const pri = missedPriority(l.created_at);
-                        return (
-                          <div key={l.id} className="flex items-center gap-3 px-5 py-3 transition-all"
-                            style={{ borderBottom: '1px solid #FECDD3' }}>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-[11px] font-semibold text-[#181D23] truncate">{l.caller_name ?? l.caller_phone ?? 'Unknown'}</p>
-                              <p className="text-[10px] text-[#96989B]">{fmtDate(l.created_at)}</p>
-                            </div>
-                            <PriorityPill p={pri} />
-                            <button className="text-[10px] font-bold hover:opacity-70 transition-opacity" style={{ color: ACCENT }}>
-                              Call back
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* ================================================================
               TAB: CALLS
           ================================================================ */}
           {tab === 'calls' && (
             <div>
 
-              {/* ── Analytics strip (from signals DB) ────────────────── */}
+              {/* ── Analytics strip ───────────────────────────────── */}
               <div className="px-10 pt-6 pb-0">
-                <div className="grid grid-cols-4 gap-4 mb-6">
+                <div className="grid grid-cols-5 gap-4 mb-6">
                   {[
-                    { label: 'Calls Today',  value: String(callStats?.today ?? 0),             sub: 'total',         icon: Phone,      color: ACCENT },
-                    { label: 'Avg Duration', value: fmtDuration(callStats?.avg_duration ?? null), sub: 'per call',    icon: Clock,      color: '#0284C7' },
-                    { label: 'Bookings',     value: String(callStats?.booked ?? 0),             sub: 'confirmed',     icon: Star,       color: '#059669' },
-                    { label: 'Missed',       value: String(callStats?.missed ?? 0),             sub: 'need callback', icon: PhoneMissed, color: (callStats?.missed ?? 0) > 0 ? '#DC2626' : '#6B7280' },
+                    { label: 'Calls Today',      value: String(callStats?.today            ?? 0), sub: 'total',         icon: Phone,      color: ACCENT    },
+                    { label: 'Avg Duration',      value: fmtDuration(callStats?.avg_duration ?? null), sub: 'per call', icon: Clock,      color: '#0284C7' },
+                    { label: 'Pending Bookings',  value: String(callStats?.pending_bookings  ?? 0), sub: 'awaiting confirm', icon: Star,  color: '#D8A600' },
+                    { label: 'Confirmed',         value: String(callStats?.confirmed_bookings ?? 0), sub: 'booked in',   icon: Check,      color: '#059669' },
+                    { label: 'Missed',            value: String(callStats?.missed            ?? 0), sub: 'need callback', icon: PhoneMissed, color: (callStats?.missed ?? 0) > 0 ? '#DC2626' : '#6B7280' },
                   ].map((k, i) => {
                     const Icon = k.icon;
                     return (
@@ -1042,7 +916,7 @@ export default function ReceptionPage() {
                   {/* ── Pending booking detail ─────────────────────────── */}
                   {callsView === 'pending' && selectedBooking ? (
                     <motion.div key={`bk-${selectedBooking.id}`} initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
-                      className="p-8 max-w-[780px]">
+                      className="p-8">
                       <div className="flex items-start justify-between mb-6">
                         <div>
                           <h2 className="text-[22px] font-black tracking-[-0.03em] text-[#181D23] mb-1">
@@ -1139,7 +1013,7 @@ export default function ReceptionPage() {
                     </motion.div>
                   ) : (
                     <motion.div key={selectedLog.id} initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
-                      className="p-8 max-w-[780px]">
+                      className="p-8">
 
                       {/* Header */}
                       <div className="flex items-start justify-between mb-6">
@@ -1148,11 +1022,11 @@ export default function ReceptionPage() {
                             <h2 className="text-[22px] font-black tracking-[-0.03em] text-[#181D23]">
                               {selectedLog.caller_name ?? selectedLog.caller_phone ?? 'Unknown caller'}
                             </h2>
-                            <OutcomeBadge outcome={(selectedLog.outcome ?? 'unknown') as CallOutcome} />
-                            {selectedLog.direction && selectedLog.direction !== 'web' && (
+                            <OutcomeBadge outcome={resolveDisplayOutcome(selectedLog)} />
+                            {selectedLog.direction && (
                               <span className="text-[9px] font-bold px-2 py-0.5 rounded-full"
-                                style={{ backgroundColor: selectedLog.direction === 'inbound' ? '#F0FDF4' : '#EFF6FF', color: selectedLog.direction === 'inbound' ? '#059669' : '#0284C7' }}>
-                                {selectedLog.direction === 'inbound' ? 'Inbound' : 'Outbound'}
+                                style={{ backgroundColor: selectedLog.direction === 'outbound' ? '#EFF6FF' : '#F0FDF4', color: selectedLog.direction === 'outbound' ? '#0284C7' : '#059669' }}>
+                                {selectedLog.direction === 'outbound' ? 'Outbound' : 'Inbound'}
                               </span>
                             )}
                           </div>
@@ -1219,6 +1093,28 @@ export default function ReceptionPage() {
                           <p className="text-[12px] text-[#3D4451] leading-relaxed">{selectedLog.call_summary}</p>
                         </div>
                       )}
+
+                      {/* Call Pointers */}
+                      {selectedLog.call_summary && (() => {
+                        const points = selectedLog.call_summary
+                          .split(/(?<=[.?!])\s+/)
+                          .map(s => s.trim())
+                          .filter(s => s.length > 10);
+                        if (points.length < 2) return null;
+                        return (
+                          <div className="p-4 rounded-xl mb-5" style={{ backgroundColor: `${ACCENT}06`, border: `1px solid ${ACCENT}20` }}>
+                            <SLabel>Call pointers</SLabel>
+                            <ul className="space-y-2 mt-1">
+                              {points.map((pt, i) => (
+                                <li key={i} className="flex items-start gap-2">
+                                  <span className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0" style={{ backgroundColor: ACCENT }} />
+                                  <span className="text-[12px] text-[#3D4451] leading-relaxed">{pt.replace(/\.$/, '')}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        );
+                      })()}
 
                       {/* Transcript */}
                       {selectedLog.transcript && (

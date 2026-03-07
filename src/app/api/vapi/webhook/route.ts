@@ -75,7 +75,7 @@ interface VapiWebhookPayload {
 function callDirection(call: VapiCall): 'inbound' | 'outbound' | 'web' {
   if (call.type === 'inboundPhoneCall') return 'inbound';
   if (call.type === 'outboundPhoneCall') return 'outbound';
-  return 'web';
+  return 'inbound'; // webCall = caller initiating via web widget — treat as inbound
 }
 
 // Compute duration from startedAt/endedAt when durationSeconds is 0 or missing

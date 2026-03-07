@@ -33,6 +33,7 @@ export interface CallLog {
   referral_source: string | null;
   referral_name: string | null;
   booking_request_id: string | null;
+  booking_request_status: 'pending' | 'confirmed' | 'synced_to_cliniko' | 'cancelled' | null;
   transcript: string | null;
   created_at: string;
 }
@@ -41,6 +42,8 @@ export interface CallStats {
   total: number;
   today: number;
   booked: number;
+  pending_bookings: number;
+  confirmed_bookings: number;
   leads: number;
   missed: number;
   avg_duration: number;
@@ -54,7 +57,7 @@ export async function getCallLogs(limit = 50): Promise<CallLog[]> {
   const db = createSovereignClient();
   const { data, error } = await db
     .from('call_logs')
-    .select('*')
+    .select('*, booking_req:booking_request_id(status)')
     .order('created_at', { ascending: false })
     .limit(limit);
 
@@ -63,7 +66,14 @@ export async function getCallLogs(limit = 50): Promise<CallLog[]> {
     return getDemoCallLogs();
   }
 
-  return ((data ?? []) as CallLog[]);
+  // Flatten the joined booking_request status onto the row
+  return ((data ?? []) as (CallLog & { booking_req?: { status?: string } | null })[]).map(row => {
+    const { booking_req, ...rest } = row;
+    return {
+      ...rest,
+      booking_request_status: (booking_req?.status ?? null) as CallLog['booking_request_status'],
+    };
+  });
 }
 
 export async function getCallLogById(id: string): Promise<CallLog | null> {
@@ -91,27 +101,29 @@ export async function getCallStats(): Promise<CallStats> {
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
 
-  const { data, error } = await db
-    .from('call_logs')
-    .select('created_at, outcome, duration_seconds');
+  const [callResult, bookingResult] = await Promise.all([
+    db.from('call_logs').select('created_at, outcome, duration_seconds'),
+    db.from('booking_requests').select('status'),
+  ]);
 
-  if (error) {
-    return { total: 0, today: 0, booked: 0, leads: 0, missed: 0, avg_duration: 0 };
+  if (callResult.error) {
+    return { total: 0, today: 0, booked: 0, pending_bookings: 0, confirmed_bookings: 0, leads: 0, missed: 0, avg_duration: 0 };
   }
 
-  const records = data ?? [];
-  const today   = records.filter(r => new Date(r.created_at) >= todayStart);
-  const durations = records
-    .map(r => r.duration_seconds ?? 0)
-    .filter(d => d > 0);
+  const records  = callResult.data ?? [];
+  const bookings = bookingResult.data ?? [];
+  const today    = records.filter(r => new Date(r.created_at) >= todayStart);
+  const durations = records.map(r => r.duration_seconds ?? 0).filter(d => d > 0);
 
   return {
-    total:        records.length,
-    today:        today.length,
-    booked:       records.filter(r => r.outcome === 'booked').length,
-    leads:        records.filter(r => r.outcome === 'lead').length,
-    missed:       records.filter(r => r.outcome === 'missed').length,
-    avg_duration: durations.length
+    total:              records.length,
+    today:              today.length,
+    booked:             records.filter(r => r.outcome === 'booked').length,
+    pending_bookings:   bookings.filter(b => b.status === 'pending').length,
+    confirmed_bookings: bookings.filter(b => b.status === 'confirmed' || b.status === 'synced_to_cliniko').length,
+    leads:              records.filter(r => r.outcome === 'lead').length,
+    missed:             records.filter(r => r.outcome === 'missed').length,
+    avg_duration:       durations.length
       ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
       : 0,
   };
@@ -215,6 +227,7 @@ function getDemoCallLogs(): CallLog[] {
       referral_source: 'client_referral',
       referral_name: 'Sarah Jones',
       booking_request_id: null,
+      booking_request_status: null,
       transcript: null,
       created_at: mins(45),
     },
@@ -237,6 +250,7 @@ function getDemoCallLogs(): CallLog[] {
       referral_source: 'online',
       referral_name: null,
       booking_request_id: null,
+      booking_request_status: null,
       transcript: null,
       created_at: mins(180),
     },
@@ -259,6 +273,7 @@ function getDemoCallLogs(): CallLog[] {
       referral_source: null,
       referral_name: null,
       booking_request_id: null,
+      booking_request_status: null,
       transcript: null,
       created_at: mins(320),
     },
@@ -281,6 +296,7 @@ function getDemoCallLogs(): CallLog[] {
       referral_source: 'social_media',
       referral_name: null,
       booking_request_id: null,
+      booking_request_status: null,
       transcript: null,
       created_at: mins(480),
     },

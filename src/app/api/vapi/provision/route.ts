@@ -34,7 +34,7 @@ const HAIKU_MODEL = 'claude-haiku-4-5-20251001';  // Komal — fast, voice laten
 // eleven_turbo_v2_5 is ElevenLabs' lowest-latency model (~60ms TTFB).
 // ---------------------------------------------------------------------------
 
-const RAQUEL_VOICE_ID = 'GDzHdQOi6jjf8zaXhCYD'; // Raquel — 11labs
+const RAQUEL_VOICE_ID = 'rfkTsdZrVWEVhDycUYn9'; // Updated voice — 11labs
 
 const KOMAL_VOICE = {
   provider:         '11labs',
@@ -198,15 +198,15 @@ export async function POST(req: NextRequest) {
       transcriber:           DEEPGRAM_TRANSCRIBER,
       recordingEnabled:      true,
       backchannelingEnabled: true,
-      responseDelaySeconds:  0.3,        // Small delay — lets caller finish before Komal responds
+      responseDelaySeconds:  0.1,        // Minimal delay — faster response, Komal sounds more natural
       silenceTimeoutSeconds: 59,         // Vapi dashboard setting
       maxDurationSeconds:    814,        // Vapi dashboard setting
       startSpeakingPlan: {
-        waitSeconds: 0.3,                // Wait 300ms before starting to speak (was 0.1 — too fast)
+        waitSeconds: 0.1,                // Wait 100ms before starting to speak
         transcriptionEndpointingPlan: {
           onPunctuationSeconds:   0.1,   // Caller ends sentence → respond in 100ms
-          onNoPunctuationSeconds: 0.6,   // Natural mid-sentence pause → wait 600ms before responding (was 0.3)
-          onNumberSeconds:        0.3,   // Caller reads a number → 300ms
+          onNoPunctuationSeconds: 0.4,   // Mid-sentence pause → wait 400ms
+          onNumberSeconds:        0.2,   // Caller reads a number → 200ms
         },
       },
       stopSpeakingPlan: { numWords: 1, voiceSeconds: 0.1, backoffSeconds: 1 },  // Vapi dashboard settings
