@@ -397,7 +397,7 @@ function SignalCard({
                       <button
                         onClick={() => { setBusy('reject'); onReject(signal.id); }}
                         disabled={busy !== null}
-                        className="flex items-center justify-center gap-2 w-full py-2 rounded-lg text-[12px] font-medium border border-[#D4E2FF] bg-[#F0ECFF] hover:bg-[#F8FAFF] transition-colors disabled:opacity-30 text-[#5A6475]"
+                        className="flex items-center justify-center gap-2 w-full py-2 rounded-lg text-[12px] font-medium border border-[#D4E2FF] bg-[#F0ECFF] hover:bg-[#FAF7F2] transition-colors disabled:opacity-30 text-[#5A6475]"
                       >
                         <X size={12} /> Reject
                       </button>
@@ -428,7 +428,7 @@ function SignalCard({
                           <button
                             onClick={handleDismiss}
                             disabled={busy !== null}
-                            className="flex items-center justify-center gap-2 w-full py-2 rounded-lg text-[12px] font-medium border border-[#D4E2FF] bg-transparent hover:bg-[#F8FAFF] transition-colors disabled:opacity-30 text-[#5A6475]"
+                            className="flex items-center justify-center gap-2 w-full py-2 rounded-lg text-[12px] font-medium border border-[#D4E2FF] bg-transparent hover:bg-[#FAF7F2] transition-colors disabled:opacity-30 text-[#5A6475]"
                           >
                             <X size={12} /> Dismiss
                           </button>
@@ -756,7 +756,7 @@ export default function SignalsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen nav-offset bg-[#F8FAFF] flex items-center justify-center">
+      <div className="min-h-screen nav-offset bg-[#FAF7F2] flex items-center justify-center">
         <div className="w-5 h-5 border border-[#A8C4FF] border-t-[#0058E6] rounded-full animate-spin" />
       </div>
     );
@@ -832,7 +832,7 @@ export default function SignalsPage() {
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => handleApprove(p.id)}
-                        className="px-3 py-1.5 rounded-lg text-[11px] font-medium bg-[#FAF9F5] border border-[#A8C4FF] text-[#3D4451] hover:bg-[#D4E2FF] transition-colors"
+                        className="px-3 py-1.5 rounded-lg text-[11px] font-medium bg-[#FAF9F5] border border-[#A8C4FF] text-[#3D4451] hover:bg-[#EBE5FF] transition-colors"
                       >
                         Approve
                       </button>

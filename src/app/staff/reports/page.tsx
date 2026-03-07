@@ -149,7 +149,7 @@ function ReportCard({ report, onDownload }: { report: Report; onDownload: (id: s
       exit={{ opacity: 0 }}
       className="bg-[#FAF7F2] border border-[#EBE5FF] rounded-xl p-5 flex items-start gap-4"
     >
-      <div className="w-9 h-9 rounded-lg bg-[#F8FAFF] border border-[#D4E2FF] flex items-center justify-center flex-shrink-0">
+      <div className="w-9 h-9 rounded-lg bg-[#FAF7F2] border border-[#D4E2FF] flex items-center justify-center flex-shrink-0">
         <Icon size={16} className={meta.color} />
       </div>
       <div className="flex-1 min-w-0">
@@ -223,7 +223,7 @@ export default function ReportsPage() {
 
   if (loading || !profile) {
     return (
-      <div className="min-h-screen nav-offset bg-[#F8FAFF] flex items-center justify-center">
+      <div className="min-h-screen nav-offset bg-[#FAF7F2] flex items-center justify-center">
         <motion.div
           animate={{ opacity: [0.2, 0.5, 0.2] }}
           transition={{ duration: 1.8, repeat: Infinity }}
@@ -342,7 +342,7 @@ export default function ReportsPage() {
                 <button
                   key={a.label}
                   onClick={() => router.push(a.href)}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-[12px] text-[#5A6475] hover:text-[#3D4451] hover:bg-[#F8FAFF] transition-all text-left"
+                  className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-[12px] text-[#5A6475] hover:text-[#3D4451] hover:bg-[#FAF7F2] transition-all text-left"
                 >
                   <ChevronRight size={11} className="flex-shrink-0 opacity-40" />
                   {a.label}
@@ -353,7 +353,7 @@ export default function ReportsPage() {
             <h3 className="text-[11px] uppercase tracking-[0.18em] text-[#5A6475] font-medium mb-3">Schedule</h3>
             <div className="space-y-2">
               {REPORTS.filter(r => r.status === 'scheduled').map(r => (
-                <div key={r.id} className="p-3 bg-[#F8FAFF] border border-[#D4E2FF] rounded-lg">
+                <div key={r.id} className="p-3 bg-[#FAF7F2] border border-[#D4E2FF] rounded-lg">
                   <p className="text-[11px] font-medium text-[#3D4451] leading-snug">{r.title.split('—')[0].trim()}</p>
                   <p className="text-[10px] text-[#96989B] mt-1">{r.period}</p>
                 </div>

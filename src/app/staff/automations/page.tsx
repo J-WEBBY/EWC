@@ -283,13 +283,13 @@ function AriaCommandPanel({ aiName, onClose }: { aiName: string; onClose: () => 
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-[#F8FAFF]/60" onClick={onClose} />
+      <div className="fixed inset-0 z-40 bg-[#FAF7F2]/60" onClick={onClose} />
       <motion.div
         initial={{ x: 440 }}
         animate={{ x: 0 }}
         exit={{ x: 440 }}
         transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-        className="fixed right-0 top-0 h-full z-50 w-[400px] flex flex-col bg-[#F8FAFF] border-l border-[#D4E2FF]"
+        className="fixed right-0 top-0 h-full z-50 w-[400px] flex flex-col bg-[#FAF7F2] border-l border-[#D4E2FF]"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#D4E2FF]">
@@ -299,7 +299,7 @@ function AriaCommandPanel({ aiName, onClose }: { aiName: string; onClose: () => 
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-[#5A6475] hover:text-[#3D4451] hover:bg-[#F8FAFF] transition-all"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-[#5A6475] hover:text-[#3D4451] hover:bg-[#FAF7F2] transition-all"
           >
             <X size={14} />
           </button>
@@ -350,7 +350,7 @@ function AriaCommandPanel({ aiName, onClose }: { aiName: string; onClose: () => 
                 <button
                   key={ex}
                   onClick={() => send(ex)}
-                  className="w-full text-left text-[11px] text-[#5A6475] px-3 py-2 rounded-lg bg-[#FAF7F2] border border-[#EBE5FF] hover:bg-[#F8FAFF] hover:text-[#3D4451] transition-all truncate"
+                  className="w-full text-left text-[11px] text-[#5A6475] px-3 py-2 rounded-lg bg-[#FAF7F2] border border-[#EBE5FF] hover:bg-[#FAF7F2] hover:text-[#3D4451] transition-all truncate"
                 >
                   {ex}
                 </button>
@@ -452,7 +452,7 @@ export default function AutomationsPage() {
 
   if (loading || !profile) {
     return (
-      <div className="min-h-screen nav-offset bg-[#F8FAFF] flex items-center justify-center">
+      <div className="min-h-screen nav-offset bg-[#FAF7F2] flex items-center justify-center">
         <motion.div
           animate={{ opacity: [0.2, 0.5, 0.2] }}
           transition={{ duration: 1.8, repeat: Infinity }}

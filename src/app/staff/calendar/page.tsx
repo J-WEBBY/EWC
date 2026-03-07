@@ -8,7 +8,7 @@
 // Right: day detail panel (AnimatePresence slide-in)
 // =============================================================================
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronLeft, ChevronRight, Plus, X, Clock, User, ArrowUpRight,
@@ -31,7 +31,6 @@ const FALLBACK: StaffProfile = {
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const BG     = '#FAF7F2';
 const NAVY   = '#1A1035';
-const SEC    = '#524D66';
 const TER    = '#6E6688';
 const MUTED  = '#8B84A0';
 const BORDER = '#EBE5FF';
@@ -120,34 +119,40 @@ export default function CalendarPage() {
   // ── Load initial data ──────────────────────────────────────────────────────
   useEffect(() => {
     (async () => {
-      const u = await getCurrentUser();
-      if (!u.success || !u.userId) { router.push('/login'); return; }
-      setUserId(u.userId);
-      const [profRes, practs, pending] = await Promise.all([
-        getStaffProfile('clinic', u.userId),
-        getPractitioners(),
-        getPendingBookings(),
-      ]);
-      if (profRes.success && profRes.data) {
-        const p = (profRes.data as unknown as { profile: StaffProfile }).profile ?? null;
-        setProfile(p);
-        if (p?.brandColor) setBrandColor(p.brandColor);
+      try {
+        const u = await getCurrentUser();
+        if (!u.success || !u.userId) { router.push('/login'); return; }
+        setUserId(u.userId);
+        const [profRes, practs, pending] = await Promise.all([
+          getStaffProfile('clinic', u.userId),
+          getPractitioners(),
+          getPendingBookings(),
+        ]);
+        if (profRes.success && profRes.data) {
+          const p = (profRes.data as unknown as { profile: StaffProfile }).profile ?? null;
+          setProfile(p);
+          if (p?.brandColor) setBrandColor(p.brandColor);
+        }
+        setPractitioners(practs);
+        setPendingCount(pending.bookings.length);
+
+        const todayStr = today.toISOString().split('T')[0];
+        try {
+          const todayW = await getWeekAppointments(todayStr);
+          setTodayAppts(todayW.appointments.filter(a => a.starts_at.startsWith(todayStr)));
+        } catch { /* appointments not critical for page load */ }
+      } catch (err) {
+        console.error('Calendar load error:', err);
+      } finally {
+        setLoading(false);
       }
-      setPractitioners(practs);
-      setPendingCount(pending.bookings.length);
-
-      const todayStr = today.toISOString().split('T')[0];
-      const todayW   = await getWeekAppointments(todayStr);
-      setTodayAppts(todayW.appointments.filter(a => a.starts_at.startsWith(todayStr)));
-
-      setLoading(false);
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Load month appointments when year/month changes ────────────────────────
   useEffect(() => {
-    loadMonthAppointments(year, month).then(setAllAppts);
+    loadMonthAppointments(year, month).then(setAllAppts).catch(() => {});
   }, [year, month]);
 
   // ── Derived: map date string → appointments ────────────────────────────────

@@ -413,7 +413,7 @@ function HRTrackerTab({
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: idx * 0.02 }}
-                    className={`border-b cursor-pointer transition-colors ${isAdmin ? 'hover:bg-[#F8FAFF]' : ''}`}
+                    className={`border-b cursor-pointer transition-colors ${isAdmin ? 'hover:bg-[#FAF7F2]' : ''}`}
                     style={{ borderColor: '#EBE5FF' }}
                     onClick={() => isAdmin && openEdit(r)}
                   >
@@ -810,7 +810,7 @@ function EquipmentTab({
               {items.map((item, idx) => (
                 <motion.div
                   key={item.id}
-                  className={`flex items-center gap-4 px-5 py-3.5 ${isAdmin ? 'cursor-pointer hover:bg-[#F8FAFF]' : ''}`}
+                  className={`flex items-center gap-4 px-5 py-3.5 ${isAdmin ? 'cursor-pointer hover:bg-[#FAF7F2]' : ''}`}
                   initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: idx * 0.02 }}
                   onClick={() => isAdmin && openEdit(item)}
                 >
@@ -1238,7 +1238,7 @@ function GovernanceTab({
             {entries.map((e, idx) => (
               <motion.div
                 key={e.id}
-                className={`px-5 py-4 ${isAdmin ? 'cursor-pointer hover:bg-[#F8FAFF]' : ''}`}
+                className={`px-5 py-4 ${isAdmin ? 'cursor-pointer hover:bg-[#FAF7F2]' : ''}`}
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: idx * 0.02 }}
                 onClick={() => isAdmin && openEdit(e)}
               >
@@ -1422,7 +1422,7 @@ function CalendarTab({
                 {items.map((task, idx) => (
                   <motion.div
                     key={task.id}
-                    className={`flex items-center gap-4 px-5 py-3.5 ${isAdmin ? 'cursor-pointer hover:bg-[#F8FAFF]' : ''}`}
+                    className={`flex items-center gap-4 px-5 py-3.5 ${isAdmin ? 'cursor-pointer hover:bg-[#FAF7F2]' : ''}`}
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: idx * 0.02 }}
                     onClick={() => isAdmin && openEdit(task)}
                   >
@@ -1575,13 +1575,13 @@ export default function CompliancePage() {
   const handleRefresh = useCallback(() => { loadAll(); }, [loadAll]);
 
   if (loading) return (
-    <div className="min-h-screen bg-[#F8FAFF] flex items-center justify-center">
+    <div className="min-h-screen bg-[#FAF7F2] flex items-center justify-center">
       <div className="text-[12px] text-[#9CA3AF] uppercase tracking-[0.2em]">Loading compliance data…</div>
     </div>
   );
 
   if (!profile) return (
-    <div className="min-h-screen bg-[#F8FAFF] flex items-center justify-center">
+    <div className="min-h-screen bg-[#FAF7F2] flex items-center justify-center">
       <div className="text-[12px] text-[#6B7280]">Unable to load profile.</div>
     </div>
   );
@@ -1592,7 +1592,7 @@ export default function CompliancePage() {
     : 0;
 
   return (
-    <div className="min-h-screen bg-[#F8FAFF] text-[#181D23]">
+    <div className="min-h-screen bg-[#FAF7F2] text-[#181D23]">
       <StaffNav profile={profile} userId={userId} brandColor={brandColor} currentPath="Compliance" />
 
       <div style={{ paddingLeft: 'var(--nav-w, 240px)', transition: 'padding-left 0.32s ease' }}>

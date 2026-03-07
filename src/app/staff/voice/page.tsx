@@ -311,7 +311,7 @@ function RecordingPlayer({ url }: { url: string }) {
         {playing ? <Pause size={13} color="#fff" /> : <Play size={13} color="#fff" />}
       </button>
       <div className="flex-1">
-        <div className="h-1 rounded-full bg-[#D4E2FF] relative cursor-pointer"
+        <div className="h-1 rounded-full bg-[#EBE5FF] relative cursor-pointer"
           onClick={e => {
             if (!audioRef.current) return;
             const rect = e.currentTarget.getBoundingClientRect();
@@ -428,7 +428,7 @@ function KBCategoryCard({ cat, count }: { cat: { key: string; label: string; col
       <p className="text-[12px] font-bold text-[#181D23] mb-0.5">{cat.label}</p>
       <p className="text-[10px] text-[#96989B] mb-2">{cat.desc}</p>
       <div className="flex items-center justify-between">
-        <div className="h-1 flex-1 rounded-full bg-[#D4E2FF] mr-2">
+        <div className="h-1 flex-1 rounded-full bg-[#EBE5FF] mr-2">
           <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, count / 10 * 100)}%`, backgroundColor: cat.color }} />
         </div>
         <span className="text-[10px] font-bold text-[#3D4451]">{count}</span>
@@ -1251,7 +1251,7 @@ export default function ReceptionPage() {
                       const Icon = outcome === 'missed' ? PhoneMissed : l.direction === 'outbound' ? PhoneCall : Phone;
                       return (
                         <button key={l.id} onClick={() => openChatWithContext(`Tell me about the call with ${l.caller_name ?? l.caller_phone ?? 'unknown caller'} on ${fmtDate(l.created_at)}. Outcome: ${outcome}. ${l.call_summary ?? ''}`)}
-                          className="w-full flex items-center gap-3 px-5 py-3 text-left transition-all hover:bg-[#F8FAFF]"
+                          className="w-full flex items-center gap-3 px-5 py-3 text-left transition-all hover:bg-[#FAF7F2]"
                           style={{ borderBottom: i < 4 ? '1px solid #EBE5FF' : 'none' }}>
                           <Icon size={11} style={{ color: outcome === 'missed' ? '#DC2626' : ACCENT }} className="flex-shrink-0" />
                           <div className="flex-1 min-w-0">

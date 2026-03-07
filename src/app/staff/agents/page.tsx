@@ -420,7 +420,7 @@ export default function AgentsPage() {
 
   if (loading || !profile) {
     return (
-      <div className="min-h-screen nav-offset bg-[#F8FAFF] flex items-center justify-center">
+      <div className="min-h-screen nav-offset bg-[#FAF7F2] flex items-center justify-center">
         <motion.div
           animate={{ opacity: [0.2, 0.5, 0.2] }}
           transition={{ duration: 1.8, repeat: Infinity }}

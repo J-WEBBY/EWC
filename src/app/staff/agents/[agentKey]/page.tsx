@@ -721,7 +721,7 @@ export default function AgentChatPage() {
   // ── Loading screen ─────────────────────────────────────────────────────────
   if (loading || !profile) {
     return (
-      <div className="min-h-screen bg-[#F8FAFF] flex flex-col items-center justify-center gap-5">
+      <div className="min-h-screen bg-[#FAF7F2] flex flex-col items-center justify-center gap-5">
         <AgentOrb color={color} size={56} active />
         <div className="flex flex-col items-center gap-1.5">
           <p className="text-[15px] font-semibold text-[#181D23] tracking-tight">
@@ -750,7 +750,7 @@ export default function AgentChatPage() {
     <>
       <StaffNav profile={profile} userId={userId} brandColor={color} currentPath="Agents" />
 
-      <div className="fixed inset-0 left-[240px] flex bg-[#F8FAFF]">
+      <div className="fixed inset-0 left-[240px] flex bg-[#FAF7F2]">
 
         {/* ── LEFT PANEL ──────────────────────────────────────────── */}
         <div className="relative w-[272px] flex-shrink-0 border-r border-[#D4E2FF] flex flex-col overflow-hidden">
@@ -896,7 +896,7 @@ export default function AgentChatPage() {
                               >
                                 <button
                                   onClick={e => { e.stopPropagation(); handleArchiveConv(conv.id); }}
-                                  className="w-full flex items-center gap-2 px-3 py-2 text-left text-[11px] text-[#3D4451] hover:bg-[#F8FAFF] transition-colors"
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-left text-[11px] text-[#3D4451] hover:bg-[#FAF7F2] transition-colors"
                                 >
                                   <span className="text-[#96989B]">⊖</span> Archive
                                 </button>
@@ -924,7 +924,7 @@ export default function AgentChatPage() {
                                 <div className="flex gap-1.5">
                                   <button
                                     onClick={() => { setConfirmDelete(null); setConvMenu(null); }}
-                                    className="flex-1 text-[10px] py-1 rounded-lg border border-[#D4E2FF] text-[#3D4451] hover:bg-[#F8FAFF] transition-colors"
+                                    className="flex-1 text-[10px] py-1 rounded-lg border border-[#D4E2FF] text-[#3D4451] hover:bg-[#FAF7F2] transition-colors"
                                   >
                                     Cancel
                                   </button>
@@ -1002,7 +1002,7 @@ export default function AgentChatPage() {
                           <button
                             key={key}
                             onClick={() => router.push(`/staff/agents/${key}?userId=${userId}`)}
-                            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-[#F8FAFF] transition-colors"
+                            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-[#FAF7F2] transition-colors"
                           >
                             <div className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                               style={{ backgroundColor: otherCfg.color }} />
@@ -1023,7 +1023,7 @@ export default function AgentChatPage() {
         </div>
 
         {/* ── RIGHT PANEL ─────────────────────────────────────────── */}
-        <div className="flex-1 flex flex-col min-w-0 bg-[#F8FAFF] relative">
+        <div className="flex-1 flex flex-col min-w-0 bg-[#FAF7F2] relative">
 
           {/* Naming modal */}
           <AnimatePresence>
@@ -1056,7 +1056,7 @@ export default function AgentChatPage() {
                     </p>
 
                     {pendingFirstMsg && (
-                      <div className="rounded-xl bg-[#F8FAFF] border border-[#D4E2FF] px-3 py-2.5 mb-4 flex items-start gap-2">
+                      <div className="rounded-xl bg-[#FAF7F2] border border-[#D4E2FF] px-3 py-2.5 mb-4 flex items-start gap-2">
                         <MessageSquare size={11} className="mt-0.5 flex-shrink-0 text-[#96989B]" />
                         <p className="text-[11px] text-[#5A6475] italic leading-relaxed line-clamp-2">
                           &ldquo;{pendingFirstMsg}&rdquo;
@@ -1075,7 +1075,7 @@ export default function AgentChatPage() {
                       }}
                       placeholder="e.g. Morning briefing, Patient retention review…"
                       maxLength={80}
-                      className="w-full text-[13px] px-4 py-3 rounded-xl border border-[#D4E2FF] bg-[#F8FAFF] text-[#181D23] placeholder:text-[#96989B] outline-none mb-4 transition-all"
+                      className="w-full text-[13px] px-4 py-3 rounded-xl border border-[#D4E2FF] bg-[#FAF7F2] text-[#181D23] placeholder:text-[#96989B] outline-none mb-4 transition-all"
                       style={{ '--tw-ring-color': color } as React.CSSProperties}
                       onFocus={e => (e.currentTarget.style.borderColor = `${color}50`)}
                       onBlur={e => (e.currentTarget.style.borderColor = '#EBE5FF')}
@@ -1695,7 +1695,7 @@ export default function AgentChatPage() {
                               }
                             }}
                             placeholder="Add custom area…"
-                            className="flex-1 text-[12px] px-3 py-1.5 rounded-lg border border-[#D4E2FF] bg-[#F8FAFF] text-[#181D23] placeholder:text-[#96989B] outline-none focus:border-[#A8C4FF]"
+                            className="flex-1 text-[12px] px-3 py-1.5 rounded-lg border border-[#D4E2FF] bg-[#FAF7F2] text-[#181D23] placeholder:text-[#96989B] outline-none focus:border-[#A8C4FF]"
                           />
                           <button
                             onClick={() => {
@@ -1740,7 +1740,7 @@ export default function AgentChatPage() {
                           onChange={e => setPrefs(p => ({ ...p, custom_instructions: e.target.value }))}
                           placeholder={`e.g. Always start with a brief summary before detail. Focus on clinical compliance. Prioritise patient safety above revenue.`}
                           rows={4}
-                          className="w-full text-[12px] px-3 py-2.5 rounded-xl border border-[#D4E2FF] bg-[#F8FAFF] text-[#181D23] placeholder:text-[#96989B] outline-none focus:border-[#A8C4FF] resize-none leading-relaxed"
+                          className="w-full text-[12px] px-3 py-2.5 rounded-xl border border-[#D4E2FF] bg-[#FAF7F2] text-[#181D23] placeholder:text-[#96989B] outline-none focus:border-[#A8C4FF] resize-none leading-relaxed"
                         />
                       </div>
 
@@ -1838,7 +1838,7 @@ export default function AgentChatPage() {
                         <button
                           key={label}
                           onClick={() => { setActiveTab('chat'); setTimeout(() => handleSend(label), 150); }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left text-[12px] text-[#3D4451] border border-[#D4E2FF] bg-[#F8FAFF] hover:border-[#A8C4FF] hover:bg-[#F5F2FD] transition-all"
+                          className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left text-[12px] text-[#3D4451] border border-[#D4E2FF] bg-[#FAF7F2] hover:border-[#A8C4FF] hover:bg-[#F5F2FD] transition-all"
                         >
                           <Icon size={11} className="flex-shrink-0" style={{ color }} />
                           <span>{label}</span>

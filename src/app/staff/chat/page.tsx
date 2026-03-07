@@ -205,7 +205,7 @@ function ConversationItem({
   };
 
   return (
-    <div className={`relative group ${isActive ? 'bg-[#FAF9F5]' : 'hover:bg-[#F8FAFF]'}`}>
+    <div className={`relative group ${isActive ? 'bg-[#FAF9F5]' : 'hover:bg-[#FAF7F2]'}`}>
       {editing ? (
         <div className="flex items-center gap-1 px-3 py-1.5">
           <input
@@ -261,20 +261,20 @@ function ConversationItem({
           <div className="absolute right-2 top-8 z-50 min-w-[140px] bg-[#111] border border-white/[0.1] rounded-lg shadow-2xl py-1 text-[11px]">
             <button
               onClick={() => startRename()}
-              className="w-full text-left px-3 py-1.5 text-[#3D4451] hover:text-[#181D23] hover:bg-[#F8FAFF] flex items-center gap-2"
+              className="w-full text-left px-3 py-1.5 text-[#3D4451] hover:text-[#181D23] hover:bg-[#FAF7F2] flex items-center gap-2"
             >
               <Pencil size={11} /> Rename
             </button>
             <button
               onClick={() => { onPin(conv.id, !conv.isPinned); setMenuOpen(false); }}
-              className="w-full text-left px-3 py-1.5 text-[#3D4451] hover:text-[#181D23] hover:bg-[#F8FAFF] flex items-center gap-2"
+              className="w-full text-left px-3 py-1.5 text-[#3D4451] hover:text-[#181D23] hover:bg-[#FAF7F2] flex items-center gap-2"
             >
               {conv.isPinned ? <PinOff size={11} /> : <Pin size={11} />}
               {conv.isPinned ? 'Unpin' : 'Pin'}
             </button>
             <button
               onClick={(e) => { onDelete(conv.id, e); setMenuOpen(false); }}
-              className="w-full text-left px-3 py-1.5 text-red-400/60 hover:text-red-400 hover:bg-[#F8FAFF] flex items-center gap-2"
+              className="w-full text-left px-3 py-1.5 text-red-400/60 hover:text-red-400 hover:bg-[#FAF7F2] flex items-center gap-2"
             >
               <Archive size={11} /> Archive
             </button>
@@ -854,7 +854,7 @@ export default function ChatPage() {
   // ── Loading ───────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-screen nav-offset bg-[#F8FAFF] flex items-center justify-center">
+      <div className="min-h-screen nav-offset bg-[#FAF7F2] flex items-center justify-center">
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
@@ -868,7 +868,7 @@ export default function ChatPage() {
   const dateGroups = groupConversationsByDate(conversations);
 
   return (
-    <div className="h-screen nav-offset bg-[#F8FAFF] text-[#181D23] flex overflow-hidden relative">
+    <div className="h-screen nav-offset bg-[#FAF7F2] text-[#181D23] flex overflow-hidden relative">
       {profile && <StaffNav profile={profile} userId={userId || ''} brandColor={brandColor} currentPath="Chat" />}
       <NeuralGrid color={brandColor} />
 
@@ -994,7 +994,7 @@ export default function ChatPage() {
                 >
                   <button
                     onClick={() => { setSelectedAgent(null); setAgentDropdownOpen(false); }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-[11px] transition-all hover:bg-[#F8FAFF]"
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-[11px] transition-all hover:bg-[#FAF7F2]"
                     style={{
                       backgroundColor: selectedAgent === null ? `${brandColor}10` : 'transparent',
                       color: selectedAgent === null ? brandColor : '#3D4451',
@@ -1014,7 +1014,7 @@ export default function ChatPage() {
                       <button
                         key={agent.id}
                         onClick={() => { setSelectedAgent(agent.id); setAgentDropdownOpen(false); }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-[11px] transition-all hover:bg-[#F8FAFF]"
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-[11px] transition-all hover:bg-[#FAF7F2]"
                         style={{
                           backgroundColor: isActive ? `${brandColor}10` : 'transparent',
                           color: isActive ? brandColor : '#3D4451',
@@ -1150,7 +1150,7 @@ export default function ChatPage() {
                 {msg.role === 'assistant' && (
                   <div className="max-w-[85%]">
                     <div className="bg-[#FAF7F2] border border-[#EBE5FF] rounded-2xl rounded-tl-md px-5 py-4">
-                      <div className="text-[13px] text-[#3D4451] leading-[1.7] prose prose-slate prose-sm max-w-none prose-p:my-2.5 prose-li:my-1 prose-ul:my-2.5 prose-ol:my-2.5 prose-headings:text-[#181D23] prose-headings:text-[14px] prose-headings:font-semibold prose-headings:mt-5 prose-headings:mb-2 prose-h2:text-[15px] prose-h2:mt-6 prose-h2:mb-2.5 prose-h2:pb-1 prose-h2:border-b prose-h2:border-[#D4E2FF] prose-strong:text-[#181D23] prose-code:text-emerald-400/80 prose-code:text-[12px] prose-code:bg-[#F8FAFF] prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-hr:my-4 prose-hr:border-[#D4E2FF] first:prose-headings:mt-0">
+                      <div className="text-[13px] text-[#3D4451] leading-[1.7] prose prose-slate prose-sm max-w-none prose-p:my-2.5 prose-li:my-1 prose-ul:my-2.5 prose-ol:my-2.5 prose-headings:text-[#181D23] prose-headings:text-[14px] prose-headings:font-semibold prose-headings:mt-5 prose-headings:mb-2 prose-h2:text-[15px] prose-h2:mt-6 prose-h2:mb-2.5 prose-h2:pb-1 prose-h2:border-b prose-h2:border-[#D4E2FF] prose-strong:text-[#181D23] prose-code:text-emerald-400/80 prose-code:text-[12px] prose-code:bg-[#FAF7F2] prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-hr:my-4 prose-hr:border-[#D4E2FF] first:prose-headings:mt-0">
                         <ReactMarkdown>{msg.content}</ReactMarkdown>
                       </div>
                     </div>
@@ -1188,7 +1188,7 @@ export default function ChatPage() {
                       </div>
                     )}
                     {streamingText ? (
-                      <div className="text-[13px] text-[#3D4451] leading-[1.7] prose prose-slate prose-sm max-w-none prose-p:my-2.5 prose-li:my-1 prose-ul:my-2.5 prose-ol:my-2.5 prose-headings:text-[#181D23] prose-headings:text-[14px] prose-headings:font-semibold prose-headings:mt-5 prose-headings:mb-2 prose-h2:text-[15px] prose-h2:mt-6 prose-h2:mb-2.5 prose-h2:pb-1 prose-h2:border-b prose-h2:border-[#D4E2FF] prose-strong:text-[#181D23] prose-code:text-emerald-400/80 prose-code:text-[12px] prose-code:bg-[#F8FAFF] prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-hr:my-4 prose-hr:border-[#D4E2FF] first:prose-headings:mt-0">
+                      <div className="text-[13px] text-[#3D4451] leading-[1.7] prose prose-slate prose-sm max-w-none prose-p:my-2.5 prose-li:my-1 prose-ul:my-2.5 prose-ol:my-2.5 prose-headings:text-[#181D23] prose-headings:text-[14px] prose-headings:font-semibold prose-headings:mt-5 prose-headings:mb-2 prose-h2:text-[15px] prose-h2:mt-6 prose-h2:mb-2.5 prose-h2:pb-1 prose-h2:border-b prose-h2:border-[#D4E2FF] prose-strong:text-[#181D23] prose-code:text-emerald-400/80 prose-code:text-[12px] prose-code:bg-[#FAF7F2] prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-hr:my-4 prose-hr:border-[#D4E2FF] first:prose-headings:mt-0">
                         <ReactMarkdown>{streamingText}</ReactMarkdown>
                       </div>
                     ) : !activeToolCall ? (

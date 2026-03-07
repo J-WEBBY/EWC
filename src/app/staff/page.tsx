@@ -340,7 +340,7 @@ export default function StaffOnboardingPage() {
   // ─── Loading state ───
   if (!profile) {
     return (
-      <div className="min-h-screen nav-offset bg-[#F8FAFF] flex items-center justify-center">
+      <div className="min-h-screen nav-offset bg-[#FAF7F2] flex items-center justify-center">
         <motion.div
           animate={{ opacity: [0.3, 0.6, 0.3] }}
           transition={{ duration: 2, repeat: Infinity }}
@@ -577,7 +577,7 @@ export default function StaffOnboardingPage() {
                 </button>
                 <button
                   onClick={() => setPhase('intelligence')}
-                  className="flex-1 h-12 rounded-xl font-semibold text-[14px] text-[#5A6475] bg-[#F8FAFF] border border-[#D4E2FF] transition-all hover:border-white/[0.15] active:scale-[0.97]"
+                  className="flex-1 h-12 rounded-xl font-semibold text-[14px] text-[#5A6475] bg-[#FAF7F2] border border-[#D4E2FF] transition-all hover:border-white/[0.15] active:scale-[0.97]"
                 >
                   Something&apos;s off
                 </button>
@@ -664,7 +664,7 @@ export default function StaffOnboardingPage() {
                                   initial={{ opacity: 0, y: 10 }}
                                   animate={{ opacity: 1, y: 0 }}
                                   transition={{ delay: i * 0.08 }}
-                                  className="bg-[#FAF7F2] border border-[#EBE5FF] rounded-xl p-4 hover:bg-[#F8FAFF] hover:border-[#D5CCFF] transition-all"
+                                  className="bg-[#FAF7F2] border border-[#EBE5FF] rounded-xl p-4 hover:bg-[#FAF7F2] hover:border-[#D5CCFF] transition-all"
                                 >
                                   <div className="flex items-start gap-3">
                                     <div

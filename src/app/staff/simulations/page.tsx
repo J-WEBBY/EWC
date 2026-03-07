@@ -278,7 +278,7 @@ function SpinningGlobe({
             animation: `${badge.anim} ${badge.dur} linear infinite`,
           }}
         >
-          <div className="bg-[#F8FAFF]/80 border border-white/10 rounded px-2 py-1 text-center backdrop-blur-sm">
+          <div className="bg-[#FAF7F2]/80 border border-white/10 rounded px-2 py-1 text-center backdrop-blur-sm">
             <div className="text-[10px] font-bold text-[#181D23]">{badge.label}</div>
             <div className="text-[8px] text-[#5A6475]">{badge.sub}</div>
           </div>
@@ -296,7 +296,7 @@ function SpinningGlobe({
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
-              className="absolute pointer-events-none bg-[#F8FAFF]/90 border border-[#A8C4FF] rounded-lg px-3 py-2 backdrop-blur-sm z-10"
+              className="absolute pointer-events-none bg-[#FAF7F2]/90 border border-[#A8C4FF] rounded-lg px-3 py-2 backdrop-blur-sm z-10"
               style={{ left: pos.x - 50, top: pos.y - 60 }}
             >
               <div className="text-xs font-medium text-[#181D23]">{node.label}</div>
@@ -721,7 +721,7 @@ export default function SimulationsPage() {
   // ── Loading state ──────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-screen nav-offset bg-[#F8FAFF] flex items-center justify-center">
+      <div className="min-h-screen nav-offset bg-[#FAF7F2] flex items-center justify-center">
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
