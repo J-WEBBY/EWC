@@ -252,14 +252,14 @@ export default function InventoryPage() {
   const accentColor = profile?.brandColor ?? ACCENT;
 
   if (loading) return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#F8FAFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#FAF7F2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ width: 32, height: 32, border: '2px solid #EBE5FF', borderTopColor: ACCENT, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#F8FAFF' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#FAF7F2' }}>
       {profile && <StaffNav profile={profile} userId={userId} brandColor={accentColor} currentPath="Inventory" />}
       <main style={{ paddingLeft: 'var(--nav-w, 240px)', minHeight: '100vh' }}>
         <div style={{ padding: '40px 40px 0', borderBottom: '1px solid #EBE5FF' }}>

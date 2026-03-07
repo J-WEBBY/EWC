@@ -520,7 +520,7 @@ export default function AnalyticsPage() {
   useEffect(() => { loadAnalytics(range); }, [range, loadAnalytics]);
 
   return (
-    <div className="min-h-screen overflow-y-auto" style={{ backgroundColor: '#F8FAFF', paddingLeft: 'var(--nav-w, 240px)' }}>
+    <div className="min-h-screen overflow-y-auto" style={{ backgroundColor: '#FAF7F2', paddingLeft: 'var(--nav-w, 240px)' }}>
       <StaffNav
         profile={profile ?? FALLBACK}
         userId={userId}

@@ -22,7 +22,7 @@ import {
   getBookingRequests, confirmBookingRequest, dismissBookingRequest,
   getPractitioners, type BookingRequest, type ClinikoPractitionerRow,
 } from '@/lib/actions/booking-pipeline';
-import { triggerFullSync } from '@/lib/actions/cliniko';
+
 
 // =============================================================================
 // DESIGN TOKENS
@@ -547,9 +547,10 @@ export default function AppointmentsPage() {
     setSyncing(true);
     setSyncMsg(null);
     try {
-      const res = await triggerFullSync();
+      const r = await fetch('/api/cliniko/sync-now', { method: 'POST' });
+      const res = await r.json() as { success: boolean; appointments?: number; error?: string };
       if (res.success) {
-        setSyncMsg(`Synced — ${res.appointments} appointment${res.appointments !== 1 ? 's' : ''} updated`);
+        setSyncMsg(`Synced — ${res.appointments ?? 0} appointment${(res.appointments ?? 0) !== 1 ? 's' : ''} updated`);
         await loadData();
       } else {
         setSyncMsg(res.error ?? 'Sync failed — check Cliniko connection in Integrations');

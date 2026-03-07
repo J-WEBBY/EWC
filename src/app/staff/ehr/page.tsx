@@ -634,14 +634,14 @@ export default function EHRPage() {
 
   if (!profile) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#F8FAFF' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#FAF7F2' }}>
         <Loader2 size={20} className="animate-spin text-[#96989B]" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#F8FAFF' }}>
+    <div className="min-h-screen" style={{ backgroundColor: '#FAF7F2' }}>
       <StaffNav profile={profile} userId={userId} brandColor={brandColor} currentPath="EHR Hub" />
       <div style={{ paddingLeft: 'var(--nav-w, 240px)', transition: 'padding-left 0.3s' }}>
         <div className="max-w-[1200px] mx-auto px-8 py-8">

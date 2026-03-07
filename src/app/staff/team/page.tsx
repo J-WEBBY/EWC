@@ -462,7 +462,7 @@ export default function TeamPage() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ backgroundColor: '#F8FAFF', paddingLeft: 'var(--nav-w, 240px)' }}>
+    <div className="flex h-screen overflow-hidden" style={{ backgroundColor: '#FAF7F2', paddingLeft: 'var(--nav-w, 240px)' }}>
       <StaffNav profile={profile ?? FALLBACK} userId={userId} brandColor={brandColor} currentPath="Team" />
 
       {/* ===== LEFT: SPACES + ROSTER ===== */}
@@ -523,7 +523,7 @@ export default function TeamPage() {
                     {getInitials(m.full_name)}
                   </div>
                   <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border"
-                    style={{ backgroundColor: STATUS_DOT[m.status], borderColor: '#F8FAFF' }} />
+                    style={{ backgroundColor: STATUS_DOT[m.status], borderColor: '#FAF7F2' }} />
                 </div>
                 <div className="min-w-0">
                   <p className="text-[10px] font-medium truncate" style={{ color: '#181D23' }}>{m.full_name}</p>

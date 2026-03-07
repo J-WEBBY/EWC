@@ -169,7 +169,7 @@ function QuestionnaireModal({
                     {['Yes', 'No'].map(opt => (
                       <div key={opt} style={{
                         padding: '6px 16px', borderRadius: 8, border: '1px solid #EBE5FF',
-                        fontSize: 12, color: '#3D4451', background: '#F8FAFF', cursor: 'pointer',
+                        fontSize: 12, color: '#3D4451', background: '#FAF7F2', cursor: 'pointer',
                       }}>{opt}</div>
                     ))}
                     {q.risk_flag_if_yes && <span style={{ fontSize: 10, color: '#DC2626', alignSelf: 'center', marginLeft: 4 }}>⚑ Clinical review if Yes</span>}
@@ -178,7 +178,7 @@ function QuestionnaireModal({
 
                 {q.type === 'text' && (
                   <div style={{ paddingLeft: 32 }}>
-                    <div style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #EBE5FF', background: '#F8FAFF', fontSize: 11, color: '#96989B' }}>Patient text response…</div>
+                    <div style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #EBE5FF', background: '#FAF7F2', fontSize: 11, color: '#96989B' }}>Patient text response…</div>
                   </div>
                 )}
 
@@ -194,7 +194,7 @@ function QuestionnaireModal({
                   <div style={{ paddingLeft: 32, display: 'flex', flexDirection: 'column', gap: 4 }}>
                     {q.options.map(opt => (
                       <div key={opt} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div style={{ width: 14, height: 14, borderRadius: 3, border: '1px solid #EBE5FF', background: '#F8FAFF', flexShrink: 0 }} />
+                        <div style={{ width: 14, height: 14, borderRadius: 3, border: '1px solid #EBE5FF', background: '#FAF7F2', flexShrink: 0 }} />
                         <span style={{ fontSize: 12, color: '#3D4451' }}>{opt}</span>
                       </div>
                     ))}
@@ -500,7 +500,7 @@ export default function ConsentPage() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', backgroundColor: '#F8FAFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ minHeight: '100vh', backgroundColor: '#FAF7F2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{ width: 32, height: 32, border: '2px solid #EBE5FF', borderTopColor: ACCENT, borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
           <p style={{ fontSize: 12, color: '#96989B' }}>Loading consent records…</p>
@@ -511,7 +511,7 @@ export default function ConsentPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#F8FAFF' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#FAF7F2' }}>
       {profile && <StaffNav profile={profile} userId={userId} brandColor={accentColor} currentPath="Consent & Forms" />}
 
       <main style={{ paddingLeft: 'var(--nav-w, 240px)', minHeight: '100vh' }}>

@@ -996,7 +996,7 @@ function CommunicationsTab({ patient, timeline }: { patient: PatientIntelligence
           <textarea placeholder="Log a communication, note an observation, or record patient feedback…"
             value={noteInput} onChange={e => setNoteInput(e.target.value)}
             rows={3} className="w-full px-3 py-2.5 rounded-xl text-[12px] outline-none resize-none leading-relaxed"
-            style={{ backgroundColor: '#F8FAFF', border: '1px solid #EBE5FF', color: '#181D23' }} />
+            style={{ backgroundColor: '#FAF7F2', border: '1px solid #EBE5FF', color: '#181D23' }} />
           <div className="flex items-center justify-between mt-2">
             <AnimatePresence>
               {saved && (
@@ -1566,7 +1566,7 @@ function AddLogModal({
       onClick={e => e.target === e.currentTarget && onClose()}>
       <motion.div initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
         className="w-full max-w-2xl rounded-2xl overflow-hidden max-h-[90vh] flex flex-col"
-        style={{ background: '#F8FAFF', border: '1px solid #EBE5FF' }}>
+        style={{ background: '#FAF7F2', border: '1px solid #EBE5FF' }}>
         <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid #EBE5FF' }}>
           <div>
             <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#96989B] mb-0.5">New Entry</p>
@@ -3461,7 +3461,7 @@ function PrescriptionsTab({ patient }: { patient: PatientIntelligenceRow }) {
                           ))}
                         </div>
                         {rx.special_instructions && (
-                          <p className="mt-2 text-[11px] text-[#3D4451] p-3 rounded-xl" style={{ backgroundColor: '#F8FAFF', border: '1px solid #EBE5FF' }}>
+                          <p className="mt-2 text-[11px] text-[#3D4451] p-3 rounded-xl" style={{ backgroundColor: '#FAF7F2', border: '1px solid #EBE5FF' }}>
                             <span className="font-semibold text-[#181D23]">Instructions: </span>{rx.special_instructions}
                           </p>
                         )}
@@ -3607,7 +3607,7 @@ function LabResultsTab({ patient }: { patient: PatientIntelligenceRow }) {
                               {r.panel_results.map((pr, i) => {
                                 const pfc = flagColor(pr.flag ?? null);
                                 return (
-                                  <div key={i} className="flex items-center justify-between py-1.5 px-3 rounded-lg" style={{ backgroundColor: pr.flag !== 'normal' ? `${pfc.bg}60` : '#F8FAFF' }}>
+                                  <div key={i} className="flex items-center justify-between py-1.5 px-3 rounded-lg" style={{ backgroundColor: pr.flag !== 'normal' ? `${pfc.bg}60` : '#FAF7F2' }}>
                                     <span className="text-[12px] text-[#181D23]">{pr.name}</span>
                                     <div className="flex items-center gap-3">
                                       <span className="text-[12px] font-semibold" style={{ color: pfc.color }}>{pr.value} {pr.unit}</span>
@@ -3621,7 +3621,7 @@ function LabResultsTab({ patient }: { patient: PatientIntelligenceRow }) {
                           </div>
                         )}
                         {r.clinical_notes && (
-                          <div className="p-3 rounded-xl" style={{ backgroundColor: '#F8FAFF', border: '1px solid #EBE5FF' }}>
+                          <div className="p-3 rounded-xl" style={{ backgroundColor: '#FAF7F2', border: '1px solid #EBE5FF' }}>
                             <p className="text-[9px] uppercase tracking-[0.2em] text-[#96989B] mb-1">Clinical Notes</p>
                             <p className="text-[12px] text-[#181D23]">{r.clinical_notes}</p>
                           </div>
@@ -3786,7 +3786,7 @@ function ReferralsTab({ patient }: { patient: PatientIntelligenceRow }) {
 
                         {/* Clinical summary */}
                         {ref.clinical_summary && (
-                          <div className="p-3 rounded-xl mb-3" style={{ backgroundColor: '#F8FAFF', border: '1px solid #EBE5FF' }}>
+                          <div className="p-3 rounded-xl mb-3" style={{ backgroundColor: '#FAF7F2', border: '1px solid #EBE5FF' }}>
                             <p className="text-[9px] uppercase tracking-[0.2em] text-[#96989B] mb-1">Clinical Summary Sent</p>
                             <p className="text-[12px] text-[#181D23]">{ref.clinical_summary}</p>
                           </div>
@@ -4248,7 +4248,7 @@ export default function PatientHubPage() {
   void [Activity, BarChart2, CreditCard, Package, Users, Flag, UserIcon, Target, Shield, FileText];
 
   return (
-    <div className="min-h-screen nav-offset" style={{ backgroundColor: '#F8FAFF' }}>
+    <div className="min-h-screen nav-offset" style={{ backgroundColor: '#FAF7F2' }}>
       {profile && <StaffNav profile={profile} userId={userId} brandColor={brandColor} currentPath="Patients" />}
 
       {loading ? (
@@ -4267,7 +4267,7 @@ export default function PatientHubPage() {
 
           {/* Hero header */}
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="sticky top-0 z-20"
-            style={{ backgroundColor: '#F8FAFF', borderBottom: '1px solid #EBE5FF' }}>
+            style={{ backgroundColor: '#FAF7F2', borderBottom: '1px solid #EBE5FF' }}>
 
             <div className="flex items-center justify-between px-10 pt-5 pb-3">
               <button onClick={() => router.push('/staff/patients')}
@@ -4308,7 +4308,7 @@ export default function PatientHubPage() {
                       {statusMenu && (
                         <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
                           className="absolute left-0 top-full mt-1 z-50 rounded-xl overflow-hidden shadow-lg"
-                          style={{ border: '1px solid #EBE5FF', backgroundColor: '#F8FAFF', minWidth: 140 }}>
+                          style={{ border: '1px solid #EBE5FF', backgroundColor: '#FAF7F2', minWidth: 140 }}>
                           <div className="px-3 py-2 text-[8px] uppercase tracking-[0.2em] font-semibold text-[#96989B]" style={{ borderBottom: '1px solid #EBE5FF' }}>
                             Set Status
                           </div>

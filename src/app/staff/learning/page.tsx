@@ -21,7 +21,7 @@ import type { CPDEntry, Certificate, LearningResource, LearningStats } from '@/l
 // =============================================================================
 
 const ACCENT = '#059669'; // teal-green for learning/CPD context
-const BG = '#F8FAFF';
+const BG = '#FAF7F2';
 const TEXT = '#181D23';
 const SUB = '#3D4451';
 const MUTED = '#96989B';

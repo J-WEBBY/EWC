@@ -679,7 +679,7 @@ export default function ReceptionPage() {
   // ---------- loading ----------
   if (!profile) {
     return (
-      <div className="min-h-screen nav-offset flex items-center justify-center" style={{ backgroundColor: '#F8FAFF' }}>
+      <div className="min-h-screen nav-offset flex items-center justify-center" style={{ backgroundColor: '#FAF7F2' }}>
         <motion.div animate={{ opacity: [0.2, 0.5, 0.2] }} transition={{ duration: 1.8, repeat: Infinity }}
           className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: ACCENT }} />
       </div>
@@ -699,11 +699,11 @@ export default function ReceptionPage() {
   ];
 
   return (
-    <div className="min-h-screen nav-offset" style={{ backgroundColor: '#F8FAFF' }}>
+    <div className="min-h-screen nav-offset" style={{ backgroundColor: '#FAF7F2' }}>
       <StaffNav profile={profile} userId={profile.userId ?? ''} brandColor={profile.brandColor ?? ACCENT} currentPath="Receptionist" />
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
-      <div className="sticky top-0 z-20" style={{ backgroundColor: '#F8FAFF', borderBottom: '1px solid #EBE5FF' }}>
+      <div className="sticky top-0 z-20" style={{ backgroundColor: '#FAF7F2', borderBottom: '1px solid #EBE5FF' }}>
         <div className="flex items-center justify-between px-10 pt-5 pb-3">
           <div>
             <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#96989B] mb-1">Voice Layer</p>

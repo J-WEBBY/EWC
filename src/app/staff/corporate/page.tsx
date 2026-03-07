@@ -133,7 +133,7 @@ function AccountCard({ account, tenantId, accentColor }: { account: CorporateAcc
                   <p style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.2em', color: '#96989B', marginBottom: 8 }}>Log Note</p>
                   <div style={{ display: 'flex', gap: 8 }}>
                     <input value={note} onChange={e => setNote(e.target.value)} placeholder="Add account note..."
-                      style={{ flex: 1, padding: '7px 10px', borderRadius: 8, border: '1px solid #EBE5FF', background: '#F8FAFF', fontSize: 11, color: '#181D23', outline: 'none' }} />
+                      style={{ flex: 1, padding: '7px 10px', borderRadius: 8, border: '1px solid #EBE5FF', background: '#FAF7F2', fontSize: 11, color: '#181D23', outline: 'none' }} />
                     <button onClick={handleSaveNote} disabled={savingNote || !note.trim()} style={{ padding: '7px 12px', borderRadius: 8, background: accentColor, color: '#fff', border: 'none', fontSize: 11, fontWeight: 700, cursor: 'pointer', opacity: savingNote || !note.trim() ? 0.5 : 1 }}>
                       {savingNote ? '...' : 'Save'}
                     </button>
@@ -346,14 +346,14 @@ export default function CorporatePage() {
   const accentColor = profile?.brandColor ?? ACCENT;
 
   if (loading) return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#F8FAFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#FAF7F2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ width: 32, height: 32, border: '2px solid #EBE5FF', borderTopColor: ACCENT, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
       <style>{'@keyframes spin { to { transform: rotate(360deg); } }'}</style>
     </div>
   );
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#F8FAFF' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#FAF7F2' }}>
       {profile && <StaffNav profile={profile} userId={userId} brandColor={accentColor} currentPath="Corporate" />}
       <main style={{ paddingLeft: 'var(--nav-w, 240px)', minHeight: '100vh' }}>
         <div style={{ padding: '40px 40px 0', borderBottom: '1px solid #EBE5FF' }}>

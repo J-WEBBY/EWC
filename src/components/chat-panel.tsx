@@ -255,7 +255,7 @@ export function ChatPanel({
                       <button
                         key={agent.key}
                         onClick={() => handleAgentSwitch(agent.key, agent.name)}
-                        className={`w-full text-left px-3 py-2 text-[12px] hover:bg-[#F8FAFF] transition-colors flex items-center gap-2 ${
+                        className={`w-full text-left px-3 py-2 text-[12px] hover:bg-[#FAF7F2] transition-colors flex items-center gap-2 ${
                           agent.key === currentAgentKey ? 'text-[#181D23]' : 'text-[#5A6475]'
                         }`}
                       >

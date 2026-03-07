@@ -394,7 +394,7 @@ export default function BridgePage() {
   const selColor = selectedPatient ? avatarColor(selectedPatient.full_name) : '#0058E6';
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ backgroundColor: '#F8FAFF', paddingLeft: 'var(--nav-w, 240px)' }}>
+    <div className="flex h-screen overflow-hidden" style={{ backgroundColor: '#FAF7F2', paddingLeft: 'var(--nav-w, 240px)' }}>
       <StaffNav profile={profile ?? FALLBACK} userId={userId} brandColor={brandColor} currentPath="Bridge" />
 
       {/* ===== LEFT: PATIENT LIST ===== */}

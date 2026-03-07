@@ -2,7 +2,7 @@
 
 // =============================================================================
 // Integrations Page — Data connection control centre
-// Light design system — #F8FAFF base.
+// Light design system — #FAF7F2 base.
 // =============================================================================
 
 import { useState, useEffect, useCallback } from 'react';
@@ -315,7 +315,7 @@ function ClinikoConnectForm({ onConnected }: { onConnected: () => void }) {
       </AnimatePresence>
       <button onClick={handleConnect} disabled={connecting || !apiKey.trim()}
         className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-[13px] font-semibold transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-        style={{ backgroundColor: '#1A1035', color: '#F8FAFF' }}>
+        style={{ backgroundColor: '#1A1035', color: '#FAF7F2' }}>
         {connecting ? <><Loader2 size={14} className="animate-spin" /> Connecting…</> : <><Link2 size={14} /> Connect Cliniko</>}
       </button>
     </div>
@@ -387,7 +387,7 @@ function ClinikoConnectedPanel({
           </div>
           <button onClick={onSync} disabled={syncing}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-[12px] font-semibold transition-all disabled:opacity-40 flex-shrink-0"
-            style={{ backgroundColor: '#1A1035', color: '#F8FAFF' }}>
+            style={{ backgroundColor: '#1A1035', color: '#FAF7F2' }}>
             {syncing ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
             {syncing ? 'Syncing…' : 'Run First Sync'}
           </button>
@@ -424,7 +424,7 @@ function ClinikoConnectedPanel({
             </button>
             <button onClick={onClearResync} disabled={syncing || clearing}
               className="flex items-center gap-2 px-4 py-2 rounded-lg text-[12px] font-semibold transition-all disabled:opacity-30"
-              style={{ backgroundColor: '#1A1035', color: '#F8FAFF' }}>
+              style={{ backgroundColor: '#1A1035', color: '#FAF7F2' }}>
               {clearing ? <Loader2 size={12} className="animate-spin" /> : <Database size={12} />}
               {clearing ? 'Clearing & syncing…' : 'Clear & Full Sync'}
             </button>
@@ -581,7 +581,7 @@ export default function IntegrationsPage() {
   // ── Loading ──
   if (loading || !profile) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#F8FAFF', paddingLeft: 'var(--nav-w, 240px)' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#FAF7F2', paddingLeft: 'var(--nav-w, 240px)' }}>
         <motion.div animate={{ opacity: [0.2, 0.5, 0.2] }} transition={{ duration: 1.8, repeat: Infinity }}
           className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#96989B' }} />
       </div>
@@ -591,7 +591,7 @@ export default function IntegrationsPage() {
   const brandColor = profile.brandColor ?? '#0058E6';
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#F8FAFF', paddingLeft: 'var(--nav-w, 240px)' }}>
+    <div className="min-h-screen" style={{ backgroundColor: '#FAF7F2', paddingLeft: 'var(--nav-w, 240px)' }}>
       <StaffNav profile={profile} userId={userId!} brandColor={brandColor} currentPath="Integrations" />
 
       <main className="px-8 py-10">
