@@ -1,17 +1,18 @@
 'use client';
 
 // =============================================================================
-// Appointments — Upcoming (Cliniko) + Pending Booking Requests (Komal)
-// Single-module server actions: imports ONLY from appointments.ts.
-// Split layout: left list (upcoming / pending tabs) | right detail panel.
+// Appointments — Full management page
+// Tabs: Today | Upcoming | Past | Requests (Komal)
+// All data from cliniko_appointments local cache + booking_requests.
+// Single 'use server' module: appointments.ts only.
 // =============================================================================
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Phone, Mail, User, Calendar, Clock, Check, X,
-  RefreshCw, Circle, AlertCircle, Search,
-  CheckCircle2, ExternalLink,
+  RefreshCw, AlertCircle, Search, CheckCircle2,
+  ExternalLink, ChevronRight, TrendingUp,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -20,6 +21,8 @@ import { getCurrentUser, getStaffProfile, type StaffProfile } from '@/lib/action
 import {
   getPendingBookings,
   getUpcomingAppointments,
+  getPastAppointments,
+  getAppointmentStats,
   getPractitioners,
   confirmPendingBooking,
   dismissPendingBooking,
@@ -40,10 +43,18 @@ const MUTED  = '#96989B';
 const BORDER = '#EBE5FF';
 const ACCENT = '#0058E6';
 
+const STATUS_CFG: Record<string, { label: string; color: string }> = {
+  booked:         { label: 'Booked',       color: ACCENT   },
+  arrived:        { label: 'Arrived',      color: '#059669' },
+  cancelled:      { label: 'Cancelled',    color: '#6B7280' },
+  did_not_arrive: { label: 'DNA',          color: '#DC2626' },
+  pending:        { label: 'Pending',      color: '#D8A600' },
+};
+
 const REFERRAL_LABELS: Record<string, string> = {
   online:                'Found online',
   client_referral:       'Client referral',
-  practitioner_referral: 'GP/practitioner referral',
+  practitioner_referral: 'GP referral',
   social_media:          'Social media',
   walk_in:               'Walked past',
   returning:             'Returning patient',
@@ -54,159 +65,302 @@ const REFERRAL_LABELS: Record<string, string> = {
 // HELPERS
 // =============================================================================
 
-function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-GB', {
-    weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
-  });
-}
-
 function relTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const m = Math.floor(diff / 60000);
-  if (m < 1) return 'just now';
+  if (m < 1)  return 'just now';
   if (m < 60) return `${m}m ago`;
   const h = Math.floor(m / 60);
   if (h < 24) return `${h}h ago`;
   return `${Math.floor(h / 24)}d ago`;
 }
 
-function inits(name: string | null): string {
-  if (!name) return '?';
+function fmtTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+function fmtDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+function fmtDateFull(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function inits(name: string): string {
   return name.split(' ').filter(Boolean).map(w => w[0]).join('').toUpperCase().slice(0, 2);
 }
 
-type Tab = 'upcoming' | 'pending';
+type Tab = 'today' | 'upcoming' | 'past' | 'requests';
+
+// =============================================================================
+// APPOINTMENT DETAIL PANEL (right side)
+// =============================================================================
+
+function ApptDetail({ appt, onClose }: { appt: AppointmentRow | null; onClose: () => void }) {
+  if (!appt) {
+    return (
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: MUTED, gap: 12 }}>
+        <Calendar size={32} style={{ opacity: 0.25 }} />
+        <span style={{ fontSize: 13 }}>Select an appointment to view details</span>
+      </div>
+    );
+  }
+
+  const cfg = STATUS_CFG[appt.status] ?? STATUS_CFG.booked;
+
+  return (
+    <motion.div
+      key={appt.id}
+      initial={{ opacity: 0, x: 16 }}
+      animate={{ opacity: 1, x: 0 }}
+      style={{ flex: 1, overflow: 'auto', padding: '28px 32px' }}
+    >
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{
+            width: 48, height: 48, borderRadius: 24,
+            background: `${appt.practitioner_color}18`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 16, fontWeight: 700, color: appt.practitioner_color,
+          }}>
+            {inits(appt.patient_name)}
+          </div>
+          <div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: NAVY, letterSpacing: '-0.02em' }}>
+              {appt.patient_name}
+            </div>
+            <div style={{ fontSize: 12, color: TER, marginTop: 2 }}>{appt.appointment_type}</div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <span style={{
+            fontSize: 11, fontWeight: 600, color: cfg.color,
+            background: `${cfg.color}14`, padding: '4px 12px', borderRadius: 20,
+            border: `1px solid ${cfg.color}30`,
+          }}>
+            {cfg.label}
+          </span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, padding: 4 }}>
+            <X size={16} />
+          </button>
+        </div>
+      </div>
+
+      {/* Date / Time */}
+      <div style={{
+        display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12,
+        marginBottom: 24, padding: 16,
+        background: `${ACCENT}06`, borderRadius: 12, border: `1px solid ${BORDER}`,
+      }}>
+        <div>
+          <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.2em', fontWeight: 600, color: MUTED, marginBottom: 4 }}>Date</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: NAVY }}>{fmtDateFull(appt.starts_at)}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.2em', fontWeight: 600, color: MUTED, marginBottom: 4 }}>Time</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: NAVY }}>
+            {fmtTime(appt.starts_at)}{appt.ends_at ? ` — ${fmtTime(appt.ends_at)}` : ''}
+            <span style={{ fontSize: 12, fontWeight: 400, color: TER, marginLeft: 8 }}>{appt.duration_minutes}min</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Practitioner */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.28em', fontWeight: 600, color: MUTED, marginBottom: 10 }}>Practitioner</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: `${appt.practitioner_color}08`, borderRadius: 10, border: `1px solid ${appt.practitioner_color}20` }}>
+          <div style={{ width: 32, height: 32, borderRadius: 16, background: `${appt.practitioner_color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: appt.practitioner_color }}>
+            {inits(appt.practitioner_name)}
+          </div>
+          <span style={{ fontSize: 13, fontWeight: 600, color: NAVY }}>{appt.practitioner_name}</span>
+        </div>
+      </div>
+
+      {/* Contact */}
+      {(appt.patient_phone || appt.patient_email) && (
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.28em', fontWeight: 600, color: MUTED, marginBottom: 10 }}>Contact</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {appt.patient_phone && (
+              <a href={`tel:${appt.patient_phone}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, border: `1px solid ${BORDER}`, textDecoration: 'none', color: ACCENT, fontSize: 13 }}>
+                <Phone size={13} />{appt.patient_phone}
+              </a>
+            )}
+            {appt.patient_email && (
+              <a href={`mailto:${appt.patient_email}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, border: `1px solid ${BORDER}`, textDecoration: 'none', color: ACCENT, fontSize: 13 }}>
+                <Mail size={13} />{appt.patient_email}
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Notes */}
+      {appt.notes && (
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.28em', fontWeight: 600, color: MUTED, marginBottom: 10 }}>Notes</div>
+          <div style={{ fontSize: 12, color: SEC, lineHeight: 1.7, padding: '10px 14px', background: `${BORDER}40`, borderRadius: 8 }}>
+            {appt.notes}
+          </div>
+        </div>
+      )}
+
+      {/* View patient */}
+      {appt.patient_db_id && (
+        <Link
+          href={`/staff/patients/${appt.patient_db_id}`}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px', borderRadius: 8, fontSize: 13, border: `1px solid ${ACCENT}40`, background: `${ACCENT}10`, color: NAVY, textDecoration: 'none', fontWeight: 600, justifyContent: 'center' }}
+        >
+          <User size={13} />View Patient Record<ChevronRight size={13} />
+        </Link>
+      )}
+    </motion.div>
+  );
+}
+
+// =============================================================================
+// PENDING BOOKING DETAIL
+// =============================================================================
+
+function PendingDetail({ booking, onConfirm, onDismiss }: {
+  booking: PendingBooking | null;
+  onConfirm: (id: string) => void;
+  onDismiss: (id: string, brId: string | null) => void;
+}) {
+  if (!booking) {
+    return (
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: MUTED, gap: 12 }}>
+        <AlertCircle size={32} style={{ opacity: 0.25 }} />
+        <span style={{ fontSize: 13 }}>Select a request to review</span>
+      </div>
+    );
+  }
+
+  return (
+    <motion.div
+      key={booking.id}
+      initial={{ opacity: 0, x: 16 }}
+      animate={{ opacity: 1, x: 0 }}
+      style={{ flex: 1, overflow: 'auto', padding: '28px 32px' }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 24 }}>
+        <div style={{ width: 48, height: 48, borderRadius: 24, background: `${ACCENT}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 700, color: ACCENT }}>
+          {inits(booking.patient_name)}
+        </div>
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: NAVY }}>{booking.patient_name}</div>
+          <div style={{ fontSize: 12, color: TER, marginTop: 2 }}>Received {relTime(booking.created_at)}</div>
+        </div>
+        <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, color: '#D8A600', background: '#FFFBEB', padding: '4px 12px', borderRadius: 20 }}>Pending</span>
+      </div>
+
+      {booking.treatment_interest && (
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.28em', fontWeight: 600, color: MUTED, marginBottom: 8 }}>Treatment Interest</div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: NAVY }}>{booking.treatment_interest}</div>
+        </div>
+      )}
+
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.28em', fontWeight: 600, color: MUTED, marginBottom: 8 }}>Appointment Preference</div>
+        <div style={{ fontSize: 13, color: SEC }}>{booking.preferred_date ?? 'Flexible'}{booking.preferred_time ? ` · ${booking.preferred_time}` : ''}</div>
+        {booking.preferred_practitioner && <div style={{ fontSize: 12, color: TER, marginTop: 4 }}>Requested: {booking.preferred_practitioner}</div>}
+      </div>
+
+      {(booking.patient_phone || booking.patient_email) && (
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.28em', fontWeight: 600, color: MUTED, marginBottom: 8 }}>Contact</div>
+          {booking.patient_phone && (
+            <a href={`tel:${booking.patient_phone}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, border: `1px solid ${BORDER}`, textDecoration: 'none', color: ACCENT, fontSize: 13, marginBottom: 6 }}>
+              <Phone size={13} />{booking.patient_phone}
+            </a>
+          )}
+          {booking.patient_email && (
+            <a href={`mailto:${booking.patient_email}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, border: `1px solid ${BORDER}`, textDecoration: 'none', color: ACCENT, fontSize: 13 }}>
+              <Mail size={13} />{booking.patient_email}
+            </a>
+          )}
+        </div>
+      )}
+
+      {booking.referral_source && (
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.28em', fontWeight: 600, color: MUTED, marginBottom: 8 }}>Referral</div>
+          <div style={{ fontSize: 13, color: SEC }}>{REFERRAL_LABELS[booking.referral_source] ?? booking.referral_source}</div>
+        </div>
+      )}
+
+      {booking.notes && (
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.28em', fontWeight: 600, color: MUTED, marginBottom: 8 }}>Call Notes</div>
+          <div style={{ fontSize: 12, color: SEC, lineHeight: 1.7, padding: '10px 14px', background: `${BORDER}40`, borderRadius: 8 }}>{booking.notes}</div>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+        <button onClick={() => onDismiss(booking.id, booking.booking_request_id)} style={{ flex: 1, padding: '10px 0', borderRadius: 8, fontSize: 13, border: `1px solid ${BORDER}`, background: 'transparent', color: SEC, cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          <X size={13} />Dismiss
+        </button>
+        <button onClick={() => onConfirm(booking.id)} style={{ flex: 2, padding: '10px 0', borderRadius: 8, fontSize: 13, border: `1px solid ${ACCENT}40`, background: `${ACCENT}18`, color: NAVY, cursor: 'pointer', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          <Check size={13} />Confirm Booking
+        </button>
+      </div>
+    </motion.div>
+  );
+}
 
 // =============================================================================
 // CONFIRM DIALOG
 // =============================================================================
 
-interface ConfirmDialogProps {
+function ConfirmDialog({ booking, practitioners, onConfirm, onClose, saving }: {
   booking: PendingBooking;
   practitioners: PractitionerRow[];
-  onConfirm: (params: { confirmedDate: string; confirmedTime: string; practitionerClinikoId?: string }) => void;
+  onConfirm: (p: { confirmedDate: string; confirmedTime: string; practitionerClinikoId?: string }) => void;
   onClose: () => void;
   saving: boolean;
-}
-
-function ConfirmDialog({ booking, practitioners, onConfirm, onClose, saving }: ConfirmDialogProps) {
+}) {
   const today = new Date().toISOString().split('T')[0];
   const [date, setDate]     = useState(today);
   const [time, setTime]     = useState('09:00');
   const [practId, setPractId] = useState('');
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 50,
-      background: 'rgba(24,29,35,0.5)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-    }}>
-      <motion.div
-        initial={{ opacity: 0, scale: 0.97 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.97 }}
-        style={{
-          background: BG, borderRadius: 16, padding: 32, width: 480, maxWidth: '90vw',
-          border: `1px solid ${BORDER}`, boxShadow: '0 16px 48px rgba(0,0,0,0.12)',
-        }}
-      >
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.28em', fontWeight: 600, color: MUTED, marginBottom: 6 }}>
-            Confirm Appointment
-          </div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: NAVY }}>
-            {booking.patient_name} — {booking.treatment_interest ?? 'Appointment'}
-          </div>
-          {booking.preferred_date && (
-            <div style={{ fontSize: 12, color: TER, marginTop: 4 }}>
-              Requested: {booking.preferred_date}{booking.preferred_time ? ` · ${booking.preferred_time}` : ''}
+    <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(24,29,35,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.97 }}
+        style={{ background: BG, borderRadius: 16, padding: 32, width: 480, maxWidth: '90vw', border: `1px solid ${BORDER}`, boxShadow: '0 16px 48px rgba(0,0,0,0.12)' }}>
+        <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.28em', fontWeight: 600, color: MUTED, marginBottom: 6 }}>Confirm Appointment</div>
+        <div style={{ fontSize: 18, fontWeight: 700, color: NAVY, marginBottom: 20 }}>{booking.patient_name} — {booking.treatment_interest ?? 'Appointment'}</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 24 }}>
+          {[
+            { label: 'Date', type: 'date', value: date, set: setDate },
+            { label: 'Time', type: 'time', value: time, set: setTime },
+          ].map(f => (
+            <div key={f.label}>
+              <div style={{ fontSize: 10, color: MUTED, fontWeight: 600, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.2em' }}>{f.label}</div>
+              <input type={f.type} value={f.value} onChange={e => f.set(e.target.value)}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: `1px solid ${BORDER}`, background: BG, fontSize: 13, color: NAVY, outline: 'none', boxSizing: 'border-box' }} />
             </div>
-          )}
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 24 }}>
-          <div>
-            <div style={{ fontSize: 10, color: MUTED, fontWeight: 600, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.2em' }}>
-              Confirmed Date
-            </div>
-            <input
-              type="date"
-              value={date}
-              onChange={e => setDate(e.target.value)}
-              style={{
-                width: '100%', padding: '8px 12px', borderRadius: 8,
-                border: `1px solid ${BORDER}`, background: BG,
-                fontSize: 13, color: NAVY, outline: 'none', boxSizing: 'border-box',
-              }}
-            />
-          </div>
-          <div>
-            <div style={{ fontSize: 10, color: MUTED, fontWeight: 600, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.2em' }}>
-              Time
-            </div>
-            <input
-              type="time"
-              value={time}
-              onChange={e => setTime(e.target.value)}
-              style={{
-                width: '100%', padding: '8px 12px', borderRadius: 8,
-                border: `1px solid ${BORDER}`, background: BG,
-                fontSize: 13, color: NAVY, outline: 'none', boxSizing: 'border-box',
-              }}
-            />
-          </div>
+          ))}
           {practitioners.length > 0 && (
             <div>
-              <div style={{ fontSize: 10, color: MUTED, fontWeight: 600, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.2em' }}>
-                Practitioner
-              </div>
-              <select
-                value={practId}
-                onChange={e => setPractId(e.target.value)}
-                style={{
-                  width: '100%', padding: '8px 12px', borderRadius: 8,
-                  border: `1px solid ${BORDER}`, background: BG,
-                  fontSize: 13, color: NAVY, outline: 'none', boxSizing: 'border-box',
-                }}
-              >
-                <option value="">
-                  {booking.preferred_practitioner
-                    ? `${booking.preferred_practitioner} (requested)`
-                    : 'Any available practitioner'}
-                </option>
-                {practitioners.map(p => (
-                  <option key={p.cliniko_id} value={p.cliniko_id}>{p.name}</option>
-                ))}
+              <div style={{ fontSize: 10, color: MUTED, fontWeight: 600, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.2em' }}>Practitioner</div>
+              <select value={practId} onChange={e => setPractId(e.target.value)}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: `1px solid ${BORDER}`, background: BG, fontSize: 13, color: NAVY, outline: 'none', boxSizing: 'border-box' }}>
+                <option value="">{booking.preferred_practitioner ? `${booking.preferred_practitioner} (requested)` : 'Any available'}</option>
+                {practitioners.map(p => <option key={p.cliniko_id} value={p.cliniko_id}>{p.name}</option>)}
               </select>
             </div>
           )}
         </div>
-
         <div style={{ display: 'flex', gap: 10 }}>
-          <button
-            onClick={onClose}
-            disabled={saving}
-            style={{
-              flex: 1, padding: '10px 0', borderRadius: 8, fontSize: 13,
-              border: `1px solid ${BORDER}`, background: 'transparent',
-              color: SEC, cursor: 'pointer', fontWeight: 600,
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => onConfirm({ confirmedDate: date, confirmedTime: time, practitionerClinikoId: practId || undefined })}
-            disabled={saving || !date}
-            style={{
-              flex: 2, padding: '10px 0', borderRadius: 8, fontSize: 13,
-              border: `1px solid ${ACCENT}40`, background: `${ACCENT}18`, color: NAVY,
-              cursor: saving || !date ? 'not-allowed' : 'pointer',
-              fontWeight: 700, opacity: saving || !date ? 0.5 : 1,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            }}
-          >
+          <button onClick={onClose} disabled={saving} style={{ flex: 1, padding: '10px 0', borderRadius: 8, fontSize: 13, border: `1px solid ${BORDER}`, background: 'transparent', color: SEC, cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+          <button onClick={() => onConfirm({ confirmedDate: date, confirmedTime: time, practitionerClinikoId: practId || undefined })} disabled={saving || !date}
+            style={{ flex: 2, padding: '10px 0', borderRadius: 8, fontSize: 13, border: `1px solid ${ACCENT}40`, background: `${ACCENT}18`, color: NAVY, cursor: saving || !date ? 'not-allowed' : 'pointer', fontWeight: 700, opacity: saving || !date ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
             {saving ? <RefreshCw size={14} className="animate-spin" /> : <Check size={14} />}
-            {saving ? 'Confirming...' : 'Confirm Booking'}
+            {saving ? 'Confirming...' : 'Confirm'}
           </button>
         </div>
       </motion.div>
@@ -215,219 +369,71 @@ function ConfirmDialog({ booking, practitioners, onConfirm, onClose, saving }: C
 }
 
 // =============================================================================
-// PENDING BOOKING DETAIL PANEL
+// APPOINTMENT ROW (list item)
 // =============================================================================
 
-function Section({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div style={{ marginBottom: 20 }}>
-      <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.28em', fontWeight: 600, color: MUTED, marginBottom: 10 }}>
-        {label}
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>{children}</div>
-    </div>
-  );
-}
-
-function Row({ label, value, icon, clickable }: { label: string; value: string; icon?: React.ReactNode; clickable?: boolean }) {
-  return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: `1px solid ${BORDER}` }}>
-      <span style={{ fontSize: 11, color: MUTED, fontWeight: 500 }}>{label}</span>
-      <span style={{ fontSize: 12, color: clickable ? ACCENT : SEC, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4 }}>
-        {icon}{value}
-      </span>
-    </div>
-  );
-}
-
-interface PendingDetailProps {
-  booking: PendingBooking | null;
-  onConfirm: (id: string) => void;
-  onDismiss: (id: string, brId: string | null) => void;
-}
-
-function PendingDetail({ booking, onConfirm, onDismiss }: PendingDetailProps) {
-  if (!booking) {
-    return (
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: MUTED, fontSize: 13, flexDirection: 'column', gap: 12 }}>
-        <Circle size={32} style={{ opacity: 0.3 }} />
-        <span>Select a booking request to review</span>
-      </div>
-    );
-  }
+function ApptRow({ appt, selected, onClick }: { appt: AppointmentRow; selected: boolean; onClick: () => void }) {
+  const cfg  = STATUS_CFG[appt.status] ?? STATUS_CFG.booked;
+  const isPast = new Date(appt.starts_at) < new Date();
 
   return (
-    <div style={{ flex: 1, overflow: 'auto', padding: '24px 28px' }}>
-      {/* Header */}
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-          <div style={{
-            width: 44, height: 44, borderRadius: 22, background: `${ACCENT}15`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 15, fontWeight: 700, color: ACCENT,
-          }}>
-            {inits(booking.patient_name)}
-          </div>
-          <div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: NAVY }}>{booking.patient_name}</div>
-            <div style={{ fontSize: 11, color: TER, marginTop: 2 }}>Received {relTime(booking.created_at)}</div>
-          </div>
-          <div style={{ marginLeft: 'auto' }}>
-            <span style={{ fontSize: 11, fontWeight: 600, color: '#D8A600', background: '#FFFBEB', padding: '4px 10px', borderRadius: 20 }}>
-              Pending
-            </span>
-          </div>
+    <motion.div layout onClick={onClick} style={{
+      padding: '12px 20px', cursor: 'pointer',
+      borderBottom: `1px solid ${BORDER}`,
+      background: selected ? `${ACCENT}0a` : 'transparent',
+      borderLeft: `3px solid ${selected ? ACCENT : 'transparent'}`,
+      opacity: isPast && appt.status === 'cancelled' ? 0.55 : 1,
+      transition: 'all 0.12s',
+    }}>
+      {/* Time + status */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 13, fontWeight: 800, color: NAVY, fontVariantNumeric: 'tabular-nums' }}>
+            {fmtTime(appt.starts_at)}
+          </span>
+          <span style={{ fontSize: 10, color: TER }}>{fmtDate(appt.starts_at)}</span>
         </div>
-      </div>
-
-      {booking.treatment_interest && (
-        <Section label="Treatment Interest">
-          <Row label="Service" value={booking.treatment_interest} />
-        </Section>
-      )}
-
-      <Section label="Appointment Preference">
-        <Row label="Preferred Date" value={booking.preferred_date ?? 'Flexible'} />
-        {booking.preferred_time && <Row label="Preferred Time" value={booking.preferred_time} />}
-        {booking.preferred_practitioner && <Row label="Practitioner" value={booking.preferred_practitioner} />}
-      </Section>
-
-      <Section label="Patient Contact">
-        {booking.patient_phone && (
-          <a href={`tel:${booking.patient_phone}`} style={{ textDecoration: 'none' }}>
-            <Row label="Phone" value={booking.patient_phone} icon={<Phone size={12} />} clickable />
-          </a>
-        )}
-        {booking.patient_email && (
-          <a href={`mailto:${booking.patient_email}`} style={{ textDecoration: 'none' }}>
-            <Row label="Email" value={booking.patient_email} icon={<Mail size={12} />} clickable />
-          </a>
-        )}
-        {!booking.patient_phone && !booking.patient_email && (
-          <div style={{ fontSize: 12, color: MUTED, fontStyle: 'italic' }}>No contact details on record</div>
-        )}
-        {booking.referral_source && (
-          <Row label="Referral" value={REFERRAL_LABELS[booking.referral_source] ?? booking.referral_source} />
-        )}
-      </Section>
-
-      {booking.notes && (
-        <Section label="Call Notes">
-          <div style={{ fontSize: 12, color: SEC, lineHeight: 1.6 }}>{booking.notes}</div>
-        </Section>
-      )}
-
-      {booking.reference && (
-        <Section label="Reference">
-          <Row label="Booking Ref" value={booking.reference} />
-        </Section>
-      )}
-
-      <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
-        <button
-          onClick={() => onDismiss(booking.id, booking.booking_request_id)}
-          style={{
-            flex: 1, padding: '10px 0', borderRadius: 8, fontSize: 13,
-            border: `1px solid ${BORDER}`, background: 'transparent',
-            color: SEC, cursor: 'pointer', fontWeight: 600,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-          }}
-        >
-          <X size={13} />Dismiss
-        </button>
-        <button
-          onClick={() => onConfirm(booking.id)}
-          style={{
-            flex: 2, padding: '10px 0', borderRadius: 8, fontSize: 13,
-            border: `1px solid ${ACCENT}40`, background: `${ACCENT}18`, color: NAVY,
-            cursor: 'pointer', fontWeight: 700,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-          }}
-        >
-          <Check size={13} />Confirm &amp; Book
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// =============================================================================
-// UPCOMING ITEM — Cliniko synced appointment row
-// =============================================================================
-
-const APPT_STATUS_COLOR: Record<string, string> = {
-  booked:   ACCENT,
-  arrived:  '#059669',
-  pending:  '#EA580C',
-};
-
-function UpcomingItem({ appt }: { appt: AppointmentRow }) {
-  const color   = APPT_STATUS_COLOR[appt.status] ?? ACCENT;
-  const date    = new Date(appt.starts_at);
-  const dateStr = date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
-  const timeStr = date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
-
-  return (
-    <motion.div
-      layout
-      style={{
-        padding: '12px 20px', borderBottom: `1px solid ${BORDER}`,
-        borderLeft: `3px solid ${color}30`,
-      }}
-    >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 3 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>{appt.patient_name}</div>
-        <span style={{
-          fontSize: 10, fontWeight: 600, color,
-          background: `${color}12`, padding: '2px 8px', borderRadius: 20,
-          border: `1px solid ${color}30`,
-        }}>
-          {appt.status.charAt(0).toUpperCase() + appt.status.slice(1)}
+        <span style={{ fontSize: 10, fontWeight: 600, color: cfg.color, background: `${cfg.color}12`, padding: '2px 8px', borderRadius: 20, border: `1px solid ${cfg.color}25` }}>
+          {cfg.label}
         </span>
       </div>
-      <div style={{ fontSize: 12, color: SEC, fontWeight: 500, marginBottom: 4 }}>{appt.appointment_type}</div>
-      <div style={{ display: 'flex', gap: 12, fontSize: 11, color: MUTED }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><Calendar size={10} />{dateStr}</span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><Clock size={10} />{timeStr}</span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 3, marginLeft: 'auto' }}><User size={10} />{appt.practitioner_name}</span>
+      {/* Patient + type */}
+      <div style={{ fontSize: 13, fontWeight: 700, color: appt.patient_name === 'Patient' ? TER : NAVY, marginBottom: 2 }}>
+        {appt.patient_name}
+      </div>
+      <div style={{ fontSize: 11, color: SEC, marginBottom: 4 }}>{appt.appointment_type}</div>
+      {/* Practitioner + duration */}
+      <div style={{ display: 'flex', gap: 10, fontSize: 10, color: MUTED, alignItems: 'center' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ width: 6, height: 6, borderRadius: 3, background: appt.practitioner_color, display: 'inline-block' }} />
+          {appt.practitioner_name}
+        </span>
+        <span><Clock size={9} style={{ display: 'inline', verticalAlign: 'middle' }} /> {appt.duration_minutes}min</span>
       </div>
     </motion.div>
   );
 }
 
 // =============================================================================
-// PENDING BOOKING ITEM
+// PENDING ROW
 // =============================================================================
 
-function PendingItem({ booking, selected, onClick }: { booking: PendingBooking; selected: boolean; onClick: () => void }) {
+function PendingRow({ booking, selected, onClick }: { booking: PendingBooking; selected: boolean; onClick: () => void }) {
   return (
-    <motion.div
-      layout
-      onClick={onClick}
-      style={{
-        padding: '14px 20px', cursor: 'pointer',
-        borderBottom: `1px solid ${BORDER}`,
-        background: selected ? `${ACCENT}0d` : 'transparent',
-        borderLeft: `3px solid ${selected ? ACCENT : 'transparent'}`,
-        transition: 'all 0.15s',
-      }}
-    >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+    <motion.div layout onClick={onClick} style={{
+      padding: '12px 20px', cursor: 'pointer',
+      borderBottom: `1px solid ${BORDER}`,
+      background: selected ? `${ACCENT}0a` : 'transparent',
+      borderLeft: `3px solid ${selected ? ACCENT : 'transparent'}`,
+      transition: 'all 0.12s',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 3 }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>{booking.patient_name}</div>
-        <span style={{ fontSize: 10, fontWeight: 600, color: '#D8A600', background: '#FFFBEB', padding: '2px 8px', borderRadius: 20 }}>
-          Pending
-        </span>
+        <span style={{ fontSize: 10, fontWeight: 600, color: '#D8A600', background: '#FFFBEB', padding: '2px 8px', borderRadius: 20 }}>Pending</span>
       </div>
-      <div style={{ fontSize: 12, color: SEC, marginBottom: 4, fontWeight: 500 }}>
-        {booking.treatment_interest ?? 'No treatment specified'}
-      </div>
-      <div style={{ display: 'flex', gap: 12, fontSize: 11, color: MUTED }}>
-        {booking.preferred_date && (
-          <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><Calendar size={10} />{booking.preferred_date}</span>
-        )}
-        {booking.patient_phone && (
-          <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><Phone size={10} />{booking.patient_phone}</span>
-        )}
+      <div style={{ fontSize: 11, color: SEC, marginBottom: 3 }}>{booking.treatment_interest ?? 'No treatment specified'}</div>
+      <div style={{ display: 'flex', gap: 10, fontSize: 10, color: MUTED }}>
+        {booking.preferred_date && <span><Calendar size={9} style={{ display: 'inline', verticalAlign: 'middle' }} /> {booking.preferred_date}</span>}
         <span style={{ marginLeft: 'auto' }}>{relTime(booking.created_at)}</span>
       </div>
     </motion.div>
@@ -438,13 +444,19 @@ function PendingItem({ booking, selected, onClick }: { booking: PendingBooking; 
 // MAIN PAGE
 // =============================================================================
 
+interface Stats { total: number; today: number; thisWeek: number; thisMonth: number; upcoming: number }
+
 export default function AppointmentsPage() {
   const router = useRouter();
   const [profile, setProfile]           = useState<StaffProfile | null>(null);
   const [userId, setUserId]             = useState('');
+  const [stats, setStats]               = useState<Stats>({ total: 0, today: 0, thisWeek: 0, thisMonth: 0, upcoming: 0 });
+  const [todayAppts, setTodayAppts]     = useState<AppointmentRow[]>([]);
   const [upcoming, setUpcoming]         = useState<AppointmentRow[]>([]);
+  const [past, setPast]                 = useState<AppointmentRow[]>([]);
   const [pendingBookings, setPending]   = useState<PendingBooking[]>([]);
   const [practitioners, setPractitioners] = useState<PractitionerRow[]>([]);
+  const [selectedAppt, setSelectedAppt] = useState<AppointmentRow | null>(null);
   const [selectedPending, setSelectedP] = useState<PendingBooking | null>(null);
   const [tab, setTab]                   = useState<Tab>('upcoming');
   const [search, setSearch]             = useState('');
@@ -462,15 +474,33 @@ export default function AppointmentsPage() {
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    const [upRes, pendRes, practRes] = await Promise.all([
-      getUpcomingAppointments(30),
-      getPendingBookings(),
-      getPractitioners(),
-    ]);
-    setUpcoming(upRes.appointments);
-    setPending(pendRes.bookings);
-    setPractitioners(practRes);
-    setLoading(false);
+    try {
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+      const todayEnd   = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
+
+      const [statsRes, upRes, pastRes, pendRes, practRes] = await Promise.all([
+        getAppointmentStats(),
+        getUpcomingAppointments(60),
+        getPastAppointments(30),
+        getPendingBookings(),
+        getPractitioners(),
+      ]);
+
+      setStats(statsRes);
+      setUpcoming(upRes.appointments);
+      setPast(pastRes.appointments);
+      setPending(pendRes.bookings);
+      setPractitioners(practRes);
+
+      // Today = upcoming appointments that start today
+      const todayList = upRes.appointments.filter(a => a.starts_at >= todayStart && a.starts_at < todayEnd);
+      setTodayAppts(todayList);
+    } catch (err) {
+      console.error('[appointments] loadData error:', err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -485,8 +515,7 @@ export default function AppointmentsPage() {
   }, [router, loadData]);
 
   async function handleSyncCliniko() {
-    setSyncing(true);
-    setSyncMsg(null);
+    setSyncing(true); setSyncMsg(null);
     try {
       const ctrl  = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 65_000);
@@ -494,15 +523,13 @@ export default function AppointmentsPage() {
       clearTimeout(timer);
       const res = await r.json() as { success: boolean; appointments?: number; error?: string };
       if (res.success) {
-        setSyncMsg(`Synced — ${res.appointments ?? 0} appointment${(res.appointments ?? 0) !== 1 ? 's' : ''} updated`);
+        setSyncMsg(`Synced — ${res.appointments ?? 0} appointments updated`);
         await loadData();
-        setTab('upcoming');
       } else {
-        setSyncMsg(res.error ?? 'Sync failed — check Cliniko connection in Integrations');
+        setSyncMsg(res.error ?? 'Sync failed');
       }
-    } catch (err) {
-      setSyncMsg(String(err));
-    } finally {
+    } catch (err) { setSyncMsg(String(err)); }
+    finally {
       setSyncing(false);
       setTimeout(() => setSyncMsg(null), 6000);
     }
@@ -514,21 +541,13 @@ export default function AppointmentsPage() {
     const booking = pendingBookings.find(b => b.id === confirmTarget);
     try {
       const result = await confirmPendingBooking(
-        confirmTarget,
-        booking?.booking_request_id ?? null,
+        confirmTarget, booking?.booking_request_id ?? null,
         { confirmed_date: params.confirmedDate, confirmed_time: params.confirmedTime, practitioner_cliniko_id: params.practitionerClinikoId },
       );
-      if (result.success) {
-        showToast('Booking confirmed');
-      } else {
-        showToast(result.error ?? 'Confirm failed', false);
-      }
-    } catch (err) {
-      showToast(String(err), false);
-    } finally {
-      setSaving(false);
-      setConfirmTarget(null);
-      setSelectedP(null);
+      showToast(result.success ? 'Booking confirmed' : (result.error ?? 'Confirm failed'), result.success);
+    } catch (err) { showToast(String(err), false); }
+    finally {
+      setSaving(false); setConfirmTarget(null); setSelectedP(null);
       await loadData();
     }
   }
@@ -540,21 +559,32 @@ export default function AppointmentsPage() {
     await loadData();
   }
 
-  const filteredUpcoming = upcoming.filter(a => {
+  // Filter helpers
+  const filterAppts = (list: AppointmentRow[]) => {
     const q = search.toLowerCase();
-    return !q || [a.patient_name, a.appointment_type, a.practitioner_name].some(v => v?.toLowerCase().includes(q));
-  });
-
-  const filteredPending = pendingBookings.filter(b => {
+    return !q ? list : list.filter(a =>
+      [a.patient_name, a.appointment_type, a.practitioner_name].some(v => v?.toLowerCase().includes(q))
+    );
+  };
+  const filterPending = (list: PendingBooking[]) => {
     const q = search.toLowerCase();
-    return !q || [b.patient_name, b.treatment_interest, b.patient_phone, b.patient_email].some(v => v?.toLowerCase().includes(q));
-  });
+    return !q ? list : list.filter(b =>
+      [b.patient_name, b.treatment_interest, b.patient_phone].some(v => v?.toLowerCase().includes(q))
+    );
+  };
 
-  const pendingCount = pendingBookings.length;
-
-  const confirmBookingData = pendingBookings.find(b => b.id === confirmTarget) ?? null;
+  const currentList   = tab === 'today' ? filterAppts(todayAppts) : tab === 'upcoming' ? filterAppts(upcoming) : tab === 'past' ? filterAppts(past) : filterPending(pendingBookings);
+  const pendingCount  = pendingBookings.length;
+  const confirmBooking = pendingBookings.find(b => b.id === confirmTarget) ?? null;
 
   if (!profile) return null;
+
+  const TABS: { key: Tab; label: string; count?: number }[] = [
+    { key: 'today',    label: 'Today',    count: stats.today     },
+    { key: 'upcoming', label: 'Upcoming', count: stats.upcoming  },
+    { key: 'past',     label: 'Past 30d'                         },
+    { key: 'requests', label: 'Requests', count: pendingCount || undefined },
+  ];
 
   return (
     <div style={{ minHeight: '100vh', background: BG, paddingLeft: 'var(--nav-w,240px)' }}>
@@ -563,243 +593,147 @@ export default function AppointmentsPage() {
       {/* Toast */}
       <AnimatePresence>
         {toast && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
-            style={{
-              position: 'fixed', top: 20, right: 20, zIndex: 100,
-              background: toast.ok ? '#ECFDF5' : '#FFF1F2',
-              border: `1px solid ${toast.ok ? '#A7F3D0' : '#FECDD3'}`,
-              color: toast.ok ? '#059669' : '#DC2626',
-              padding: '10px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600,
-              display: 'flex', alignItems: 'center', gap: 8,
-            }}
-          >
-            {toast.ok ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
-            {toast.msg}
+          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
+            style={{ position: 'fixed', top: 20, right: 20, zIndex: 100, background: toast.ok ? '#ECFDF5' : '#FFF1F2', border: `1px solid ${toast.ok ? '#A7F3D0' : '#FECDD3'}`, color: toast.ok ? '#059669' : '#DC2626', padding: '10px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+            {toast.ok ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}{toast.msg}
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* Confirm dialog */}
       <AnimatePresence>
-        {confirmTarget && confirmBookingData && (
-          <ConfirmDialog
-            booking={confirmBookingData}
-            practitioners={practitioners}
-            onConfirm={handleConfirm}
-            onClose={() => setConfirmTarget(null)}
-            saving={saving}
-          />
+        {confirmTarget && confirmBooking && (
+          <ConfirmDialog booking={confirmBooking} practitioners={practitioners} onConfirm={handleConfirm} onClose={() => setConfirmTarget(null)} saving={saving} />
         )}
       </AnimatePresence>
 
       <div style={{ maxWidth: 1400, margin: '0 auto', padding: '0 32px' }}>
 
-        {/* Header */}
-        <div style={{ paddingTop: 40, paddingBottom: 28, borderBottom: `1px solid ${BORDER}` }}>
+        {/* ── Header ── */}
+        <div style={{ paddingTop: 40, paddingBottom: 24, borderBottom: `1px solid ${BORDER}` }}>
           <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.28em', fontWeight: 600, color: MUTED, marginBottom: 8 }}>
             Edgbaston Wellness Clinic
           </div>
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
             <div>
-              <h1 style={{ fontSize: 38, fontWeight: 900, letterSpacing: '-0.035em', color: NAVY, margin: 0, lineHeight: 1 }}>
-                Appointments
-              </h1>
-              <p style={{ fontSize: 13, color: TER, marginTop: 8, margin: 0 }}>
-                Upcoming appointments from Cliniko · Pending booking requests from Komal
+              <h1 style={{ fontSize: 38, fontWeight: 900, letterSpacing: '-0.035em', color: NAVY, margin: 0, lineHeight: 1 }}>Appointments</h1>
+              <p style={{ fontSize: 13, color: TER, marginTop: 6, marginBottom: 0 }}>
+                Cliniko appointments · {stats.total.toLocaleString()} total synced
               </p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               {pendingCount > 0 && (
-                <div style={{
-                  padding: '6px 14px', borderRadius: 20, background: '#FFFBEB',
-                  border: '1px solid #FDE68A', color: '#D8A600',
-                  fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6,
-                }}>
-                  <AlertCircle size={12} />
-                  {pendingCount} pending
+                <div style={{ padding: '6px 14px', borderRadius: 20, background: '#FFFBEB', border: '1px solid #FDE68A', color: '#D8A600', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <AlertCircle size={12} />{pendingCount} pending
                 </div>
               )}
-              {syncMsg && (
-                <span style={{ fontSize: 11, fontWeight: 600, color: syncMsg.startsWith('Synced') ? '#059669' : '#DC2626' }}>
-                  {syncMsg}
-                </span>
-              )}
-              <button
-                onClick={handleSyncCliniko}
-                disabled={syncing}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '8px 14px', borderRadius: 8, fontSize: 12,
-                  border: `1px solid ${ACCENT}40`, background: `${ACCENT}12`, color: NAVY,
-                  cursor: syncing ? 'not-allowed' : 'pointer', fontWeight: 600, opacity: syncing ? 0.6 : 1,
-                }}
-              >
+              {syncMsg && <span style={{ fontSize: 11, fontWeight: 600, color: syncMsg.startsWith('Synced') ? '#059669' : '#DC2626' }}>{syncMsg}</span>}
+              <button onClick={handleSyncCliniko} disabled={syncing}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, fontSize: 12, border: `1px solid ${ACCENT}40`, background: `${ACCENT}12`, color: NAVY, cursor: syncing ? 'not-allowed' : 'pointer', fontWeight: 600, opacity: syncing ? 0.6 : 1 }}>
                 <RefreshCw size={12} style={{ animation: syncing ? 'spin 1s linear infinite' : 'none' }} />
-                {syncing ? 'Syncing…' : 'Sync from Cliniko'}
+                {syncing ? 'Syncing…' : 'Sync Now'}
               </button>
-              <button
-                onClick={loadData}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '8px 14px', borderRadius: 8, fontSize: 12,
-                  border: `1px solid ${BORDER}`, background: 'transparent',
-                  color: SEC, cursor: 'pointer', fontWeight: 600,
-                }}
-              >
-                <RefreshCw size={12} />
-                Refresh
+              <button onClick={loadData}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, fontSize: 12, border: `1px solid ${BORDER}`, background: 'transparent', color: SEC, cursor: 'pointer', fontWeight: 600 }}>
+                <RefreshCw size={12} />Refresh
               </button>
-              <Link
-                href={`/staff/calendar?userId=${userId}`}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '8px 14px', borderRadius: 8, fontSize: 12,
-                  border: `1px solid ${ACCENT}40`, background: `${ACCENT}18`, color: NAVY,
-                  textDecoration: 'none', fontWeight: 600,
-                }}
-              >
-                <Calendar size={12} />
-                View Calendar
-                <ExternalLink size={10} />
+              <Link href={`/staff/calendar?userId=${userId}`}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, fontSize: 12, border: `1px solid ${ACCENT}40`, background: `${ACCENT}18`, color: NAVY, textDecoration: 'none', fontWeight: 600 }}>
+                <Calendar size={12} />Calendar<ExternalLink size={10} />
               </Link>
             </div>
           </div>
         </div>
 
-        {/* Stats strip */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: BORDER, borderBottom: `1px solid ${BORDER}` }}>
+        {/* ── Stats strip ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 1, background: BORDER, borderBottom: `1px solid ${BORDER}` }}>
           {[
-            { label: 'Upcoming (30d)',    value: upcoming.length },
-            { label: 'Pending Requests', value: pendingCount },
-            { label: 'Today',            value: upcoming.filter(a => new Date(a.starts_at).toDateString() === new Date().toDateString()).length },
-            { label: 'Practitioners',    value: practitioners.length },
+            { label: 'Total Synced',  value: stats.total.toLocaleString(), icon: <TrendingUp size={14} />,  highlight: false },
+            { label: 'Today',         value: stats.today,                   icon: <Calendar size={14} />,    highlight: stats.today > 0 },
+            { label: 'This Week',     value: stats.thisWeek,                icon: <Clock size={14} />,       highlight: false },
+            { label: 'This Month',    value: stats.thisMonth,               icon: <Calendar size={14} />,    highlight: false },
+            { label: 'Upcoming',      value: stats.upcoming,                icon: <ChevronRight size={14} />,highlight: false },
           ].map(s => (
-            <div key={s.label} style={{ background: BG, padding: '16px 24px' }}>
-              <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.28em', fontWeight: 600, color: MUTED, marginBottom: 4 }}>
-                {s.label}
+            <div key={s.label} style={{ background: BG, padding: '16px 20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                <span style={{ color: s.highlight ? ACCENT : MUTED }}>{s.icon}</span>
+                <span style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.28em', fontWeight: 600, color: MUTED }}>{s.label}</span>
               </div>
-              <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: '-0.04em', color: NAVY }}>
+              <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: '-0.04em', color: s.highlight ? ACCENT : NAVY }}>
                 {s.value}
               </div>
             </div>
           ))}
         </div>
 
-        {/* Main split layout */}
-        <div style={{ display: 'flex', height: 'calc(100vh - 260px)', borderTop: `1px solid ${BORDER}` }}>
+        {/* ── Split layout ── */}
+        <div style={{ display: 'flex', height: 'calc(100vh - 280px)', borderTop: `1px solid ${BORDER}` }}>
 
           {/* Left: list */}
-          <div style={{ width: 380, flexShrink: 0, borderRight: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ width: 400, flexShrink: 0, borderRight: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-            {/* Tabs + search */}
-            <div style={{ padding: '12px 16px', borderBottom: `1px solid ${BORDER}` }}>
-              <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
-                {([
-                  { key: 'upcoming' as Tab, label: `Upcoming${upcoming.length > 0 ? ` (${upcoming.length})` : ''}` },
-                  { key: 'pending'  as Tab, label: `Pending${pendingCount > 0 ? ` (${pendingCount})` : ''}` },
-                ]).map(({ key, label }) => (
-                  <button
-                    key={key}
-                    onClick={() => { setTab(key); setSelectedP(null); }}
-                    style={{
-                      padding: '5px 14px', borderRadius: 20, fontSize: 11, fontWeight: 600, cursor: 'pointer',
-                      background: tab === key ? `${ACCENT}18` : 'transparent',
-                      color: tab === key ? NAVY : MUTED,
-                      border: tab === key ? `1px solid ${ACCENT}40` : '1px solid transparent',
-                    }}
-                  >
-                    {label}
+            {/* Tabs */}
+            <div style={{ padding: '12px 16px 8px', borderBottom: `1px solid ${BORDER}` }}>
+              <div style={{ display: 'flex', gap: 3, marginBottom: 10 }}>
+                {TABS.map(({ key, label, count }) => (
+                  <button key={key} onClick={() => { setTab(key); setSelectedAppt(null); setSelectedP(null); setSearch(''); }}
+                    style={{ padding: '5px 12px', borderRadius: 20, fontSize: 11, fontWeight: 600, cursor: 'pointer', background: tab === key ? `${ACCENT}18` : 'transparent', color: tab === key ? NAVY : MUTED, border: tab === key ? `1px solid ${ACCENT}40` : '1px solid transparent' }}>
+                    {label}{count !== undefined && count > 0 ? ` (${count})` : ''}
                   </button>
                 ))}
               </div>
               <div style={{ position: 'relative' }}>
                 <Search size={12} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: MUTED }} />
-                <input
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  placeholder={tab === 'upcoming' ? 'Search patient, treatment…' : 'Search name, treatment, phone…'}
-                  style={{
-                    width: '100%', padding: '7px 10px 7px 28px', borderRadius: 8,
-                    border: `1px solid ${BORDER}`, background: 'transparent',
-                    fontSize: 12, color: NAVY, outline: 'none', boxSizing: 'border-box',
-                  }}
-                />
+                <input value={search} onChange={e => setSearch(e.target.value)}
+                  placeholder="Search patient, treatment, practitioner…"
+                  style={{ width: '100%', padding: '7px 10px 7px 28px', borderRadius: 8, border: `1px solid ${BORDER}`, background: 'transparent', fontSize: 12, color: NAVY, outline: 'none', boxSizing: 'border-box' }} />
               </div>
             </div>
 
             {/* List */}
             <div style={{ flex: 1, overflow: 'auto' }}>
               {loading ? (
-                <div style={{ padding: 32, textAlign: 'center', color: MUTED, fontSize: 13 }}>Loading…</div>
-              ) : tab === 'upcoming' ? (
-                filteredUpcoming.length === 0 ? (
-                  <div style={{ padding: 32, textAlign: 'center' }}>
-                    <Calendar size={24} style={{ color: BORDER, margin: '0 auto 12px', display: 'block' }} />
-                    <div style={{ fontSize: 13, color: MUTED, marginBottom: 6 }}>
-                      {upcoming.length === 0 ? 'No upcoming appointments in the next 30 days' : 'No results match your search'}
-                    </div>
-                    {upcoming.length === 0 && (
-                      <div style={{ fontSize: 11, color: MUTED }}>
-                        Click &quot;Sync from Cliniko&quot; above to load your appointments
-                      </div>
-                    )}
+                <div style={{ padding: 40, textAlign: 'center', color: MUTED, fontSize: 13 }}>
+                  <RefreshCw size={20} style={{ animation: 'spin 1s linear infinite', margin: '0 auto 12px', display: 'block', opacity: 0.4 }} />
+                  Loading appointments…
+                </div>
+              ) : currentList.length === 0 ? (
+                <div style={{ padding: 40, textAlign: 'center' }}>
+                  <Calendar size={28} style={{ color: BORDER, margin: '0 auto 12px', display: 'block' }} />
+                  <div style={{ fontSize: 13, color: MUTED, marginBottom: 6 }}>
+                    {tab === 'today'    && 'No appointments today'}
+                    {tab === 'upcoming' && 'No upcoming appointments'}
+                    {tab === 'past'     && 'No past appointments in the last 30 days'}
+                    {tab === 'requests' && 'No pending booking requests'}
                   </div>
-                ) : (
-                  <AnimatePresence>
-                    {filteredUpcoming.map(a => <UpcomingItem key={a.id} appt={a} />)}
-                  </AnimatePresence>
-                )
+                  {(tab === 'today' || tab === 'upcoming') && (
+                    <button onClick={handleSyncCliniko} style={{ marginTop: 8, fontSize: 11, color: ACCENT, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+                      Sync from Cliniko
+                    </button>
+                  )}
+                </div>
               ) : (
-                filteredPending.length === 0 ? (
-                  <div style={{ padding: 32, textAlign: 'center', color: MUTED, fontSize: 13 }}>
-                    No pending booking requests
-                  </div>
-                ) : (
-                  <AnimatePresence>
-                    {filteredPending.map(b => (
-                      <PendingItem
-                        key={b.id}
-                        booking={b}
-                        selected={selectedPending?.id === b.id}
-                        onClick={() => setSelectedP(b)}
-                      />
-                    ))}
-                  </AnimatePresence>
-                )
+                <AnimatePresence>
+                  {tab === 'requests'
+                    ? (currentList as PendingBooking[]).map(b => (
+                        <PendingRow key={b.id} booking={b} selected={selectedPending?.id === b.id} onClick={() => { setSelectedP(b); setSelectedAppt(null); }} />
+                      ))
+                    : (currentList as AppointmentRow[]).map(a => (
+                        <ApptRow key={a.id} appt={a} selected={selectedAppt?.id === a.id} onClick={() => { setSelectedAppt(a); setSelectedP(null); }} />
+                      ))
+                  }
+                </AnimatePresence>
               )}
             </div>
           </div>
 
           {/* Right: detail */}
-          {tab === 'upcoming' ? (
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: MUTED, fontSize: 13, textAlign: 'center', padding: 32 }}>
-              <div>
-                <Calendar size={28} style={{ color: BORDER, margin: '0 auto 12px', display: 'block' }} />
-                <div style={{ fontWeight: 600, color: TER, marginBottom: 4 }}>Upcoming appointments from Cliniko</div>
-                <div style={{ fontSize: 11, marginBottom: 16 }}>
-                  {upcoming.length} appointment{upcoming.length !== 1 ? 's' : ''} in the next 30 days
-                </div>
-                <Link
-                  href="/staff/calendar"
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 6,
-                    padding: '8px 16px', borderRadius: 8, fontSize: 12,
-                    border: `1px solid ${ACCENT}40`, background: `${ACCENT}18`, color: NAVY,
-                    textDecoration: 'none', fontWeight: 600,
-                  }}
-                >
-                  <Calendar size={12} />View Calendar
-                </Link>
-              </div>
-            </div>
-          ) : (
-            <PendingDetail
-              booking={selectedPending}
-              onConfirm={(id) => setConfirmTarget(id)}
-              onDismiss={handleDismiss}
-            />
-          )}
+          <AnimatePresence mode="wait">
+            {tab === 'requests'
+              ? <PendingDetail key="pending" booking={selectedPending} onConfirm={id => setConfirmTarget(id)} onDismiss={handleDismiss} />
+              : <ApptDetail key="appt" appt={selectedAppt} onClose={() => setSelectedAppt(null)} />
+            }
+          </AnimatePresence>
         </div>
       </div>
     </div>
