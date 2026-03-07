@@ -2,20 +2,20 @@
 // /api/vapi/webhook
 // Receives end-of-call events from Vapi.ai (Komal).
 //
-// ARCHITECTURAL ROLE:
-// This is the bridge between the voice layer (Komal) and the agent system
-// (EWC / Orion / Aria). Every call that Komal handles is:
-//   1. Logged as a signal — so staff see it on the signals page
-//   2. Stored in agent_memories — so all three agents are aware of it
-//   3. Classified by outcome — booking, enquiry, existing patient, missed, etc.
+// WHAT THIS DOES:
+//   1. call_logs  — one row per call, always. The call history on the voice page.
+//   2. booking_requests — update with call_summary if tool already wrote the row,
+//      or insert a fallback row if the tool's write failed silently.
+//      Then link call_logs.booking_request_id → booking_requests.id.
+//   3. agent_memories — all 3 agents become aware of every call.
 //
-// Configure in Vapi dashboard:
-//   Assistant -> Server URL -> https://your-domain/api/vapi/webhook
-//   (Tool call events are handled separately at /api/vapi/tool)
+// WHAT THIS DOES NOT DO:
+//   - Write to signals. Voice calls have their own call_logs table.
 // =============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createSovereignClient } from '@/lib/supabase/service';
+import { createCallLog, linkCallLogToBooking } from '@/lib/actions/call-logs';
 import { createBookingRequest } from '@/lib/actions/booking-pipeline';
 
 // ---------------------------------------------------------------------------
@@ -31,27 +31,21 @@ interface VapiCall {
   endedReason?: string;
   customer?: { number?: string; name?: string };
   durationSeconds?: number;
-  assistantId?: string;
 }
 
 interface VapiAnalysis {
   summary?: string;
   successEvaluation?: string;
-  structuredData?: Record<string, unknown>;
 }
 
 interface VapiToolCall {
   id: string;
-  type?: string;
   function: { name: string; arguments: string };
 }
 
 interface VapiCallMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
-  content?: string;
   toolCalls?: VapiToolCall[];
-  toolCallId?: string;
-  toolName?: string;
 }
 
 interface VapiMessage {
@@ -64,7 +58,6 @@ interface VapiMessage {
   artifact?: {
     transcript?: string;
     recordingUrl?: string;
-    stereoRecordingUrl?: string;
     messages?: VapiCallMessage[];
   };
 }
@@ -77,17 +70,12 @@ interface VapiWebhookPayload {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function callerLabel(call: VapiCall): string {
-  return call.customer?.name ?? call.customer?.number ?? 'Unknown caller';
-}
-
 function callDirection(call: VapiCall): 'inbound' | 'outbound' | 'web' {
   if (call.type === 'inboundPhoneCall') return 'inbound';
   if (call.type === 'outboundPhoneCall') return 'outbound';
   return 'web';
 }
 
-// Extract tool usage and agent consultations from the call message history
 function extractToolsUsed(messages: VapiCallMessage[]): {
   toolsUsed: string[];
   agentConsulted: string | null;
@@ -99,15 +87,11 @@ function extractToolsUsed(messages: VapiCallMessage[]): {
     if (msg.role === 'assistant' && msg.toolCalls) {
       for (const tc of msg.toolCalls) {
         const name = tc.function?.name;
-        if (name && !toolsUsed.includes(name)) {
-          toolsUsed.push(name);
-        }
-        if (name === 'ask_agent') {
+        if (name && !toolsUsed.includes(name)) toolsUsed.push(name);
+        if (name === 'ask_agent' && !agentConsulted) {
           try {
             const args = JSON.parse(tc.function.arguments ?? '{}') as { agent?: string };
-            if (args.agent && !agentConsulted) {
-              agentConsulted = args.agent;
-            }
+            if (args.agent) agentConsulted = args.agent;
           } catch { /* ignore */ }
         }
       }
@@ -117,56 +101,73 @@ function extractToolsUsed(messages: VapiCallMessage[]): {
   return { toolsUsed, agentConsulted };
 }
 
-// Infer outcome from which tools were actually called during the call
 function inferOutcome(
   toolsUsed: string[],
   isMissed: boolean,
-  succeeded: boolean,
-): string {
-  if (isMissed) return 'missed';
-  if (toolsUsed.includes('escalate_to_human')) return 'escalated';
-  if (toolsUsed.includes('create_booking_request')) return 'booked';
-  if (toolsUsed.includes('capture_lead')) return 'lead_captured';
-  if (toolsUsed.includes('log_call_concern')) return 'concern_logged';
-  if (!succeeded) return 'unsuccessful';
-  if (toolsUsed.length === 0) return 'no_action';
-  return 'handled';
+): 'booked' | 'lead' | 'enquiry' | 'missed' | 'escalated' | 'concern' | 'info_only' {
+  if (isMissed)                                          return 'missed';
+  if (toolsUsed.includes('escalate_to_human'))           return 'escalated';
+  if (toolsUsed.includes('create_booking_request'))      return 'booked';
+  if (toolsUsed.includes('capture_lead'))                return 'lead';
+  if (toolsUsed.includes('log_call_concern'))            return 'concern';
+  if (toolsUsed.includes('search_knowledge_base') ||
+      toolsUsed.includes('get_clinic_info'))             return 'enquiry';
+  return 'info_only';
 }
 
-// Infer agent mode — tool data first, then summary keywords
-function inferAgentMode(
-  summary: string,
-  toolsUsed: string[],
-  agentConsulted: string | null,
-): 'orion' | 'aria' | 'komal' {
-  // Trust ask_agent call over everything — it tells us which brain was consulted
-  if (agentConsulted === 'orion') return 'orion';
-  if (agentConsulted === 'aria') return 'aria';
+// Enrich caller name/phone from booking or lead tool args
+function enrichCaller(
+  messages: VapiCallMessage[],
+  fallbackName: string | null,
+  fallbackPhone: string | null,
+): { name: string | null; phone: string | null; email: string | null; service: string | null; referralSource: string | null; referralName: string | null; notes: string | null } {
+  const toolCalls = messages.flatMap(m => m.toolCalls ?? []);
 
-  // Tool-based inference — acquisition tools → Orion, patient tools → Aria
-  if (toolsUsed.includes('capture_lead') || toolsUsed.includes('create_booking_request')) return 'orion';
-  if (toolsUsed.includes('get_patient_history')) return 'aria';
+  const bookingCall = toolCalls.find(tc => tc.function?.name === 'create_booking_request');
+  if (bookingCall) {
+    try {
+      const a = JSON.parse(bookingCall.function.arguments ?? '{}') as {
+        patient_name?: string; phone?: string; email?: string;
+        treatment?: string; referral_source?: string; referral_name?: string; notes?: string;
+      };
+      return {
+        name:           a.patient_name    ?? fallbackName,
+        phone:          a.phone           ?? fallbackPhone,
+        email:          a.email           ?? null,
+        service:        a.treatment       ?? null,
+        referralSource: a.referral_source ?? null,
+        referralName:   a.referral_name   ?? null,
+        notes:          a.notes           ?? null,
+      };
+    } catch { /* ignore */ }
+  }
 
-  // Summary keyword fallback
-  const s = summary.toLowerCase();
-  if (s.includes('book') || s.includes('enquir') || s.includes('price') ||
-      s.includes('consult') || s.includes('interested') || s.includes('new patient')) {
-    return 'orion';
+  const leadCall = toolCalls.find(tc => tc.function?.name === 'capture_lead');
+  if (leadCall) {
+    try {
+      const a = JSON.parse(leadCall.function.arguments ?? '{}') as {
+        name?: string; phone?: string; email?: string;
+        treatment_interest?: string; source?: string; notes?: string;
+      };
+      return {
+        name:           a.name               ?? fallbackName,
+        phone:          a.phone              ?? fallbackPhone,
+        email:          a.email              ?? null,
+        service:        a.treatment_interest ?? null,
+        referralSource: a.source             ?? null,
+        referralName:   null,
+        notes:          a.notes              ?? null,
+      };
+    } catch { /* ignore */ }
   }
-  if (s.includes('existing patient') || s.includes('follow-up') ||
-      s.includes('previous treatment') || s.includes('rebook') ||
-      s.includes('concern') || s.includes('recovery')) {
-    return 'aria';
-  }
-  // Komal handled it directly with Tier 1 tools — no specialist brain needed
-  return 'komal';
+
+  return { name: fallbackName, phone: fallbackPhone, email: null, service: null, referralSource: null, referralName: null, notes: null };
 }
 
 // ---------------------------------------------------------------------------
 // Route handler
 // ---------------------------------------------------------------------------
 
-// Health check — Vapi may GET the webhook URL to verify reachability
 export async function GET() {
   return NextResponse.json({ ok: true, service: 'komal-webhook' });
 }
@@ -178,262 +179,165 @@ export async function POST(req: NextRequest) {
 
     console.log('[vapi-webhook] Event:', message.type, message.call?.id);
 
-    // Only act on completed calls
     if (message.type !== 'end-of-call-report' || !message.call) {
       return NextResponse.json({ received: true });
     }
 
-    const call       = message.call;
-    const analysis   = message.analysis;
+    const call      = message.call;
+    const analysis  = message.analysis;
+    const summary   = analysis?.summary ?? '';
     const transcript = message.artifact?.transcript ?? message.transcript ?? '';
-    const summary    = analysis?.summary ?? '';
-    const succeeded  = analysis?.successEvaluation !== 'false';
-    const caller     = callerLabel(call);
-    const direction  = callDirection(call);
-    const duration   = call.durationSeconds ?? 0;
-    const isMissed   = ['no-answer', 'voicemail', 'failed', 'busy'].includes(call.endedReason ?? '');
-    const now        = new Date().toISOString();
+    const direction = callDirection(call);
+    const duration  = call.durationSeconds ?? 0;
+    const isMissed  = ['no-answer', 'voicemail', 'failed', 'busy'].includes(call.endedReason ?? '');
+    const recordingUrl = message.artifact?.recordingUrl ?? message.recordingUrl ?? null;
 
-    // Extract tool usage from the call message history (Vapi sends this in artifact.messages or message.messages)
     const callMessages: VapiCallMessage[] =
       message.artifact?.messages ?? message.messages ?? [];
     const { toolsUsed, agentConsulted } = extractToolsUsed(callMessages);
+    const outcome = inferOutcome(toolsUsed, isMissed);
 
-    const agentMode = inferAgentMode(summary, toolsUsed, agentConsulted);
-    const outcome   = inferOutcome(toolsUsed, isMissed, succeeded);
+    // Enrich caller identity from tool args
+    const enriched = enrichCaller(
+      callMessages,
+      call.customer?.name ?? null,
+      call.customer?.number ?? null,
+    );
 
     const supabase = createSovereignClient();
 
     // -----------------------------------------------------------------------
-    // 1. Signal - every call becomes visible on the signals page
+    // 1. call_logs — always, one row per call
     // -----------------------------------------------------------------------
 
-    let signalTitle: string;
-    let signalPriority: 'low' | 'medium' | 'high' | 'critical';
-    let signalCategory: string;
-    let responseMode: string;
-    let signalStatus: string;
+    const callLogResult = await createCallLog({
+      vapi_call_id:      call.id,
+      caller_name:       enriched.name        ?? undefined,
+      caller_phone:      enriched.phone       ?? undefined,
+      caller_email:      enriched.email       ?? undefined,
+      service_requested: enriched.service     ?? undefined,
+      outcome,
+      direction,
+      duration_seconds:  duration,
+      recording_url:     recordingUrl         ?? undefined,
+      ended_reason:      call.endedReason     ?? undefined,
+      call_notes:        enriched.notes       ?? undefined,
+      call_summary:      summary              || undefined,
+      tools_used:        toolsUsed.length > 0 ? toolsUsed : undefined,
+      agent_consulted:   agentConsulted       ?? undefined,
+      referral_source:   enriched.referralSource ?? undefined,
+      referral_name:     enriched.referralName   ?? undefined,
+    });
 
-    if (isMissed) {
-      signalTitle    = `Missed call - ${caller}`;
-      signalPriority = 'high';
-      signalCategory = 'Voice';
-      responseMode   = 'human_only';
-      signalStatus   = 'new';
-    } else if (outcome === 'escalated') {
-      signalTitle    = `Call escalated to human - ${caller}`;
-      signalPriority = 'high';
-      signalCategory = 'Voice';
-      responseMode   = 'human_only';
-      signalStatus   = 'new';
-    } else if (!succeeded) {
-      signalTitle    = `Call needs follow-up - ${caller}`;
-      signalPriority = 'medium';
-      signalCategory = 'Voice';
-      responseMode   = 'supervised';
-      signalStatus   = 'new';
-    } else if (outcome === 'booked') {
-      signalTitle    = `Booking requested - ${caller}`;
-      signalPriority = 'high';
-      signalCategory = 'Patient Acquisition';
-      responseMode   = 'supervised';
-      signalStatus   = 'new';
-    } else if (outcome === 'lead_captured') {
-      signalTitle    = `New lead captured - ${caller}`;
-      signalPriority = 'medium';
-      signalCategory = 'Patient Acquisition';
-      responseMode   = 'supervised';
-      signalStatus   = 'new';
-    } else if (outcome === 'concern_logged') {
-      signalTitle    = `Concern logged - ${caller}`;
-      signalPriority = 'high';
-      signalCategory = 'Patient Retention';
-      responseMode   = 'human_only';
-      signalStatus   = 'new';
-    } else if (agentMode === 'orion') {
-      signalTitle    = `${direction === 'inbound' ? 'Inbound enquiry' : 'Outbound lead'} - ${caller}`;
-      signalPriority = 'medium';
-      signalCategory = 'Patient Acquisition';
-      responseMode   = 'auto';
-      signalStatus   = 'resolved';
-    } else if (agentMode === 'aria') {
-      signalTitle    = `Patient follow-up call - ${caller}`;
-      signalPriority = 'low';
-      signalCategory = 'Patient Retention';
-      responseMode   = 'auto';
-      signalStatus   = 'resolved';
-    } else {
-      // agentMode === 'komal' — Komal handled it directly (no specialist brain used)
-      signalTitle    = `${direction === 'inbound' ? 'Inbound' : 'Outbound'} call - ${caller}`;
-      signalPriority = 'low';
-      signalCategory = 'Voice';
-      responseMode   = 'auto';
-      signalStatus   = 'resolved';
-    }
+    console.log('[vapi-webhook] call_logs row created:', callLogResult.id ?? 'failed', '| outcome:', outcome);
 
-    const actionLog = [{
-      timestamp: now,
-      actor:     'automation:komal',
-      action:    isMissed ? 'missed_call' : (succeeded ? 'call_completed' : 'call_unsuccessful'),
-      note:      [
-        `${caller} | ${duration}s | ${direction} | ${call.endedReason ?? 'ended'}`,
-        `Mode: ${agentMode.toUpperCase()} | Outcome: ${outcome}`,
-        toolsUsed.length > 0 ? `Tools: ${toolsUsed.join(', ')}` : '',
-        agentConsulted ? `Agent consulted: ${agentConsulted}` : '',
-      ].filter(Boolean).join(' | '),
-    }] as Array<{ timestamp: string; actor: string; action: string; note: string }>;
+    // -----------------------------------------------------------------------
+    // 2. booking_requests — update existing row (tool wrote it during call)
+    //    or insert fallback if tool write failed silently.
+    //    Then link call_log → booking_request.
+    // -----------------------------------------------------------------------
 
-    if (summary) {
-      actionLog.push({
-        timestamp: now,
-        actor:     'agent:primary_agent',
-        action:    'call_summarised',
-        note:      summary.slice(0, 500),
-      });
-    }
-
-    // Enrich caller name: prefer booking tool args > Vapi customer object
-    const bookingArgCall = callMessages
-      .flatMap(m => m.toolCalls ?? [])
-      .find(tc => tc.function?.name === 'create_booking_request');
-    let enrichedCallerName = call.customer?.name ?? null;
-    let enrichedCallerPhone = call.customer?.number ?? null;
-    if (bookingArgCall) {
+    if (toolsUsed.includes('create_booking_request')) {
       try {
-        const bArgs = JSON.parse(bookingArgCall.function.arguments ?? '{}') as { patient_name?: string; phone?: string };
-        if (bArgs.patient_name) enrichedCallerName  = bArgs.patient_name;
-        if (bArgs.phone)        enrichedCallerPhone  = bArgs.phone;
-      } catch { /* ignore parse error */ }
-    }
-    // Also check capture_lead args if no booking
-    if (!enrichedCallerName) {
-      const leadCall = callMessages
-        .flatMap(m => m.toolCalls ?? [])
-        .find(tc => tc.function?.name === 'capture_lead');
-      if (leadCall) {
-        try {
-          const lArgs = JSON.parse(leadCall.function.arguments ?? '{}') as { name?: string; phone?: string };
-          if (lArgs.name)  enrichedCallerName  = lArgs.name;
-          if (lArgs.phone) enrichedCallerPhone  = lArgs.phone;
-        } catch { /* ignore */ }
+        let bookingId: string | null = null;
+
+        // Find the row the tool already inserted (has vapi_call_id on it)
+        const { data: existing } = await supabase
+          .from('booking_requests')
+          .select('id')
+          .eq('vapi_call_id', call.id)
+          .limit(1)
+          .single();
+
+        if (existing?.id) {
+          // Tool insert succeeded — enrich with call_summary
+          bookingId = existing.id;
+          await supabase
+            .from('booking_requests')
+            .update({ call_summary: summary || null })
+            .eq('id', bookingId);
+          console.log('[vapi-webhook] booking_requests row enriched:', bookingId);
+        } else {
+          // Tool insert failed silently — insert fallback row now
+          const bookingCall = callMessages
+            .flatMap(m => m.toolCalls ?? [])
+            .find(tc => tc.function?.name === 'create_booking_request');
+
+          if (bookingCall) {
+            const args = JSON.parse(bookingCall.function.arguments ?? '{}') as {
+              patient_name?: string; phone?: string; email?: string;
+              treatment?: string; preferred_date?: string; preferred_time?: string;
+              preferred_practitioner?: string; referral_source?: string;
+              referral_name?: string; notes?: string;
+            };
+
+            const fallback = await createBookingRequest({
+              caller_name:            args.patient_name ?? enriched.name ?? undefined,
+              caller_phone:           args.phone        ?? enriched.phone ?? undefined,
+              caller_email:           args.email        ?? undefined,
+              service:                args.treatment    ?? undefined,
+              preferred_date:         args.preferred_date ?? undefined,
+              preferred_time:         args.preferred_time ?? undefined,
+              preferred_practitioner: args.preferred_practitioner ?? undefined,
+              referral_source:        args.referral_source ?? undefined,
+              referral_name:          args.referral_name   ?? undefined,
+              vapi_call_id:           call.id,
+              call_notes:             args.notes ?? undefined,
+              call_summary:           summary || undefined,
+            });
+
+            bookingId = fallback.id ?? null;
+            console.log('[vapi-webhook] booking_requests fallback row inserted:', bookingId);
+          }
+        }
+
+        // Link call_log → booking_request
+        if (callLogResult.id && bookingId) {
+          await linkCallLogToBooking(callLogResult.id, bookingId);
+        }
+
+      } catch (bookingErr) {
+        console.error('[vapi-webhook] Booking error:', bookingErr);
       }
     }
 
-    // Update signal title with enriched name
-    if (enrichedCallerName && enrichedCallerName !== caller) {
-      signalTitle = signalTitle.replace(caller, enrichedCallerName);
-    }
-
-    await supabase.from('signals').insert({
-      title:         signalTitle,
-      description:   summary || `${direction} call with ${enrichedCallerName ?? caller}. Duration: ${duration}s. Ended: ${call.endedReason ?? 'normal'}. Outcome: ${outcome}.`,
-      signal_type:   'task',
-      priority:      signalPriority,
-      category:      signalCategory,
-      status:        signalStatus,
-      source_type:   'vapi_call',
-      tags:          [direction, agentMode, outcome].filter(Boolean),
-      data: {
-        vapi_call_id:     call.id,
-        caller_number:    enrichedCallerPhone ?? call.customer?.number,
-        caller_name:      enrichedCallerName,
-        direction,
-        duration_seconds: duration,
-        ended_reason:     call.endedReason,
-        recording_url:    message.artifact?.recordingUrl,
-        success:          succeeded,
-        tools_used:       toolsUsed,
-        agent_consulted:  agentConsulted,
-        mode_detected:    agentMode,
-        outcome,
-        response_mode:    responseMode,
-        action_log:       actionLog,
-      },
-    });
-
     // -----------------------------------------------------------------------
-    // 2. Agent memories - all three agents become aware of this call
-    //    EWC, Orion and Aria can reference past call history in any conversation
+    // 3. agent_memories — all 3 agents become aware of this call
     // -----------------------------------------------------------------------
 
     if (transcript || summary) {
       const memoryContent = [
-        `VOICE CALL - ${now}`,
-        `Direction: ${direction} | Caller: ${caller} | Duration: ${duration}s`,
-        `Mode: ${agentMode.toUpperCase()} | Outcome: ${outcome}`,
+        `VOICE CALL — ${new Date().toISOString()}`,
+        `Direction: ${direction} | Caller: ${enriched.name ?? call.customer?.number ?? 'Unknown'} | Duration: ${duration}s`,
+        `Outcome: ${outcome}`,
         toolsUsed.length > 0 ? `Tools used: ${toolsUsed.join(', ')}` : '',
         agentConsulted ? `Agent consulted: ${agentConsulted}` : '',
         summary    ? `\nSUMMARY:\n${summary}` : '',
         transcript ? `\nTRANSCRIPT:\n${transcript.slice(0, 2000)}` : '',
       ].filter(Boolean).join('\n');
 
-      // Write to all three agent keys so each is aware of every call
-      const agentKeys = ['primary_agent', 'sales_agent', 'crm_agent'];
-      await Promise.all(agentKeys.map(agentKey =>
+      const importanceScore = outcome === 'booked' ? 0.95
+        : outcome === 'lead' ? 0.85
+        : outcome === 'missed' ? 0.9
+        : outcome === 'concern' || outcome === 'escalated' ? 0.9
+        : 0.6;
+
+      await Promise.all(['primary_agent', 'sales_agent', 'crm_agent'].map(agentKey =>
         supabase.from('agent_memories').insert({
           agent_key:   agentKey,
           memory_type: 'conversation',
           content:     memoryContent,
-          importance:  isMissed ? 0.9 : outcome === 'booked' ? 0.95 : outcome === 'lead_captured' ? 0.85 : succeeded ? 0.6 : 0.75,
+          importance:  importanceScore,
           metadata: {
-            source:           'komal_voice_call',
-            vapi_call_id:     call.id,
-            caller:           caller,
+            source:       'komal_voice_call',
+            vapi_call_id: call.id,
+            caller:       enriched.name ?? call.customer?.number,
             direction,
-            agent_mode:       agentMode,
-            duration_seconds: duration,
-            tools_used:       toolsUsed,
             outcome,
+            tools_used:   toolsUsed,
           },
         })
       ));
-    }
-
-    // -----------------------------------------------------------------------
-    // 3. Booking request — extract booking tool call arguments and store in
-    //    booking_requests staging table for staff to confirm.
-    //    Triggered when Komal fires create_booking_request during the call.
-    // -----------------------------------------------------------------------
-
-    if (toolsUsed.includes('create_booking_request')) {
-      // Find the create_booking_request tool call and extract its arguments
-      const bookingCall = callMessages
-        .flatMap(m => m.toolCalls ?? [])
-        .find(tc => tc.function?.name === 'create_booking_request');
-
-      if (bookingCall) {
-        try {
-          const args = JSON.parse(bookingCall.function.arguments ?? '{}') as {
-            patient_name?: string;
-            phone?: string;
-            email?: string;
-            treatment?: string;
-            preferred_date?: string;
-            preferred_time?: string;
-            preferred_practitioner?: string;
-            referral_source?: string;
-            referral_name?: string;
-            notes?: string;
-          };
-
-          await createBookingRequest({
-            caller_name:            args.patient_name ?? call.customer?.name ?? caller,
-            caller_phone:           args.phone ?? call.customer?.number ?? undefined,
-            caller_email:           args.email ?? undefined,
-            service:                args.treatment ?? undefined,
-            preferred_date:         args.preferred_date ?? undefined,
-            preferred_time:         args.preferred_time ?? undefined,
-            preferred_practitioner: args.preferred_practitioner ?? undefined,
-            referral_source:        args.referral_source ?? undefined,
-            referral_name:          args.referral_name ?? undefined,
-            vapi_call_id:           call.id,
-            call_notes:             args.notes ?? undefined,
-            call_summary:           summary || undefined,
-          });
-        } catch (bookingErr) {
-          console.error('[vapi-webhook] Failed to create booking request:', bookingErr);
-        }
-      }
     }
 
     return NextResponse.json({ received: true });

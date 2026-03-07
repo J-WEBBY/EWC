@@ -193,6 +193,12 @@ export async function POST(req: NextRequest) {
           console.warn(`[vapi/tool] Failed to parse arguments for ${toolName}`);
         }
 
+        // Inject vapi_call_id so create_booking_request can store it on the DB row.
+        // This lets the webhook UPDATE the row (add call_summary) instead of inserting a duplicate.
+        if (toolName === 'create_booking_request' && callId) {
+          args = { ...args, vapi_call_id: callId };
+        }
+
         console.log(`[vapi/tool] Executing: ${toolName}`, isAskAgent ? `(agent: ${(args as {agent?: string}).agent})` : '');
         const start = Date.now();
 

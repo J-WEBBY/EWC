@@ -22,11 +22,12 @@ export async function createBookingRequest(args: {
   referral_source?:        string;
   referral_name?:          string;
   notes?:                  string;
+  vapi_call_id?:           string;  // injected by tool route — links row to call for dedup
 }): Promise<string> {
   const {
     patient_name, phone, email, treatment, preferred_date,
     preferred_time, service_detail, preferred_practitioner,
-    referral_source, referral_name, notes,
+    referral_source, referral_name, notes, vapi_call_id,
   } = args;
 
   if (!patient_name || !phone || !treatment) {
@@ -55,6 +56,7 @@ export async function createBookingRequest(args: {
       referral_source:        safeReferral,
       referral_name:          referral_name           ?? null,
       call_notes:             notes                   ?? null,
+      vapi_call_id:           vapi_call_id            ?? null,
       status:                 'pending',
     });
 
@@ -63,12 +65,12 @@ export async function createBookingRequest(args: {
       console.error('[vapi/create-booking] INSERT FAILED — code:', (error as { code?: string }).code, '| msg:', error.message, '| details:', (error as { details?: string }).details);
       // Fall through to fallback phrase — do NOT expose DB errors to caller
     } else {
-      return `BOOKING_DONE. Ref:${ref}. Speak: "Brilliant — your ${treatment} booking is in, ${patient_name.split(' ')[0]}. Reference ${ref}. We will call you at ${phone} to confirm. Was there anything else I can help you with?"`;
+      return `Brilliant — your ${treatment} booking is in, ${patient_name.split(' ')[0]}. Your reference is ${ref}. We will call you at ${phone} to confirm the appointment. Was there anything else I can help you with today?`;
     }
 
   } catch (err) {
     console.error('[vapi/create-booking] Exception:', err);
   }
 
-  return `BOOKING_DONE. Ref:${ref}. Speak: "I have noted your ${treatment} request. Reference ${ref}. One of our team will be in touch at ${phone}. Was there anything else?"`;
+  return `I've noted your ${treatment} request, ${patient_name.split(' ')[0]}. Your reference is ${ref}. One of our team will be in touch with you at ${phone} to confirm. Was there anything else I can help with?`;
 }
