@@ -1,10 +1,9 @@
 // =============================================================================
 // /api/cliniko/sync-now
-// Fast UI-triggered sync — designed to complete within Vercel Hobby's 10s limit.
-// Syncs: practitioners (all, tiny list) + appointments (48h window).
+// Quick UI-triggered sync (Vercel Pro — 60s budget).
+// Syncs: practitioners (all) + appointments (48h window).
 // Then enriches patient names for the synced appointments (targeted lookups).
-//
-// Full historical sync → use /staff/integrations page.
+// Full historical sync → /staff/integrations page.
 // =============================================================================
 
 import { NextResponse } from 'next/server';
@@ -12,6 +11,7 @@ import { createSovereignClient } from '@/lib/supabase/service';
 import { ClinikoClient } from '@/lib/cliniko/client';
 import { syncAppointments, syncPractitioners } from '@/lib/cliniko/sync';
 
+export const maxDuration = 60;   // Vercel Pro — 60s for quick UI syncs
 export const dynamic = 'force-dynamic';
 
 export async function POST() {
