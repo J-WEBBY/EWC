@@ -198,7 +198,10 @@ export default function CalendarPage() {
     setSyncing(true);
     setSyncMsg(null);
     try {
-      const r = await fetch('/api/cliniko/sync-now', { method: 'POST' });
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 65_000);
+      const r = await fetch('/api/cliniko/sync-now', { method: 'POST', signal: ctrl.signal });
+      clearTimeout(timer);
       const res = await r.json() as { success: boolean; appointments?: number; error?: string };
       if (res.success) {
         setSyncMsg(`Synced — ${res.appointments} appointment${res.appointments !== 1 ? 's' : ''} updated`);
