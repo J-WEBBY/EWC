@@ -921,6 +921,31 @@ export async function getAppointmentStats(): Promise<{
 }
 
 // =============================================================================
+// getClinikoConnectionStatus — fast check for page banner
+// =============================================================================
+
+export async function getClinikoConnectionStatus(): Promise<{
+  connected: boolean;
+  lastSync: string | null;
+  totalSynced: number;
+}> {
+  try {
+    const db = createSovereignClient();
+    const [cfgRes, countRes] = await Promise.all([
+      db.from('cliniko_config').select('is_connected, last_sync_at').single(),
+      db.from('cliniko_appointments').select('*', { count: 'exact', head: true }),
+    ]);
+    return {
+      connected:   cfgRes.data?.is_connected ?? false,
+      lastSync:    cfgRes.data?.last_sync_at ?? null,
+      totalSynced: countRes.count ?? 0,
+    };
+  } catch {
+    return { connected: false, lastSync: null, totalSynced: 0 };
+  }
+}
+
+// =============================================================================
 // updateAppointmentStatus — local cache update (syncs back on next Cliniko pull)
 // =============================================================================
 

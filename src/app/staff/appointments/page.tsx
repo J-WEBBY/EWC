@@ -26,6 +26,7 @@ import {
   getPractitioners,
   confirmPendingBooking,
   dismissPendingBooking,
+  getClinikoConnectionStatus,
   type PendingBooking,
   type PractitionerRow,
   type AppointmentRow,
@@ -466,6 +467,7 @@ export default function AppointmentsPage() {
   const [syncing, setSyncing]           = useState(false);
   const [syncMsg, setSyncMsg]           = useState<string | null>(null);
   const [toast, setToast]               = useState<{ msg: string; ok: boolean } | null>(null);
+  const [clinikoStatus, setClinikoStatus] = useState<{ connected: boolean; lastSync: string | null; totalSynced: number } | null>(null);
 
   const showToast = (msg: string, ok = true) => {
     setToast({ msg, ok });
@@ -479,13 +481,15 @@ export default function AppointmentsPage() {
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
       const todayEnd   = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
 
-      const [statsRes, upRes, pastRes, pendRes, practRes] = await Promise.all([
+      const [statsRes, upRes, pastRes, pendRes, practRes, statusRes] = await Promise.all([
         getAppointmentStats(),
         getUpcomingAppointments(60),
         getPastAppointments(30),
         getPendingBookings(),
         getPractitioners(),
+        getClinikoConnectionStatus(),
       ]);
+      setClinikoStatus(statusRes);
 
       setStats(statsRes);
       setUpcoming(upRes.appointments);
@@ -622,6 +626,22 @@ export default function AppointmentsPage() {
               </p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {/* Cliniko connection status banner */}
+              {clinikoStatus && !clinikoStatus.connected && (
+                <Link href="/staff/integrations" style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '5px 12px', borderRadius: 20,
+                  background: '#FFF1F2', border: '1px solid #FECDD3',
+                  color: '#DC2626', fontSize: 11, fontWeight: 600, textDecoration: 'none',
+                }}>
+                  <AlertCircle size={11} />Cliniko not connected — Go to Integrations
+                </Link>
+              )}
+              {clinikoStatus?.connected && clinikoStatus.totalSynced === 0 && (
+                <span style={{ fontSize: 11, fontWeight: 600, color: '#D8A600', background: '#FFFBEB', padding: '5px 12px', borderRadius: 20, border: '1px solid #FDE68A' }}>
+                  Connected — run sync to populate data
+                </span>
+              )}
               {pendingCount > 0 && (
                 <div style={{ padding: '6px 14px', borderRadius: 20, background: '#FFFBEB', border: '1px solid #FDE68A', color: '#D8A600', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
                   <AlertCircle size={12} />{pendingCount} pending
@@ -706,10 +726,18 @@ export default function AppointmentsPage() {
                     {tab === 'past'     && 'No past appointments in the last 30 days'}
                     {tab === 'requests' && 'No pending booking requests'}
                   </div>
-                  {(tab === 'today' || tab === 'upcoming') && (
-                    <button onClick={handleSyncCliniko} style={{ marginTop: 8, fontSize: 11, color: ACCENT, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
-                      Sync from Cliniko
+                  {(tab === 'today' || tab === 'upcoming') && clinikoStatus?.connected && (
+                    <button
+                      onClick={handleSyncCliniko}
+                      disabled={syncing}
+                      style={{ marginTop: 8, fontSize: 11, color: syncing ? MUTED : ACCENT, background: 'none', border: 'none', cursor: syncing ? 'not-allowed' : 'pointer', textDecoration: 'underline', opacity: syncing ? 0.5 : 1 }}>
+                      {syncing ? 'Syncing…' : 'Sync from Cliniko'}
                     </button>
+                  )}
+                  {(tab === 'today' || tab === 'upcoming') && clinikoStatus && !clinikoStatus.connected && (
+                    <Link href="/staff/integrations" style={{ marginTop: 8, fontSize: 11, color: ACCENT, display: 'inline-block', textDecoration: 'underline' }}>
+                      Connect Cliniko in Integrations
+                    </Link>
                   )}
                 </div>
               ) : (

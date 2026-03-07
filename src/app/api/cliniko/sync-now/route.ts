@@ -42,13 +42,34 @@ export async function POST() {
     // 90s budget for Cliniko fetches leaves 30s for DB upserts.
     const BUDGET_MS = 90_000;
     const params: Record<string, string> = { updated_since: updatedSince };
-    const [rawPractitioners, apptPage] = await Promise.all([
-      client.getPractitioners(),
-      client.paginateWithBudget<import('@/lib/cliniko/types').ClinikoAppointment>(
-        '/individual_appointments', 'individual_appointments', params, null, BUDGET_MS,
-      ),
-    ]);
-    const rawAppointments = apptPage.results;
+
+    // Wrap Cliniko API calls separately — auth/network failures return 502, not 500
+    let rawPractitioners: import('@/lib/cliniko/types').ClinikoPractitioner[];
+    let rawAppointments: import('@/lib/cliniko/types').ClinikoAppointment[];
+    try {
+      const [practResult, apptPage] = await Promise.all([
+        client.getPractitioners(),
+        client.paginateWithBudget<import('@/lib/cliniko/types').ClinikoAppointment>(
+          '/individual_appointments', 'individual_appointments', params, null, BUDGET_MS,
+        ),
+      ]);
+      rawPractitioners = practResult;
+      rawAppointments  = apptPage.results;
+    } catch (clinikoErr) {
+      const msg = String(clinikoErr);
+      // If auth failure, mark as disconnected so page shows banner correctly
+      if (msg.includes('401') || msg.includes('403') || msg.includes('Unauthorized')) {
+        await supabase.from('cliniko_config').update({
+          is_connected:     false,
+          last_sync_status: 'failed',
+          sync_error:       msg,
+        }).neq('id', '00000000-0000-0000-0000-000000000000');
+      }
+      return NextResponse.json(
+        { success: false, appointments: 0, error: `Cliniko API error: ${msg}` },
+        { status: 502 },
+      );
+    }
 
     // Upsert practitioners
     if (rawPractitioners.length > 0) {
