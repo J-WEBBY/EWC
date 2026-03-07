@@ -35,10 +35,15 @@ export async function createBookingRequest(args: {
 
   const ref = `BK-${Date.now().toString(36).toUpperCase()}`;
 
+  // Normalise referral_source — Haiku may capitalise or vary casing
+  const VALID_REFERRAL = new Set(['online','client_referral','practitioner_referral','social_media','walk_in','returning','other']);
+  const normReferral = referral_source?.toLowerCase().trim().replace(/\s+/g, '_') ?? '';
+  const safeReferral = VALID_REFERRAL.has(normReferral) ? normReferral : (referral_source ? 'other' : null);
+
   try {
     const db = createSovereignClient();
 
-    await db.from('booking_requests').insert({
+    const { error } = await db.from('booking_requests').insert({
       caller_name:            patient_name,
       caller_phone:           phone,
       caller_email:           email                  ?? null,
@@ -47,17 +52,23 @@ export async function createBookingRequest(args: {
       preferred_date:         preferred_date,
       preferred_time:         preferred_time          ?? null,
       preferred_practitioner: preferred_practitioner  ?? null,
-      referral_source:        referral_source         ?? null,
+      referral_source:        safeReferral,
       referral_name:          referral_name           ?? null,
       call_notes:             notes                   ?? null,
       status:                 'pending',
     });
 
-    return `Brilliant — I have put in your booking request, ${patient_name.split(' ')[0]}. Your reference is ${ref}. One of our team will call you at ${phone} to confirm your appointment for ${treatment}. Is there anything else I can help with before we finish?`;
+    if (error) {
+      // Supabase errors don't throw — must be checked explicitly
+      console.error('[vapi/create-booking] INSERT FAILED — code:', (error as { code?: string }).code, '| msg:', error.message, '| details:', (error as { details?: string }).details);
+      // Fall through to fallback phrase — do NOT expose DB errors to caller
+    } else {
+      return `BOOKING_DONE. Ref:${ref}. Speak: "Brilliant — your ${treatment} booking is in, ${patient_name.split(' ')[0]}. Reference ${ref}. We will call you at ${phone} to confirm. Was there anything else I can help you with?"`;
+    }
 
   } catch (err) {
-    console.error('[vapi/create-booking] Error:', err);
-    // Graceful fallback — still confirms to caller so they don't feel it failed
-    return `I have noted your booking request, ${patient_name.split(' ')[0]}. Reference ${ref}. One of our team will be in touch at ${phone} to confirm your ${treatment} appointment. You are all set.`;
+    console.error('[vapi/create-booking] Exception:', err);
   }
+
+  return `BOOKING_DONE. Ref:${ref}. Speak: "I have noted your ${treatment} request. Reference ${ref}. One of our team will be in touch at ${phone}. Was there anything else?"`;
 }

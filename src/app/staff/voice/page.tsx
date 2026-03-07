@@ -489,6 +489,7 @@ export default function ReceptionPage() {
   const [callFilter,       setCallFilter]       = useState<CallFilter>('all');
   const [callSearch,       setCallSearch]       = useState('');
   const [selectedCall,     setSelectedCall]     = useState<VapiCall | null>(null);
+  const [selectedRecord,   setSelectedRecord]   = useState<CallRecord | null>(null);
   const [pendingBookings,  setPendingBookings]  = useState<BookingRequest[]>([]);
   const [pendingLoading,   setPendingLoading]   = useState(false);
   const [selectedBooking,  setSelectedBooking]  = useState<BookingRequest | null>(null);
@@ -1001,7 +1002,7 @@ export default function ReceptionPage() {
                     { key: 'history', label: 'Call History' },
                     { key: 'pending', label: `Pending Bookings${pendingBookings.length > 0 ? ` (${pendingBookings.length})` : ''}` },
                   ] as { key: CallsView; label: string }[]).map(v => (
-                    <button key={v.key} onClick={() => { setCallsView(v.key); setSelectedCall(null); setSelectedBooking(null); }}
+                    <button key={v.key} onClick={() => { setCallsView(v.key); setSelectedCall(null); setSelectedBooking(null); setSelectedRecord(null); }}
                       className="px-3 py-2 text-[10px] font-semibold transition-all relative"
                       style={{ color: callsView === v.key ? ACCENT : '#96989B' }}>
                       {v.label}
@@ -1057,9 +1058,14 @@ export default function ReceptionPage() {
                           const dir     = r.data.direction ?? 'inbound';
                           const Icon    = dir === 'outbound' ? PhoneCall : Phone;
                           return (
-                            <motion.div key={r.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                              className="w-full flex items-start gap-3 px-4 py-3"
-                              style={{ borderBottom: '1px solid #D4E2FF' }}>
+                            <motion.button key={r.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                              onClick={() => { setSelectedRecord(r); setSelectedCall(null); }}
+                              className="w-full flex items-start gap-3 px-4 py-3 text-left transition-all"
+                              style={{
+                                borderBottom: '1px solid #D4E2FF',
+                                background: selectedRecord?.id === r.id ? `${ACCENT}08` : 'transparent',
+                                borderLeft: selectedRecord?.id === r.id ? `2px solid ${ACCENT}` : '2px solid transparent',
+                              }}>
                               <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
                                 style={{ backgroundColor: `${ACCENT}10`, border: '1px solid #D4E2FF' }}>
                                 <Icon size={12} style={{ color: ACCENT }} />
@@ -1073,7 +1079,7 @@ export default function ReceptionPage() {
                                 <p className="text-[11px] text-[#96989B] truncate">{r.title}</p>
                                 <p className="text-[10px] text-[#96989B] mt-0.5">{fmtDate(r.created_at)} · {fmtDuration(r.data.duration_seconds ?? null)}</p>
                               </div>
-                            </motion.div>
+                            </motion.button>
                           );
                         })
                       ) : (
@@ -1215,6 +1221,59 @@ export default function ReceptionPage() {
                       className="h-full flex flex-col items-center justify-center gap-3 text-[#96989B]">
                       <Phone size={32} style={{ opacity: 0.3 }} />
                       <p className="text-[13px]">Select a booking request to review</p>
+                    </motion.div>
+
+                  /* ── Signal-based call detail (fallback) ─────────────── */
+                  ) : selectedRecord ? (
+                    <motion.div key={selectedRecord.id} initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
+                      className="p-8 max-w-[780px]">
+                      <div className="flex items-start justify-between mb-6">
+                        <div>
+                          <div className="flex items-center gap-3 mb-1 flex-wrap">
+                            <h2 className="text-[22px] font-black tracking-[-0.03em] text-[#181D23]">
+                              {selectedRecord.data.caller_name ?? selectedRecord.data.caller_number ?? 'Unknown caller'}
+                            </h2>
+                            <OutcomeBadge outcome={(selectedRecord.data.outcome ?? 'unknown') as CallOutcome} />
+                          </div>
+                          {selectedRecord.data.caller_number && (
+                            <p className="text-[12px] text-[#5A6475]">{selectedRecord.data.caller_number}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3 mb-6">
+                        {[
+                          { label: 'Date & Time', value: fmtDate(selectedRecord.created_at) },
+                          { label: 'Duration',    value: fmtDuration(selectedRecord.data.duration_seconds) },
+                          { label: 'Direction',   value: selectedRecord.data.direction ?? 'inbound' },
+                        ].map(m => (
+                          <div key={m.label} className="p-3 rounded-xl" style={{ border: '1px solid #D4E2FF' }}>
+                            <SLabel>{m.label}</SLabel>
+                            <p className="text-[12px] font-semibold text-[#181D23] capitalize">{m.value}</p>
+                          </div>
+                        ))}
+                      </div>
+                      {selectedRecord.description && (
+                        <div className="p-4 rounded-xl mb-5" style={{ backgroundColor: `${ACCENT}06`, border: `1px solid ${ACCENT}20` }}>
+                          <SLabel>Call Summary</SLabel>
+                          <p className="text-[12px] text-[#3D4451] leading-relaxed">{selectedRecord.description}</p>
+                        </div>
+                      )}
+                      {selectedRecord.data.recording_url && (
+                        <div className="mb-5">
+                          <SLabel>Recording</SLabel>
+                          <RecordingPlayer url={selectedRecord.data.recording_url} />
+                        </div>
+                      )}
+                      {selectedRecord.data.tools_used && selectedRecord.data.tools_used.length > 0 && (
+                        <div>
+                          <SLabel>Tools Used</SLabel>
+                          <div className="flex flex-wrap gap-2 mt-1">
+                            {selectedRecord.data.tools_used.map(t => (
+                              <ToolBadge key={t} label={t} delay={0} />
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </motion.div>
 
                   /* ── Call detail ─────────────────────────────────────── */
