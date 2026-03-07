@@ -55,7 +55,7 @@ function fmtRelative(iso: string): string {
 function Panel({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
     <div className={`rounded-2xl overflow-hidden ${className}`}
-      style={{ backgroundColor: '#FFFFFF', border: '1px solid #D4E2FF' }}>
+      style={{ backgroundColor: '#FFFFFF', border: '1px solid #EBE5FF' }}>
       {children}
     </div>
   );
@@ -63,7 +63,7 @@ function Panel({ children, className = '' }: { children: React.ReactNode; classN
 
 function PanelHeader({ title, badge, action }: { title: string; badge?: number; action?: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid #D4E2FF' }}>
+    <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid #EBE5FF' }}>
       <div className="flex items-center gap-2">
         <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#96989B]">{title}</p>
         {badge !== undefined && badge > 0 && (
@@ -81,14 +81,14 @@ function KPICard({ label, value, sub, accent, icon: Icon }: {
 }) {
   const c = accent ?? '#0058E6';
   return (
-    <div className="rounded-2xl p-5" style={{ backgroundColor: '#FFFFFF', border: '1px solid #D4E2FF' }}>
+    <div className="rounded-2xl p-5" style={{ backgroundColor: '#FFFFFF', border: '1px solid #EBE5FF' }}>
       <div className="flex items-start justify-between mb-3">
         <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#96989B]">{label}</p>
         <div className="w-7 h-7 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${c}14` }}>
           <Icon size={13} style={{ color: c }} />
         </div>
       </div>
-      <p className="text-[32px] font-black tracking-[-0.04em] leading-none" style={{ color: '#181D23' }}>
+      <p className="text-[32px] font-black tracking-[-0.04em] leading-none" style={{ color: '#1A1035' }}>
         {typeof value === 'number' ? value.toLocaleString() : value}
       </p>
       {sub && <p className="text-[11px] text-[#96989B] mt-1.5">{sub}</p>}
@@ -110,7 +110,7 @@ function EmptyState({ title, sub }: { title: string; sub?: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 gap-2">
       <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#F5F3FF' }}>
-        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#A8C4FF' }} />
+        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#C5BAF0' }} />
       </div>
       <p className="text-[12px] font-semibold text-[#96989B]">{title}</p>
       {sub && <p className="text-[11px] text-[#B0A8C8] text-center max-w-xs">{sub}</p>}
@@ -160,7 +160,7 @@ function OverviewTab({
         <KPICard label="Clinical Records" value={stats.total_clinical_records} sub="patients with EHR" accent="#00A693" icon={FileText} />
         <KPICard label="SOAP Notes" value={stats.total_soap_notes} sub={`${stats.pending_sign_off} pending sign-off`} accent="#0058E6" icon={PenTool} />
         <KPICard label="Consents" value={stats.total_consents} sub={`${stats.pending_consents} pending`} accent="#D8A600" icon={ClipboardList} />
-        <KPICard label="Clinical Photos" value={stats.total_photos} sub="before/after/progress" accent="#0284C7" icon={Camera} />
+        <KPICard label="Clinical Photos" value={stats.total_photos} sub="before/after/progress" accent="#0058E6" icon={Camera} />
         <KPICard label="Risk Flagged" value={stats.patients_with_risk_flags} sub={`${stats.high_risk_patients} high/critical`} accent="#DC2626" icon={AlertTriangle} />
       </div>
 
@@ -170,7 +170,7 @@ function OverviewTab({
         {/* Sign-off queue */}
         <Panel>
           <PanelHeader title="SOAP Notes Pending Sign-Off" badge={stats.pending_sign_off} />
-          <div className="divide-y" style={{ borderColor: '#D4E2FF' }}>
+          <div className="divide-y" style={{ borderColor: '#EBE5FF' }}>
             {pendingSignOff.length === 0 ? (
               <EmptyState title="All notes signed off" sub="No SOAP notes awaiting review" />
             ) : pendingSignOff.map((item) => (
@@ -206,7 +206,7 @@ function OverviewTab({
         {/* Pending consents */}
         <Panel>
           <PanelHeader title="Consents Awaiting Completion" badge={stats.pending_consents} />
-          <div className="divide-y" style={{ borderColor: '#D4E2FF' }}>
+          <div className="divide-y" style={{ borderColor: '#EBE5FF' }}>
             {pendingConsents.length === 0 ? (
               <EmptyState title="No pending consents" sub="All consent forms completed" />
             ) : pendingConsents.map((item) => (
@@ -244,7 +244,7 @@ function OverviewTab({
       {/* Risk Flagged Patients */}
       <Panel>
         <PanelHeader title="Risk Flagged Patients" badge={stats.high_risk_patients} />
-        <div className="divide-y" style={{ borderColor: '#D4E2FF' }}>
+        <div className="divide-y" style={{ borderColor: '#EBE5FF' }}>
           {flagged.length === 0 ? (
             <EmptyState title="No risk flags" sub="All patients cleared for treatment" />
           ) : flagged.map((pat) => (
@@ -279,7 +279,7 @@ function OverviewTab({
       {/* CQC Compliance Strip */}
       <Panel>
         <PanelHeader title="CQC Compliance Indicators" />
-        <div className="grid grid-cols-4 divide-x" style={{ borderColor: '#D4E2FF' }}>
+        <div className="grid grid-cols-4 divide-x" style={{ borderColor: '#EBE5FF' }}>
           {[
             { label: 'Consent Rate', value: stats.total_consents > 0 ? `${Math.round((stats.total_consents - stats.pending_consents) / stats.total_consents * 100)}%` : '—', ok: true },
             { label: 'Sign-Off Queue', value: stats.pending_sign_off, ok: stats.pending_sign_off < 5 },
@@ -317,7 +317,7 @@ function SOAPNotesTab({ pendingSignOff, onNavigateToPatient }: {
     <div className="space-y-6">
       <Panel>
         <PanelHeader title="SOAP Notes — Pending Sign-Off" badge={pendingSignOff.length} />
-        <div className="divide-y" style={{ borderColor: '#D4E2FF' }}>
+        <div className="divide-y" style={{ borderColor: '#EBE5FF' }}>
           {pendingSignOff.length === 0 ? (
             <EmptyState title="No notes pending review" sub="All SOAP notes have been signed off" />
           ) : pendingSignOff.map((item) => (
@@ -396,7 +396,7 @@ function ConsentsTab({ pendingConsents, stats, onNavigateToPatient }: {
       {/* Pending consent list */}
       <Panel>
         <PanelHeader title="Awaiting Completion" badge={stats.pending_consents} />
-        <div className="divide-y" style={{ borderColor: '#D4E2FF' }}>
+        <div className="divide-y" style={{ borderColor: '#EBE5FF' }}>
           {pendingConsents.length === 0 ? (
             <EmptyState title="No pending consents" sub="All consent forms completed" />
           ) : pendingConsents.map((item) => (
@@ -536,7 +536,7 @@ function IntelligenceTab({ stats }: { stats: EHRStats }) {
       </div>
 
       {insights.map(insight => (
-        <div key={insight.title} className="rounded-2xl p-5" style={{ backgroundColor: '#FFFFFF', border: '1px solid #D4E2FF' }}>
+        <div key={insight.title} className="rounded-2xl p-5" style={{ backgroundColor: '#FFFFFF', border: '1px solid #EBE5FF' }}>
           <div className="flex items-start gap-4">
             <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
               style={{ backgroundColor: `${insight.color}14` }}>
@@ -647,7 +647,7 @@ export default function EHRPage() {
         <div className="max-w-[1200px] mx-auto px-8 py-8">
 
           {/* Page Header */}
-          <div className="flex items-start justify-between mb-7" style={{ borderBottom: '1px solid #D4E2FF', paddingBottom: 24 }}>
+          <div className="flex items-start justify-between mb-7" style={{ borderBottom: '1px solid #EBE5FF', paddingBottom: 24 }}>
             <div>
               <div className="flex items-center gap-2 mb-1.5">
                 <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#96989B]">Clinical</p>
@@ -668,7 +668,7 @@ export default function EHRPage() {
                 onClick={refresh}
                 disabled={loading}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl text-[11px] font-semibold transition-all"
-                style={{ backgroundColor: '#181D23', color: '#EBF0FF' }}
+                style={{ backgroundColor: '#1A1035', color: '#EBF0FF' }}
               >
                 <RefreshCw size={11} className={loading ? 'animate-spin' : ''} />
                 Refresh
@@ -677,7 +677,7 @@ export default function EHRPage() {
           </div>
 
           {/* Tab Bar */}
-          <div className="flex items-center gap-0 mb-7" style={{ borderBottom: '1px solid #D4E2FF' }}>
+          <div className="flex items-center gap-0 mb-7" style={{ borderBottom: '1px solid #EBE5FF' }}>
             {TABS.map(tab => {
               const Icon = tab.icon;
               const active = activeTab === tab.id;

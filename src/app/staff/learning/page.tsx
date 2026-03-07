@@ -25,7 +25,7 @@ const BG = '#F8FAFF';
 const TEXT = '#181D23';
 const SUB = '#3D4451';
 const MUTED = '#96989B';
-const BORDER = '#D4E2FF';
+const BORDER = '#EBE5FF';
 
 const FALLBACK: StaffProfile = {
   userId: 'fallback',

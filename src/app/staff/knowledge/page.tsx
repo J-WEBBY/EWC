@@ -39,7 +39,7 @@ const CATEGORY_META: Record<KnowledgeCategory, { label: string; color: string; i
 const STATUS_STYLE: Record<KnowledgeDocument['status'], { bg: string; border: string; text: string; label: string }> = {
   published:    { bg: 'rgba(5,150,105,0.07)',   border: 'rgba(5,150,105,0.25)',   text: '#059669', label: 'Published' },
   draft:        { bg: 'rgba(217,119,6,0.07)',   border: 'rgba(217,119,6,0.25)',   text: '#D8A600', label: 'Draft' },
-  archived:     { bg: 'rgba(110,102,136,0.06)', border: '#D4E2FF',                text: '#96989B', label: 'Archived' },
+  archived:     { bg: 'rgba(110,102,136,0.06)', border: '#EBE5FF',                text: '#96989B', label: 'Archived' },
   under_review: { bg: 'rgba(37,99,235,0.07)',   border: 'rgba(37,99,235,0.25)',   text: '#2563EB', label: 'Under Review' },
 };
 
@@ -70,7 +70,7 @@ function renderContent(md: string) {
     if (line.startsWith('- ')) return <div key={i} style={{ display: 'flex', gap: 8, margin: '3px 0' }}><span style={{ color: '#96989B', flexShrink: 0 }}>–</span><span style={{ fontSize: 12, color: '#3D4451' }}>{line.slice(2)}</span></div>;
     if (line.startsWith('| ') && line.includes(' | ')) {
       const cells = line.split('|').filter(Boolean).map(c => c.trim());
-      return <div key={i} style={{ display: 'flex', gap: 0, borderBottom: '1px solid #D4E2FF' }}>
+      return <div key={i} style={{ display: 'flex', gap: 0, borderBottom: '1px solid #EBE5FF' }}>
         {cells.map((c, j) => (
           <span key={j} style={{ flex: 1, fontSize: 11, padding: '4px 8px', color: j === 0 ? '#181D23' : '#3D4451', fontWeight: j === 0 ? 600 : 400, background: i === 1 ? 'rgba(0,88,230,0.05)' : 'transparent' }}>{c}</span>
         ))}
@@ -107,7 +107,7 @@ function DocCard({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        border: `1px solid ${hovered ? meta.color + '40' : '#D4E2FF'}`,
+        border: `1px solid ${hovered ? meta.color + '40' : '#EBE5FF'}`,
         borderRadius: 16,
         padding: '18px 20px',
         background: hovered ? `${meta.color}05` : 'transparent',
@@ -232,7 +232,7 @@ function DocViewer({
       exit={{ opacity: 0, x: 20 }}
       style={{
         position: 'sticky', top: 32,
-        border: '1px solid #D4E2FF', borderRadius: 20,
+        border: '1px solid #EBE5FF', borderRadius: 20,
         background: '#fff',
         overflow: 'hidden',
         maxHeight: 'calc(100vh - 160px)',
@@ -240,7 +240,7 @@ function DocViewer({
       }}
     >
       {/* Header */}
-      <div style={{ padding: '20px 24px', borderBottom: '1px solid #D4E2FF', flexShrink: 0 }}>
+      <div style={{ padding: '20px 24px', borderBottom: '1px solid #EBE5FF', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
           <div style={{ flex: 1 }}>
             <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
@@ -280,7 +280,7 @@ function DocViewer({
             placeholder="Ask AI about this document…"
             style={{
               flex: 1, padding: '8px 12px', borderRadius: 8,
-              border: '1px solid #D4E2FF', background: '#F8FAFF',
+              border: '1px solid #EBE5FF', background: '#F8FAFF',
               fontSize: 11, color: '#181D23', outline: 'none',
             }}
           />
@@ -328,7 +328,7 @@ function DocViewer({
       </div>
 
       {/* Footer */}
-      <div style={{ padding: '14px 24px', borderTop: '1px solid #D4E2FF', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ padding: '14px 24px', borderTop: '1px solid #EBE5FF', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span style={{ fontSize: 10, color: '#96989B' }}>{doc.view_count} views</span>
         <button
           onClick={handleHelpful}
@@ -336,7 +336,7 @@ function DocViewer({
           style={{
             padding: '6px 14px', borderRadius: 8,
             background: helpful ? 'rgba(5,150,105,0.08)' : 'transparent',
-            border: `1px solid ${helpful ? 'rgba(5,150,105,0.25)' : '#D4E2FF'}`,
+            border: `1px solid ${helpful ? 'rgba(5,150,105,0.25)' : '#EBE5FF'}`,
             color: helpful ? '#059669' : '#96989B',
             fontSize: 11, fontWeight: 700, cursor: helpful ? 'default' : 'pointer',
             transition: 'all 0.2s',
@@ -355,7 +355,7 @@ function DocViewer({
 
 function StatsBar({ stats, accentColor }: { stats: KnowledgeStats; accentColor: string }) {
   return (
-    <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid #D4E2FF' }}>
+    <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid #EBE5FF' }}>
       {[
         { label: 'Total Documents', value: stats.total },
         { label: 'CQC Relevant', value: stats.cqc_relevant },
@@ -364,7 +364,7 @@ function StatsBar({ stats, accentColor }: { stats: KnowledgeStats; accentColor: 
       ].map((m, i) => (
         <div key={m.label} style={{
           flex: 1, padding: '20px 24px',
-          borderRight: i < 3 ? '1px solid #D4E2FF' : 'none',
+          borderRight: i < 3 ? '1px solid #EBE5FF' : 'none',
         }}>
           <p style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.28em', color: '#96989B', marginBottom: 4 }}>{m.label}</p>
           <p style={{ fontSize: 28, fontWeight: 900, color: '#181D23', letterSpacing: '-0.04em' }}>{m.value}</p>
@@ -443,7 +443,7 @@ export default function KnowledgeBasePage() {
     return (
       <div style={{ minHeight: '100vh', backgroundColor: '#F8FAFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ width: 32, height: 32, border: '2px solid #D4E2FF', borderTopColor: ACCENT, borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
+          <div style={{ width: 32, height: 32, border: '2px solid #EBE5FF', borderTopColor: ACCENT, borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
           <p style={{ fontSize: 12, color: '#96989B' }}>Loading knowledge base…</p>
         </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
@@ -457,7 +457,7 @@ export default function KnowledgeBasePage() {
 
       <main style={{ paddingLeft: 'var(--nav-w, 240px)', minHeight: '100vh' }}>
         {/* ── Header ── */}
-        <div style={{ padding: '40px 40px 0', borderBottom: '1px solid #D4E2FF' }}>
+        <div style={{ padding: '40px 40px 0', borderBottom: '1px solid #EBE5FF' }}>
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', paddingBottom: 24 }}>
             <div>
               <p style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.28em', color: '#96989B', marginBottom: 6 }}>Clinical</p>
@@ -479,13 +479,13 @@ export default function KnowledgeBasePage() {
                 placeholder="Search protocols, SOPs, FAQs…"
                 style={{
                   width: '100%', padding: '10px 14px 10px 34px',
-                  borderRadius: 10, border: '1px solid #D4E2FF',
+                  borderRadius: 10, border: '1px solid #EBE5FF',
                   background: '#fff', fontSize: 12, color: '#181D23',
                   outline: 'none', boxSizing: 'border-box',
                 }}
               />
               {searching && (
-                <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, border: '2px solid #D4E2FF', borderTopColor: accentColor, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, border: '2px solid #EBE5FF', borderTopColor: accentColor, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
               )}
             </div>
           </div>
@@ -511,7 +511,7 @@ export default function KnowledgeBasePage() {
                   key={cat}
                   onClick={() => handleCategoryFilter(cat)}
                   style={{
-                    padding: '6px 14px', borderRadius: 20, border: `1px solid ${isActive ? meta.color : '#D4E2FF'}`,
+                    padding: '6px 14px', borderRadius: 20, border: `1px solid ${isActive ? meta.color : '#EBE5FF'}`,
                     cursor: 'pointer', fontSize: 11, fontWeight: 700,
                     background: isActive ? `${meta.color}12` : 'transparent',
                     color: isActive ? meta.color : '#96989B',

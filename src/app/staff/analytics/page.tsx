@@ -78,7 +78,7 @@ function KPIStrip({ analytics }: { analytics: ClinicAnalytics }) {
   const pct = revenue.change_pct;
   const cards = [
     { label: 'Revenue',        value: fmt(revenue.current), sub: `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}% vs prior`, trend: pct > 0 ? 'up' : pct < 0 ? 'down' : 'flat', sparkline: revenue.daily, color: '#0058E6', icon: Target },
-    { label: 'Active Patients',value: patients.total.toLocaleString(), sub: `${patients.new_period} new · ${patients.at_risk} at risk`, trend: 'up' as const, sparkline: [], color: '#3B82F6', icon: Users },
+    { label: 'Active Patients',value: patients.total.toLocaleString(), sub: `${patients.new_period} new · ${patients.at_risk} at risk`, trend: 'up' as const, sparkline: [], color: '#7C3AED', icon: Users },
     { label: 'Booking Rate',   value: `${komal.booking_rate}%`, sub: `${komal.calls_total} calls · ${komal.calls_missed} missed`, trend: komal.booking_rate > 30 ? 'up' : 'down', sparkline: [], color: '#00A693', icon: Phone },
     { label: 'YTD Revenue',    value: fmt(revenue.ytd), sub: `${Math.round((revenue.ytd / (revenue.target * 3)) * 100)}% of Q1 target`, trend: 'up' as const, sparkline: [], color: '#D8A600', icon: Activity },
   ];
@@ -88,7 +88,7 @@ function KPIStrip({ analytics }: { analytics: ClinicAnalytics }) {
       {cards.map(c => {
         const Icon = c.icon;
         return (
-          <div key={c.label} className="px-5 py-4 rounded-2xl" style={{ border: '1px solid #D4E2FF', backgroundColor: 'transparent' }}>
+          <div key={c.label} className="px-5 py-4 rounded-2xl" style={{ border: '1px solid #EBE5FF', backgroundColor: 'transparent' }}>
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${c.color}12` }}>
@@ -96,11 +96,11 @@ function KPIStrip({ analytics }: { analytics: ClinicAnalytics }) {
                 </div>
                 <p className="text-[9px] uppercase tracking-[0.16em] font-semibold" style={{ color: '#96989B' }}>{c.label}</p>
               </div>
-              {c.trend === 'up'   && <TrendingUp   className="w-3 h-3 text-emerald-500" />}
-              {c.trend === 'down' && <TrendingDown  className="w-3 h-3 text-red-400" />}
+              {c.trend === 'up'   && <TrendingUp   style={{ color: '#059669' }} className="w-3 h-3" />}
+              {c.trend === 'down' && <TrendingDown  style={{ color: '#DC2626' }} className="w-3 h-3" />}
               {c.trend === 'flat' && <Minus         className="w-3 h-3" style={{ color: '#96989B' }} />}
             </div>
-            <p className="text-[28px] font-black tracking-tight mb-1" style={{ color: '#181D23' }}>{c.value}</p>
+            <p className="text-[28px] font-black tracking-tight mb-1" style={{ color: '#1A1035' }}>{c.value}</p>
             <div className="flex items-end justify-between gap-3">
               <p className="text-[10px]" style={{ color: '#5A6475' }}>{c.sub}</p>
               {c.sparkline.length > 0 && <Sparkline data={c.sparkline.slice(-14)} color={c.color} width={60} height={22} />}
@@ -119,10 +119,10 @@ function KPIStrip({ analytics }: { analytics: ClinicAnalytics }) {
 function TreatmentPanel({ treatments }: { treatments: TreatmentStat[] }) {
   const maxRev = Math.max(...treatments.map(t => t.revenue));
   return (
-    <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #D4E2FF' }}>
-      <div className="px-5 py-4" style={{ borderBottom: '1px solid #D4E2FF' }}>
+    <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #EBE5FF' }}>
+      <div className="px-5 py-4" style={{ borderBottom: '1px solid #EBE5FF' }}>
         <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-0.5" style={{ color: '#96989B' }}>Treatment Performance</p>
-        <p className="text-[15px] font-bold" style={{ color: '#181D23' }}>Revenue by Treatment</p>
+        <p className="text-[15px] font-bold" style={{ color: '#1A1035' }}>Revenue by Treatment</p>
       </div>
       <div className="p-5 space-y-4">
         {treatments.map(t => (
@@ -130,7 +130,7 @@ function TreatmentPanel({ treatments }: { treatments: TreatmentStat[] }) {
             <div className="flex items-center justify-between mb-1.5">
               <div className="flex items-center gap-2">
                 <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: t.color }} />
-                <p className="text-[11px] font-medium" style={{ color: '#181D23' }}>{t.name}</p>
+                <p className="text-[11px] font-medium" style={{ color: '#1A1035' }}>{t.name}</p>
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded" style={{
@@ -139,7 +139,7 @@ function TreatmentPanel({ treatments }: { treatments: TreatmentStat[] }) {
                 }}>
                   {t.trend > 0 ? '+' : ''}{t.trend.toFixed(1)}%
                 </span>
-                <p className="text-[11px] font-semibold w-16 text-right" style={{ color: '#181D23' }}>{fmt(t.revenue)}</p>
+                <p className="text-[11px] font-semibold w-16 text-right" style={{ color: '#1A1035' }}>{fmt(t.revenue)}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -160,10 +160,10 @@ function TreatmentPanel({ treatments }: { treatments: TreatmentStat[] }) {
 function PatientPanel({ patients }: { analytics: ClinicAnalytics; patients: ClinicAnalytics['patients'] }) {
   const total = patients.lifecycle.reduce((s, l) => s + l.count, 0);
   return (
-    <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #D4E2FF' }}>
-      <div className="px-5 py-4" style={{ borderBottom: '1px solid #D4E2FF' }}>
+    <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #EBE5FF' }}>
+      <div className="px-5 py-4" style={{ borderBottom: '1px solid #EBE5FF' }}>
         <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-0.5" style={{ color: '#96989B' }}>Patient Intelligence</p>
-        <p className="text-[15px] font-bold" style={{ color: '#181D23' }}>Lifecycle Distribution</p>
+        <p className="text-[15px] font-bold" style={{ color: '#1A1035' }}>Lifecycle Distribution</p>
       </div>
       <div className="p-5">
         <div className="h-3 rounded-full overflow-hidden flex mb-4">
@@ -180,12 +180,12 @@ function PatientPanel({ patients }: { analytics: ClinicAnalytics; patients: Clin
               </div>
               <div className="flex items-center gap-3">
                 <div className="w-20"><MiniBar value={l.count} max={total} color={l.color} /></div>
-                <p className="text-[11px] font-semibold w-6 text-right" style={{ color: '#181D23' }}>{l.count}</p>
+                <p className="text-[11px] font-semibold w-6 text-right" style={{ color: '#1A1035' }}>{l.count}</p>
               </div>
             </div>
           ))}
         </div>
-        <div className="mt-4 pt-4 grid grid-cols-3 gap-3" style={{ borderTop: '1px solid #D4E2FF' }}>
+        <div className="mt-4 pt-4 grid grid-cols-3 gap-3" style={{ borderTop: '1px solid #EBE5FF' }}>
           {[
             { label: 'Returning', value: `${patients.returning_pct}%`, color: '#059669' },
             { label: 'Avg LTV',   value: `£${patients.avg_ltv}`,       color: '#0058E6' },
@@ -213,17 +213,17 @@ function KomalPanel({ komal }: { komal: ClinicAnalytics['komal'] }) {
     { label: 'Answered',       value: komal.calls_answered.toString(),     color: '#059669' },
     { label: 'Missed',         value: komal.calls_missed.toString(),       color: '#DC2626' },
     { label: 'Avg Duration',   value: fmtSec(komal.avg_duration_sec),      color: '#3D4451' },
-    { label: 'Booking Rate',   value: `${komal.booking_rate}%`,            color: '#3B82F6' },
+    { label: 'Booking Rate',   value: `${komal.booking_rate}%`,            color: '#0058E6' },
     { label: 'Leads Captured', value: komal.leads_captured.toString(),     color: '#D8A600' },
   ];
 
   return (
-    <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #A8C4FF', backgroundColor: 'rgba(109,40,217,0.03)' }}>
-      <div className="px-5 py-4 flex items-center gap-2" style={{ borderBottom: '1px solid #A8C4FF' }}>
+    <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #C5BAF0', backgroundColor: 'rgba(109,40,217,0.03)' }}>
+      <div className="px-5 py-4 flex items-center gap-2" style={{ borderBottom: '1px solid #C5BAF0' }}>
         <Mic className="w-3.5 h-3.5" style={{ color: '#0058E6' }} />
         <div>
           <p className="text-[8px] uppercase tracking-[0.28em] font-semibold" style={{ color: '#0058E6' }}>Voice Receptionist</p>
-          <p className="text-[15px] font-bold" style={{ color: '#181D23' }}>Komal — Call Intelligence</p>
+          <p className="text-[15px] font-bold" style={{ color: '#1A1035' }}>Komal — Call Intelligence</p>
         </div>
       </div>
       <div className="p-5">
@@ -239,13 +239,13 @@ function KomalPanel({ komal }: { komal: ClinicAnalytics['komal'] }) {
             </div>
           </div>
           <div>
-            <p className="text-[12px] font-semibold" style={{ color: '#181D23' }}>Answer Rate</p>
+            <p className="text-[12px] font-semibold" style={{ color: '#1A1035' }}>Answer Rate</p>
             <p className="text-[10px]" style={{ color: '#5A6475' }}>{komal.calls_missed} calls missed this period</p>
           </div>
         </div>
         <div className="grid grid-cols-3 gap-2">
           {items.map(item => (
-            <div key={item.label} className="px-3 py-2.5 rounded-xl text-center" style={{ border: '1px solid #D4E2FF', backgroundColor: 'transparent' }}>
+            <div key={item.label} className="px-3 py-2.5 rounded-xl text-center" style={{ border: '1px solid #EBE5FF', backgroundColor: 'transparent' }}>
               <p className="text-[16px] font-black" style={{ color: item.color }}>{item.value}</p>
               <p className="text-[8px] mt-0.5 leading-tight" style={{ color: '#96989B' }}>{item.label}</p>
             </div>
@@ -262,12 +262,12 @@ function KomalPanel({ komal }: { komal: ClinicAnalytics['komal'] }) {
 
 function AgentPanel({ agents }: { agents: ClinicAnalytics['agents'] }) {
   return (
-    <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #D4E2FF' }}>
-      <div className="px-5 py-4 flex items-center gap-2" style={{ borderBottom: '1px solid #D4E2FF' }}>
+    <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #EBE5FF' }}>
+      <div className="px-5 py-4 flex items-center gap-2" style={{ borderBottom: '1px solid #EBE5FF' }}>
         <Bot className="w-3.5 h-3.5" style={{ color: '#96989B' }} />
         <div>
           <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-0.5" style={{ color: '#96989B' }}>Agent Intelligence</p>
-          <p className="text-[15px] font-bold" style={{ color: '#181D23' }}>AI Agent Performance</p>
+          <p className="text-[15px] font-bold" style={{ color: '#1A1035' }}>AI Agent Performance</p>
         </div>
       </div>
       <div className="p-5 grid grid-cols-3 gap-4">
@@ -287,7 +287,7 @@ function AgentPanel({ agents }: { agents: ClinicAnalytics['agents'] }) {
               ].map(m => (
                 <div key={m.label} className="flex items-center justify-between">
                   <p className="text-[9px] uppercase tracking-[0.08em]" style={{ color: '#96989B' }}>{m.label}</p>
-                  <p className="text-[12px] font-bold" style={{ color: '#181D23' }}>{m.value}</p>
+                  <p className="text-[12px] font-bold" style={{ color: '#1A1035' }}>{m.value}</p>
                 </div>
               ))}
             </div>
@@ -313,15 +313,15 @@ function RevenueTrendPanel({ monthly, range }: { monthly: MonthlyRevenue[]; rang
   const totalW  = monthly.length * (barW + gap) - gap;
 
   return (
-    <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #D4E2FF' }}>
-      <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid #D4E2FF' }}>
+    <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #EBE5FF' }}>
+      <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid #EBE5FF' }}>
         <div>
           <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-0.5" style={{ color: '#96989B' }}>Revenue Trend</p>
-          <p className="text-[15px] font-bold" style={{ color: '#181D23' }}>Monthly Performance</p>
+          <p className="text-[15px] font-bold" style={{ color: '#1A1035' }}>Monthly Performance</p>
         </div>
         <div className="flex items-center gap-4 text-[10px]">
           <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: '#0058E6' }} /><span style={{ color: '#3D4451' }}>Actual</span></div>
-          <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: '#D4E2FF' }} /><span style={{ color: '#3D4451' }}>Target</span></div>
+          <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: '#EBE5FF' }} /><span style={{ color: '#3D4451' }}>Target</span></div>
         </div>
       </div>
       <div className="px-5 py-5">
@@ -334,7 +334,7 @@ function RevenueTrendPanel({ monthly, range }: { monthly: MonthlyRevenue[]; rang
             return (
               <g key={m.month}>
                 {/* Target bar (background) */}
-                <rect x={x} y={chartH - targH} width={barW} height={targH} rx={3} fill="#D4E2FF" />
+                <rect x={x} y={chartH - targH} width={barW} height={targH} rx={3} fill="#EBE5FF" />
                 {/* Actual bar */}
                 <rect x={x} y={chartH - valH} width={barW} height={valH} rx={3} fill={overTgt ? '#059669' : '#0058E6'} opacity={0.85} />
                 {/* Month label */}
@@ -361,10 +361,10 @@ function FunnelPanel({ funnel, util }: { funnel: FunnelStage[]; util: Appointmen
   return (
     <div className="grid grid-cols-[1.4fr_1fr] gap-4">
       {/* Funnel */}
-      <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #D4E2FF' }}>
-        <div className="px-5 py-4" style={{ borderBottom: '1px solid #D4E2FF' }}>
+      <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #EBE5FF' }}>
+        <div className="px-5 py-4" style={{ borderBottom: '1px solid #EBE5FF' }}>
           <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-0.5" style={{ color: '#96989B' }}>Acquisition</p>
-          <p className="text-[15px] font-bold" style={{ color: '#181D23' }}>Conversion Funnel</p>
+          <p className="text-[15px] font-bold" style={{ color: '#1A1035' }}>Conversion Funnel</p>
         </div>
         <div className="p-5 space-y-3">
           {funnel.map((stage, i) => {
@@ -372,7 +372,7 @@ function FunnelPanel({ funnel, util }: { funnel: FunnelStage[]; util: Appointmen
             return (
               <div key={stage.stage}>
                 <div className="flex items-center justify-between mb-1.5">
-                  <p className="text-[11px] font-medium" style={{ color: '#181D23' }}>{stage.stage}</p>
+                  <p className="text-[11px] font-medium" style={{ color: '#1A1035' }}>{stage.stage}</p>
                   <div className="flex items-center gap-3">
                     {i > 0 && (
                       <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded" style={{ backgroundColor: 'rgba(13,148,136,0.10)', color: '#00A693' }}>
@@ -388,9 +388,9 @@ function FunnelPanel({ funnel, util }: { funnel: FunnelStage[]; util: Appointmen
               </div>
             );
           })}
-          <div className="pt-3 mt-1" style={{ borderTop: '1px solid #D4E2FF' }}>
+          <div className="pt-3 mt-1" style={{ borderTop: '1px solid #EBE5FF' }}>
             <p className="text-[10px]" style={{ color: '#5A6475' }}>
-              Overall conversion: <span className="font-bold" style={{ color: '#181D23' }}>
+              Overall conversion: <span className="font-bold" style={{ color: '#1A1035' }}>
                 {funnel.length > 1 ? Math.round((funnel[funnel.length - 1].count / funnel[0].count) * 100) : 0}%
               </span> enquiry → retained patient
             </p>
@@ -399,10 +399,10 @@ function FunnelPanel({ funnel, util }: { funnel: FunnelStage[]; util: Appointmen
       </div>
 
       {/* Appointment utilisation */}
-      <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #D4E2FF' }}>
-        <div className="px-5 py-4" style={{ borderBottom: '1px solid #D4E2FF' }}>
+      <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #EBE5FF' }}>
+        <div className="px-5 py-4" style={{ borderBottom: '1px solid #EBE5FF' }}>
           <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-0.5" style={{ color: '#96989B' }}>Schedule</p>
-          <p className="text-[15px] font-bold" style={{ color: '#181D23' }}>Appointment Utilisation</p>
+          <p className="text-[15px] font-bold" style={{ color: '#1A1035' }}>Appointment Utilisation</p>
         </div>
         <div className="p-5">
           {/* Donut */}
@@ -414,11 +414,11 @@ function FunnelPanel({ funnel, util }: { funnel: FunnelStage[]; util: Appointmen
                   strokeDasharray={`${(util.pct / 100) * 201.1} 201.1`} strokeLinecap="round" />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <p className="text-[16px] font-black" style={{ color: '#181D23' }}>{util.pct}%</p>
+                <p className="text-[16px] font-black" style={{ color: '#1A1035' }}>{util.pct}%</p>
               </div>
             </div>
             <div>
-              <p className="text-[12px] font-semibold" style={{ color: '#181D23' }}>Slot Utilisation</p>
+              <p className="text-[12px] font-semibold" style={{ color: '#1A1035' }}>Slot Utilisation</p>
               <p className="text-[10px]" style={{ color: '#5A6475' }}>{util.booked.toLocaleString()} of {util.capacity.toLocaleString()} slots filled</p>
             </div>
           </div>
@@ -427,7 +427,7 @@ function FunnelPanel({ funnel, util }: { funnel: FunnelStage[]; util: Appointmen
               { label: 'Booked',    value: util.booked.toLocaleString(),    color: '#059669' },
               { label: 'Available', value: (util.capacity - util.booked).toLocaleString(), color: '#96989B' },
               { label: 'No-shows',  value: util.no_shows.toLocaleString(),  color: '#DC2626' },
-              { label: 'Capacity',  value: util.capacity.toLocaleString(),  color: '#181D23' },
+              { label: 'Capacity',  value: util.capacity.toLocaleString(),  color: '#1A1035' },
             ].map(k => (
               <div key={k.label} className="px-3 py-2 rounded-xl text-center" style={{ backgroundColor: `${k.color}08`, border: `1px solid ${k.color}20` }}>
                 <p className="text-[14px] font-black" style={{ color: k.color }}>{k.value}</p>
@@ -448,15 +448,15 @@ function FunnelPanel({ funnel, util }: { funnel: FunnelStage[]; util: Appointmen
 function OperationsStrip({ ops }: { ops: ClinicAnalytics['operations'] }) {
   const items = [
     { label: 'Compliance Score',  value: `${ops.compliance_score}%`,          color: ops.compliance_score > 85 ? '#059669' : ops.compliance_score > 65 ? '#D8A600' : '#DC2626', icon: Shield },
-    { label: 'Signals Today',     value: ops.signals_today.toString(),          color: '#3B82F6', icon: Activity },
+    { label: 'Signals Today',     value: ops.signals_today.toString(),          color: '#0058E6', icon: Activity },
     { label: 'Open Signals',      value: ops.open_signals.toString(),           color: '#D8A600', icon: Activity },
     { label: 'Automations Fired', value: ops.automations_fired.toString(),      color: '#0058E6', icon: Zap },
     { label: 'CQC Inspection',    value: ops.cqc_days_to !== null ? `${ops.cqc_days_to}d` : 'TBC', color: ops.cqc_days_to !== null && ops.cqc_days_to <= 7 ? '#DC2626' : '#5A6475', icon: Shield },
   ];
 
   return (
-    <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #D4E2FF' }}>
-      <div className="px-5 py-3" style={{ borderBottom: '1px solid #D4E2FF' }}>
+    <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #EBE5FF' }}>
+      <div className="px-5 py-3" style={{ borderBottom: '1px solid #EBE5FF' }}>
         <p className="text-[8px] uppercase tracking-[0.28em] font-semibold" style={{ color: '#96989B' }}>Operations Health</p>
       </div>
       <div className="px-5 py-4 grid grid-cols-5 gap-4">
@@ -534,15 +534,15 @@ export default function AnalyticsPage() {
         <div className="flex items-end justify-between mb-6">
           <div>
             <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-1" style={{ color: '#96989B' }}>Intelligence</p>
-            <h1 className="text-[38px] font-black tracking-[-0.035em]" style={{ color: '#181D23' }}>Central Intelligence</h1>
+            <h1 className="text-[38px] font-black tracking-[-0.035em]" style={{ color: '#1A1035' }}>Central Intelligence</h1>
           </div>
-          <div className="flex gap-1 p-1 rounded-xl" style={{ backgroundColor: 'rgba(0,88,230,0.06)', border: '1px solid #D4E2FF' }}>
+          <div className="flex gap-1 p-1 rounded-xl" style={{ backgroundColor: 'rgba(0,88,230,0.06)', border: '1px solid #EBE5FF' }}>
             {(['7d', '30d', '90d'] as TimeRange[]).map(r => (
               <button key={r} onClick={() => setRange(r)}
                 className="px-4 py-1.5 rounded-lg text-[11px] font-semibold transition-all"
                 style={{
                   backgroundColor: range === r ? 'rgba(0,88,230,0.14)' : 'transparent',
-                  color:           range === r ? '#181D23' : '#96989B',
+                  color:           range === r ? '#1A1035' : '#96989B',
                 }}>
                 {r}
               </button>
@@ -551,7 +551,7 @@ export default function AnalyticsPage() {
         </div>
 
         {/* Intelligence Brief */}
-        <div className="mb-6 px-6 py-5 rounded-2xl" style={{ border: '1px solid #A8C4FF', backgroundColor: 'rgba(109,40,217,0.04)' }}>
+        <div className="mb-6 px-6 py-5 rounded-2xl" style={{ border: '1px solid #C5BAF0', backgroundColor: 'rgba(109,40,217,0.04)' }}>
           <div className="flex items-start gap-3">
             <div className="w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5" style={{ backgroundColor: 'rgba(109,40,217,0.10)' }}>
               <Sparkles className="w-3.5 h-3.5" style={{ color: '#0058E6' }} />

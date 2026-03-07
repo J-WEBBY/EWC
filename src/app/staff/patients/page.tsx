@@ -22,19 +22,19 @@ import {
 // =============================================================================
 
 const LC_CFG: Record<LifecycleStage, { label: string; color: string; bg: string; border: string }> = {
-  existing: { label: 'Existing', color: '#0891B2', bg: '#F0F9FF', border: '#BAE6FD' },
-  lead:     { label: 'Lead',     color: '#0058E6', bg: '#F5F3FF', border: '#DDD6FE' },
-  new:      { label: 'New',      color: '#0284C7', bg: '#EFF6FF', border: '#BFDBFE' },
+  existing: { label: 'Existing', color: '#0058E6', bg: '#EEF3FF', border: '#C5BAF0' },
+  lead:     { label: 'Lead',     color: '#7C3AED', bg: '#F3EFFF', border: '#C5BAF0' },
+  new:      { label: 'New',      color: '#0058E6', bg: '#EEF3FF', border: '#C5BAF0' },
   active:   { label: 'Active',   color: '#059669', bg: '#ECFDF5', border: '#A7F3D0' },
   loyal:    { label: 'Loyal',    color: '#D8A600', bg: '#FFFBEB', border: '#FDE68A' },
   at_risk:  { label: 'At Risk',  color: '#DC2626', bg: '#FFF1F2', border: '#FECDD3' },
-  lapsed:   { label: 'Lapsed',   color: '#6B7280', bg: '#F9FAFB', border: '#E5E7EB' },
+  lapsed:   { label: 'Lapsed',   color: '#8B84A0', bg: 'transparent', border: '#EBE5FF' },
 };
 
 const LC_ORDER: LifecycleStage[] = ['existing', 'lead', 'new', 'active', 'loyal', 'at_risk', 'lapsed'];
 const PAGE_SIZE = 24;
 
-const PRIO_COLOR: Record<string, string> = { high: '#DC2626', medium: '#D8A600', low: '#059669' };
+const PRIO_COLOR: Record<string, string> = { high: '#DC2626', medium: '#EA580C', low: '#059669' };
 
 // =============================================================================
 // HELPERS
@@ -99,7 +99,7 @@ function MetricCell({ label, value, detail, seed, color, last }: {
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       className="relative px-7 py-5 overflow-hidden transition-all duration-250"
-      style={{ borderRight: last ? 'none' : '1px solid #D4E2FF', background: hov ? `${color}0d` : 'transparent' }}
+      style={{ borderRight: last ? 'none' : '1px solid #EBE5FF', background: hov ? `${color}0d` : 'transparent' }}
     >
       <div className="absolute top-0 left-0 right-0 h-[2px] transition-opacity duration-250"
         style={{ background: `linear-gradient(90deg, ${color}80, ${color}20, transparent)`, opacity: hov ? 1 : 0.4 }} />
@@ -129,7 +129,7 @@ function MetricCell({ label, value, detail, seed, color, last }: {
 
 function SectionLabel({ label, right }: { label: string; right?: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between py-3.5" style={{ borderBottom: '1px solid #D4E2FF' }}>
+    <div className="flex items-center justify-between py-3.5" style={{ borderBottom: '1px solid #EBE5FF' }}>
       <span className="text-[8px] uppercase tracking-[0.30em] font-semibold text-[#96989B]">{label}</span>
       {right}
     </div>
@@ -152,7 +152,7 @@ function EngagementBar({ score }: { score: number }) {
           <span className="text-[10px] font-bold" style={{ color }}>{score}</span>
         </div>
       </div>
-      <div className="h-[3px] rounded-full overflow-hidden" style={{ backgroundColor: '#D4E2FF' }}>
+      <div className="h-[3px] rounded-full overflow-hidden" style={{ backgroundColor: '#EBE5FF' }}>
         <motion.div
           className="h-full rounded-full"
           initial={{ width: 0 }}
@@ -188,7 +188,7 @@ function PatientRow({ patient, index, onClick }: {
       onHoverEnd={() => setHov(false)}
       onClick={onClick}
       className="relative flex items-center gap-5 px-6 py-3.5 cursor-pointer overflow-hidden"
-      style={{ borderBottom: '1px solid #D4E2FF', background: hov ? `${lc.color}07` : 'transparent', transition: 'background 0.2s' }}
+      style={{ borderBottom: '1px solid #EBE5FF', background: hov ? `${lc.color}07` : 'transparent', transition: 'background 0.2s' }}
     >
       {/* Left accent */}
       <motion.div
@@ -250,7 +250,7 @@ function PatientRow({ patient, index, onClick }: {
           )}
           {patient.has_agent_memories && (
             <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full flex items-center gap-0.5"
-              style={{ backgroundColor: '#F5F3FF', color: '#0058E6', border: '1px solid #DDD6FE' }}>
+              style={{ backgroundColor: '#EEF3FF', color: '#0058E6', border: '1px solid #C5BAF0' }}>
               <Brain size={8} /> AI
             </span>
           )}
@@ -380,8 +380,8 @@ function FilterChip({ label, active, onClick }: { label: string; active: boolean
       onClick={onClick}
       className="px-3 py-1 rounded-full text-[10px] font-semibold transition-all duration-150"
       style={active
-        ? { backgroundColor: '#181D23', color: '#FFFFFF', border: '1px solid #181D23' }
-        : { backgroundColor: 'transparent', color: '#5A6475', border: '1px solid #D4E2FF' }
+        ? { backgroundColor: '#1A1035', color: '#FAF7F2', border: '1px solid #1A1035' }
+        : { backgroundColor: 'transparent', color: '#5A6475', border: '1px solid #EBE5FF' }
       }
     >
       {label}
@@ -486,13 +486,13 @@ export default function PatientsPage() {
         <motion.div
           initial={{ opacity: 0 }} animate={{ opacity: 1 }}
           className="flex items-start justify-between px-10 py-8"
-          style={{ borderBottom: '1px solid #D4E2FF' }}
+          style={{ borderBottom: '1px solid #EBE5FF' }}
         >
           <div>
             {isDemo && (
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-[8px] uppercase tracking-[0.24em] px-2 py-0.5 rounded font-semibold"
-                  style={{ backgroundColor: '#F5F3FF', color: '#0058E6', border: '1px solid #DDD6FE' }}>
+                  style={{ backgroundColor: '#EEF3FF', color: '#0058E6', border: '1px solid #C5BAF0' }}>
                   Demo mode
                 </span>
               </div>
@@ -512,7 +512,7 @@ export default function PatientsPage() {
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 className="pl-9 pr-8 py-2 rounded-xl text-[12px] outline-none w-[300px]"
-                style={{ backgroundColor: '#FFFFFF', border: '1px solid #D4E2FF', color: '#181D23' }}
+                style={{ backgroundColor: '#FFFFFF', border: '1px solid #EBE5FF', color: '#181D23' }}
               />
               {search && (
                 <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2">
@@ -523,7 +523,7 @@ export default function PatientsPage() {
             <button
               onClick={() => loadPage(search || undefined, page)} disabled={loading}
               className="w-9 h-9 rounded-xl flex items-center justify-center transition-all"
-              style={{ background: 'rgba(0,0,0,0.02)', border: '1px solid #D4E2FF' }}
+              style={{ background: 'rgba(0,0,0,0.02)', border: '1px solid #EBE5FF' }}
               onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.06)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.02)')}
             >
@@ -535,7 +535,7 @@ export default function PatientsPage() {
         {/* ── Metric strip ───────────────────────────────────────────── */}
         <motion.div
           initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.07 }}
-          style={{ borderBottom: '1px solid #D4E2FF' }}
+          style={{ borderBottom: '1px solid #EBE5FF' }}
         >
           <div className="px-6"><SectionLabel label="CRM Overview" /></div>
           <div className="grid grid-cols-4">
@@ -551,7 +551,7 @@ export default function PatientsPage() {
         {/* ── Filter bar ─────────────────────────────────────────────── */}
         <motion.div
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}
-          style={{ borderBottom: '1px solid #D4E2FF' }}
+          style={{ borderBottom: '1px solid #EBE5FF' }}
         >
           <div className="px-6 pt-3">
             <SectionLabel
@@ -568,7 +568,7 @@ export default function PatientsPage() {
                     value={filters.sort}
                     onChange={e => setFilter('sort', e.target.value as FilterState['sort'])}
                     className="text-[10px] px-2.5 py-1.5 rounded-lg outline-none"
-                    style={{ backgroundColor: '#FFFFFF', border: '1px solid #D4E2FF', color: '#3D4451' }}
+                    style={{ backgroundColor: '#FFFFFF', border: '1px solid #EBE5FF', color: '#3D4451' }}
                   >
                     <option value="engagement">Sort: Engagement</option>
                     <option value="name">Sort: Name A–Z</option>
@@ -588,8 +588,8 @@ export default function PatientsPage() {
                 onClick={() => setFilter('lifecycle', 'all')}
                 className="px-3 py-1 rounded-full text-[10px] font-semibold transition-all duration-150"
                 style={filters.lifecycle === 'all'
-                  ? { backgroundColor: '#181D23', color: '#FFFFFF', border: '1px solid #181D23' }
-                  : { backgroundColor: 'transparent', color: '#5A6475', border: '1px solid #D4E2FF' }
+                  ? { backgroundColor: '#1A1035', color: '#FAF7F2', border: '1px solid #1A1035' }
+                  : { backgroundColor: 'transparent', color: '#5A6475', border: '1px solid #EBE5FF' }
                 }
               >
                 All
@@ -618,7 +618,7 @@ export default function PatientsPage() {
                 style={{
                   backgroundColor: showAdvanced ? '#181D23' : 'transparent',
                   color: showAdvanced ? '#FFFFFF' : '#5A6475',
-                  border: '1px solid #D4E2FF',
+                  border: '1px solid #EBE5FF',
                 }}
               >
                 <SlidersHorizontal size={10} />
@@ -636,7 +636,7 @@ export default function PatientsPage() {
                   exit={{ opacity: 0, height: 0 }}
                   className="overflow-hidden"
                 >
-                  <div className="grid grid-cols-3 gap-x-8 gap-y-4 pt-4 pb-2 border-t" style={{ borderColor: '#D4E2FF' }}>
+                  <div className="grid grid-cols-3 gap-x-8 gap-y-4 pt-4 pb-2 border-t" style={{ borderColor: '#EBE5FF' }}>
                     <div>
                       <p className="text-[8px] uppercase tracking-[0.22em] text-[#96989B] mb-2">Engagement Score</p>
                       <div className="flex gap-1.5">
@@ -715,21 +715,21 @@ export default function PatientsPage() {
             <div>
               {[...Array(8)].map((_, i) => (
                 <div key={i} className="flex items-center gap-5 px-6 py-3.5 animate-pulse"
-                  style={{ borderBottom: '1px solid #D4E2FF', animationDelay: `${i * 0.04}s` }}>
-                  <div className="w-6 h-3 rounded bg-[#D4E2FF]" />
-                  <div className="w-7 h-7 rounded-full bg-[#D4E2FF]" />
+                  style={{ borderBottom: '1px solid #EBE5FF', animationDelay: `${i * 0.04}s` }}>
+                  <div className="w-6 h-3 rounded bg-[#EBE5FF]" />
+                  <div className="w-7 h-7 rounded-full bg-[#EBE5FF]" />
                   <div className="flex-1 space-y-1.5">
-                    <div className="h-3 w-48 rounded bg-[#D4E2FF]" />
-                    <div className="h-2 w-32 rounded bg-[#D4E2FF] opacity-60" />
+                    <div className="h-3 w-48 rounded bg-[#EBE5FF]" />
+                    <div className="h-2 w-32 rounded bg-[#EBE5FF] opacity-60" />
                   </div>
-                  <div className="hidden lg:block w-24 h-3 rounded bg-[#D4E2FF]" />
+                  <div className="hidden lg:block w-24 h-3 rounded bg-[#EBE5FF]" />
                 </div>
               ))}
             </div>
           ) : filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-24 gap-3">
               <div className="w-12 h-12 rounded-2xl flex items-center justify-center"
-                style={{ background: 'rgba(0,0,0,0.02)', border: '1px solid #D4E2FF' }}>
+                style={{ background: 'rgba(0,0,0,0.02)', border: '1px solid #EBE5FF' }}>
                 <Users size={18} className="text-[#96989B]" />
               </div>
               <p className="text-[13px] text-[#5A6475]">No patients match your current filters</p>
@@ -758,7 +758,7 @@ export default function PatientsPage() {
                 <motion.div
                   initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                   className="flex items-center justify-between px-6 py-4"
-                  style={{ borderTop: '1px solid #D4E2FF' }}
+                  style={{ borderTop: '1px solid #EBE5FF' }}
                 >
                   <span className="text-[10px] text-[#96989B]">
                     Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, serverTotal)} of {serverTotal.toLocaleString()}
@@ -770,7 +770,7 @@ export default function PatientsPage() {
                       disabled={page === 0}
                       className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all"
                       style={{
-                        border: '1px solid #D4E2FF',
+                        border: '1px solid #EBE5FF',
                         background: page === 0 ? 'transparent' : 'rgba(0,0,0,0.02)',
                         color: page === 0 ? '#C4BFD6' : '#3D4451',
                         cursor: page === 0 ? 'not-allowed' : 'pointer',
@@ -801,8 +801,8 @@ export default function PatientsPage() {
                             onClick={() => goToPage(pageNum)}
                             className="w-7 h-7 rounded-lg text-[11px] font-semibold transition-all"
                             style={pageNum === page
-                              ? { backgroundColor: '#181D23', color: '#FFFFFF', border: '1px solid #181D23' }
-                              : { backgroundColor: 'transparent', color: '#5A6475', border: '1px solid #D4E2FF' }
+                              ? { backgroundColor: '#1A1035', color: '#FAF7F2', border: '1px solid #1A1035' }
+                              : { backgroundColor: 'transparent', color: '#5A6475', border: '1px solid #EBE5FF' }
                             }
                           >
                             {pageNum + 1}
@@ -816,7 +816,7 @@ export default function PatientsPage() {
                       disabled={page >= totalPages - 1}
                       className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all"
                       style={{
-                        border: '1px solid #D4E2FF',
+                        border: '1px solid #EBE5FF',
                         background: page >= totalPages - 1 ? 'transparent' : 'rgba(0,0,0,0.02)',
                         color: page >= totalPages - 1 ? '#C4BFD6' : '#3D4451',
                         cursor: page >= totalPages - 1 ? 'not-allowed' : 'pointer',

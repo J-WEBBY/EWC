@@ -12,12 +12,12 @@
 
 :root {
   /* Page & layout */
-  --background:    #F8FAFF;      /* barely-blue white — replaces old cream */
-  --foreground:    #181D23;      /* EWC dark navy — primary text */
-  --sidebar:       #181D23;      /* nav background — EWC dark */
-  --card:          #FFFFFF;
-  --border:        #D4E2FF;      /* blue-tinted border */
-  --border-strong: #A8C4FF;      /* stronger blue border */
+  --background:    #FAF7F2;      /* warm cream — EWC brand base */
+  --foreground:    #1A1035;      /* dark navy — primary text */
+  --sidebar:       #1A1035;      /* nav background — EWC dark */
+  --card:          #FAF7F2;
+  --border:        #EBE5FF;      /* warm purple-tinted border */
+  --border-strong: #C5BAF0;      /* stronger accent border */
 
   /* Brand accent */
   --accent:        #0058E6;      /* EWC Royal Blue — primary brand */

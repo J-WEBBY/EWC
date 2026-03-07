@@ -27,35 +27,35 @@ import type { SignalPriority, SignalStatus } from '@/lib/types/database';
 // =============================================================================
 
 const MODE_CFG: Record<ResponseMode, { label: string; color: string; bg: string; desc: string; Icon: LucideIcon }> = {
-  auto:       { label: 'Auto',       color: '#60a5fa', bg: 'rgba(96,165,250,0.08)',   desc: 'Handled automatically',       Icon: Zap    },
-  agentic:    { label: 'Agentic',    color: '#c084fc', bg: 'rgba(192,132,252,0.08)', desc: 'Agent is acting',              Icon: Bot    },
-  supervised: { label: 'Supervised', color: '#fbbf24', bg: 'rgba(251,191,36,0.08)',  desc: 'Awaiting your decision',       Icon: User   },
-  human_only: { label: 'Human Only', color: '#f87171', bg: 'rgba(248,113,113,0.08)', desc: 'Requires personal attention',  Icon: Shield },
+  auto:       { label: 'Auto',       color: '#059669', bg: 'rgba(5,150,105,0.08)',    desc: 'Handled automatically',       Icon: Zap    },
+  agentic:    { label: 'Agentic',    color: '#0058E6', bg: 'rgba(0,88,230,0.08)',     desc: 'Agent is acting',             Icon: Bot    },
+  supervised: { label: 'Supervised', color: '#EA580C', bg: 'rgba(234,88,12,0.08)',   desc: 'Awaiting your decision',       Icon: User   },
+  human_only: { label: 'Human Only', color: '#DC2626', bg: 'rgba(220,38,38,0.08)',   desc: 'Requires personal attention',  Icon: Shield },
 };
 
 const PRIO_COLOR: Record<SignalPriority, string> = {
-  critical: '#f87171', high: '#fb923c', medium: '#fbbf24', low: '#94a3b8',
+  critical: '#DC2626', high: '#DC2626', medium: '#EA580C', low: '#8B84A0',
 };
 
 const ACTOR_CFG: Record<string, { label: string; color: string }> = {
-  system:                { label: 'System',  color: '#94a3b8' },
-  'agent:crm_agent':     { label: 'Aria',    color: '#c084fc' },
-  'agent:sales_agent':   { label: 'Orion',   color: '#34d399' },
-  'agent:primary_agent': { label: 'EWC',     color: '#818cf8' },
-  patient:               { label: 'Patient', color: '#34d399' },
-  user:                  { label: 'Team',    color: '#e2e8f0' },
+  system:                { label: 'System',  color: '#8B84A0' },
+  'agent:crm_agent':     { label: 'Aria',    color: '#00A693' },
+  'agent:sales_agent':   { label: 'Orion',   color: '#D8A600' },
+  'agent:primary_agent': { label: 'EWC',     color: '#0058E6' },
+  patient:               { label: 'Patient', color: '#7C3AED' },
+  user:                  { label: 'Team',    color: '#524D66' },
 };
 
 function actorCfg(actor: string) {
   if (ACTOR_CFG[actor]) return ACTOR_CFG[actor];
   if (actor.startsWith('automation:')) {
     const name = actor.replace('automation:', '').replace(/_/g, ' ');
-    return { label: name, color: '#60a5fa' };
+    return { label: name, color: '#0058E6' };
   }
   if (actor.startsWith('agent:')) {
-    return { label: actor.replace('agent:', ''), color: '#c084fc' };
+    return { label: actor.replace('agent:', ''), color: '#7C3AED' };
   }
-  return { label: actor, color: '#94a3b8' };
+  return { label: actor, color: '#8B84A0' };
 }
 
 const ACTION_LABEL: Record<string, string> = {
@@ -109,7 +109,7 @@ function TrailRow({ entry, isLast }: { entry: ActionLogEntry; isLast: boolean })
       {!isLast && (
         <div
           className="absolute left-[7px] top-5 bottom-0 w-px"
-          style={{ background: '#D4E2FF' }}
+          style={{ background: '#EBE5FF' }}
         />
       )}
       <div
@@ -353,13 +353,13 @@ function SignalCard({
                   <button
                     onClick={handleAskAria}
                     disabled={ariaLoading || !ariaQuestion.trim()}
-                    className="px-3 py-2 rounded-lg bg-[#181D23] text-white text-[12px] font-medium disabled:opacity-30 hover:bg-[#2d1d5e] transition-colors flex-shrink-0"
+                    className="px-3 py-2 rounded-lg bg-[#0058E618] border border-[#0058E640] text-[#1A1035] text-[12px] font-medium disabled:opacity-30 hover:bg-[#0058E625] transition-colors flex-shrink-0"
                   >
                     {ariaLoading ? '...' : 'Ask'}
                   </button>
                 </div>
                 {ariaResponse && (
-                  <div className="mt-3 p-3 rounded-lg bg-[#F5F2EB] border border-[#D4E2FF]">
+                  <div className="mt-3 p-3 rounded-lg bg-[#FAF7F2] border border-[#EBE5FF]">
                     <p className="text-[12px] text-[#3D4451] leading-relaxed">{ariaResponse}</p>
                   </div>
                 )}
@@ -580,7 +580,7 @@ function CreatePanel({ onClose, onCreated, tenantId }: {
         <button
           onClick={submit}
           disabled={busy || !title.trim()}
-          className="w-full py-2.5 rounded-xl text-[13px] font-medium bg-[#181D23] text-white hover:bg-[#2d1d5e] transition-colors disabled:opacity-30"
+          className="w-full py-2.5 rounded-xl text-[13px] font-medium bg-[#0058E618] border border-[#0058E640] text-[#1A1035] hover:bg-[#0058E625] transition-colors disabled:opacity-30"
         >
           {busy ? 'Creating...' : 'Create Signal'}
         </button>

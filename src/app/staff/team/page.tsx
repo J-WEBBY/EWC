@@ -46,7 +46,7 @@ const CATEGORY_CONFIG: Record<PostCategory, { label: string; color: string; bg: 
 const STATUS_DOT: Record<string, string> = {
   online:  '#059669',
   away:    '#D8A600',
-  offline: '#A8C4FF',
+  offline: '#C5BAF0',
 };
 
 // =============================================================================
@@ -141,7 +141,7 @@ function PostCard({ post, onLike }: { post: TeamPost & { liked?: boolean }; onLi
           <div className="mt-3 flex flex-wrap gap-1.5">
             {post.tags.map(tag => (
               <span key={tag} className="text-[8px] px-2 py-0.5 rounded-md font-medium"
-                style={{ backgroundColor: 'rgba(0,88,230,0.08)', color: '#5A6475', border: '1px solid #D4E2FF' }}>
+                style={{ backgroundColor: 'rgba(0,88,230,0.08)', color: '#5A6475', border: '1px solid #EBE5FF' }}>
                 #{tag}
               </span>
             ))}
@@ -159,7 +159,7 @@ function PostCard({ post, onLike }: { post: TeamPost & { liked?: boolean }; onLi
           </div>
         )}
 
-        <div className="mt-3 pt-3 flex items-center gap-3" style={{ borderTop: '1px solid #D4E2FF' }}>
+        <div className="mt-3 pt-3 flex items-center gap-3" style={{ borderTop: '1px solid #EBE5FF' }}>
           <button onClick={() => onLike(post.id)}
             className="flex items-center gap-1.5 text-[10px] transition-colors"
             style={{ color: post.liked ? '#EC4899' : '#96989B' }}
@@ -241,7 +241,7 @@ Action items:\n${actionList || 'None recorded'}`;
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Meeting header */}
-      <div className="px-6 py-4 flex items-center justify-between flex-shrink-0" style={{ borderBottom: '1px solid #D4E2FF', backgroundColor: 'rgba(124,58,237,0.04)' }}>
+      <div className="px-6 py-4 flex items-center justify-between flex-shrink-0" style={{ borderBottom: '1px solid #EBE5FF', backgroundColor: 'rgba(124,58,237,0.04)' }}>
         <div className="flex items-center gap-3">
           <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
           <p className="text-[13px] font-bold" style={{ color: '#181D23' }}>Live Meeting</p>
@@ -275,10 +275,10 @@ Action items:\n${actionList || 'None recorded'}`;
           <div className="space-y-2 mb-3">
             {agenda.map(item => (
               <div key={item.id} className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl cursor-pointer transition-all"
-                style={{ border: '1px solid #D4E2FF', backgroundColor: item.done ? 'rgba(5,150,105,0.05)' : 'transparent' }}
+                style={{ border: '1px solid #EBE5FF', backgroundColor: item.done ? 'rgba(5,150,105,0.05)' : 'transparent' }}
                 onClick={() => toggleAgenda(item.id)}>
                 <div className="w-4 h-4 rounded-full border flex items-center justify-center flex-shrink-0"
-                  style={{ borderColor: item.done ? '#059669' : '#A8C4FF', backgroundColor: item.done ? 'rgba(5,150,105,0.12)' : 'transparent' }}>
+                  style={{ borderColor: item.done ? '#059669' : '#C5BAF0', backgroundColor: item.done ? 'rgba(5,150,105,0.12)' : 'transparent' }}>
                   {item.done && <CheckCircle2 className="w-3 h-3" style={{ color: '#059669' }} />}
                 </div>
                 <p className="text-[11px]" style={{ color: item.done ? '#96989B' : '#181D23', textDecoration: item.done ? 'line-through' : 'none' }}>{item.text}</p>
@@ -294,7 +294,7 @@ Action items:\n${actionList || 'None recorded'}`;
               onKeyDown={e => { if (e.key === 'Enter') addAgenda(); }}
             />
             <button onClick={addAgenda} className="px-3 py-2 rounded-xl text-[10px] font-semibold"
-              style={{ backgroundColor: 'rgba(124,58,237,0.10)', color: '#0058E6', border: '1px solid #A8C4FF' }}>
+              style={{ backgroundColor: 'rgba(124,58,237,0.10)', color: '#0058E6', border: '1px solid #C5BAF0' }}>
               <Plus className="w-3 h-3" />
             </button>
           </div>
@@ -316,7 +316,7 @@ Action items:\n${actionList || 'None recorded'}`;
           <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-3" style={{ color: '#96989B' }}>Action Items</p>
           <div className="space-y-2 mb-3">
             {actions.map(a => (
-              <div key={a.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl" style={{ border: '1px solid #D4E2FF' }}>
+              <div key={a.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl" style={{ border: '1px solid #EBE5FF' }}>
                 <CheckCircle2 className="w-3 h-3 flex-shrink-0" style={{ color: '#0058E6' }} />
                 <p className="text-[11px] flex-1" style={{ color: '#181D23' }}>{a.text}</p>
                 {a.assignee && <span className="text-[10px] px-2 py-0.5 rounded-lg" style={{ backgroundColor: 'rgba(124,58,237,0.08)', color: '#0058E6' }}>{a.assignee}</span>}
@@ -344,7 +344,7 @@ Action items:\n${actionList || 'None recorded'}`;
               onChange={e => setActionInput(a => ({ ...a, due: e.target.value }))}
             />
             <button onClick={addAction} className="px-3 py-2 rounded-xl text-[10px] font-semibold"
-              style={{ backgroundColor: 'rgba(124,58,237,0.10)', color: '#0058E6', border: '1px solid #A8C4FF' }}>
+              style={{ backgroundColor: 'rgba(124,58,237,0.10)', color: '#0058E6', border: '1px solid #C5BAF0' }}>
               <Plus className="w-3 h-3" />
             </button>
           </div>
@@ -466,10 +466,10 @@ export default function TeamPage() {
       <StaffNav profile={profile ?? FALLBACK} userId={userId} brandColor={brandColor} currentPath="Team" />
 
       {/* ===== LEFT: SPACES + ROSTER ===== */}
-      <div className="w-[220px] flex-shrink-0 flex flex-col overflow-hidden" style={{ borderRight: '1px solid #D4E2FF' }}>
+      <div className="w-[220px] flex-shrink-0 flex flex-col overflow-hidden" style={{ borderRight: '1px solid #EBE5FF' }}>
 
         {/* Spaces */}
-        <div className="p-4" style={{ borderBottom: '1px solid #D4E2FF' }}>
+        <div className="p-4" style={{ borderBottom: '1px solid #EBE5FF' }}>
           <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-3" style={{ color: '#96989B' }}>Spaces</p>
           <button onClick={() => setActiveSpace('all')}
             className="w-full text-left px-3 py-2.5 rounded-xl mb-1 flex items-center gap-2.5 transition-all"
@@ -536,10 +536,10 @@ export default function TeamPage() {
       </div>
 
       {/* ===== CENTER: FEED or MEETING ===== */}
-      <div className="flex-1 flex flex-col overflow-hidden" style={{ borderRight: '1px solid #D4E2FF' }}>
+      <div className="flex-1 flex flex-col overflow-hidden" style={{ borderRight: '1px solid #EBE5FF' }}>
 
         {/* Header with view tabs */}
-        <div className="px-6 py-4 flex items-center justify-between flex-shrink-0" style={{ borderBottom: '1px solid #D4E2FF' }}>
+        <div className="px-6 py-4 flex items-center justify-between flex-shrink-0" style={{ borderBottom: '1px solid #EBE5FF' }}>
           <div>
             <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-0.5" style={{ color: '#96989B' }}>Team Spaces</p>
             <p className="text-[20px] font-black tracking-tight" style={{ color: '#181D23' }}>
@@ -548,7 +548,7 @@ export default function TeamPage() {
           </div>
           <div className="flex items-center gap-2">
             {/* View toggle */}
-            <div className="flex gap-1 p-1 rounded-xl" style={{ backgroundColor: 'rgba(0,88,230,0.06)', border: '1px solid #D4E2FF' }}>
+            <div className="flex gap-1 p-1 rounded-xl" style={{ backgroundColor: 'rgba(0,88,230,0.06)', border: '1px solid #EBE5FF' }}>
               <button onClick={() => setCenterView('feed')}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all"
                 style={{ backgroundColor: centerView === 'feed' ? 'rgba(0,88,230,0.12)' : 'transparent', color: centerView === 'feed' ? '#0058E6' : '#96989B' }}>
@@ -574,11 +574,11 @@ export default function TeamPage() {
         ) : (
           <>
             {/* Compose */}
-            <div className="px-6 py-4 flex-shrink-0" style={{ borderBottom: '1px solid #D4E2FF' }}>
+            <div className="px-6 py-4 flex-shrink-0" style={{ borderBottom: '1px solid #EBE5FF' }}>
               <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #EBE5FF', backgroundColor: '#FAF7F2' }}>
                 <input
                   className="w-full px-4 pt-3.5 pb-0 text-[12px] font-semibold bg-transparent focus:outline-none"
-                  style={{ color: '#181D23', borderBottom: '1px solid #D4E2FF' }}
+                  style={{ color: '#181D23', borderBottom: '1px solid #EBE5FF' }}
                   placeholder="Title (optional)…"
                   value={compose.title}
                   onChange={e => setCompose(c => ({ ...c, title: e.target.value }))}
@@ -613,7 +613,7 @@ export default function TeamPage() {
                     style={{
                       backgroundColor: postDone ? 'rgba(5,150,105,0.10)' : (compose.body.trim() ? 'rgba(0,88,230,0.10)' : 'transparent'),
                       color:           postDone ? '#059669' : (compose.body.trim() ? '#0058E6' : '#96989B'),
-                      border:          postDone ? '1px solid rgba(5,150,105,0.25)' : (compose.body.trim() ? '1px solid #A8C4FF' : '1px solid #D4E2FF'),
+                      border:          postDone ? '1px solid rgba(5,150,105,0.25)' : (compose.body.trim() ? '1px solid #C5BAF0' : '1px solid #EBE5FF'),
                     }}>
                     <AnimatePresence mode="wait">
                       {postDone  ? <motion.span key="done" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Posted</motion.span>
@@ -639,7 +639,7 @@ export default function TeamPage() {
                       <p className="text-[8px] uppercase tracking-[0.14em] font-semibold" style={{ color: '#96989B' }}>Pinned</p>
                     </div>
                     {pinnedPosts.map(p => <PostCard key={p.id} post={p} onLike={handleLike} />)}
-                    <div className="h-px" style={{ backgroundColor: '#D4E2FF' }} />
+                    <div className="h-px" style={{ backgroundColor: '#EBE5FF' }} />
                     <p className="text-[8px] uppercase tracking-[0.14em] font-semibold" style={{ color: '#96989B' }}>Recent</p>
                   </>
                 )}
@@ -655,13 +655,13 @@ export default function TeamPage() {
 
       {/* ===== RIGHT: AT A GLANCE ===== */}
       <div className="w-[248px] flex-shrink-0 flex flex-col overflow-hidden">
-        <div className="px-4 py-4 flex-shrink-0" style={{ borderBottom: '1px solid #D4E2FF' }}>
+        <div className="px-4 py-4 flex-shrink-0" style={{ borderBottom: '1px solid #EBE5FF' }}>
           <p className="text-[8px] uppercase tracking-[0.28em] font-semibold" style={{ color: '#96989B' }}>At a Glance</p>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-5">
 
           {/* AI Team Pulse */}
-          <div className="px-3 py-3 rounded-xl" style={{ backgroundColor: 'rgba(124,58,237,0.05)', border: '1px solid #A8C4FF' }}>
+          <div className="px-3 py-3 rounded-xl" style={{ backgroundColor: 'rgba(124,58,237,0.05)', border: '1px solid #C5BAF0' }}>
             <div className="flex items-center gap-1.5 mb-1.5">
               <Sparkles className="w-3 h-3" style={{ color: '#0058E6' }} />
               <p className="text-[8px] uppercase tracking-[0.14em] font-semibold" style={{ color: '#0058E6' }}>Team Pulse</p>
@@ -681,7 +681,7 @@ export default function TeamPage() {
                 { label: 'Pinned',  value: pinnedPosts.length.toString(), color: '#D8A600' },
                 { label: 'Tasks',   value: posts.filter(p => p.category === 'task').length.toString(), color: '#0058E6' },
               ].map(({ label, value, color }) => (
-                <div key={label} className="px-3 py-2.5 rounded-xl" style={{ border: '1px solid #D4E2FF' }}>
+                <div key={label} className="px-3 py-2.5 rounded-xl" style={{ border: '1px solid #EBE5FF' }}>
                   <p className="text-[18px] font-black tracking-tight" style={{ color }}>{value}</p>
                   <p className="text-[9px] mt-0.5" style={{ color: '#96989B' }}>{label}</p>
                 </div>

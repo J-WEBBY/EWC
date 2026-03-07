@@ -33,8 +33,8 @@ const SOURCE_CONFIG: Record<TimelineSource, { label: string; color: string; bg: 
   agent_aria:  { label: 'AGENT · ARIA',  color: '#00A693', bg: 'rgba(13,148,136,0.07)',  Icon: Bot },
   agent_orion: { label: 'AGENT · ORION', color: '#D8A600', bg: 'rgba(217,119,6,0.07)',   Icon: Bot },
   agent_ewc:   { label: 'AGENT · EWC',   color: '#0058E6', bg: 'rgba(109,40,217,0.07)',  Icon: Bot },
-  automation:  { label: 'AUTOMATION',    color: '#f97316', bg: 'rgba(249,115,22,0.06)',   Icon: Zap },
-  appointment: { label: 'CLINIKO',       color: '#0284C7', bg: 'rgba(2,132,199,0.06)',    Icon: CalendarCheck },
+  automation:  { label: 'AUTOMATION',    color: '#EA580C', bg: 'rgba(234,88,12,0.06)',    Icon: Zap },
+  appointment: { label: 'CLINIKO',       color: '#0058E6', bg: 'rgba(0,88,230,0.06)',     Icon: CalendarCheck },
   signal:      { label: 'SIGNAL',        color: '#DC2626', bg: 'rgba(220,38,38,0.06)',    Icon: AlertTriangle },
   sms_out:     { label: 'SMS',           color: '#5A6475', bg: 'rgba(110,102,136,0.05)',  Icon: MessageSquare },
   sms_in:      { label: 'SMS',           color: '#96989B', bg: 'rgba(139,132,160,0.05)', Icon: MessageSquare },
@@ -92,7 +92,7 @@ function fmtDateLabel(iso: string): string {
 
 function getInitials(name: string) { return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2); }
 function avatarColor(name: string) {
-  const p = ['#0058E6','#0284C7','#D8A600','#00A693','#DC2626','#059669','#EC4899','#0058E6'];
+  const p = ['#0058E6','#0058E6','#D8A600','#00A693','#DC2626','#059669','#DC2626','#0058E6'];
   let h = 0; for (const c of name) h = (h * 31 + c.charCodeAt(0)) % p.length;
   return p[h];
 }
@@ -131,7 +131,7 @@ function PatientRow({ patient, selected, onClick }: { patient: PatientSummary; s
         {getInitials(patient.full_name)}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-[12px] font-medium truncate" style={{ color: selected ? '#181D23' : '#3D4451' }}>{patient.full_name}</p>
+        <p className="text-[12px] font-medium truncate" style={{ color: selected ? '#1A1035' : '#3D4451' }}>{patient.full_name}</p>
         <p className="text-[9px] truncate mt-0.5" style={{ color: '#96989B' }}>{patient.last_treatment ?? 'No treatments'}</p>
       </div>
       <p className="text-[9px] flex-shrink-0" style={{ color: '#96989B' }}>
@@ -147,8 +147,8 @@ function PatientRow({ patient, selected, onClick }: { patient: PatientSummary; s
 
 function TranscriptViewer({ transcript }: { transcript: { role: 'komal' | 'patient'; text: string }[] }) {
   return (
-    <div className="mt-3 rounded-xl overflow-hidden" style={{ border: '1px solid #A8C4FF', backgroundColor: 'rgba(124,58,237,0.03)' }}>
-      <div className="px-3 py-1.5 flex items-center gap-2" style={{ borderBottom: '1px solid #D4E2FF', backgroundColor: 'rgba(124,58,237,0.05)' }}>
+    <div className="mt-3 rounded-xl overflow-hidden" style={{ border: '1px solid #C5BAF0', backgroundColor: 'rgba(124,58,237,0.03)' }}>
+      <div className="px-3 py-1.5 flex items-center gap-2" style={{ borderBottom: '1px solid #EBE5FF', backgroundColor: 'rgba(124,58,237,0.05)' }}>
         <Mic className="w-2.5 h-2.5" style={{ color: '#0058E6' }} />
         <p className="text-[9px] uppercase tracking-[0.12em] font-semibold" style={{ color: '#0058E6' }}>Call Transcript</p>
       </div>
@@ -156,12 +156,12 @@ function TranscriptViewer({ transcript }: { transcript: { role: 'komal' | 'patie
         {transcript.map((line, i) => (
           <div key={i} className={`flex gap-2 ${line.role === 'patient' ? 'flex-row-reverse' : ''}`}>
             <div className="w-4 h-4 rounded-full flex items-center justify-center text-[7px] font-bold flex-shrink-0 mt-0.5"
-              style={{ backgroundColor: line.role === 'komal' ? 'rgba(124,58,237,0.15)' : '#D4E2FF', color: line.role === 'komal' ? '#0058E6' : '#5A6475' }}>
+              style={{ backgroundColor: line.role === 'komal' ? 'rgba(124,58,237,0.15)' : '#EBE5FF', color: line.role === 'komal' ? '#0058E6' : '#5A6475' }}>
               {line.role === 'komal' ? 'K' : 'P'}
             </div>
             <div className="px-2.5 py-1.5 rounded-lg" style={{ maxWidth: '85%',
               backgroundColor: line.role === 'komal' ? 'rgba(124,58,237,0.06)' : '#FAF7F2',
-              border: '1px solid #D4E2FF' }}>
+              border: '1px solid #EBE5FF' }}>
               <p className="text-[10px] leading-relaxed" style={{ color: line.role === 'komal' ? '#3D4451' : '#5A6475' }}>{line.text}</p>
             </div>
           </div>
@@ -189,7 +189,7 @@ function TimelineItemCard({ item, expanded, onToggle }: { item: TimelineItem; ex
               <Icon className="w-2 h-2" style={{ color: cfg.color }} />
               <span className="text-[8px] font-semibold uppercase tracking-[0.10em]" style={{ color: cfg.color }}>{cfg.label}</span>
             </div>
-            <p className="text-[11px] font-medium truncate" style={{ color: '#181D23' }}>{item.title}</p>
+            <p className="text-[11px] font-medium truncate" style={{ color: '#1A1035' }}>{item.title}</p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <p className="text-[9px]" style={{ color: '#96989B' }}>{fmtTime(item.timestamp)}</p>
@@ -207,7 +207,7 @@ function TimelineItemCard({ item, expanded, onToggle }: { item: TimelineItem; ex
           <div className="mt-2 flex flex-wrap gap-1.5">
             {Object.entries(item.metadata).map(([k, v]) => v !== null && (
               <span key={k} className="text-[8px] px-1.5 py-0.5 rounded-md"
-                style={{ backgroundColor: 'rgba(0,88,230,0.08)', color: '#5A6475', border: '1px solid #D4E2FF' }}>
+                style={{ backgroundColor: 'rgba(0,88,230,0.08)', color: '#5A6475', border: '1px solid #EBE5FF' }}>
                 {k.replace(/_/g, ' ')}: {String(v)}
               </span>
             ))}
@@ -238,7 +238,7 @@ function MessageBubble({ item }: { item: TimelineItem }) {
       className={`flex ${isOut ? 'justify-end' : 'justify-start'}`}>
       {!isOut && (
         <div className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold flex-shrink-0 mr-2 mt-1"
-          style={{ backgroundColor: '#D4E2FF', color: '#96989B' }}>P</div>
+          style={{ backgroundColor: '#EBE5FF', color: '#96989B' }}>P</div>
       )}
       <div style={{ maxWidth: '78%' }}>
         <div className={`flex items-center gap-1.5 mb-1 ${isOut ? 'justify-end' : 'justify-start'}`}>
@@ -250,8 +250,8 @@ function MessageBubble({ item }: { item: TimelineItem }) {
         <div className="px-3 py-2.5 rounded-2xl text-[11px] leading-relaxed"
           style={{
             backgroundColor: isOut ? 'rgba(0,88,230,0.08)' : '#FAF7F2',
-            color:           isOut ? '#181D23' : '#3D4451',
-            border:          `1px solid ${isOut ? '#A8C4FF' : '#D4E2FF'}`,
+            color:           isOut ? '#1A1035' : '#3D4451',
+            border:          `1px solid ${isOut ? '#C5BAF0' : '#EBE5FF'}`,
             borderBottomRightRadius: isOut ? '4px' : '16px',
             borderBottomLeftRadius:  isOut ? '16px' : '4px',
           }}>
@@ -266,13 +266,13 @@ function MessageBubble({ item }: { item: TimelineItem }) {
           {item.body}
         </div>
         <div className={`flex mt-1 ${isOut ? 'justify-end' : 'justify-start'}`}>
-          {isOut ? <ArrowUpRight className="w-2.5 h-2.5" style={{ color: '#A8C4FF' }} />
-                 : <ArrowDownLeft className="w-2.5 h-2.5" style={{ color: '#A8C4FF' }} />}
+          {isOut ? <ArrowUpRight className="w-2.5 h-2.5" style={{ color: '#C5BAF0' }} />
+                 : <ArrowDownLeft className="w-2.5 h-2.5" style={{ color: '#C5BAF0' }} />}
         </div>
       </div>
       {isOut && (
         <div className="w-5 h-5 rounded-full flex items-center justify-center text-[7px] font-bold flex-shrink-0 ml-2 mt-1"
-          style={{ backgroundColor: '#D4E2FF', color: '#5A6475' }}>EWC</div>
+          style={{ backgroundColor: '#EBE5FF', color: '#5A6475' }}>EWC</div>
       )}
     </motion.div>
   );
@@ -281,7 +281,7 @@ function MessageBubble({ item }: { item: TimelineItem }) {
 function EmptyState({ label }: { label: string }) {
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-3">
-      <MessageCircle className="w-10 h-10" style={{ color: '#A8C4FF' }} />
+      <MessageCircle className="w-10 h-10" style={{ color: '#C5BAF0' }} />
       <p className="text-[12px]" style={{ color: '#96989B' }}>{label}</p>
     </div>
   );
@@ -398,8 +398,8 @@ export default function BridgePage() {
       <StaffNav profile={profile ?? FALLBACK} userId={userId} brandColor={brandColor} currentPath="Bridge" />
 
       {/* ===== LEFT: PATIENT LIST ===== */}
-      <div className="w-[248px] flex-shrink-0 flex flex-col overflow-hidden" style={{ borderRight: '1px solid #D4E2FF' }}>
-        <div className="px-4 pt-5 pb-3" style={{ borderBottom: '1px solid #D4E2FF' }}>
+      <div className="w-[248px] flex-shrink-0 flex flex-col overflow-hidden" style={{ borderRight: '1px solid #EBE5FF' }}>
+        <div className="px-4 pt-5 pb-3" style={{ borderBottom: '1px solid #EBE5FF' }}>
           <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-3" style={{ color: '#96989B' }}>
             Patients
             {patients.length > 0 && <span className="ml-2 px-1.5 py-0.5 rounded-md text-[8px]" style={{ backgroundColor: 'rgba(0,88,230,0.08)', color: '#96989B' }}>{patients.length}</span>}
@@ -425,15 +425,15 @@ export default function BridgePage() {
       </div>
 
       {/* ===== CENTER: SECTION B — INTERACTION LOG ===== */}
-      <div className="flex-1 flex flex-col overflow-hidden" style={{ borderRight: '1px solid #D4E2FF' }}>
+      <div className="flex-1 flex flex-col overflow-hidden" style={{ borderRight: '1px solid #EBE5FF' }}>
 
         {/* Header */}
-        <div className="px-5 py-3.5 flex items-center justify-between flex-shrink-0" style={{ borderBottom: '1px solid #D4E2FF' }}>
+        <div className="px-5 py-3.5 flex items-center justify-between flex-shrink-0" style={{ borderBottom: '1px solid #EBE5FF' }}>
           <div className="flex items-center gap-3">
-            <div className="px-2 py-0.5 rounded-md" style={{ backgroundColor: 'rgba(0,88,230,0.08)', border: '1px solid #D4E2FF' }}>
+            <div className="px-2 py-0.5 rounded-md" style={{ backgroundColor: 'rgba(0,88,230,0.08)', border: '1px solid #EBE5FF' }}>
               <span className="text-[8px] uppercase tracking-[0.16em] font-semibold" style={{ color: '#96989B' }}>Section B</span>
             </div>
-            <span className="text-[13px] font-semibold" style={{ color: '#181D23' }}>Interaction Log</span>
+            <span className="text-[13px] font-semibold" style={{ color: '#1A1035' }}>Interaction Log</span>
             {selectedPatient && <span className="text-[13px]" style={{ color: '#96989B' }}>· {selectedPatient.full_name}</span>}
           </div>
           {selectedPatient && (
@@ -449,13 +449,13 @@ export default function BridgePage() {
 
         {/* Patient mini-card */}
         {selectedPatient && (
-          <div className="px-5 py-3 flex items-center gap-3 flex-shrink-0" style={{ borderBottom: '1px solid #D4E2FF', backgroundColor: `${selColor}05` }}>
+          <div className="px-5 py-3 flex items-center gap-3 flex-shrink-0" style={{ borderBottom: '1px solid #EBE5FF', backgroundColor: `${selColor}05` }}>
             <div className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
               style={{ backgroundColor: `${selColor}14`, color: selColor, border: `1px solid ${selColor}25` }}>
               {getInitials(selectedPatient.full_name)}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-semibold" style={{ color: '#181D23' }}>{selectedPatient.full_name}</p>
+              <p className="text-[13px] font-semibold" style={{ color: '#1A1035' }}>{selectedPatient.full_name}</p>
               <div className="flex items-center gap-3 mt-0.5">
                 {selectedPatient.phone && <span className="flex items-center gap-1 text-[10px]" style={{ color: '#5A6475' }}><Phone className="w-2.5 h-2.5" />{selectedPatient.phone}</span>}
                 {selectedPatient.email && <span className="flex items-center gap-1 text-[10px]" style={{ color: '#5A6475' }}><Mail className="w-2.5 h-2.5" />{selectedPatient.email}</span>}
@@ -470,14 +470,14 @@ export default function BridgePage() {
 
         {/* Filters */}
         {selectedPatient && (
-          <div className="px-5 py-2.5 flex items-center gap-1.5 overflow-x-auto flex-shrink-0" style={{ borderBottom: '1px solid #D4E2FF' }}>
+          <div className="px-5 py-2.5 flex items-center gap-1.5 overflow-x-auto flex-shrink-0" style={{ borderBottom: '1px solid #EBE5FF' }}>
             {(Object.keys(FILTER_MATCH) as TimelineFilter[]).map(f => (
               <button key={f} onClick={() => setTimelineFilter(f)}
                 className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-semibold uppercase tracking-[0.10em] transition-all whitespace-nowrap"
                 style={{
                   backgroundColor: timelineFilter === f ? 'rgba(0,88,230,0.12)' : 'transparent',
                   color:           timelineFilter === f ? '#0058E6' : '#96989B',
-                  border:          timelineFilter === f ? '1px solid #A8C4FF' : '1px solid transparent',
+                  border:          timelineFilter === f ? '1px solid #C5BAF0' : '1px solid transparent',
                 }}>
                 {f === 'all' ? 'All' : f}
                 {filterCounts[f] > 0 && <span className="px-1 rounded text-[7px]" style={{ backgroundColor: timelineFilter === f ? 'rgba(109,40,217,0.12)' : 'rgba(0,88,230,0.06)', color: timelineFilter === f ? '#0058E6' : '#96989B' }}>{filterCounts[f]}</span>}
@@ -499,9 +499,9 @@ export default function BridgePage() {
               {groupedTimeline.map(group => (
                 <div key={group.label}>
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="flex-1 h-px" style={{ backgroundColor: '#D4E2FF' }} />
+                    <div className="flex-1 h-px" style={{ backgroundColor: '#EBE5FF' }} />
                     <span className="text-[9px] uppercase tracking-[0.14em] font-medium px-2" style={{ color: '#96989B' }}>{group.label}</span>
-                    <div className="flex-1 h-px" style={{ backgroundColor: '#D4E2FF' }} />
+                    <div className="flex-1 h-px" style={{ backgroundColor: '#EBE5FF' }} />
                   </div>
                   <div className="space-y-3">
                     {group.items.map(item =>
@@ -520,11 +520,11 @@ export default function BridgePage() {
 
       {/* ===== RIGHT: SECTION A — OUTREACH ===== */}
       <div className="w-[308px] flex-shrink-0 flex flex-col overflow-hidden">
-        <div className="px-5 py-3.5 flex items-center gap-3 flex-shrink-0" style={{ borderBottom: '1px solid #D4E2FF' }}>
-          <div className="px-2 py-0.5 rounded-md" style={{ backgroundColor: 'rgba(0,88,230,0.08)', border: '1px solid #D4E2FF' }}>
+        <div className="px-5 py-3.5 flex items-center gap-3 flex-shrink-0" style={{ borderBottom: '1px solid #EBE5FF' }}>
+          <div className="px-2 py-0.5 rounded-md" style={{ backgroundColor: 'rgba(0,88,230,0.08)', border: '1px solid #EBE5FF' }}>
             <span className="text-[8px] uppercase tracking-[0.16em] font-semibold" style={{ color: '#96989B' }}>Section A</span>
           </div>
-          <span className="text-[13px] font-semibold" style={{ color: '#181D23' }}>Outreach</span>
+          <span className="text-[13px] font-semibold" style={{ color: '#1A1035' }}>Outreach</span>
         </div>
 
         {!selectedPatient ? (
@@ -535,13 +535,13 @@ export default function BridgePage() {
               {/* TO */}
               <div>
                 <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-2" style={{ color: '#96989B' }}>To</p>
-                <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl" style={{ border: '1px solid #D4E2FF', backgroundColor: 'transparent' }}>
+                <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl" style={{ border: '1px solid #EBE5FF', backgroundColor: 'transparent' }}>
                   <div className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
                     style={{ backgroundColor: `${selColor}14`, color: selColor }}>
                     {getInitials(selectedPatient.full_name)}
                   </div>
                   <div>
-                    <p className="text-[12px] font-medium" style={{ color: '#181D23' }}>{selectedPatient.full_name}</p>
+                    <p className="text-[12px] font-medium" style={{ color: '#1A1035' }}>{selectedPatient.full_name}</p>
                     <p className="text-[10px] mt-0.5" style={{ color: '#96989B' }}>{selectedPatient.phone ?? selectedPatient.email ?? 'No contact details'}</p>
                   </div>
                 </div>
@@ -557,7 +557,7 @@ export default function BridgePage() {
                       style={{
                         backgroundColor: compose.channel === ch ? 'rgba(0,88,230,0.10)' : 'transparent',
                         color:           compose.channel === ch ? '#0058E6' : '#96989B',
-                        border:          compose.channel === ch ? '1px solid #A8C4FF' : '1px solid #D4E2FF',
+                        border:          compose.channel === ch ? '1px solid #C5BAF0' : '1px solid #EBE5FF',
                         opacity:         ch === 'whatsapp' ? 0.4 : 1,
                         cursor:          ch === 'whatsapp' ? 'not-allowed' : 'pointer',
                       }}>
@@ -603,9 +603,9 @@ export default function BridgePage() {
               <div className="flex items-center gap-2">
                 <button onClick={handleAIDraft} disabled={drafting}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-semibold transition-all flex-1"
-                  style={{ backgroundColor: 'rgba(0,88,230,0.06)', border: '1px solid #D4E2FF', color: drafting ? '#96989B' : '#0058E6' }}
-                  onMouseEnter={e => { if (!drafting) (e.currentTarget as HTMLButtonElement).style.borderColor = '#A8C4FF'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#D4E2FF'; }}>
+                  style={{ backgroundColor: 'rgba(0,88,230,0.06)', border: '1px solid #EBE5FF', color: drafting ? '#96989B' : '#0058E6' }}
+                  onMouseEnter={e => { if (!drafting) (e.currentTarget as HTMLButtonElement).style.borderColor = '#C5BAF0'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#EBE5FF'; }}>
                   {drafting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
                   {drafting ? 'Drafting…' : 'AI Draft'}
                 </button>
@@ -613,7 +613,7 @@ export default function BridgePage() {
                   className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[10px] font-bold transition-all"
                   style={{
                     backgroundColor: sendSuccess ? 'rgba(5,150,105,0.10)' : (compose.body.trim() ? 'rgba(0,88,230,0.10)' : 'transparent'),
-                    border:          sendSuccess ? '1px solid rgba(5,150,105,0.30)' : (compose.body.trim() ? '1px solid #A8C4FF' : '1px solid #D4E2FF'),
+                    border:          sendSuccess ? '1px solid rgba(5,150,105,0.30)' : (compose.body.trim() ? '1px solid #C5BAF0' : '1px solid #EBE5FF'),
                     color:           sendSuccess ? '#059669' : (compose.body.trim() ? '#0058E6' : '#96989B'),
                     cursor:          !compose.body.trim() ? 'not-allowed' : 'pointer',
                   }}>
@@ -625,7 +625,7 @@ export default function BridgePage() {
                 </button>
               </div>
 
-              <div className="h-px" style={{ backgroundColor: '#D4E2FF' }} />
+              <div className="h-px" style={{ backgroundColor: '#EBE5FF' }} />
 
               {/* RECENTLY SENT */}
               {timeline.filter(i => ['sms_out', 'email_out'].includes(i.source)).length > 0 && (
@@ -633,7 +633,7 @@ export default function BridgePage() {
                   <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-3" style={{ color: '#96989B' }}>Recently Sent</p>
                   <div className="space-y-2">
                     {timeline.filter(i => ['sms_out', 'email_out'].includes(i.source)).slice(0, 4).map(item => (
-                      <div key={item.id} className="px-3 py-2.5 rounded-xl" style={{ border: '1px solid #D4E2FF', backgroundColor: 'transparent' }}>
+                      <div key={item.id} className="px-3 py-2.5 rounded-xl" style={{ border: '1px solid #EBE5FF', backgroundColor: 'transparent' }}>
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center gap-1.5">
                             {item.source === 'email_out' ? <Mail className="w-2.5 h-2.5" style={{ color: '#96989B' }} /> : <MessageSquare className="w-2.5 h-2.5" style={{ color: '#96989B' }} />}

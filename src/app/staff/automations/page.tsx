@@ -161,7 +161,7 @@ function AutomationCard({ automation, onToggle, onRunNow }: {
                 >
                   <motion.div
                     className="absolute top-0.5 w-4 h-4 rounded-full"
-                    style={{ backgroundColor: automation.is_active ? '#181D23' : '#5A6475' }}
+                    style={{ backgroundColor: automation.is_active ? '#1A1035' : '#5A6475' }}
                     animate={{ x: automation.is_active ? 20 : 2 }}
                     transition={{ type: 'spring', stiffness: 500, damping: 35 }}
                   />
@@ -313,8 +313,8 @@ function AriaCommandPanel({ aiName, onClose }: { aiName: string; onClose: () => 
                 className="max-w-[88%] px-3.5 py-2.5 rounded-xl text-[13px] leading-relaxed"
                 style={
                   msg.role === 'user'
-                    ? { backgroundColor: '#F5F2EB', color: '#181D23', border: '1px solid #A8C4FF' }
-                    : { backgroundColor: 'transparent', color: '#3D4451', border: '1px solid #D4E2FF' }
+                    ? { backgroundColor: '#F5F2EB', color: '#1A1035', border: '1px solid #C5BAF0' }
+                    : { backgroundColor: 'transparent', color: '#3D4451', border: '1px solid #EBE5FF' }
                 }
               >
                 {msg.text}
@@ -550,8 +550,8 @@ export default function AutomationsPage() {
                 onClick={() => setTab(t.key)}
                 className="flex items-center gap-2 px-4 py-2.5 text-[13px] transition-colors border-b-2 -mb-px"
                 style={{
-                  borderBottomColor: tab === t.key ? '#181D23' : 'transparent',
-                  color: tab === t.key ? '#181D23' : '#5A6475',
+                  borderBottomColor: tab === t.key ? '#1A1035' : 'transparent',
+                  color: tab === t.key ? '#1A1035' : '#5A6475',
                   fontWeight: tab === t.key ? 500 : 400,
                 }}
               >

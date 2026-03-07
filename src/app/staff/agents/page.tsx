@@ -301,7 +301,7 @@ function AutomationCard({ automation, onToggle, onRunNow }: {
                 <button
                   onClick={() => onToggle(automation.id, automation.is_active)}
                   className="relative w-9 h-5 rounded-full transition-colors flex-shrink-0"
-                  style={{ backgroundColor: automation.is_active ? '#181D23' : '#E8E2D6' }}
+                  style={{ backgroundColor: automation.is_active ? '#1A1035' : '#E8E2D6' }}
                 >
                   <motion.div
                     className="absolute top-0.5 w-4 h-4 rounded-full bg-white"

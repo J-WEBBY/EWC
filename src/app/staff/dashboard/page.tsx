@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   CheckCircle2, XCircle, Activity, ArrowRight,
   TrendingUp, TrendingDown, RefreshCw, BarChart2,
-  Zap, ShieldCheck, Link2, BookOpen,
+  Zap, ShieldCheck, Link2, BookOpen, Bell,
   type LucideIcon,
 } from 'lucide-react';
 import {
@@ -113,7 +113,7 @@ const AGENT_DEFS = [
 function SectionLabel({ label, right }: { label: string; right?: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between py-4"
-      style={{ borderBottom: '1px solid #D4E2FF' }}>
+      style={{ borderBottom: '1px solid #EBE5FF' }}>
       <span className="text-[8px] uppercase tracking-[0.32em] font-semibold text-[#96989B]">{label}</span>
       {right}
     </div>
@@ -144,7 +144,7 @@ function AgentRow({
       onClick={onClick}
       className="relative flex items-center gap-8 px-6 py-5 cursor-pointer overflow-hidden"
       style={{
-        borderBottom: last ? 'none' : '1px solid #D4E2FF',
+        borderBottom: last ? 'none' : '1px solid #EBE5FF',
         transition: 'background 0.25s',
         background: hov ? `${agent.color}0c` : 'transparent',
       }}
@@ -242,7 +242,7 @@ function MetricCell({
       onMouseLeave={() => setHov(false)}
       className="relative text-left px-7 py-6 flex flex-col gap-0 overflow-hidden transition-all duration-250 w-full"
       style={{
-        borderRight: last ? 'none' : '1px solid #D4E2FF',
+        borderRight: last ? 'none' : '1px solid #EBE5FF',
         background: hov ? `${color}0d` : 'transparent',
       }}
     >
@@ -303,16 +303,16 @@ function MetricCell({
 // =============================================================================
 
 const PRIO_COLOR: Record<string, string> = {
-  critical: '#f87171',   // red-400
-  high:     '#fb923c',   // orange-400
-  medium:   '#fbbf24',   // amber-400
-  low:      '#94a3b8',   // slate-400
+  critical: '#DC2626',
+  high:     '#DC2626',
+  medium:   '#EA580C',
+  low:      '#8B84A0',
 };
 
 const PRIO_BG: Record<string, string> = {
-  critical: 'rgba(248,113,113,0.07)',
-  high:     'rgba(251,146,60,0.05)',
-  medium:   'rgba(251,191,36,0.04)',
+  critical: 'rgba(220,38,38,0.06)',
+  high:     'rgba(220,38,38,0.04)',
+  medium:   'rgba(234,88,12,0.04)',
   low:      'transparent',
 };
 
@@ -370,7 +370,7 @@ function PendingCard({ signal, onApprove, onReject }: {
             key={action}
             onClick={() => handle(action)} disabled={busy !== null}
             className="w-7 h-7 rounded-lg flex items-center justify-center transition-all disabled:opacity-20"
-            style={{ background: 'rgba(0,0,0,0.02)', border: '1px solid #D4E2FF' }}
+            style={{ background: 'rgba(0,0,0,0.02)', border: '1px solid #EBE5FF' }}
             onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.07)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.03)')}
           >
@@ -398,7 +398,7 @@ function SignalRow({ signal, last }: { signal: SignalEntry; last?: boolean }) {
       onMouseLeave={() => setHov(false)}
       className="flex items-start gap-3 py-3 rounded-lg px-2 -mx-2 transition-all duration-150"
       style={{
-        borderBottom: last ? 'none' : '1px solid #D4E2FF',
+        borderBottom: last ? 'none' : '1px solid #EBE5FF',
         background: hov ? bg || 'rgba(0,0,0,0.02)' : 'transparent',
       }}
     >
@@ -443,13 +443,13 @@ function ConnectRow({
       className="flex items-center gap-3.5 w-full px-4 py-3.5 transition-all duration-200"
       style={{
         background: hov ? 'rgba(0,0,0,0.02)' : 'transparent',
-        borderBottom: '1px solid #D4E2FF',
+        borderBottom: '1px solid #EBE5FF',
       }}
     >
       <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-all duration-200"
         style={{
           background: hov ? '#96989B' : 'rgba(0,0,0,0.04)',
-          border: '1px solid #D4E2FF',
+          border: '1px solid #EBE5FF',
         }}>
         <Icon size={12} style={{ color: hov ? '#181D23' : '#5A6475' }} />
       </div>
@@ -461,7 +461,7 @@ function ConnectRow({
       </div>
       {badge && (
         <span className="text-[9px] px-1.5 py-0.5 rounded-full text-[#5A6475] flex-shrink-0"
-          style={{ background: 'rgba(0,0,0,0.02)', border: '1px solid #A8C4FF' }}>
+          style={{ background: 'rgba(0,0,0,0.02)', border: '1px solid #C5BAF0' }}>
           {badge}
         </span>
       )}
@@ -489,7 +489,7 @@ function SparkCard({
 
   return (
     <div className="px-5 py-4"
-      style={{ borderRight: borderRight ? '1px solid #D4E2FF' : 'none' }}>
+      style={{ borderRight: borderRight ? '1px solid #EBE5FF' : 'none' }}>
       <p className="text-[8px] uppercase tracking-[0.24em] mb-2"
         style={{ color: color ? color + 'bb' : '#96989B' }}>
         {label}
@@ -523,7 +523,7 @@ function Panel({ children, className = '' }: { children: React.ReactNode; classN
   return (
     <div
       className={`rounded-2xl overflow-hidden ${className}`}
-      style={{ background: 'transparent', border: '1px solid #D4E2FF' }}
+      style={{ background: 'transparent', border: '1px solid #EBE5FF' }}
     >
       {children}
     </div>
@@ -533,7 +533,7 @@ function Panel({ children, className = '' }: { children: React.ReactNode; classN
 function PanelHeader({ title, action, onAction }: { title: string; action?: string; onAction?: () => void }) {
   return (
     <div className="flex items-center justify-between px-5 py-3.5"
-      style={{ borderBottom: '1px solid #D4E2FF' }}>
+      style={{ borderBottom: '1px solid #EBE5FF' }}>
       <span className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#96989B]">{title}</span>
       {action && (
         <button onClick={onAction}
@@ -630,7 +630,7 @@ export default function DashboardPage() {
 
   if (loading || !profile) {
     return (
-      <div className="min-h-screen nav-offset bg-[#F8FAFF] flex items-center justify-center">
+      <div className="min-h-screen nav-offset bg-[#FAF7F2] flex items-center justify-center">
         <motion.div
           animate={{ scale: [0.8, 1.2, 0.8], opacity: [0.2, 0.6, 0.2] }}
           transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
@@ -643,10 +643,10 @@ export default function DashboardPage() {
   const totalSignals = stats?.total_active ?? 47;
 
   const CLINIC_METRICS = [
-    { label: 'Active Patients', value: '284',                detail: 'registered this month',    seed: 1001, up: true,  change: '+8%',  color: '#60a5fa' },
-    { label: 'Total Signals',   value: String(totalSignals), detail: 'active across the system', seed: 2002, up: true,  change: '+17%', color: '#fbbf24' },
-    { label: 'Appointments',    value: '63',                 detail: 'booked this week',          seed: 3003, up: true,  change: '+5%',  color: '#34d399' },
-    { label: 'Retention Rate',  value: '78%',                detail: 'returning patients',        seed: 4004, up: false, change: '−2%', color: '#f472b6' },
+    { label: 'Active Patients', value: '284',                detail: 'registered this month',    seed: 1001, up: true,  change: '+8%',  color: '#0058E6' },
+    { label: 'Total Signals',   value: String(totalSignals), detail: 'active across the system', seed: 2002, up: true,  change: '+17%', color: '#7C3AED' },
+    { label: 'Appointments',    value: '63',                 detail: 'booked this week',          seed: 3003, up: true,  change: '+5%',  color: '#00A693' },
+    { label: 'Retention Rate',  value: '78%',                detail: 'returning patients',        seed: 4004, up: false, change: '−2%', color: '#D8A600' },
   ];
 
   return (
@@ -671,7 +671,7 @@ export default function DashboardPage() {
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}
             className="flex items-center justify-between px-10 py-8"
-            style={{ borderBottom: '1px solid #D4E2FF' }}
+            style={{ borderBottom: '1px solid #EBE5FF' }}
           >
             {/* Left */}
             <div>
@@ -681,12 +681,12 @@ export default function DashboardPage() {
                     animate={{ scale: [1, 2.2, 1], opacity: [0.4, 0, 0.4] }}
                     transition={{ duration: 2.5, repeat: Infinity }}
                     className="absolute inset-0 rounded-full"
-                    style={{ background: '#22c55e' }}
+                    style={{ background: '#059669' }}
                   />
-                  <div className="w-full h-full rounded-full" style={{ background: '#22c55e' }} />
+                  <div className="w-full h-full rounded-full" style={{ background: '#059669' }} />
                 </div>
                 <span className="text-[8px] uppercase tracking-[0.30em] font-semibold"
-                  style={{ color: '#22c55ecc' }}>
+                  style={{ color: '#059669cc' }}>
                   All systems live
                 </span>
                 <span className="text-[#96989B]">·</span>
@@ -700,7 +700,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Right */}
-            <div className="flex items-center gap-6 text-right">
+            <div className="flex items-center gap-4 text-right">
               <div>
                 <p className="text-[8px] uppercase tracking-[0.28em] text-[#96989B] mb-1">Today</p>
                 <p className="text-[13px] font-semibold text-[#3D4451]">{formatDate()}</p>
@@ -708,13 +708,29 @@ export default function DashboardPage() {
                   {profile.departmentName || 'Management'}
                 </p>
               </div>
+              {/* Notification bell */}
+              <button
+                onClick={() => router.push(`/staff/signals?userId=${userId}`)}
+                className="relative w-9 h-9 rounded-xl flex items-center justify-center transition-all"
+                style={{ background: 'transparent', border: '1px solid #EBE5FF' }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.04)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              >
+                <Bell size={14} className="text-[#5A6475]" />
+                {(stats?.pending_approval_count ?? 0) > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-[8px] font-bold flex items-center justify-center"
+                    style={{ background: '#DC2626', color: '#FAF7F2' }}>
+                    {Math.min(stats!.pending_approval_count!, 9)}
+                  </span>
+                )}
+              </button>
               <button
                 onClick={() => userId && loadData(userId, true)}
                 disabled={refreshing}
                 className="w-9 h-9 rounded-xl flex items-center justify-center transition-all"
-                style={{ background: 'rgba(0,0,0,0.02)', border: '1px solid #D4E2FF' }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.06)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.03)')}
+                style={{ background: 'transparent', border: '1px solid #EBE5FF' }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.04)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
               >
                 <RefreshCw size={13} className={`text-[#5A6475] ${refreshing ? 'animate-spin' : ''}`} />
               </button>
@@ -727,12 +743,12 @@ export default function DashboardPage() {
           <motion.div
             initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.08, duration: 0.45 }}
-            style={{ borderBottom: '1px solid #D4E2FF' }}
+            style={{ borderBottom: '1px solid #EBE5FF' }}
           >
             <div className="px-4">
               <SectionLabel label="Clinic Overview" right={
                 <span className="text-[8px] uppercase tracking-[0.22em] text-[#96989B] px-2 py-0.5 rounded"
-                  style={{ border: '1px solid #D4E2FF' }}>Simulated</span>
+                  style={{ border: '1px solid #EBE5FF' }}>Simulated</span>
               } />
             </div>
             <div className="grid grid-cols-4">
@@ -756,7 +772,7 @@ export default function DashboardPage() {
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }}
             transition={{ delay: 0.18, duration: 0.4 }}
-            style={{ borderBottom: '1px solid #D4E2FF' }}
+            style={{ borderBottom: '1px solid #EBE5FF' }}
           >
             <div className="px-4">
               <SectionLabel label="Intelligence Layer" right={
@@ -801,7 +817,7 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-2.5 mb-3">
                     <span className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#96989B]">Pending Approval</span>
                     <span className="text-[10px] font-bold text-[#3D4451] px-1.5 py-0.5 rounded-full"
-                      style={{ background: 'rgba(0,0,0,0.02)', border: '1px solid #A8C4FF' }}>
+                      style={{ background: 'rgba(0,0,0,0.02)', border: '1px solid #C5BAF0' }}>
                       {pending.length}
                     </span>
                   </div>
@@ -827,7 +843,7 @@ export default function DashboardPage() {
                     {feed.length === 0 ? (
                       <div className="py-12 flex flex-col items-center gap-3">
                         <div className="w-10 h-10 rounded-2xl flex items-center justify-center"
-                          style={{ background: 'rgba(0,0,0,0.02)', border: '1px solid #D4E2FF' }}>
+                          style={{ background: 'rgba(0,0,0,0.02)', border: '1px solid #EBE5FF' }}>
                           <Activity size={16} className="text-[#5A6475]" />
                         </div>
                         <p className="text-[12px] text-[#5A6475]">No active signals</p>
@@ -904,19 +920,19 @@ export default function DashboardPage() {
                 />
                 <div className="grid grid-cols-3">
                   {[
-                    { label: 'Signal Resolution', value: '82%',  detail: 'this month',          seed: 9001, color: '#a78bfa' },
-                    { label: 'Automation Rate',   value: '67%',  detail: 'signals auto-handled', seed: 9002, color: '#34d399' },
-                    { label: 'Avg Response Time', value: '2.8h', detail: 'signal to action',     seed: 9003, color: '#60a5fa' },
+                    { label: 'Signal Resolution', value: '82%',  detail: 'this month',          seed: 9001, color: '#7C3AED' },
+                    { label: 'Automation Rate',   value: '67%',  detail: 'signals auto-handled', seed: 9002, color: '#00A693' },
+                    { label: 'Avg Response Time', value: '2.8h', detail: 'signal to action',     seed: 9003, color: '#0058E6' },
                   ].map((s, i) => (
                     <SparkCard key={s.label} {...s} borderRight={i < 2} />
                   ))}
                 </div>
                 <div className="px-5 py-3 flex items-center gap-2"
-                  style={{ borderTop: '1px solid #D4E2FF' }}>
+                  style={{ borderTop: '1px solid #EBE5FF' }}>
                   <button
                     onClick={() => router.push(`/staff/analytics?userId=${userId}&action=report`)}
                     className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[11px] font-semibold text-[#3D4451] hover:text-[#181D23] transition-all"
-                    style={{ background: 'rgba(0,0,0,0.02)', border: '1px solid #D4E2FF' }}
+                    style={{ background: 'rgba(0,0,0,0.02)', border: '1px solid #EBE5FF' }}
                     onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.07)')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.04)')}
                   >

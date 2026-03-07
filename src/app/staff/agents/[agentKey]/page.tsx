@@ -1078,7 +1078,7 @@ export default function AgentChatPage() {
                       className="w-full text-[13px] px-4 py-3 rounded-xl border border-[#D4E2FF] bg-[#F8FAFF] text-[#181D23] placeholder:text-[#96989B] outline-none mb-4 transition-all"
                       style={{ '--tw-ring-color': color } as React.CSSProperties}
                       onFocus={e => (e.currentTarget.style.borderColor = `${color}50`)}
-                      onBlur={e => (e.currentTarget.style.borderColor = '#D4E2FF')}
+                      onBlur={e => (e.currentTarget.style.borderColor = '#EBE5FF')}
                     />
 
                     <div className="flex items-center justify-between">

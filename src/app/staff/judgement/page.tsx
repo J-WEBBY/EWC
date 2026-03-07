@@ -35,7 +35,7 @@ const RISK_COLORS: Record<RiskLevel, { bg: string; border: string; text: string;
   high:     { bg: 'rgba(217,119,6,0.07)',  border: 'rgba(217,119,6,0.25)',  text: '#D8A600', dot: '#D8A600' },
   medium:   { bg: 'rgba(37,99,235,0.06)',  border: 'rgba(37,99,235,0.20)',  text: '#2563EB', dot: '#2563EB' },
   low:      { bg: 'rgba(5,150,105,0.06)',  border: 'rgba(5,150,105,0.20)', text: '#059669', dot: '#059669' },
-  clear:    { bg: 'rgba(0,88,230,0.05)', border: '#D4E2FF',             text: '#0058E6', dot: '#0058E6' },
+  clear:    { bg: 'rgba(0,88,230,0.05)', border: '#EBE5FF',             text: '#0058E6', dot: '#0058E6' },
 };
 
 const CATEGORY_META: Record<RiskCategory, { label: string; icon: string; color: string }> = {
@@ -47,9 +47,9 @@ const CATEGORY_META: Record<RiskCategory, { label: string; icon: string; color: 
 
 const REDLINE_STATUS_STYLE: Record<RedlineRule['status'], { bg: string; border: string; text: string; label: string }> = {
   triggered:  { bg: 'rgba(220,38,38,0.08)',  border: 'rgba(220,38,38,0.25)',  text: '#DC2626', label: 'Triggered' },
-  active:     { bg: 'rgba(0,88,230,0.06)', border: '#D4E2FF',              text: '#0058E6', label: 'Monitoring' },
+  active:     { bg: 'rgba(0,88,230,0.06)', border: '#EBE5FF',              text: '#0058E6', label: 'Monitoring' },
   resolved:   { bg: 'rgba(5,150,105,0.06)',  border: 'rgba(5,150,105,0.20)', text: '#059669', label: 'Resolved' },
-  suppressed: { bg: 'rgba(110,102,136,0.06)', border: '#D4E2FF',             text: '#96989B', label: 'Suppressed' },
+  suppressed: { bg: 'rgba(110,102,136,0.06)', border: '#EBE5FF',             text: '#96989B', label: 'Suppressed' },
 };
 
 const FALLBACK: StaffProfile = {
@@ -87,7 +87,7 @@ function RiskGauge({ score, level }: { score: number; level: RiskLevel }) {
 
   return (
     <svg width={130} height={130} viewBox="0 0 130 130">
-      <circle cx={65} cy={65} r={r} fill="none" stroke="#D4E2FF" strokeWidth={10} />
+      <circle cx={65} cy={65} r={r} fill="none" stroke="#EBE5FF" strokeWidth={10} />
       <circle
         cx={65} cy={65} r={r} fill="none"
         stroke={color} strokeWidth={10}
@@ -148,7 +148,7 @@ function CategoryCard({ score }: { score: import('@/lib/actions/judgement').Risk
 
   return (
     <div style={{
-      border: '1px solid #D4E2FF',
+      border: '1px solid #EBE5FF',
       borderRadius: 16,
       padding: '16px 20px',
       background: 'transparent',
@@ -224,7 +224,7 @@ function RedlineRow({
       layout
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      style={{ borderBottom: '1px solid #D4E2FF' }}
+      style={{ borderBottom: '1px solid #EBE5FF' }}
     >
       {/* Header row */}
       <div
@@ -267,7 +267,7 @@ function RedlineRow({
           disabled={toggling}
           style={{
             width: 36, height: 20, borderRadius: 10, border: 'none', cursor: 'pointer',
-            background: rule.enabled ? ACCENT : '#A8C4FF',
+            background: rule.enabled ? ACCENT : '#C5BAF0',
             position: 'relative', transition: 'background 0.2s', flexShrink: 0,
             opacity: toggling ? 0.5 : 1,
           }}
@@ -313,7 +313,7 @@ function RedlineRow({
                   </div>
                 )}
               </div>
-              <div style={{ background: 'rgba(0,88,230,0.05)', border: '1px solid #D4E2FF', borderRadius: 8, padding: '8px 12px' }}>
+              <div style={{ background: 'rgba(0,88,230,0.05)', border: '1px solid #EBE5FF', borderRadius: 8, padding: '8px 12px' }}>
                 <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.2em', color: '#96989B' }}>Trigger Condition</span>
                 <p style={{ fontFamily: 'monospace', fontSize: 11, color: '#3D4451', marginTop: 4 }}>{rule.trigger_condition}</p>
               </div>
@@ -334,7 +334,7 @@ function VerdictRow({ verdict }: { verdict: JudgementVerdict }) {
   const rc = RISK_COLORS[verdict.overall_level];
 
   return (
-    <motion.div layout style={{ borderBottom: '1px solid #D4E2FF' }}>
+    <motion.div layout style={{ borderBottom: '1px solid #EBE5FF' }}>
       <div
         style={{ padding: '12px 0', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}
         onClick={() => setExpanded(e => !e)}
@@ -456,7 +456,7 @@ export default function JudgementEnginePage() {
     return (
       <div style={{ minHeight: '100vh', backgroundColor: '#F8FAFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ width: 32, height: 32, border: '2px solid #D4E2FF', borderTopColor: ACCENT, borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
+          <div style={{ width: 32, height: 32, border: '2px solid #EBE5FF', borderTopColor: ACCENT, borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
           <p style={{ fontSize: 12, color: '#96989B' }}>Running assessment…</p>
         </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
@@ -475,7 +475,7 @@ export default function JudgementEnginePage() {
 
       <main style={{ paddingLeft: 'var(--nav-w, 240px)', minHeight: '100vh' }}>
         {/* ── Header ── */}
-        <div style={{ padding: '40px 40px 0', borderBottom: '1px solid #D4E2FF' }}>
+        <div style={{ padding: '40px 40px 0', borderBottom: '1px solid #EBE5FF' }}>
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', paddingBottom: 24 }}>
             <div>
               <p style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.28em', color: '#96989B', marginBottom: 6 }}>
@@ -560,7 +560,7 @@ export default function JudgementEnginePage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
                   {/* Gauge + meta */}
-                  <div style={{ border: '1px solid #D4E2FF', borderRadius: 20, padding: '28px 28px', display: 'flex', gap: 24, alignItems: 'center' }}>
+                  <div style={{ border: '1px solid #EBE5FF', borderRadius: 20, padding: '28px 28px', display: 'flex', gap: 24, alignItems: 'center' }}>
                     <RiskGauge score={today.overall_score} level={today.overall_level} />
                     <div style={{ flex: 1 }}>
                       <p style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.28em', color: '#96989B', marginBottom: 6 }}>
@@ -585,7 +585,7 @@ export default function JudgementEnginePage() {
                   </div>
 
                   {/* AI Brief */}
-                  <div style={{ border: '1px solid #D4E2FF', borderRadius: 20, padding: '24px 28px' }}>
+                  <div style={{ border: '1px solid #EBE5FF', borderRadius: 20, padding: '24px 28px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                       <div style={{ width: 24, height: 24, borderRadius: 6, background: `${accentColor}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <svg width={12} height={12} viewBox="0 0 12 12" fill="none">
@@ -600,7 +600,7 @@ export default function JudgementEnginePage() {
                   </div>
 
                   {/* Key risks */}
-                  <div style={{ border: '1px solid #D4E2FF', borderRadius: 20, padding: '24px 28px' }}>
+                  <div style={{ border: '1px solid #EBE5FF', borderRadius: 20, padding: '24px 28px' }}>
                     <p style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.28em', color: '#96989B', marginBottom: 14 }}>Key Risks</p>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       {today.key_risks.map((risk, i) => (
@@ -627,13 +627,13 @@ export default function JudgementEnginePage() {
                   </div>
 
                   {/* Recommendations */}
-                  <div style={{ border: '1px solid #D4E2FF', borderRadius: 20, padding: '24px 28px' }}>
+                  <div style={{ border: '1px solid #EBE5FF', borderRadius: 20, padding: '24px 28px' }}>
                     <p style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.28em', color: '#96989B', marginBottom: 14 }}>Recommendations</p>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                       {today.recommendations.map((rec, i) => (
                         <div key={i} style={{
                           display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 14px',
-                          background: `${accentColor}06`, border: '1px solid #D4E2FF', borderRadius: 10,
+                          background: `${accentColor}06`, border: '1px solid #EBE5FF', borderRadius: 10,
                         }}>
                           <span style={{ fontSize: 10, fontWeight: 900, color: accentColor, flexShrink: 0, marginTop: 1 }}>{i + 1}</span>
                           <span style={{ fontSize: 12, color: '#3D4451', lineHeight: 1.5 }}>{rec}</span>
@@ -644,7 +644,7 @@ export default function JudgementEnginePage() {
 
                   {/* Score history sparkline */}
                   {history.length > 0 && (
-                    <div style={{ border: '1px solid #D4E2FF', borderRadius: 20, padding: '24px 28px' }}>
+                    <div style={{ border: '1px solid #EBE5FF', borderRadius: 20, padding: '24px 28px' }}>
                       <p style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.28em', color: '#96989B', marginBottom: 12 }}>7-Day Risk Trend</p>
                       <ScoreSparkline history={[today, ...history.slice(0, 6)]} />
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
@@ -720,7 +720,7 @@ export default function JudgementEnginePage() {
                   )}
 
                   {/* What are redlines */}
-                  <div style={{ border: '1px solid #D4E2FF', borderRadius: 16, padding: '20px 20px' }}>
+                  <div style={{ border: '1px solid #EBE5FF', borderRadius: 16, padding: '20px 20px' }}>
                     <p style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.2em', color: '#96989B', marginBottom: 10 }}>
                       What are Redlines?
                     </p>
@@ -733,7 +733,7 @@ export default function JudgementEnginePage() {
                   </div>
 
                   {/* Stats */}
-                  <div style={{ border: '1px solid #D4E2FF', borderRadius: 16, padding: '20px 20px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                  <div style={{ border: '1px solid #EBE5FF', borderRadius: 16, padding: '20px 20px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                     {[
                       { label: 'Total Rules', value: redlines.length },
                       { label: 'Enabled', value: redlines.filter(r => r.enabled).length },
@@ -772,7 +772,7 @@ export default function JudgementEnginePage() {
                 {/* Right: trend summary */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                   {today && (
-                    <div style={{ border: '1px solid #D4E2FF', borderRadius: 16, padding: '20px 20px' }}>
+                    <div style={{ border: '1px solid #EBE5FF', borderRadius: 16, padding: '20px 20px' }}>
                       <p style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.2em', color: '#96989B', marginBottom: 12 }}>7-Day Trend</p>
                       <ScoreSparkline history={[today, ...history.slice(0, 6)]} />
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
@@ -782,7 +782,7 @@ export default function JudgementEnginePage() {
                     </div>
                   )}
 
-                  <div style={{ border: '1px solid #D4E2FF', borderRadius: 16, padding: '20px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <div style={{ border: '1px solid #EBE5FF', borderRadius: 16, padding: '20px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
                     <p style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.2em', color: '#96989B' }}>7-Day Averages</p>
                     {today && (() => {
                       const all = [today, ...history.slice(0, 6)];

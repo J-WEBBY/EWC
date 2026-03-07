@@ -64,7 +64,7 @@ function StockBar({ current, reorder, max }: { current: number; reorder: number;
   return (
     <div style={{ position: 'relative', height: 4, background: 'rgba(0,88,230,0.08)', borderRadius: 2, width: '100%' }}>
       <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: `${pct}%`, background: color, borderRadius: 2 }} />
-      <div style={{ position: 'absolute', top: -3, bottom: -3, left: `${reorderPct}%`, width: 1, background: '#A8C4FF' }} />
+      <div style={{ position: 'absolute', top: -3, bottom: -3, left: `${reorderPct}%`, width: 1, background: '#C5BAF0' }} />
     </div>
   );
 }
@@ -85,7 +85,7 @@ function ConsumableRow({ item, tenantId, onUpdate }: { item: ConsumableItem; ten
   }
 
   return (
-    <motion.div layout initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} style={{ borderBottom: '1px solid #D4E2FF', padding: '14px 0' }}>
+    <motion.div layout initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} style={{ borderBottom: '1px solid #EBE5FF', padding: '14px 0' }}>
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 160px 1fr 80px', gap: 12, alignItems: 'center' }}>
         <div>
           <p style={{ fontSize: 12, fontWeight: 700, color: '#181D23', margin: 0 }}>{item.name}</p>
@@ -98,11 +98,11 @@ function ConsumableRow({ item, tenantId, onUpdate }: { item: ConsumableItem; ten
           {editing ? (
             <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
               <input type="number" value={newStock} onChange={e => setNewStock(Math.max(0, parseInt(e.target.value) || 0))}
-                style={{ width: 56, padding: '4px 8px', borderRadius: 6, border: '1px solid #D4E2FF', fontSize: 12, color: '#181D23', outline: 'none' }} />
+                style={{ width: 56, padding: '4px 8px', borderRadius: 6, border: '1px solid #EBE5FF', fontSize: 12, color: '#181D23', outline: 'none' }} />
               <button onClick={handleSave} disabled={saving} style={{ padding: '4px 8px', borderRadius: 6, background: ACCENT, color: '#fff', border: 'none', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>
                 {saving ? '...' : 'Save'}
               </button>
-              <button onClick={() => setEditing(false)} style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #D4E2FF', background: 'transparent', color: '#96989B', fontSize: 10, cursor: 'pointer' }}>x</button>
+              <button onClick={() => setEditing(false)} style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #EBE5FF', background: 'transparent', color: '#96989B', fontSize: 10, cursor: 'pointer' }}>x</button>
             </div>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -145,7 +145,7 @@ function EquipmentRow({ item, tenantId, onService }: { item: EquipmentItem; tena
   }
 
   return (
-    <motion.div layout initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} style={{ borderBottom: '1px solid #D4E2FF', padding: '14px 0' }}>
+    <motion.div layout initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} style={{ borderBottom: '1px solid #EBE5FF', padding: '14px 0' }}>
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 120px', gap: 12, alignItems: 'center' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -253,7 +253,7 @@ export default function InventoryPage() {
 
   if (loading) return (
     <div style={{ minHeight: '100vh', backgroundColor: '#F8FAFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 32, height: 32, border: '2px solid #D4E2FF', borderTopColor: ACCENT, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+      <div style={{ width: 32, height: 32, border: '2px solid #EBE5FF', borderTopColor: ACCENT, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
@@ -262,7 +262,7 @@ export default function InventoryPage() {
     <div style={{ minHeight: '100vh', backgroundColor: '#F8FAFF' }}>
       {profile && <StaffNav profile={profile} userId={userId} brandColor={accentColor} currentPath="Inventory" />}
       <main style={{ paddingLeft: 'var(--nav-w, 240px)', minHeight: '100vh' }}>
-        <div style={{ padding: '40px 40px 0', borderBottom: '1px solid #D4E2FF' }}>
+        <div style={{ padding: '40px 40px 0', borderBottom: '1px solid #EBE5FF' }}>
           <div style={{ paddingBottom: 24 }}>
             <p style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.28em', color: '#96989B', marginBottom: 6 }}>Operations</p>
             <h1 style={{ fontSize: 38, fontWeight: 900, letterSpacing: '-0.035em', color: '#181D23', lineHeight: 1 }}>Inventory & Equipment</h1>
@@ -289,7 +289,7 @@ export default function InventoryPage() {
         </div>
 
         {stats && (
-          <div style={{ display: 'flex', borderBottom: '1px solid #D4E2FF' }}>
+          <div style={{ display: 'flex', borderBottom: '1px solid #EBE5FF' }}>
             {[
               { label: 'Low Stock',      value: stats.low_stock_count,           color: '#D8A600' },
               { label: 'Critical',       value: stats.critical_stock_count,       color: '#DC2626' },
@@ -297,7 +297,7 @@ export default function InventoryPage() {
               { label: 'Due Service',    value: stats.equipment_due_service,      color: '#D8A600' },
               { label: 'Est Reorder',    value: `£${stats.estimated_reorder_value.toFixed(0)}`, color: '#181D23' },
             ].map((m, i) => (
-              <div key={m.label} style={{ flex: 1, padding: '18px 20px', borderRight: i < 4 ? '1px solid #D4E2FF' : 'none' }}>
+              <div key={m.label} style={{ flex: 1, padding: '18px 20px', borderRight: i < 4 ? '1px solid #EBE5FF' : 'none' }}>
                 <p style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.25em', color: '#96989B', margin: 0 }}>{m.label}</p>
                 <p style={{ fontSize: 26, fontWeight: 900, color: m.color, letterSpacing: '-0.04em', margin: 0 }}>{m.value}</p>
               </div>
@@ -308,7 +308,7 @@ export default function InventoryPage() {
         <AnimatePresence mode="wait">
           {tab === 'consumables' && (
             <motion.div key="cons" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ padding: '24px 40px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 160px 1fr 80px', gap: 12, paddingBottom: 10, borderBottom: '2px solid #D4E2FF', marginBottom: 4 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 160px 1fr 80px', gap: 12, paddingBottom: 10, borderBottom: '2px solid #EBE5FF', marginBottom: 4 }}>
                 {['Item / AI Insight', 'Stock', 'Level', 'Details', 'Status'].map(h => (
                   <span key={h} style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.25em', color: '#96989B' }}>{h}</span>
                 ))}
@@ -321,7 +321,7 @@ export default function InventoryPage() {
 
           {tab === 'equipment' && (
             <motion.div key="eq" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ padding: '24px 40px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 120px', gap: 12, paddingBottom: 10, borderBottom: '2px solid #D4E2FF', marginBottom: 4 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 120px', gap: 12, paddingBottom: 10, borderBottom: '2px solid #EBE5FF', marginBottom: 4 }}>
                 {['Equipment', 'Last Service', 'Next Service', 'Notes', 'Status'].map(h => (
                   <span key={h} style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.25em', color: '#96989B' }}>{h}</span>
                 ))}
@@ -341,7 +341,7 @@ export default function InventoryPage() {
                   { label: 'OK',             val: expiryItems.filter(e => e.expiry_status === 'ok').length,             color: '#059669' },
                   { label: 'CQC Items',      val: expiryItems.filter(e => e.cqc_relevant).length,                       color: '#0058E6' },
                 ].map(m => (
-                  <div key={m.label} style={{ flex: 1, padding: '16px 20px', border: '1px solid #D4E2FF', borderRadius: 14 }}>
+                  <div key={m.label} style={{ flex: 1, padding: '16px 20px', border: '1px solid #EBE5FF', borderRadius: 14 }}>
                     <p style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.25em', color: '#96989B', margin: 0 }}>{m.label}</p>
                     <p style={{ fontSize: 26, fontWeight: 900, color: m.color, letterSpacing: '-0.04em', margin: 0 }}>{m.val}</p>
                   </div>
@@ -349,13 +349,13 @@ export default function InventoryPage() {
               </div>
               {expiryLoading ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ width: 20, height: 20, border: '2px solid #D4E2FF', borderTopColor: ACCENT, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                  <div style={{ width: 20, height: 20, border: '2px solid #EBE5FF', borderTopColor: ACCENT, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
                   <span style={{ fontSize: 12, color: '#96989B' }}>Loading expiry data...</span>
                 </div>
               ) : (
                 <div>
                   {/* Header */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 100px', gap: 12, paddingBottom: 10, borderBottom: '2px solid #D4E2FF', marginBottom: 4 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 100px', gap: 12, paddingBottom: 10, borderBottom: '2px solid #EBE5FF', marginBottom: 4 }}>
                     {['Item / Batch', 'Qty', 'Expiry', 'Days Left', 'Storage', 'Status'].map(h => (
                       <span key={h} style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.25em', color: '#96989B' }}>{h}</span>
                     ))}
@@ -368,7 +368,7 @@ export default function InventoryPage() {
                       const rowBg    = expired ? 'rgba(220,38,38,0.03)' : expiring ? 'rgba(217,119,6,0.03)' : 'transparent';
                       return (
                         <motion.div key={item.id} layout initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
-                          style={{ borderBottom: '1px solid #D4E2FF', padding: '14px 0', backgroundColor: rowBg, display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 100px', gap: 12, alignItems: 'center' }}>
+                          style={{ borderBottom: '1px solid #EBE5FF', padding: '14px 0', backgroundColor: rowBg, display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 100px', gap: 12, alignItems: 'center' }}>
                           <div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                               <div style={{ width: 6, height: 6, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
@@ -416,14 +416,14 @@ export default function InventoryPage() {
               <p style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.28em', color: '#96989B', marginBottom: 20 }}>AI Reorder Recommendations</p>
               {reorderLoading ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ width: 20, height: 20, border: '2px solid #D4E2FF', borderTopColor: ACCENT, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                  <div style={{ width: 20, height: 20, border: '2px solid #EBE5FF', borderTopColor: ACCENT, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
                   <span style={{ fontSize: 12, color: '#96989B' }}>Analysing stock and appointment schedule...</span>
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 720 }}>
                   {reorderRecs.map(rec => (
                     <motion.div key={rec.item_id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} style={{
-                      border: `1px solid ${rec.urgency === 'urgent' ? 'rgba(220,38,38,0.25)' : rec.urgency === 'soon' ? 'rgba(217,119,6,0.25)' : '#D4E2FF'}`,
+                      border: `1px solid ${rec.urgency === 'urgent' ? 'rgba(220,38,38,0.25)' : rec.urgency === 'soon' ? 'rgba(217,119,6,0.25)' : '#EBE5FF'}`,
                       borderRadius: 14, padding: '18px 20px',
                       background: rec.urgency === 'urgent' ? 'rgba(220,38,38,0.04)' : rec.urgency === 'soon' ? 'rgba(217,119,6,0.04)' : 'transparent',
                     }}>

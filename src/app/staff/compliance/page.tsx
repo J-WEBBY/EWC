@@ -43,7 +43,7 @@ type Tab = 'dashboard' | 'hr' | 'training' | 'equipment' | 'cqc' | 'governance' 
 function Panel({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
     <div className={`rounded-2xl overflow-hidden ${className}`}
-      style={{ backgroundColor: '#FFFFFF', border: '1px solid #D4E2FF' }}>
+      style={{ backgroundColor: '#FFFFFF', border: '1px solid #EBE5FF' }}>
       {children}
     </div>
   );
@@ -54,7 +54,7 @@ function PanelHeader({ title, badge, action, color }: {
 }) {
   return (
     <div className="flex items-center justify-between px-5 py-3.5"
-      style={{ borderBottom: '1px solid #D4E2FF' }}>
+      style={{ borderBottom: '1px solid #EBE5FF' }}>
       <div className="flex items-center gap-2">
         <p className="text-[8px] uppercase tracking-[0.28em] font-semibold"
           style={{ color: color ?? '#96989B' }}>{title}</p>
@@ -74,11 +74,11 @@ function StatTile({ label, value, sub, accent, warning }: {
   return (
     <div className="rounded-xl p-4" style={{
       backgroundColor: warning && Number(value) > 0 ? '#FFF1F2' : '#FDFCFB',
-      border: `1px solid ${warning && Number(value) > 0 ? '#FCA5A5' : '#D4E2FF'}`,
+      border: `1px solid ${warning && Number(value) > 0 ? '#FCA5A5' : '#EBE5FF'}`,
     }}>
       <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B] mb-1.5">{label}</p>
       <p className="text-[22px] font-black tracking-[-0.02em] leading-none"
-        style={{ color: accent ?? (warning && Number(value) > 0 ? '#DC2626' : '#181D23') }}>{value}</p>
+        style={{ color: accent ?? (warning && Number(value) > 0 ? '#DC2626' : '#1A1035') }}>{value}</p>
       {sub && <p className="text-[10px] text-[#96989B] mt-1.5">{sub}</p>}
     </div>
   );
@@ -96,8 +96,8 @@ function StatusBadge({ status }: { status: string }) {
     not_set:        ['#96989B', '#F5F4FA'],
     na:             ['#96989B', '#F5F4FA'],
     not_recorded:   ['#96989B', '#F5F4FA'],
-    in_progress:    ['#0284C7', '#EFF6FF'],
-    open:           ['#0284C7', '#EFF6FF'],
+    in_progress:    ['#0058E6', '#EFF6FF'],
+    open:           ['#0058E6', '#EFF6FF'],
     due_soon:       ['#D8A600', '#FFFBEB'],
     due_this_month: ['#D8A600', '#FFFBEB'],
     no_dbs:         ['#D8A600', '#FFFBEB'],
@@ -125,7 +125,7 @@ function UserSelect({ value, onChange, users, placeholder = 'Unassigned' }: {
       value={value ?? ''}
       onChange={e => onChange(e.target.value || null)}
       className="rounded-lg px-2 py-1 text-[11px] focus:outline-none cursor-pointer"
-      style={{ backgroundColor: '#FDFCFB', border: '1px solid #D4E2FF', color: '#181D23', minWidth: 140 }}
+      style={{ backgroundColor: '#FDFCFB', border: '1px solid #EBE5FF', color: '#1A1035', minWidth: 140 }}
     >
       <option value="">{placeholder}</option>
       {users.map(u => (
@@ -184,8 +184,8 @@ const GOVERNANCE_TYPE_LABEL: Record<string, string> = {
 const CQC_DOMAIN_COLOR: Record<string, string> = {
   safe:       '#DC2626',
   effective:  '#059669',
-  caring:     '#EC4899',
-  responsive: '#0284C7',
+  caring:     '#DC2626',
+  responsive: '#0058E6',
   well_led:   '#0058E6',
 };
 
@@ -210,7 +210,7 @@ function DashboardTab({ dashboard, brandColor }: { dashboard: ComplianceDashboar
           sub={`${dashboard.cqc_answered} / ${dashboard.cqc_total} answered`}
           accent={dashboard.cqc_score_pct >= 80 ? '#059669' : dashboard.cqc_score_pct >= 60 ? '#D8A600' : '#DC2626'} />
         <StatTile label="Total Issues" value={totalIssues} sub="Requiring action" warning accent={totalIssues > 0 ? '#DC2626' : '#059669'} />
-        <StatTile label="Total Staff" value={dashboard.total_staff} sub="Active staff members" accent="#181D23" />
+        <StatTile label="Total Staff" value={dashboard.total_staff} sub="Active staff members" accent="#1A1035" />
         <StatTile label="Equipment Overdue" value={dashboard.equipment_overdue}
           sub={`${dashboard.equipment_due_soon} due this month`} warning />
       </div>
@@ -219,7 +219,7 @@ function DashboardTab({ dashboard, brandColor }: { dashboard: ComplianceDashboar
       <div className="grid grid-cols-3 gap-4">
         <Panel>
           <PanelHeader title="HR Compliance" badge={dashboard.dbs_issues + dashboard.rtw_issues + dashboard.appraisals_overdue} />
-          <div className="divide-y" style={{ borderColor: '#D4E2FF' }}>
+          <div className="divide-y" style={{ borderColor: '#EBE5FF' }}>
             {[
               { label: 'DBS Issues', val: dashboard.dbs_issues },
               { label: 'Right to Work Issues', val: dashboard.rtw_issues },
@@ -250,7 +250,7 @@ function DashboardTab({ dashboard, brandColor }: { dashboard: ComplianceDashboar
 
         <Panel>
           <PanelHeader title="Governance & Calendar" badge={dashboard.governance_overdue + dashboard.calendar_overdue} />
-          <div className="divide-y" style={{ borderColor: '#D4E2FF' }}>
+          <div className="divide-y" style={{ borderColor: '#EBE5FF' }}>
             {[
               { label: 'Governance Open', val: dashboard.governance_open },
               { label: 'Governance Overdue', val: dashboard.governance_overdue },
@@ -260,7 +260,7 @@ function DashboardTab({ dashboard, brandColor }: { dashboard: ComplianceDashboar
               <div key={r.label} className="flex justify-between items-center px-5 py-3">
                 <span className="text-[12px] text-[#5A6475]">{r.label}</span>
                 <span className="text-[13px] font-bold"
-                  style={{ color: r.val > 0 && (r.label.includes('Overdue')) ? '#DC2626' : '#181D23' }}>
+                  style={{ color: r.val > 0 && (r.label.includes('Overdue')) ? '#DC2626' : '#1A1035' }}>
                   {r.val}
                 </span>
               </div>
@@ -371,7 +371,7 @@ function HRTrackerTab({
     || r.appraisal_status === 'overdue').length;
 
   const inp = 'w-full rounded-lg px-3 py-1.5 text-[12px] focus:outline-none';
-  const inpStyle = { backgroundColor: '#FDFCFB', border: '1px solid #D4E2FF', color: '#181D23' };
+  const inpStyle = { backgroundColor: '#FDFCFB', border: '1px solid #EBE5FF', color: '#1A1035' };
 
   return (
     <>
@@ -381,7 +381,7 @@ function HRTrackerTab({
           {(['all', 'issues'] as const).map(f => (
             <button key={f} onClick={() => setFilter(f)}
               className="px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-[0.14em] font-semibold"
-              style={{ backgroundColor: filter === f ? '#D4E2FF' : 'transparent', color: filter === f ? '#181D23' : '#96989B' }}>
+              style={{ backgroundColor: filter === f ? '#EBE5FF' : 'transparent', color: filter === f ? '#1A1035' : '#96989B' }}>
               {f === 'all' ? `All Staff (${records.length})` : `Issues (${issueCount})`}
             </button>
           ))}
@@ -397,7 +397,7 @@ function HRTrackerTab({
         <div className="overflow-x-auto">
           <table className="w-full text-[11px]">
             <thead>
-              <tr style={{ borderBottom: '1px solid #D4E2FF', backgroundColor: '#FDFCFB' }}>
+              <tr style={{ borderBottom: '1px solid #EBE5FF', backgroundColor: '#FDFCFB' }}>
                 {['Staff Member', 'Role', 'DBS Expiry', 'DBS Status', 'RTW Status', 'Reg. Body', 'Reg. Expiry', 'Next Appraisal', 'Appraisal', 'Signed', 'Docs'].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-[8px] uppercase tracking-[0.18em] font-semibold text-[#96989B] whitespace-nowrap">{h}</th>
                 ))}
@@ -414,7 +414,7 @@ function HRTrackerTab({
                     animate={{ opacity: 1 }}
                     transition={{ delay: idx * 0.02 }}
                     className={`border-b cursor-pointer transition-colors ${isAdmin ? 'hover:bg-[#F8FAFF]' : ''}`}
-                    style={{ borderColor: '#D4E2FF' }}
+                    style={{ borderColor: '#EBE5FF' }}
                     onClick={() => isAdmin && openEdit(r)}
                   >
                     <td className="px-4 py-3 font-semibold text-[#181D23] whitespace-nowrap">{r.full_name}</td>
@@ -451,10 +451,10 @@ function HRTrackerTab({
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setEditing(null)} />
             <motion.div
               className="relative w-full max-w-2xl rounded-2xl z-10 overflow-y-auto max-h-[90vh]"
-              style={{ backgroundColor: '#FFFFFF', border: '1px solid #D4E2FF' }}
+              style={{ backgroundColor: '#FFFFFF', border: '1px solid #EBE5FF' }}
               initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}
             >
-              <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid #D4E2FF' }}>
+              <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid #EBE5FF' }}>
                 <div>
                   <p className="text-[8px] uppercase tracking-[0.22em] text-[#96989B]">HR Record</p>
                   <p className="text-[16px] font-bold text-[#181D23]">{editing.full_name}</p>
@@ -547,7 +547,7 @@ function HRTrackerTab({
               <div className="px-6 pb-6 flex gap-3">
                 <button onClick={() => setEditing(null)}
                   className="flex-1 py-2.5 rounded-xl text-[12px] font-bold border"
-                  style={{ borderColor: '#D4E2FF', color: '#5A6475' }}>Cancel</button>
+                  style={{ borderColor: '#EBE5FF', color: '#5A6475' }}>Cancel</button>
                 <button onClick={handleSave} disabled={saving}
                   className="flex-1 py-2.5 rounded-xl text-[12px] font-bold text-white disabled:opacity-50"
                   style={{ backgroundColor: '#0058E6' }}>
@@ -626,7 +626,7 @@ function TrainingMatrixTab({
         <div className="overflow-x-auto">
           <table className="text-[10px]" style={{ minWidth: '1200px' }}>
             <thead>
-              <tr style={{ backgroundColor: '#FDFCFB', borderBottom: '1px solid #D4E2FF' }}>
+              <tr style={{ backgroundColor: '#FDFCFB', borderBottom: '1px solid #EBE5FF' }}>
                 <th className="sticky left-0 z-10 bg-[#FDFCFB] px-4 py-3 text-left text-[8px] uppercase tracking-[0.18em] font-semibold text-[#96989B] whitespace-nowrap min-w-[160px]">Staff Member</th>
                 {TRAINING_MODULES.map(mod => (
                   <th key={mod} className="px-2 py-3 text-center text-[7px] uppercase tracking-[0.14em] font-semibold text-[#96989B] whitespace-nowrap min-w-[80px]">
@@ -638,7 +638,7 @@ function TrainingMatrixTab({
             </thead>
             <tbody>
               {matrix.map((row, ri) => (
-                <tr key={row.user_id} style={{ borderBottom: '1px solid #D4E2FF' }}
+                <tr key={row.user_id} style={{ borderBottom: '1px solid #EBE5FF' }}
                   className={ri % 2 === 0 ? 'bg-[#FAF7F2]' : 'bg-[#F5F0E8]'}>
                   <td className="sticky left-0 z-10 px-4 py-3 whitespace-nowrap"
                     style={{ backgroundColor: ri % 2 === 0 ? '#FAF7F2' : '#F5F0E8' }}>
@@ -678,7 +678,7 @@ function TrainingMatrixTab({
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setEditCell(null)} />
             <motion.div className="relative w-full max-w-md rounded-2xl z-10 p-6"
-              style={{ backgroundColor: '#FFFFFF', border: '1px solid #D4E2FF' }}
+              style={{ backgroundColor: '#FFFFFF', border: '1px solid #EBE5FF' }}
               initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }}>
               <div className="mb-5">
                 <p className="text-[8px] uppercase tracking-[0.22em] text-[#96989B]">Training Record</p>
@@ -692,14 +692,14 @@ function TrainingMatrixTab({
                 <div>
                   <label className="block text-[9px] text-[#96989B] mb-1.5 uppercase tracking-[0.14em]">Completion Date</label>
                   <input type="date" className="w-full rounded-lg px-3 py-2 text-[13px] focus:outline-none"
-                    style={{ backgroundColor: '#FDFCFB', border: '1px solid #D4E2FF', color: '#181D23' }}
+                    style={{ backgroundColor: '#FDFCFB', border: '1px solid #EBE5FF', color: '#1A1035' }}
                     defaultValue={editCell.entry?.completed_date ?? ''}
                     onChange={e => setForm(f => ({ ...f, completed_date: e.target.value }))} />
                 </div>
                 <div>
                   <label className="block text-[9px] text-[#96989B] mb-1.5 uppercase tracking-[0.14em]">Notes</label>
                   <input className="w-full rounded-lg px-3 py-2 text-[13px] focus:outline-none"
-                    style={{ backgroundColor: '#FDFCFB', border: '1px solid #D4E2FF', color: '#181D23' }}
+                    style={{ backgroundColor: '#FDFCFB', border: '1px solid #EBE5FF', color: '#1A1035' }}
                     placeholder="Provider, certificate ref…"
                     defaultValue={editCell.entry?.notes ?? ''}
                     onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
@@ -708,7 +708,7 @@ function TrainingMatrixTab({
               <div className="flex gap-3 mt-6">
                 <button onClick={() => setEditCell(null)}
                   className="flex-1 py-2.5 rounded-xl text-[12px] font-bold border"
-                  style={{ borderColor: '#D4E2FF', color: '#5A6475' }}>Cancel</button>
+                  style={{ borderColor: '#EBE5FF', color: '#5A6475' }}>Cancel</button>
                 <button onClick={handleSaveCell} disabled={saving}
                   className="flex-1 py-2.5 rounded-xl text-[12px] font-bold text-white disabled:opacity-50"
                   style={{ backgroundColor: '#0058E6' }}>
@@ -781,7 +781,7 @@ function EquipmentTab({
   const dueSoonCount = equipment.filter(e => e.status === 'due_this_month').length;
 
   const inp = 'w-full rounded-lg px-3 py-1.5 text-[12px] focus:outline-none';
-  const inpStyle = { backgroundColor: '#FDFCFB', border: '1px solid #D4E2FF', color: '#181D23' };
+  const inpStyle = { backgroundColor: '#FDFCFB', border: '1px solid #EBE5FF', color: '#1A1035' };
 
   return (
     <>
@@ -790,7 +790,7 @@ function EquipmentTab({
           {([['all', `All (${equipment.length})`], ['overdue', `Overdue (${overdueCount})`], ['due_this_month', `Due Soon (${dueSoonCount})`]] as [string, string][]).map(([f, label]) => (
             <button key={f} onClick={() => setFilter(f as typeof filter)}
               className="px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-[0.14em] font-semibold"
-              style={{ backgroundColor: filter === f ? '#D4E2FF' : 'transparent', color: filter === f ? '#181D23' : '#96989B' }}>
+              style={{ backgroundColor: filter === f ? '#EBE5FF' : 'transparent', color: filter === f ? '#1A1035' : '#96989B' }}>
               {label}
             </button>
           ))}
@@ -806,7 +806,7 @@ function EquipmentTab({
               badge={items.filter(i => i.status === 'overdue').length}
               action={<span className="text-[9px] text-[#96989B]">{items.length} items</span>}
             />
-            <div className="divide-y" style={{ borderColor: '#D4E2FF' }}>
+            <div className="divide-y" style={{ borderColor: '#EBE5FF' }}>
               {items.map((item, idx) => (
                 <motion.div
                   key={item.id}
@@ -846,7 +846,7 @@ function EquipmentTab({
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setEditing(null)} />
             <motion.div className="relative w-full max-w-lg rounded-2xl z-10 p-6"
-              style={{ backgroundColor: '#FFFFFF', border: '1px solid #D4E2FF' }}
+              style={{ backgroundColor: '#FFFFFF', border: '1px solid #EBE5FF' }}
               initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}>
               <div className="mb-5 flex items-start justify-between">
                 <div>
@@ -886,7 +886,7 @@ function EquipmentTab({
               <div className="flex gap-3 mt-5">
                 <button onClick={() => setEditing(null)}
                   className="flex-1 py-2.5 rounded-xl text-[12px] font-bold border"
-                  style={{ borderColor: '#D4E2FF', color: '#5A6475' }}>Cancel</button>
+                  style={{ borderColor: '#EBE5FF', color: '#5A6475' }}>Cancel</button>
                 <button onClick={handleSave} disabled={saving}
                   className="flex-1 py-2.5 rounded-xl text-[12px] font-bold text-white disabled:opacity-50"
                   style={{ backgroundColor: '#0058E6' }}>
@@ -964,7 +964,7 @@ function CQCAuditTab({
   }
 
   const inp = 'w-full rounded-lg px-3 py-2 text-[12px] focus:outline-none';
-  const inpStyle = { backgroundColor: '#FDFCFB', border: '1px solid #D4E2FF', color: '#181D23' };
+  const inpStyle = { backgroundColor: '#FDFCFB', border: '1px solid #EBE5FF', color: '#1A1035' };
 
   return (
     <>
@@ -1036,9 +1036,9 @@ function CQCAuditTab({
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
                     transition={{ duration: 0.2 }}
-                    style={{ overflow: 'hidden', borderTop: '1px solid #D4E2FF' }}
+                    style={{ overflow: 'hidden', borderTop: '1px solid #EBE5FF' }}
                   >
-                    <div className="divide-y" style={{ borderColor: '#D4E2FF' }}>
+                    <div className="divide-y" style={{ borderColor: '#EBE5FF' }}>
                       {items.map((q, qi) => (
                         <div key={q.question_number}
                           className="px-5 py-4 flex items-start gap-4">
@@ -1086,7 +1086,7 @@ function CQCAuditTab({
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setEditAnswer(null)} />
             <motion.div className="relative w-full max-w-lg rounded-2xl z-10 p-6"
-              style={{ backgroundColor: '#FFFFFF', border: '1px solid #D4E2FF' }}
+              style={{ backgroundColor: '#FFFFFF', border: '1px solid #EBE5FF' }}
               initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}>
               <div className="mb-5">
                 <p className="text-[8px] uppercase tracking-[0.22em] text-[#96989B]">Question {editAnswer.question_number} — {editAnswer.audit_area}</p>
@@ -1119,7 +1119,7 @@ function CQCAuditTab({
               <div className="flex gap-3 mt-5">
                 <button onClick={() => setEditAnswer(null)}
                   className="flex-1 py-2.5 rounded-xl text-[12px] font-bold border"
-                  style={{ borderColor: '#D4E2FF', color: '#5A6475' }}>Cancel</button>
+                  style={{ borderColor: '#EBE5FF', color: '#5A6475' }}>Cancel</button>
                 <button onClick={handleSaveAnswer} disabled={saving}
                   className="flex-1 py-2.5 rounded-xl text-[12px] font-bold text-white disabled:opacity-50"
                   style={{ backgroundColor: '#0058E6' }}>
@@ -1210,7 +1210,7 @@ function GovernanceTab({
   }
 
   const inp = 'w-full rounded-lg px-3 py-2 text-[12px] focus:outline-none';
-  const inpStyle = { backgroundColor: '#FDFCFB', border: '1px solid #D4E2FF', color: '#181D23' };
+  const inpStyle = { backgroundColor: '#FDFCFB', border: '1px solid #EBE5FF', color: '#1A1035' };
 
   return (
     <>
@@ -1234,7 +1234,7 @@ function GovernanceTab({
             <p className="text-[11px] text-[#96989B]">Record meetings, significant events, and learning from events here.</p>
           </div>
         ) : (
-          <div className="divide-y" style={{ borderColor: '#D4E2FF' }}>
+          <div className="divide-y" style={{ borderColor: '#EBE5FF' }}>
             {entries.map((e, idx) => (
               <motion.div
                 key={e.id}
@@ -1274,7 +1274,7 @@ function GovernanceTab({
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowNew(false)} />
             <motion.div className="relative w-full max-w-lg rounded-2xl z-10 p-6 overflow-y-auto max-h-[90vh]"
-              style={{ backgroundColor: '#FFFFFF', border: '1px solid #D4E2FF' }}
+              style={{ backgroundColor: '#FFFFFF', border: '1px solid #EBE5FF' }}
               initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}>
               <div className="flex items-center justify-between mb-5">
                 <p className="text-[16px] font-bold text-[#181D23]">{editEntry ? 'Edit Entry' : 'New Governance Entry'}</p>
@@ -1323,7 +1323,7 @@ function GovernanceTab({
               <div className="flex gap-3 mt-5">
                 <button onClick={() => setShowNew(false)}
                   className="flex-1 py-2.5 rounded-xl text-[12px] font-bold border"
-                  style={{ borderColor: '#D4E2FF', color: '#5A6475' }}>Cancel</button>
+                  style={{ borderColor: '#EBE5FF', color: '#5A6475' }}>Cancel</button>
                 <button onClick={handleSave} disabled={saving || !form.event_date}
                   className="flex-1 py-2.5 rounded-xl text-[12px] font-bold text-white disabled:opacity-50"
                   style={{ backgroundColor: '#0058E6' }}>
@@ -1392,7 +1392,7 @@ function CalendarTab({
   }
 
   const inp = 'w-full rounded-lg px-3 py-1.5 text-[12px] focus:outline-none';
-  const inpStyle = { backgroundColor: '#FDFCFB', border: '1px solid #D4E2FF', color: '#181D23' };
+  const inpStyle = { backgroundColor: '#FDFCFB', border: '1px solid #EBE5FF', color: '#1A1035' };
 
   return (
     <>
@@ -1400,7 +1400,7 @@ function CalendarTab({
         {([['all', `All (${tasks.length})`], ['overdue', `Overdue (${overdueCount})`], ['due_soon', `Due Soon (${dueSoonCount})`]] as [string, string][]).map(([f, label]) => (
           <button key={f} onClick={() => setFilter(f as typeof filter)}
             className="px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-[0.14em] font-semibold"
-            style={{ backgroundColor: filter === f ? '#D4E2FF' : 'transparent', color: filter === f ? '#181D23' : '#96989B' }}>
+            style={{ backgroundColor: filter === f ? '#EBE5FF' : 'transparent', color: filter === f ? '#1A1035' : '#96989B' }}>
             {label}
           </button>
         ))}
@@ -1418,7 +1418,7 @@ function CalendarTab({
                 badge={overdueInGroup}
                 action={<span className="text-[9px] text-[#96989B]">{items.length} tasks</span>}
               />
-              <div className="divide-y" style={{ borderColor: '#D4E2FF' }}>
+              <div className="divide-y" style={{ borderColor: '#EBE5FF' }}>
                 {items.map((task, idx) => (
                   <motion.div
                     key={task.id}
@@ -1459,7 +1459,7 @@ function CalendarTab({
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setEditing(null)} />
             <motion.div className="relative w-full max-w-md rounded-2xl z-10 p-6"
-              style={{ backgroundColor: '#FFFFFF', border: '1px solid #D4E2FF' }}
+              style={{ backgroundColor: '#FFFFFF', border: '1px solid #EBE5FF' }}
               initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}>
               <div className="flex items-start justify-between mb-5">
                 <div>
@@ -1488,7 +1488,7 @@ function CalendarTab({
               <div className="flex gap-3 mt-5">
                 <button onClick={() => setEditing(null)}
                   className="flex-1 py-2.5 rounded-xl text-[12px] font-bold border"
-                  style={{ borderColor: '#D4E2FF', color: '#5A6475' }}>Cancel</button>
+                  style={{ borderColor: '#EBE5FF', color: '#5A6475' }}>Cancel</button>
                 <button onClick={handleSave} disabled={saving}
                   className="flex-1 py-2.5 rounded-xl text-[12px] font-bold text-white disabled:opacity-50"
                   style={{ backgroundColor: '#0058E6' }}>
@@ -1644,7 +1644,7 @@ export default function CompliancePage() {
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-0.5 mb-8 border-b overflow-x-auto" style={{ borderColor: '#D4E2FF' }}>
+          <div className="flex gap-0.5 mb-8 border-b overflow-x-auto" style={{ borderColor: '#EBE5FF' }}>
             {TABS.map(t => {
               const Icon = t.icon;
               const isActive = tab === t.id;
@@ -1653,7 +1653,7 @@ export default function CompliancePage() {
                   key={t.id}
                   onClick={() => setTab(t.id)}
                   className="flex items-center gap-1.5 px-4 py-2.5 text-[11px] uppercase tracking-[0.14em] font-semibold transition-colors relative whitespace-nowrap"
-                  style={{ color: isActive ? '#181D23' : '#96989B' }}
+                  style={{ color: isActive ? '#1A1035' : '#96989B' }}
                 >
                   <Icon size={12} />
                   {t.label}

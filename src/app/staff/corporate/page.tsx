@@ -20,7 +20,7 @@ const STATUS_STYLE: Record<CorporateAccount['status'], { bg: string; border: str
   negotiating:  { bg: 'rgba(37,99,235,0.07)',   border: 'rgba(37,99,235,0.25)', text: '#2563EB', label: 'Negotiating' },
   renewal_due:  { bg: 'rgba(217,119,6,0.08)',   border: 'rgba(217,119,6,0.30)', text: '#D8A600', label: 'Renewal Due' },
   at_risk:      { bg: 'rgba(220,38,38,0.07)',   border: 'rgba(220,38,38,0.25)', text: '#DC2626', label: 'At Risk' },
-  lapsed:       { bg: 'rgba(110,102,136,0.06)', border: '#D4E2FF',              text: '#96989B', label: 'Lapsed' },
+  lapsed:       { bg: 'rgba(110,102,136,0.06)', border: '#EBE5FF',              text: '#96989B', label: 'Lapsed' },
 };
 
 const TIER_LABEL: Record<CorporateAccount['package_tier'], string> = {
@@ -74,7 +74,7 @@ function AccountCard({ account, tenantId, accentColor }: { account: CorporateAcc
   }
 
   return (
-    <motion.div layout initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} style={{ borderBottom: '1px solid #D4E2FF' }}>
+    <motion.div layout initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} style={{ borderBottom: '1px solid #EBE5FF' }}>
       <div onClick={() => setExpanded(e => !e)} style={{ padding: '16px 0', display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 100px 1fr 90px', gap: 12, alignItems: 'center', cursor: 'pointer' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -113,7 +113,7 @@ function AccountCard({ account, tenantId, accentColor }: { account: CorporateAcc
         {expanded && (
           <motion.div key="exp" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} style={{ overflow: 'hidden' }}>
             <div style={{ paddingBottom: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-              <div style={{ border: '1px solid #D4E2FF', borderRadius: 14, padding: '16px 18px' }}>
+              <div style={{ border: '1px solid #EBE5FF', borderRadius: 14, padding: '16px 18px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                   <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.2em', color: '#96989B' }}>AI Account Brief</span>
                   <button onClick={handleGenerateBrief} disabled={loadingBrief} style={{ fontSize: 10, fontWeight: 700, color: accentColor, background: 'transparent', border: 'none', cursor: 'pointer', opacity: loadingBrief ? 0.5 : 1 }}>
@@ -123,17 +123,17 @@ function AccountCard({ account, tenantId, accentColor }: { account: CorporateAcc
                 <p style={{ fontSize: 12, color: '#3D4451', lineHeight: 1.65 }}>{brief ?? 'Click Refresh AI to generate brief.'}</p>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div style={{ border: '1px solid #D4E2FF', borderRadius: 14, padding: '14px 16px' }}>
+                <div style={{ border: '1px solid #EBE5FF', borderRadius: 14, padding: '14px 16px' }}>
                   <p style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.2em', color: '#96989B', marginBottom: 8 }}>Primary Contact</p>
                   <p style={{ fontSize: 12, fontWeight: 700, color: '#181D23' }}>{account.primary_contact.name} — {account.primary_contact.title}</p>
                   <p style={{ fontSize: 11, color: '#3D4451' }}>{account.primary_contact.email}</p>
                   {account.primary_contact.phone && <p style={{ fontSize: 11, color: '#3D4451' }}>{account.primary_contact.phone}</p>}
                 </div>
-                <div style={{ border: '1px solid #D4E2FF', borderRadius: 14, padding: '14px 16px' }}>
+                <div style={{ border: '1px solid #EBE5FF', borderRadius: 14, padding: '14px 16px' }}>
                   <p style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.2em', color: '#96989B', marginBottom: 8 }}>Log Note</p>
                   <div style={{ display: 'flex', gap: 8 }}>
                     <input value={note} onChange={e => setNote(e.target.value)} placeholder="Add account note..."
-                      style={{ flex: 1, padding: '7px 10px', borderRadius: 8, border: '1px solid #D4E2FF', background: '#F8FAFF', fontSize: 11, color: '#181D23', outline: 'none' }} />
+                      style={{ flex: 1, padding: '7px 10px', borderRadius: 8, border: '1px solid #EBE5FF', background: '#F8FAFF', fontSize: 11, color: '#181D23', outline: 'none' }} />
                     <button onClick={handleSaveNote} disabled={savingNote || !note.trim()} style={{ padding: '7px 12px', borderRadius: 8, background: accentColor, color: '#fff', border: 'none', fontSize: 11, fontWeight: 700, cursor: 'pointer', opacity: savingNote || !note.trim() ? 0.5 : 1 }}>
                       {savingNote ? '...' : 'Save'}
                     </button>
@@ -163,8 +163,8 @@ function PipelineFunnel({ accounts, accentColor }: { accounts: CorporateAccount[
   const totalArr = accounts.reduce((s, a) => s + a.annual_value, 0) || 1;
 
   return (
-    <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #D4E2FF' }}>
-      <div className="px-5 py-4" style={{ borderBottom: '1px solid #D4E2FF' }}>
+    <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #EBE5FF' }}>
+      <div className="px-5 py-4" style={{ borderBottom: '1px solid #EBE5FF' }}>
         <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-0.5" style={{ color: '#96989B' }}>B2B Pipeline</p>
         <p className="text-[15px] font-bold" style={{ color: '#181D23' }}>Account Stage Distribution</p>
       </div>
@@ -198,7 +198,7 @@ function PipelineFunnel({ accounts, accentColor }: { accounts: CorporateAccount[
             </div>
           );
         })}
-        <div className="pt-3 mt-1 grid grid-cols-3 gap-3" style={{ borderTop: '1px solid #D4E2FF' }}>
+        <div className="pt-3 mt-1 grid grid-cols-3 gap-3" style={{ borderTop: '1px solid #EBE5FF' }}>
           {[
             { label: 'Total Pipeline', value: '£' + accounts.reduce((s, a) => s + a.annual_value, 0).toLocaleString('en-GB'), color: '#181D23' },
             { label: 'Avg Utilisation', value: accounts.length > 0 ? Math.round(accounts.reduce((s, a) => s + a.utilisation_pct, 0) / accounts.length) + '%' : '—', color: accentColor },
@@ -226,8 +226,8 @@ function RenewalCalendar({ accounts }: { accounts: CorporateAccount[] }) {
     .slice(0, 6);
 
   return (
-    <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #D4E2FF' }}>
-      <div className="px-5 py-4" style={{ borderBottom: '1px solid #D4E2FF' }}>
+    <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #EBE5FF' }}>
+      <div className="px-5 py-4" style={{ borderBottom: '1px solid #EBE5FF' }}>
         <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-0.5" style={{ color: '#96989B' }}>Renewals</p>
         <p className="text-[15px] font-bold" style={{ color: '#181D23' }}>Renewal Calendar</p>
       </div>
@@ -278,8 +278,8 @@ function InvoicePanel({ accounts, accentColor }: { accounts: CorporateAccount[];
   const totalOutstanding = withInvoice.reduce((s, a) => s + (a.outstanding_invoice ?? 0), 0);
 
   return (
-    <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #D4E2FF' }}>
-      <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid #D4E2FF' }}>
+    <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #EBE5FF' }}>
+      <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid #EBE5FF' }}>
         <div>
           <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-0.5" style={{ color: '#96989B' }}>Finance</p>
           <p className="text-[15px] font-bold" style={{ color: '#181D23' }}>Outstanding Invoices</p>
@@ -347,7 +347,7 @@ export default function CorporatePage() {
 
   if (loading) return (
     <div style={{ minHeight: '100vh', backgroundColor: '#F8FAFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 32, height: 32, border: '2px solid #D4E2FF', borderTopColor: ACCENT, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+      <div style={{ width: 32, height: 32, border: '2px solid #EBE5FF', borderTopColor: ACCENT, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
       <style>{'@keyframes spin { to { transform: rotate(360deg); } }'}</style>
     </div>
   );
@@ -356,7 +356,7 @@ export default function CorporatePage() {
     <div style={{ minHeight: '100vh', backgroundColor: '#F8FAFF' }}>
       {profile && <StaffNav profile={profile} userId={userId} brandColor={accentColor} currentPath="Corporate" />}
       <main style={{ paddingLeft: 'var(--nav-w, 240px)', minHeight: '100vh' }}>
-        <div style={{ padding: '40px 40px 0', borderBottom: '1px solid #D4E2FF' }}>
+        <div style={{ padding: '40px 40px 0', borderBottom: '1px solid #EBE5FF' }}>
           <div style={{ paddingBottom: 24 }}>
             <p style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.28em', color: '#96989B', marginBottom: 6 }}>Growth</p>
             <h1 style={{ fontSize: 38, fontWeight: 900, letterSpacing: '-0.035em', color: '#181D23', lineHeight: 1 }}>Corporate Accounts</h1>
@@ -376,7 +376,7 @@ export default function CorporatePage() {
 
         {/* Stats strip */}
         {stats && (
-          <div style={{ display: 'flex', borderBottom: '1px solid #D4E2FF' }}>
+          <div style={{ display: 'flex', borderBottom: '1px solid #EBE5FF' }}>
             {[
               { label: 'Total ARR',       value: fmtCurrency(stats.total_arr),     color: '#181D23' },
               { label: 'Active',          value: String(stats.active_accounts),    color: '#059669' },
@@ -384,7 +384,7 @@ export default function CorporatePage() {
               { label: 'At-Risk Value',   value: fmtCurrency(stats.at_risk_value), color: '#DC2626' },
               { label: 'Avg Utilisation', value: stats.avg_utilisation + '%',      color: '#2563EB' },
             ].map((m, i) => (
-              <div key={m.label} style={{ flex: 1, padding: '18px 20px', borderRight: i < 4 ? '1px solid #D4E2FF' : 'none' }}>
+              <div key={m.label} style={{ flex: 1, padding: '18px 20px', borderRight: i < 4 ? '1px solid #EBE5FF' : 'none' }}>
                 <p style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.25em', color: '#96989B', margin: 0 }}>{m.label}</p>
                 <p style={{ fontSize: 22, fontWeight: 900, color: m.color, letterSpacing: '-0.03em', margin: 0 }}>{m.value}</p>
               </div>
@@ -409,7 +409,7 @@ export default function CorporatePage() {
                 {['all', 'active', 'renewal_due', 'at_risk', 'negotiating', 'lapsed'].map(s => (
                   <button key={s} onClick={() => setFilterStatus(s)} style={{
                     padding: '5px 12px', borderRadius: 20,
-                    border: '1px solid ' + (filterStatus === s ? accentColor : '#D4E2FF'),
+                    border: '1px solid ' + (filterStatus === s ? accentColor : '#EBE5FF'),
                     background: filterStatus === s ? accentColor + '12' : 'transparent',
                     color: filterStatus === s ? accentColor : '#96989B',
                     fontSize: 11, fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s',
@@ -417,7 +417,7 @@ export default function CorporatePage() {
                 ))}
               </div>
               <div style={{ padding: '16px 40px 0' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 100px 1fr 90px', gap: 12, paddingBottom: 10, borderBottom: '2px solid #D4E2FF' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 100px 1fr 90px', gap: 12, paddingBottom: 10, borderBottom: '2px solid #EBE5FF' }}>
                   {['Company', 'ARR', 'Utilisation', 'Contract', 'Invoice', 'Status'].map(h => (
                     <span key={h} style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.25em', color: '#96989B' }}>{h}</span>
                   ))}

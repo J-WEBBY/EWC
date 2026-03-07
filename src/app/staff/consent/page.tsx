@@ -34,13 +34,13 @@ const CONSENT_STYLE: Record<ConsentRecord['consent_status'], { bg: string; borde
   signed:       { bg: 'rgba(5,150,105,0.07)',   border: 'rgba(5,150,105,0.25)',   text: '#059669', label: 'Signed' },
   pending:      { bg: 'rgba(37,99,235,0.07)',   border: 'rgba(37,99,235,0.25)',   text: '#2563EB', label: 'Pending' },
   sent:         { bg: 'rgba(37,99,235,0.07)',   border: 'rgba(37,99,235,0.25)',   text: '#2563EB', label: 'Sent' },
-  expired:      { bg: 'rgba(110,102,136,0.06)', border: '#D4E2FF',                text: '#96989B', label: 'Expired' },
+  expired:      { bg: 'rgba(110,102,136,0.06)', border: '#EBE5FF',                text: '#96989B', label: 'Expired' },
   overdue:      { bg: 'rgba(220,38,38,0.07)',   border: 'rgba(220,38,38,0.25)',   text: '#DC2626', label: 'Overdue' },
-  not_required: { bg: 'rgba(0,88,230,0.05)', border: '#D4E2FF',                text: '#96989B', label: 'N/A' },
+  not_required: { bg: 'rgba(0,88,230,0.05)', border: '#EBE5FF',                text: '#96989B', label: 'N/A' },
 };
 
 const SURVEY_STYLE: Record<ConsentRecord['pre_appt_status'], { dot: string; label: string }> = {
-  not_sent:  { dot: '#A8C4FF', label: 'Not sent' },
+  not_sent:  { dot: '#C5BAF0', label: 'Not sent' },
   sent:      { dot: '#2563EB', label: 'Sent' },
   completed: { dot: '#059669', label: 'Completed' },
   overdue:   { dot: '#DC2626', label: 'Overdue' },
@@ -78,7 +78,7 @@ function isPast(iso: string) {
 
 function StatTile({ label, value, sub, color }: { label: string; value: number | string; sub?: string; color?: string }) {
   return (
-    <div style={{ padding: '18px 20px', borderRight: '1px solid #D4E2FF', flex: 1 }}>
+    <div style={{ padding: '18px 20px', borderRight: '1px solid #EBE5FF', flex: 1 }}>
       <p style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.28em', color: '#96989B', marginBottom: 4 }}>{label}</p>
       <p style={{ fontSize: 28, fontWeight: 900, color: color ?? '#181D23', letterSpacing: '-0.04em' }}>{value}</p>
       {sub && <p style={{ fontSize: 10, color: '#5A6475', marginTop: 2 }}>{sub}</p>}
@@ -113,13 +113,13 @@ function QuestionnaireModal({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.97 }}
         style={{
-          background: '#fff', borderRadius: 20, border: '1px solid #D4E2FF',
+          background: '#fff', borderRadius: 20, border: '1px solid #EBE5FF',
           width: '100%', maxWidth: 560, maxHeight: '85vh',
           display: 'flex', flexDirection: 'column', overflow: 'hidden',
         }}
       >
         {/* Header */}
-        <div style={{ padding: '24px 28px', borderBottom: '1px solid #D4E2FF', flexShrink: 0 }}>
+        <div style={{ padding: '24px 28px', borderBottom: '1px solid #EBE5FF', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
             <div>
               <p style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.2em', color: '#96989B', marginBottom: 4 }}>
@@ -148,7 +148,7 @@ function QuestionnaireModal({
         <div style={{ flex: 1, overflowY: 'auto', padding: '20px 28px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {questionnaire.questions.map((q, i) => (
-              <div key={q.id} style={{ borderBottom: '1px solid #D4E2FF', paddingBottom: 16 }}>
+              <div key={q.id} style={{ borderBottom: '1px solid #EBE5FF', paddingBottom: 16 }}>
                 <div style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
                   <span style={{
                     fontSize: 10, fontWeight: 900, color: ACCENT,
@@ -168,7 +168,7 @@ function QuestionnaireModal({
                   <div style={{ display: 'flex', gap: 8, paddingLeft: 32 }}>
                     {['Yes', 'No'].map(opt => (
                       <div key={opt} style={{
-                        padding: '6px 16px', borderRadius: 8, border: '1px solid #D4E2FF',
+                        padding: '6px 16px', borderRadius: 8, border: '1px solid #EBE5FF',
                         fontSize: 12, color: '#3D4451', background: '#F8FAFF', cursor: 'pointer',
                       }}>{opt}</div>
                     ))}
@@ -178,14 +178,14 @@ function QuestionnaireModal({
 
                 {q.type === 'text' && (
                   <div style={{ paddingLeft: 32 }}>
-                    <div style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #D4E2FF', background: '#F8FAFF', fontSize: 11, color: '#96989B' }}>Patient text response…</div>
+                    <div style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #EBE5FF', background: '#F8FAFF', fontSize: 11, color: '#96989B' }}>Patient text response…</div>
                   </div>
                 )}
 
                 {q.type === 'scale' && (
                   <div style={{ paddingLeft: 32, display: 'flex', gap: 6 }}>
                     {[1,2,3,4,5,6,7,8,9,10].map(n => (
-                      <div key={n} style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid #D4E2FF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#3D4451', cursor: 'pointer' }}>{n}</div>
+                      <div key={n} style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid #EBE5FF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#3D4451', cursor: 'pointer' }}>{n}</div>
                     ))}
                   </div>
                 )}
@@ -194,7 +194,7 @@ function QuestionnaireModal({
                   <div style={{ paddingLeft: 32, display: 'flex', flexDirection: 'column', gap: 4 }}>
                     {q.options.map(opt => (
                       <div key={opt} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div style={{ width: 14, height: 14, borderRadius: 3, border: '1px solid #D4E2FF', background: '#F8FAFF', flexShrink: 0 }} />
+                        <div style={{ width: 14, height: 14, borderRadius: 3, border: '1px solid #EBE5FF', background: '#F8FAFF', flexShrink: 0 }} />
                         <span style={{ fontSize: 12, color: '#3D4451' }}>{opt}</span>
                       </div>
                     ))}
@@ -206,8 +206,8 @@ function QuestionnaireModal({
         </div>
 
         {/* Footer */}
-        <div style={{ padding: '16px 28px', borderTop: '1px solid #D4E2FF', flexShrink: 0, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-          <button onClick={onClose} style={{ padding: '8px 18px', borderRadius: 10, border: '1px solid #D4E2FF', background: 'transparent', fontSize: 12, fontWeight: 700, color: '#3D4451', cursor: 'pointer' }}>
+        <div style={{ padding: '16px 28px', borderTop: '1px solid #EBE5FF', flexShrink: 0, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+          <button onClick={onClose} style={{ padding: '8px 18px', borderRadius: 10, border: '1px solid #EBE5FF', background: 'transparent', fontSize: 12, fontWeight: 700, color: '#3D4451', cursor: 'pointer' }}>
             Close Preview
           </button>
           <button style={{ padding: '8px 18px', borderRadius: 10, background: ACCENT, color: '#fff', border: 'none', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
@@ -284,7 +284,7 @@ function ConsentRow({
         {postQ && <QuestionnaireModal questionnaire={postQ} type="post" onClose={() => setPostQ(null)} />}
       </AnimatePresence>
 
-      <motion.div layout style={{ borderBottom: '1px solid #D4E2FF' }}>
+      <motion.div layout style={{ borderBottom: '1px solid #EBE5FF' }}>
         {/* Main row */}
         <div
           style={{ padding: '14px 0', display: 'grid', gridTemplateColumns: '2fr 1.5fr 1fr 1fr 1fr 80px', gap: 12, alignItems: 'center', cursor: 'pointer' }}
@@ -392,7 +392,7 @@ function ConsentRow({
                       <button
                         onClick={(e) => { e.stopPropagation(); handleGeneratePre(); }}
                         disabled={!!loading}
-                        style={{ padding: '7px 14px', borderRadius: 8, background: 'transparent', border: '1px solid #D4E2FF', color: '#0058E6', fontSize: 11, fontWeight: 700, cursor: 'pointer', opacity: loading ? 0.6 : 1 }}
+                        style={{ padding: '7px 14px', borderRadius: 8, background: 'transparent', border: '1px solid #EBE5FF', color: '#0058E6', fontSize: 11, fontWeight: 700, cursor: 'pointer', opacity: loading ? 0.6 : 1 }}
                       >
                         {loading === 'gen_pre' ? 'Generating…' : 'Preview AI Questionnaire'}
                       </button>
@@ -412,7 +412,7 @@ function ConsentRow({
                       <button
                         onClick={(e) => { e.stopPropagation(); handleGeneratePost(); }}
                         disabled={!!loading}
-                        style={{ padding: '7px 14px', borderRadius: 8, background: 'transparent', border: '1px solid #D4E2FF', color: '#0058E6', fontSize: 11, fontWeight: 700, cursor: 'pointer', opacity: loading ? 0.6 : 1 }}
+                        style={{ padding: '7px 14px', borderRadius: 8, background: 'transparent', border: '1px solid #EBE5FF', color: '#0058E6', fontSize: 11, fontWeight: 700, cursor: 'pointer', opacity: loading ? 0.6 : 1 }}
                       >
                         {loading === 'gen_post' ? 'Generating…' : 'Preview AI Survey'}
                       </button>
@@ -502,7 +502,7 @@ export default function ConsentPage() {
     return (
       <div style={{ minHeight: '100vh', backgroundColor: '#F8FAFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ width: 32, height: 32, border: '2px solid #D4E2FF', borderTopColor: ACCENT, borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
+          <div style={{ width: 32, height: 32, border: '2px solid #EBE5FF', borderTopColor: ACCENT, borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
           <p style={{ fontSize: 12, color: '#96989B' }}>Loading consent records…</p>
         </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
@@ -516,7 +516,7 @@ export default function ConsentPage() {
 
       <main style={{ paddingLeft: 'var(--nav-w, 240px)', minHeight: '100vh' }}>
         {/* ── Header ── */}
-        <div style={{ padding: '40px 40px 0', borderBottom: '1px solid #D4E2FF' }}>
+        <div style={{ padding: '40px 40px 0', borderBottom: '1px solid #EBE5FF' }}>
           <div style={{ paddingBottom: 24 }}>
             <p style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.28em', color: '#96989B', marginBottom: 6 }}>Clinical</p>
             <h1 style={{ fontSize: 38, fontWeight: 900, letterSpacing: '-0.035em', color: '#181D23', lineHeight: 1 }}>Consent & Forms</h1>
@@ -552,7 +552,7 @@ export default function ConsentPage() {
 
         {/* ── Stats strip ── */}
         {stats && (
-          <div style={{ display: 'flex', borderBottom: '1px solid #D4E2FF' }}>
+          <div style={{ display: 'flex', borderBottom: '1px solid #EBE5FF' }}>
             <StatTile label="Due Today" value={stats.total_due_today} />
             <StatTile label="Signed Today" value={stats.signed_today} color="#059669" />
             <StatTile label="Pending Consent" value={stats.pending} color="#2563EB" />
@@ -564,7 +564,7 @@ export default function ConsentPage() {
 
         {/* ── Table header ── */}
         <div style={{ padding: '20px 40px 0' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 1fr 1fr 1fr 80px', gap: 12, paddingBottom: 10, borderBottom: '2px solid #D4E2FF' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 1fr 1fr 1fr 80px', gap: 12, paddingBottom: 10, borderBottom: '2px solid #EBE5FF' }}>
             {['Patient / Treatment', 'Appointment', 'Consent', 'Pre-Appt', 'Post-Appt', 'CQC'].map(h => (
               <span key={h} style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.25em', color: '#96989B' }}>{h}</span>
             ))}

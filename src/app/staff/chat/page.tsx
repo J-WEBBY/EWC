@@ -68,9 +68,9 @@ const TOOL_SHORTCUTS = [
 
 const PRIORITY_COLORS: Record<string, string> = {
   critical: '#ef4444',
-  high: '#f97316',
+  high: '#EA580C',
   medium: '#eab308',
-  low: '#22c55e',
+  low: '#059669',
 };
 
 // =============================================================================
@@ -1237,7 +1237,7 @@ export default function ChatPage() {
                       color: brandColor,
                     } : {
                       backgroundColor: 'transparent',
-                      borderColor: '#D4E2FF',
+                      borderColor: '#EBE5FF',
                       color: '#5A6475',
                     }}
                   >

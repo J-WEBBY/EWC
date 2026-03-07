@@ -32,7 +32,7 @@ const NAVY    = '#181D23';
 const SEC     = '#3D4451';
 const TER     = '#5A6475';
 const MUTED   = '#96989B';
-const BORDER  = '#D4E2FF';
+const BORDER  = '#EBE5FF';
 const ACCENT  = '#0058E6';
 
 const STATUS_CFG: Record<string, { label: string; color: string; bg: string }> = {
@@ -206,9 +206,9 @@ function ConfirmDialog({ booking, practitioners, onConfirm, onClose, saving }: C
             disabled={saving || !date}
             style={{
               flex: 2, padding: '10px 0', borderRadius: 8, fontSize: 13,
-              border: 'none', background: ACCENT, color: '#fff',
+              border: `1px solid ${ACCENT}40`, background: `${ACCENT}18`, color: NAVY,
               cursor: saving || !date ? 'not-allowed' : 'pointer',
-              fontWeight: 700, opacity: saving || !date ? 0.6 : 1,
+              fontWeight: 700, opacity: saving || !date ? 0.5 : 1,
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
             }}
           >
@@ -361,7 +361,7 @@ function DetailPanel({ booking, practitioners, onConfirm, onDismiss }: DetailPan
             onClick={() => onConfirm(booking.id)}
             style={{
               flex: 2, padding: '10px 0', borderRadius: 8, fontSize: 13,
-              border: 'none', background: ACCENT, color: '#fff',
+              border: `1px solid ${ACCENT}40`, background: `${ACCENT}18`, color: NAVY,
               cursor: 'pointer', fontWeight: 700,
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
             }}
@@ -441,8 +441,8 @@ function BookingItem({
       style={{
         padding: '14px 20px', cursor: 'pointer',
         borderBottom: `1px solid ${BORDER}`,
-        background: selected ? `${ACCENT}08` : 'transparent',
-        borderLeft: `2px solid ${selected ? ACCENT : 'transparent'}`,
+        background: selected ? `${ACCENT}0d` : 'transparent',
+        borderLeft: `3px solid ${selected ? ACCENT : 'transparent'}`,
         transition: 'all 0.15s',
       }}
     >
@@ -656,7 +656,7 @@ export default function AppointmentsPage() {
                 style={{
                   display: 'flex', alignItems: 'center', gap: 6,
                   padding: '8px 14px', borderRadius: 8, fontSize: 12,
-                  border: 'none', background: ACCENT, color: '#fff',
+                  border: `1px solid ${ACCENT}40`, background: `${ACCENT}18`, color: NAVY,
                   textDecoration: 'none', fontWeight: 600,
                 }}
               >
@@ -701,9 +701,10 @@ export default function AppointmentsPage() {
                     onClick={() => setTab(t)}
                     style={{
                       padding: '5px 14px', borderRadius: 20, fontSize: 11, fontWeight: 600,
-                      border: 'none', cursor: 'pointer',
-                      background: tab === t ? ACCENT : 'transparent',
-                      color: tab === t ? '#fff' : MUTED,
+                      cursor: 'pointer',
+                      background: tab === t ? `${ACCENT}18` : 'transparent',
+                      color: tab === t ? NAVY : MUTED,
+                      border: tab === t ? `1px solid ${ACCENT}40` : '1px solid transparent',
                     }}
                   >
                     {t === 'pending' ? `Pending${pendingCount > 0 ? ` (${pendingCount})` : ''}` : t.charAt(0).toUpperCase() + t.slice(1)}
