@@ -48,8 +48,8 @@ const KOMAL_VOICE = {
 
 const DEEPGRAM_TRANSCRIBER = {
   provider:    'deepgram',
-  language:    'en',                // nova-2-phonecall only supports 'en' or 'en-US'
-  model:       'nova-2-phonecall',  // Phone-optimised model, better for call audio
+  language:    'en',
+  model:       'nova-3',            // Best accuracy: proper nouns, UK English, digit recognition
   smartFormat: false,               // Disable formatting — LLM doesn't need punctuation
   endpointing: 100,                 // 100ms VAD timeout (default 300ms) — faster end-of-speech
   // Keyword boosting: tells Deepgram to bias recognition toward clinic-specific words.
