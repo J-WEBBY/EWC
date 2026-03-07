@@ -466,6 +466,7 @@ export default function AppointmentsPage() {
   const [saving, setSaving]             = useState(false);
   const [syncing, setSyncing]           = useState(false);
   const [syncMsg, setSyncMsg]           = useState<string | null>(null);
+  const [backfilling, setBackfilling]   = useState(false);
   const [toast, setToast]               = useState<{ msg: string; ok: boolean } | null>(null);
   const [clinikoStatus, setClinikoStatus] = useState<{ connected: boolean; lastSync: string | null; totalSynced: number } | null>(null);
 
@@ -517,6 +518,21 @@ export default function AppointmentsPage() {
       await loadData();
     })();
   }, [router, loadData]);
+
+  async function handleBackfill() {
+    setBackfilling(true);
+    try {
+      const r = await fetch('/api/cliniko/backfill', { method: 'POST' });
+      const res = await r.json() as { updated?: number; skipped?: number; error?: string; message?: string };
+      if (r.ok && res.updated !== undefined) {
+        showToast(`Backfill complete — ${res.updated} appointments fixed`);
+        await loadData();
+      } else {
+        showToast(res.error ?? 'Backfill failed', false);
+      }
+    } catch (err) { showToast(String(err), false); }
+    finally { setBackfilling(false); }
+  }
 
   async function handleSyncCliniko() {
     setSyncing(true); setSyncMsg(null);
@@ -648,6 +664,14 @@ export default function AppointmentsPage() {
                 </div>
               )}
               {syncMsg && <span style={{ fontSize: 11, fontWeight: 600, color: syncMsg.startsWith('Synced') ? '#059669' : '#DC2626' }}>{syncMsg}</span>}
+              {clinikoStatus?.connected && (
+                <button onClick={handleBackfill} disabled={backfilling}
+                  title="Fixes appointments with missing patient names / treatment types by extracting from stored raw data"
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, fontSize: 12, border: `1px solid ${BORDER}`, background: 'transparent', color: SEC, cursor: backfilling ? 'not-allowed' : 'pointer', fontWeight: 600, opacity: backfilling ? 0.6 : 1 }}>
+                  <RefreshCw size={12} style={{ animation: backfilling ? 'spin 1s linear infinite' : 'none' }} />
+                  {backfilling ? 'Fixing…' : 'Fix Data'}
+                </button>
+              )}
               <button onClick={handleSyncCliniko} disabled={syncing}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, fontSize: 12, border: `1px solid ${ACCENT}40`, background: `${ACCENT}12`, color: NAVY, cursor: syncing ? 'not-allowed' : 'pointer', fontWeight: 600, opacity: syncing ? 0.6 : 1 }}>
                 <RefreshCw size={12} style={{ animation: syncing ? 'spin 1s linear infinite' : 'none' }} />
