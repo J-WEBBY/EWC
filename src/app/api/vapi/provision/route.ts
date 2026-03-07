@@ -52,6 +52,19 @@ const DEEPGRAM_TRANSCRIBER = {
   model:       'nova-2-phonecall',  // Phone-optimised model, better for call audio
   smartFormat: false,               // Disable formatting — LLM doesn't need punctuation
   endpointing: 100,                 // 100ms VAD timeout (default 300ms) — faster end-of-speech
+  // Keyword boosting: tells Deepgram to bias recognition toward clinic-specific words.
+  // Without this, "Edgbaston" is transcribed as "Edge Boston", "Ganata" gets mangled.
+  // Format: "word:intensifier" where intensifier > 1 boosts, < 1 suppresses.
+  keywords: [
+    'Edgbaston:5',
+    'Ganata:5',
+    'Komal:4',
+    'Botox:3',
+    'CoolSculpting:3',
+    'Profhilo:3',
+    'microneedling:3',
+    'Seventy Hyal:3',
+  ],
 };
 
 // ---------------------------------------------------------------------------

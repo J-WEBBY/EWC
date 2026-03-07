@@ -261,6 +261,12 @@ function CallLogListItem({ log, selected, onClick }: { log: CallLog; selected: b
           </span>
           <span className="text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide"
             style={{ backgroundColor: cfg.bg, color: cfg.color }}>{cfg.label}</span>
+          {log.direction && log.direction !== 'web' && (
+            <span className="text-[9px] font-medium px-1.5 py-0.5 rounded-full"
+              style={{ backgroundColor: log.direction === 'inbound' ? '#F0FDF4' : '#EFF6FF', color: log.direction === 'inbound' ? '#059669' : '#0284C7' }}>
+              {log.direction === 'inbound' ? 'Inbound' : 'Outbound'}
+            </span>
+          )}
         </div>
         <p className="text-[11px] text-[#96989B] truncate">{preview}</p>
         <p className="text-[10px] text-[#96989B] mt-0.5">{fmtDate(log.created_at)} · {fmtDuration(log.duration_seconds)}</p>
@@ -1143,8 +1149,11 @@ export default function ReceptionPage() {
                               {selectedLog.caller_name ?? selectedLog.caller_phone ?? 'Unknown caller'}
                             </h2>
                             <OutcomeBadge outcome={(selectedLog.outcome ?? 'unknown') as CallOutcome} />
-                            {selectedLog.direction === 'outbound' && (
-                              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: '#EFF6FF', color: '#0284C7' }}>Outbound</span>
+                            {selectedLog.direction && selectedLog.direction !== 'web' && (
+                              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full"
+                                style={{ backgroundColor: selectedLog.direction === 'inbound' ? '#F0FDF4' : '#EFF6FF', color: selectedLog.direction === 'inbound' ? '#059669' : '#0284C7' }}>
+                                {selectedLog.direction === 'inbound' ? 'Inbound' : 'Outbound'}
+                              </span>
                             )}
                           </div>
                           {selectedLog.caller_phone && selectedLog.caller_name && (
@@ -1208,6 +1217,27 @@ export default function ReceptionPage() {
                         <div className="p-4 rounded-xl mb-5" style={{ border: '1px solid #D4E2FF' }}>
                           <SLabel>AI summary</SLabel>
                           <p className="text-[12px] text-[#3D4451] leading-relaxed">{selectedLog.call_summary}</p>
+                        </div>
+                      )}
+
+                      {/* Transcript */}
+                      {selectedLog.transcript && (
+                        <div className="mb-5">
+                          <SLabel>Full transcript</SLabel>
+                          <div className="mt-2 rounded-xl overflow-hidden" style={{ border: '1px solid #D4E2FF' }}>
+                            <div className="max-h-[320px] overflow-y-auto p-4 space-y-2">
+                              {selectedLog.transcript.split('\n').filter(Boolean).map((line, i) => {
+                                const isAgent = line.startsWith('AI:') || line.startsWith('Komal:') || line.startsWith('assistant:');
+                                const isCaller = line.startsWith('User:') || line.startsWith('caller:') || line.startsWith('user:');
+                                return (
+                                  <p key={i} className="text-[11px] leading-relaxed"
+                                    style={{ color: isAgent ? '#0058E6' : isCaller ? '#181D23' : '#3D4451', paddingLeft: isAgent ? 0 : isCaller ? 12 : 0 }}>
+                                    {line}
+                                  </p>
+                                );
+                              })}
+                            </div>
+                          </div>
                         </div>
                       )}
 

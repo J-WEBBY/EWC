@@ -4,8 +4,10 @@
 //
 // WHAT THIS DOES:
 //   1. call_logs  — one row per call, always. The call history on the voice page.
-//   2. booking_requests — update with call_summary if tool already wrote the row,
-//      or insert a fallback row if the tool's write failed silently.
+//   2. booking_requests — ALWAYS queries DB by vapi_call_id (not just when
+//      artifact.messages shows the tool fired — Vapi may omit server-side tool
+//      calls from artifact.messages). If found: enrich with call_summary.
+//      If not found but we have caller data: insert fallback row.
 //      Then link call_logs.booking_request_id → booking_requests.id.
 //   3. agent_memories — all 3 agents become aware of every call.
 //
@@ -76,6 +78,16 @@ function callDirection(call: VapiCall): 'inbound' | 'outbound' | 'web' {
   return 'web';
 }
 
+// Compute duration from startedAt/endedAt when durationSeconds is 0 or missing
+function computeDuration(call: VapiCall): number {
+  if (call.durationSeconds && call.durationSeconds > 0) return Math.round(call.durationSeconds);
+  if (call.startedAt && call.endedAt) {
+    const ms = new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime();
+    if (ms > 0) return Math.round(ms / 1000);
+  }
+  return 0;
+}
+
 function extractToolsUsed(messages: VapiCallMessage[]): {
   toolsUsed: string[];
   agentConsulted: string | null;
@@ -104,8 +116,10 @@ function extractToolsUsed(messages: VapiCallMessage[]): {
 function inferOutcome(
   toolsUsed: string[],
   isMissed: boolean,
+  bookingFound: boolean,
 ): 'booked' | 'lead' | 'enquiry' | 'missed' | 'escalated' | 'concern' | 'info_only' {
   if (isMissed)                                          return 'missed';
+  if (bookingFound)                                      return 'booked';   // DB truth overrides
   if (toolsUsed.includes('escalate_to_human'))           return 'escalated';
   if (toolsUsed.includes('create_booking_request'))      return 'booked';
   if (toolsUsed.includes('capture_lead'))                return 'lead';
@@ -183,21 +197,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ received: true });
     }
 
-    const call      = message.call;
-    const analysis  = message.analysis;
-    const summary   = analysis?.summary ?? '';
+    const call       = message.call;
+    const analysis   = message.analysis;
+    const summary    = analysis?.summary ?? '';
     const transcript = message.artifact?.transcript ?? message.transcript ?? '';
-    const direction = callDirection(call);
-    const duration  = call.durationSeconds ?? 0;
-    const isMissed  = ['no-answer', 'voicemail', 'failed', 'busy'].includes(call.endedReason ?? '');
+    const direction  = callDirection(call);
+    const duration   = computeDuration(call);  // computed from timestamps if durationSeconds is 0
+    const isMissed   = ['no-answer', 'voicemail', 'failed', 'busy'].includes(call.endedReason ?? '');
     const recordingUrl = message.artifact?.recordingUrl ?? message.recordingUrl ?? null;
 
     const callMessages: VapiCallMessage[] =
       message.artifact?.messages ?? message.messages ?? [];
     const { toolsUsed, agentConsulted } = extractToolsUsed(callMessages);
-    const outcome = inferOutcome(toolsUsed, isMissed);
-
-    // Enrich caller identity from tool args
     const enriched = enrichCaller(
       callMessages,
       call.customer?.name ?? null,
@@ -207,98 +218,112 @@ export async function POST(req: NextRequest) {
     const supabase = createSovereignClient();
 
     // -----------------------------------------------------------------------
-    // 1. call_logs — always, one row per call
+    // 2. booking_requests — ALWAYS check DB by vapi_call_id first.
+    //    Vapi may not include server-side tool calls in artifact.messages,
+    //    so we cannot rely solely on toolsUsed to know if a booking was made.
     // -----------------------------------------------------------------------
 
-    const callLogResult = await createCallLog({
-      vapi_call_id:      call.id,
-      caller_name:       enriched.name        ?? undefined,
-      caller_phone:      enriched.phone       ?? undefined,
-      caller_email:      enriched.email       ?? undefined,
-      service_requested: enriched.service     ?? undefined,
-      outcome,
-      direction,
-      duration_seconds:  duration,
-      recording_url:     recordingUrl         ?? undefined,
-      ended_reason:      call.endedReason     ?? undefined,
-      call_notes:        enriched.notes       ?? undefined,
-      call_summary:      summary              || undefined,
-      tools_used:        toolsUsed.length > 0 ? toolsUsed : undefined,
-      agent_consulted:   agentConsulted       ?? undefined,
-      referral_source:   enriched.referralSource ?? undefined,
-      referral_name:     enriched.referralName   ?? undefined,
-    });
+    let bookingId: string | null = null;
 
-    console.log('[vapi-webhook] call_logs row created:', callLogResult.id ?? 'failed', '| outcome:', outcome);
-
-    // -----------------------------------------------------------------------
-    // 2. booking_requests — update existing row (tool wrote it during call)
-    //    or insert fallback if tool write failed silently.
-    //    Then link call_log → booking_request.
-    // -----------------------------------------------------------------------
-
-    if (toolsUsed.includes('create_booking_request')) {
+    if (!isMissed && call.id) {
       try {
-        let bookingId: string | null = null;
-
-        // Find the row the tool already inserted (has vapi_call_id on it)
+        // Check if the tool already wrote a row during the call
         const { data: existing } = await supabase
           .from('booking_requests')
           .select('id')
           .eq('vapi_call_id', call.id)
           .limit(1)
-          .single();
+          .maybeSingle();
 
         if (existing?.id) {
-          // Tool insert succeeded — enrich with call_summary
           bookingId = existing.id;
+          // Enrich existing row with call summary
           await supabase
             .from('booking_requests')
             .update({ call_summary: summary || null })
             .eq('id', bookingId);
           console.log('[vapi-webhook] booking_requests row enriched:', bookingId);
-        } else {
-          // Tool insert failed silently — insert fallback row now
+        } else if (toolsUsed.includes('create_booking_request') || enriched.name) {
+          // Tool fired (or we have caller data) but DB write failed silently —
+          // insert a fallback row so the booking is not lost.
           const bookingCall = callMessages
             .flatMap(m => m.toolCalls ?? [])
             .find(tc => tc.function?.name === 'create_booking_request');
 
-          if (bookingCall) {
-            const args = JSON.parse(bookingCall.function.arguments ?? '{}') as {
-              patient_name?: string; phone?: string; email?: string;
-              treatment?: string; preferred_date?: string; preferred_time?: string;
-              preferred_practitioner?: string; referral_source?: string;
-              referral_name?: string; notes?: string;
-            };
+          const args = bookingCall
+            ? (() => {
+                try {
+                  return JSON.parse(bookingCall.function.arguments ?? '{}') as {
+                    patient_name?: string; phone?: string; email?: string;
+                    treatment?: string; preferred_date?: string; preferred_time?: string;
+                    preferred_practitioner?: string; referral_source?: string;
+                    referral_name?: string; notes?: string;
+                  };
+                } catch { return {}; }
+              })()
+            : {};
 
+          // Only insert fallback if we have at minimum a name or phone
+          const hasCaller = !!(args.patient_name ?? enriched.name ?? enriched.phone);
+          const hasService = !!(args.treatment ?? enriched.service);
+
+          if (hasCaller && (hasService || toolsUsed.includes('create_booking_request'))) {
             const fallback = await createBookingRequest({
-              caller_name:            args.patient_name ?? enriched.name ?? undefined,
-              caller_phone:           args.phone        ?? enriched.phone ?? undefined,
-              caller_email:           args.email        ?? undefined,
-              service:                args.treatment    ?? undefined,
-              preferred_date:         args.preferred_date ?? undefined,
-              preferred_time:         args.preferred_time ?? undefined,
+              caller_name:            args.patient_name          ?? enriched.name    ?? undefined,
+              caller_phone:           args.phone                 ?? enriched.phone   ?? undefined,
+              caller_email:           args.email                 ?? enriched.email   ?? undefined,
+              service:                args.treatment             ?? enriched.service ?? undefined,
+              preferred_date:         args.preferred_date        ?? undefined,
+              preferred_time:         args.preferred_time        ?? undefined,
               preferred_practitioner: args.preferred_practitioner ?? undefined,
-              referral_source:        args.referral_source ?? undefined,
-              referral_name:          args.referral_name   ?? undefined,
+              referral_source:        args.referral_source       ?? enriched.referralSource ?? undefined,
+              referral_name:          args.referral_name         ?? enriched.referralName   ?? undefined,
               vapi_call_id:           call.id,
-              call_notes:             args.notes ?? undefined,
-              call_summary:           summary || undefined,
+              call_notes:             args.notes                 ?? enriched.notes   ?? undefined,
+              call_summary:           summary                    || undefined,
             });
 
             bookingId = fallback.id ?? null;
             console.log('[vapi-webhook] booking_requests fallback row inserted:', bookingId);
           }
         }
-
-        // Link call_log → booking_request
-        if (callLogResult.id && bookingId) {
-          await linkCallLogToBooking(callLogResult.id, bookingId);
-        }
-
       } catch (bookingErr) {
-        console.error('[vapi-webhook] Booking error:', bookingErr);
+        console.error('[vapi-webhook] Booking lookup/insert error:', bookingErr);
       }
+    }
+
+    // Determine outcome — bookingFound drives 'booked' regardless of toolsUsed
+    const outcome = inferOutcome(toolsUsed, isMissed, bookingId !== null);
+
+    // -----------------------------------------------------------------------
+    // 1. call_logs — always, one row per call
+    // -----------------------------------------------------------------------
+
+    const callLogResult = await createCallLog({
+      vapi_call_id:      call.id,
+      caller_name:       enriched.name           ?? undefined,
+      caller_phone:      enriched.phone          ?? undefined,
+      caller_email:      enriched.email          ?? undefined,
+      service_requested: enriched.service        ?? undefined,
+      outcome,
+      direction,
+      duration_seconds:  duration,
+      recording_url:     recordingUrl            ?? undefined,
+      ended_reason:      call.endedReason        ?? undefined,
+      call_notes:        enriched.notes          ?? undefined,
+      call_summary:      summary                 || undefined,
+      transcript:        transcript              || undefined,
+      tools_used:        toolsUsed.length > 0   ? toolsUsed : undefined,
+      agent_consulted:   agentConsulted          ?? undefined,
+      referral_source:   enriched.referralSource ?? undefined,
+      referral_name:     enriched.referralName   ?? undefined,
+    });
+
+    console.log('[vapi-webhook] call_logs row created:', callLogResult.id ?? 'failed', '| outcome:', outcome, '| duration:', duration, 's');
+
+    // Link call_log → booking_request
+    if (callLogResult.id && bookingId) {
+      await linkCallLogToBooking(callLogResult.id, bookingId);
     }
 
     // -----------------------------------------------------------------------

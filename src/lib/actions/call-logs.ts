@@ -33,6 +33,7 @@ export interface CallLog {
   referral_source: string | null;
   referral_name: string | null;
   booking_request_id: string | null;
+  transcript: string | null;
   created_at: string;
 }
 
@@ -138,6 +139,7 @@ export async function createCallLog(params: {
   referral_source?: string;
   referral_name?: string;
   booking_request_id?: string;
+  transcript?: string;
 }): Promise<{ success: boolean; id?: string; error?: string }> {
   try {
     const db = createSovereignClient();
@@ -161,6 +163,7 @@ export async function createCallLog(params: {
         referral_source:    params.referral_source     ?? null,
         referral_name:      params.referral_name       ?? null,
         booking_request_id: params.booking_request_id  ?? null,
+        transcript:         params.transcript           ?? null,
       })
       .select('id')
       .single();
@@ -212,6 +215,7 @@ function getDemoCallLogs(): CallLog[] {
       referral_source: 'client_referral',
       referral_name: 'Sarah Jones',
       booking_request_id: null,
+      transcript: null,
       created_at: mins(45),
     },
     {
@@ -233,6 +237,7 @@ function getDemoCallLogs(): CallLog[] {
       referral_source: 'online',
       referral_name: null,
       booking_request_id: null,
+      transcript: null,
       created_at: mins(180),
     },
     {
@@ -254,6 +259,7 @@ function getDemoCallLogs(): CallLog[] {
       referral_source: null,
       referral_name: null,
       booking_request_id: null,
+      transcript: null,
       created_at: mins(320),
     },
     {
@@ -275,6 +281,7 @@ function getDemoCallLogs(): CallLog[] {
       referral_source: 'social_media',
       referral_name: null,
       booking_request_id: null,
+      transcript: null,
       created_at: mins(480),
     },
   ];
