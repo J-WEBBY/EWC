@@ -321,7 +321,7 @@ export default function KpisPage() {
                   Task HQ
                 </p>
                 <h2 className="text-[16px] font-bold mt-0.5" style={{ color: NAVY }}>
-                  Today's Priorities
+                  Today&apos;s Priorities
                 </h2>
               </div>
               <div

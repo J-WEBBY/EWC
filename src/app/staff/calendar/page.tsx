@@ -84,7 +84,7 @@ async function loadMonthAppointments(year: number, month: number): Promise<Appoi
   const last  = new Date(year, month + 1, 0);
   const seen  = new Set<string>();
   const all:  AppointmentRow[] = [];
-  let cur = new Date(first);
+  const cur = new Date(first);
   while (cur <= last) {
     const res = await getWeekAppointments(cur.toISOString().split('T')[0]);
     for (const a of res.appointments) {
