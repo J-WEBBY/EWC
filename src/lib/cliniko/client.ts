@@ -154,8 +154,11 @@ export class ClinikoClient {
 
   async getAppointments(updatedSince?: string): Promise<ClinikoAppointment[]> {
     const params: Record<string, string> = updatedSince ? { updated_since: updatedSince } : {};
+    // /individual_appointments always embeds patient.links.self + appointment_type_name.
+    // The generic /appointments endpoint includes blocked-time/admin slots that
+    // have patient:null and no appointment_type_name — causing empty patient names.
     const appts = await this.paginate<ClinikoAppointment>(
-      '/appointments', 'appointments', params,
+      '/individual_appointments', 'individual_appointments', params,
     );
 
     // Enrich with extracted IDs from links

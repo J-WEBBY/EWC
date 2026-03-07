@@ -45,7 +45,7 @@ export async function POST() {
     const [rawPractitioners, apptPage] = await Promise.all([
       client.getPractitioners(),
       client.paginateWithBudget<import('@/lib/cliniko/types').ClinikoAppointment>(
-        '/appointments', 'appointments', params, null, BUDGET_MS,
+        '/individual_appointments', 'individual_appointments', params, null, BUDGET_MS,
       ),
     ]);
     const rawAppointments = apptPage.results;
