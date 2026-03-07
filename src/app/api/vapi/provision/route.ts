@@ -177,7 +177,7 @@ export async function POST(req: NextRequest) {
         provider:    'anthropic',
         model:       HAIKU_MODEL,
         messages:    [{ role: 'system', content: KOMAL_SYSTEM_PROMPT }],
-        temperature: 0.6,
+        temperature: 0.2,  // Low temperature = deterministic instruction following, no creative looping
         maxTokens:   400,  // 400 gives Haiku room to reason after tool results without looping
         tools:       komalTools,
       },
