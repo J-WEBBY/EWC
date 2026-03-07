@@ -121,28 +121,41 @@ export default function CalendarPage() {
   // ── Load initial data ──────────────────────────────────────────────────────
   useEffect(() => {
     (async () => {
+      // Each action is isolated — one failure cannot block the rest
       try {
         const u = await getCurrentUser();
         if (!u.success || !u.userId) { router.push('/login'); return; }
         setUserId(u.userId);
-        const [profRes, practs, pending] = await Promise.all([
-          getStaffProfile('clinic', u.userId),
-          getPractitioners(),
-          getPendingBookings(),
-        ]);
-        if (profRes.success && profRes.data) {
-          const p = (profRes.data as unknown as { profile: StaffProfile }).profile ?? null;
-          setProfile(p);
-          if (p?.brandColor) setBrandColor(p.brandColor);
-        }
-        setPractitioners(practs);
-        setPendingCount(pending.bookings.length);
 
-        const todayStr = today.toISOString().split('T')[0];
+        // Profile
         try {
+          const profRes = await getStaffProfile('clinic', u.userId);
+          if (profRes.success && profRes.data) {
+            const p = (profRes.data as unknown as { profile: StaffProfile }).profile ?? null;
+            setProfile(p);
+            if (p?.brandColor) setBrandColor(p.brandColor);
+          }
+        } catch { /* use fallback profile */ }
+
+        // Practitioners
+        try {
+          const practs = await getPractitioners();
+          setPractitioners(practs);
+        } catch { /* no filter chips */ }
+
+        // Pending count
+        try {
+          const pending = await getPendingBookings();
+          setPendingCount(pending.bookings.length);
+        } catch { /* no badge */ }
+
+        // Today's appointments
+        try {
+          const todayStr = today.toISOString().split('T')[0];
           const todayW = await getWeekAppointments(todayStr);
           setTodayAppts(todayW.appointments.filter(a => a.starts_at.startsWith(todayStr)));
-        } catch { /* appointments not critical for page load */ }
+        } catch { /* sidebar shows empty */ }
+
       } catch (err) {
         console.error('Calendar load error:', err);
       } finally {

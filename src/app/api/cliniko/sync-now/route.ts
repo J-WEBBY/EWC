@@ -13,7 +13,7 @@ import { NextResponse } from 'next/server';
 import { createSovereignClient } from '@/lib/supabase/service';
 import { ClinikoClient } from '@/lib/cliniko/client';
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 export const dynamic = 'force-dynamic';
 
 export async function POST() {
@@ -38,11 +38,17 @@ export async function POST() {
     const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
     const updatedSince = config.last_sync_at ?? fortyEightHoursAgo;
 
-    // ── 1. Sync practitioners (small list, always full pull) ──────────────────
-    const [rawPractitioners, rawAppointments] = await Promise.all([
+    // ── 1. Fetch data with budget — budget-based so we never exceed 100s ────────
+    // 90s budget for Cliniko fetches leaves 30s for DB upserts.
+    const BUDGET_MS = 90_000;
+    const params: Record<string, string> = { updated_since: updatedSince };
+    const [rawPractitioners, apptPage] = await Promise.all([
       client.getPractitioners(),
-      client.getAppointments(updatedSince),
+      client.paginateWithBudget<import('@/lib/cliniko/types').ClinikoAppointment>(
+        '/appointments', 'appointments', params, null, BUDGET_MS,
+      ),
     ]);
+    const rawAppointments = apptPage.results;
 
     // Upsert practitioners
     if (rawPractitioners.length > 0) {
