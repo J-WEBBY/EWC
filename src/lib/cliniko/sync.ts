@@ -5,8 +5,6 @@
 // Single-tenant — no tenant_id anywhere.
 // =============================================================================
 
-'use server';
-
 import { createSovereignClient } from '@/lib/supabase/service';
 import { ClinikoClient } from './client';
 import type {
