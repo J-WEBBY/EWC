@@ -811,20 +811,21 @@ export default function ReceptionPage() {
 
                 {/* View switcher */}
                 <div className="flex px-4 pt-3 gap-1" style={{ borderBottom: '1px solid #D4E2FF' }}>
-                  {([
-                    { key: 'history', label: 'Call History' },
-                    { key: 'pending', label: `Pending Bookings${pendingBookings.length > 0 ? ` (${pendingBookings.length})` : ''}` },
-                  ] as { key: CallsView; label: string }[]).map(v => (
-                    <button key={v.key} onClick={() => { setCallsView(v.key); setSelectedLog(null); setSelectedBooking(null); }}
+                    <button onClick={() => { setCallsView('history'); setSelectedLog(null); setSelectedBooking(null); }}
                       className="px-3 py-2 text-[10px] font-semibold transition-all relative"
-                      style={{ color: callsView === v.key ? ACCENT : '#96989B' }}>
-                      {v.label}
-                      {callsView === v.key && (
+                      style={{ color: callsView === 'history' ? ACCENT : '#96989B' }}>
+                      Call History
+                      {callsView === 'history' && (
                         <motion.div layoutId="calls-sub-tab" className="absolute bottom-0 left-0 right-0 h-[2px] rounded-t-full"
                           style={{ backgroundColor: ACCENT }} />
                       )}
                     </button>
-                  ))}
+                    <button onClick={() => router.push('/staff/appointments')}
+                      className="px-3 py-2 text-[10px] font-semibold transition-all relative flex items-center gap-1"
+                      style={{ color: '#D8A600' }}>
+                      Pending Bookings{(callStats?.pending_bookings ?? 0) > 0 ? ` (${callStats!.pending_bookings})` : ''}
+                      <ArrowUpRight size={10} />
+                    </button>
                 </div>
 
                 {callsView === 'history' ? (

@@ -490,20 +490,9 @@ export async function getPatientPage(params: {
 
     const total = count ?? 0;
 
-    // No real patients → demo
+    // No real patients → empty (no demo data)
     if (total === 0 || !rows) {
-      const allDemo = search
-        ? DEMO_PATIENTS.filter(p =>
-            `${p.first_name} ${p.last_name}`.toLowerCase().includes(search.toLowerCase()) ||
-            (p.phone ?? '').includes(search) || (p.email ?? '').toLowerCase().includes(search.toLowerCase()))
-        : DEMO_PATIENTS;
-      const demoPage = allDemo.slice(page * pageSize, (page + 1) * pageSize);
-      return {
-        success: true, patients: demoPage,
-        total: allDemo.length, page,
-        totalPages: Math.ceil(allDemo.length / pageSize),
-        isDemo: true,
-      };
+      return { success: true, patients: [], total: 0, page, totalPages: 0, isDemo: false };
     }
 
     // Fetch appointments for ONLY this page's patients (tiny query — 24 IDs max)
@@ -623,14 +612,9 @@ export async function getPatientIntelligenceList(search?: string): Promise<{
     const { data: rows, error } = await query;
     if (error) throw error;
 
-    // No real patients — return demo data
+    // No real patients — return empty
     if (!rows || rows.length === 0) {
-      const filtered = search
-        ? DEMO_PATIENTS.filter(p =>
-            `${p.first_name} ${p.last_name}`.toLowerCase().includes(search.toLowerCase()) ||
-            (p.phone ?? '').includes(search) || (p.email ?? '').toLowerCase().includes(search.toLowerCase()))
-        : DEMO_PATIENTS;
-      return { success: true, patients: filtered, total: filtered.length, isDemo: true };
+      return { success: true, patients: [], total: 0, isDemo: false };
     }
 
     // Fetch appointments for all patients — batched to avoid PostgREST URL limits.
@@ -738,12 +722,7 @@ export async function getPatientIntelligenceList(search?: string): Promise<{
     return { success: true, patients, total: patients.length, isDemo: false };
   } catch (err) {
     console.error('[patients] getPatientIntelligenceList error:', err);
-    const filtered = search
-      ? DEMO_PATIENTS.filter(p =>
-          `${p.first_name} ${p.last_name}`.toLowerCase().includes(search.toLowerCase()) ||
-          (p.phone ?? '').includes(search) || (p.email ?? '').toLowerCase().includes(search.toLowerCase()))
-      : DEMO_PATIENTS;
-    return { success: false, patients: filtered, total: filtered.length, isDemo: true, error: String(err) };
+    return { success: false, patients: [], total: 0, isDemo: false, error: String(err) };
   }
 }
 

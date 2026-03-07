@@ -27,16 +27,16 @@ import {
 // DESIGN TOKENS
 // =============================================================================
 
-const BG      = '#FAF7F2';
-const NAVY    = '#1A1035';
-const SEC     = '#524D66';
-const TER     = '#6E6688';
-const MUTED   = '#8B84A0';
-const BORDER  = '#EBE5FF';
-const ACCENT  = '#6D28D9';
+const BG      = '#F8FAFF';
+const NAVY    = '#181D23';
+const SEC     = '#3D4451';
+const TER     = '#5A6475';
+const MUTED   = '#96989B';
+const BORDER  = '#D4E2FF';
+const ACCENT  = '#0058E6';
 
 const STATUS_CFG: Record<string, { label: string; color: string; bg: string }> = {
-  pending:          { label: 'Pending',           color: '#D97706', bg: '#FFFBEB' },
+  pending:          { label: 'Pending',           color: '#D8A600', bg: '#FFFBEB' },
   confirmed:        { label: 'Confirmed',          color: '#059669', bg: '#ECFDF5' },
   synced_to_cliniko:{ label: 'Synced to Cliniko',  color: '#0284C7', bg: '#EFF6FF' },
   cancelled:        { label: 'Cancelled',           color: '#6B7280', bg: '#F9FAFB' },
@@ -104,7 +104,7 @@ function ConfirmDialog({ booking, practitioners, onConfirm, onClose, saving }: C
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 50,
-      background: 'rgba(26,16,53,0.5)',
+      background: 'rgba(24,29,35,0.5)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
       <motion.div
@@ -139,7 +139,7 @@ function ConfirmDialog({ booking, practitioners, onConfirm, onClose, saving }: C
               onChange={e => setDate(e.target.value)}
               style={{
                 width: '100%', padding: '8px 12px', borderRadius: 8,
-                border: `1px solid ${BORDER}`, background: '#fff',
+                border: `1px solid ${BORDER}`, background: BG,
                 fontSize: 13, color: NAVY, outline: 'none',
                 boxSizing: 'border-box',
               }}
@@ -155,7 +155,7 @@ function ConfirmDialog({ booking, practitioners, onConfirm, onClose, saving }: C
               onChange={e => setTime(e.target.value)}
               style={{
                 width: '100%', padding: '8px 12px', borderRadius: 8,
-                border: `1px solid ${BORDER}`, background: '#fff',
+                border: `1px solid ${BORDER}`, background: BG,
                 fontSize: 13, color: NAVY, outline: 'none',
                 boxSizing: 'border-box',
               }}
@@ -632,7 +632,7 @@ export default function AppointmentsPage() {
               {pendingCount > 0 && (
                 <div style={{
                   padding: '6px 14px', borderRadius: 20, background: '#FFFBEB',
-                  border: '1px solid #FDE68A', color: '#D97706',
+                  border: '1px solid #FDE68A', color: '#D8A600',
                   fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6,
                 }}>
                   <AlertCircle size={12} />
@@ -718,7 +718,7 @@ export default function AppointmentsPage() {
                   placeholder="Search name, treatment, phone…"
                   style={{
                     width: '100%', padding: '7px 10px 7px 28px', borderRadius: 8,
-                    border: `1px solid ${BORDER}`, background: '#fff',
+                    border: `1px solid ${BORDER}`, background: 'transparent',
                     fontSize: 12, color: NAVY, outline: 'none', boxSizing: 'border-box',
                   }}
                 />

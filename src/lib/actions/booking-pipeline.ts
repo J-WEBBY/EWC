@@ -217,6 +217,7 @@ export async function confirmBookingRequest(
           const newPatient = await cliniko.createPatient({
             first_name: firstName,
             last_name:  lastName,
+            email: booking.caller_email ?? undefined,
             phone_numbers: booking.caller_phone
               ? [{ number: booking.caller_phone as string, phone_type: 'Mobile' }]
               : undefined,
@@ -236,10 +237,17 @@ export async function confirmBookingRequest(
         }
 
         // Step B: Create appointment in Cliniko
+        // Only attempt if we have a date/time AND a real Cliniko practitioner ID (numeric).
+        // 'default' and null IDs skip silently — patient is still created as a lead.
+        const isRealPractId = (id: string | null): id is string =>
+          Boolean(id && id !== 'default' && /^\d+$/.test(id.trim()));
+
         if (clinikoPatientId && overrides?.confirmed_date && overrides?.confirmed_time) {
-          const practitionerId = overrides.practitioner_cliniko_id ??
+          const resolvedPractId = overrides.practitioner_cliniko_id ??
             booking.practitioner_cliniko_id ??
             await getDefaultPractitionerClinikoId();
+
+          const practitionerId = isRealPractId(resolvedPractId) ? resolvedPractId : null;
 
           if (practitionerId) {
             const businessId = await cliniko.getBusinessId();
@@ -345,12 +353,8 @@ export async function getPractitioners(): Promise<ClinikoPractitionerRow[]> {
     .order('last_name');
 
   if (!data || data.length === 0) {
-    // Demo fallback if table not yet synced
-    return [
-      { id: 'demo-1', cliniko_id: 'default', first_name: 'Suresh', last_name: 'Ganata',
-        full_name: 'Suresh Ganata', title: 'Dr', designation: 'Medical Director',
-        email: null, is_active: true },
-    ];
+    // No practitioners synced yet — return empty (do not use fake demo IDs in Cliniko)
+    return [];
   }
 
   return data as ClinikoPractitionerRow[];

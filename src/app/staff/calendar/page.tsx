@@ -18,6 +18,7 @@ import {
   ArrowRight, FileText, Check, RefreshCw, Save,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { StaffNav } from '@/components/staff-nav';
 import { getCurrentUser, getStaffProfile, type StaffProfile } from '@/lib/actions/staff-onboarding';
 import {
@@ -247,6 +248,7 @@ const BLANK_FORM: NewApptForm = {
 // =============================================================================
 
 export default function SmartCalendarPage() {
+  const router = useRouter();
   const [profile,       setProfile]       = useState<StaffProfile | null>(null);
   const [userId,        setUserId]        = useState('');
   const [brandColor,    setBrandColor]    = useState(C.appt);
@@ -691,7 +693,7 @@ export default function SmartCalendarPage() {
                 { key: 'team',          label: 'Team',                        Icon: Users        },
                 { key: 'availability',  label: 'Availability',                Icon: Clock        },
               ] as const).map(t => (
-                <button key={t.key} onClick={() => setMainTab(t.key)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 18px', border: 'none', borderBottom: mainTab === t.key ? `2px solid ${accentColor}` : '2px solid transparent', background: 'transparent', cursor: 'pointer', fontSize: 12, fontWeight: mainTab === t.key ? 700 : 500, color: mainTab === t.key ? accentColor : C.ter, transition: 'all 0.2s', marginBottom: -1 }}>
+                <button key={t.key} onClick={() => t.key === 'pending' ? router.push('/staff/appointments') : setMainTab(t.key)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 18px', border: 'none', borderBottom: mainTab === t.key ? `2px solid ${accentColor}` : '2px solid transparent', background: 'transparent', cursor: 'pointer', fontSize: 12, fontWeight: mainTab === t.key ? 700 : 500, color: t.key === 'pending' ? '#D8A600' : (mainTab === t.key ? accentColor : C.ter), transition: 'all 0.2s', marginBottom: -1 }}>
                   <t.Icon size={13} />{t.label}
                 </button>
               ))}
@@ -943,7 +945,7 @@ export default function SmartCalendarPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: `${C.border}60`, borderRadius: 10, padding: 3 }}>
                       {(['cards', 'agenda'] as const).map(v => (
                         <button key={v} onClick={() => setTeamView(v)}
-                          style={{ padding: '6px 16px', borderRadius: 8, border: 'none', background: teamView === v ? '#fff' : 'transparent', color: teamView === v ? C.navy : C.ter, fontSize: 11, fontWeight: teamView === v ? 700 : 500, cursor: 'pointer', boxShadow: teamView === v ? '0 1px 4px rgba(26,16,53,0.1)' : 'none', transition: 'all 0.15s' }}>
+                          style={{ padding: '6px 16px', borderRadius: 8, border: `1px solid ${teamView === v ? C.border : 'transparent'}`, background: teamView === v ? C.bg : 'transparent', color: teamView === v ? C.navy : C.ter, fontSize: 11, fontWeight: teamView === v ? 700 : 500, cursor: 'pointer', transition: 'all 0.15s' }}>
                           {v.charAt(0).toUpperCase() + v.slice(1)}
                         </button>
                       ))}
