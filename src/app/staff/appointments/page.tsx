@@ -864,7 +864,7 @@ export default function AppointmentsPage() {
                       </div>
                       {upcoming.length === 0 && (
                         <div style={{ fontSize: 11, color: MUTED }}>
-                          Click "Sync from Cliniko" to load your appointments
+                          Click &quot;Sync from Cliniko&quot; to load your appointments
                         </div>
                       )}
                     </div>
