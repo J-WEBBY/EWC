@@ -44,6 +44,19 @@ export async function createBookingRequest(args: {
   try {
     const db = createSovereignClient();
 
+    // Dedup: if this call already has a booking row, return the confirmation phrase immediately.
+    // Komal may call this tool twice if the user talks over the confirmation — prevent double-insert.
+    if (vapi_call_id) {
+      const { data: existing } = await db
+        .from('booking_requests')
+        .select('id')
+        .eq('vapi_call_id', vapi_call_id)
+        .maybeSingle();
+      if (existing) {
+        return `Your ${treatment} booking is already confirmed, ${patient_name.split(' ')[0]}. We will be in touch at ${phone}. Was there anything else I can help with today?`;
+      }
+    }
+
     const { error } = await db.from('booking_requests').insert({
       caller_name:            patient_name,
       caller_phone:           phone,
