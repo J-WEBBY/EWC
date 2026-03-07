@@ -30,11 +30,11 @@ const WEBHOOK_SECRET = process.env.VAPI_WEBHOOK_SECRET ?? '';
 const HAIKU_MODEL = 'claude-haiku-4-5-20251001';  // Komal — fast, voice latency critical
 
 // ---------------------------------------------------------------------------
-// Voice — Komal (ElevenLabs Raquel, GDzHdQOi6jjf8zaXhCYD).
+// Voice — Komal (ElevenLabs, GDzHdQOi6jjf8zaXhCYD).
 // eleven_turbo_v2_5 is ElevenLabs' lowest-latency model (~60ms TTFB).
 // ---------------------------------------------------------------------------
 
-const RAQUEL_VOICE_ID = 'rfkTsdZrVWEVhDycUYn9'; // Updated voice — 11labs
+const RAQUEL_VOICE_ID = 'GDzHdQOi6jjf8zaXhCYD'; // Komal voice — 11labs
 
 const KOMAL_VOICE = {
   provider:         '11labs',

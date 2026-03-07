@@ -22,6 +22,9 @@ import {
   getBookingRequests, confirmBookingRequest, dismissBookingRequest,
   getPractitioners, type BookingRequest, type ClinikoPractitionerRow,
 } from '@/lib/actions/booking-pipeline';
+import {
+  getUpcomingAppointments, type AppointmentRow,
+} from '@/lib/actions/appointments';
 
 
 // =============================================================================
@@ -80,7 +83,7 @@ function initials(name: string | null): string {
   return name.split(' ').filter(Boolean).map(w => w[0]).join('').toUpperCase().slice(0, 2);
 }
 
-type TabFilter = 'pending' | 'confirmed' | 'all';
+type TabFilter = 'upcoming' | 'pending' | 'confirmed' | 'all';
 
 // =============================================================================
 // CONFIRM DIALOG
@@ -427,6 +430,66 @@ function Row({ label, value, icon, clickable }: { label: string; value: string; 
 // BOOKING LIST ITEM
 // =============================================================================
 
+// =============================================================================
+// UPCOMING ITEM — Cliniko synced appointment row
+// =============================================================================
+
+const STATUS_COLOR: Record<string, string> = {
+  booked:   ACCENT,
+  arrived:  '#059669',
+  pending:  '#EA580C',
+};
+
+function UpcomingItem({ appt }: { appt: AppointmentRow }) {
+  const color = STATUS_COLOR[appt.status] ?? ACCENT;
+  const date  = new Date(appt.starts_at);
+  const dateStr = date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  const timeStr = date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+  return (
+    <motion.div
+      layout
+      style={{
+        padding: '12px 20px',
+        borderBottom: `1px solid ${BORDER}`,
+        borderLeft: `3px solid ${color}30`,
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 3 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>{appt.patient_name}</div>
+        <span style={{
+          fontSize: 10, fontWeight: 600, color,
+          background: `${color}12`, padding: '2px 8px', borderRadius: 20,
+          border: `1px solid ${color}30`,
+        }}>
+          {appt.status.charAt(0).toUpperCase() + appt.status.slice(1)}
+        </span>
+      </div>
+      <div style={{ fontSize: 12, color: SEC, fontWeight: 500, marginBottom: 4 }}>
+        {appt.appointment_type}
+      </div>
+      <div style={{ display: 'flex', gap: 12, fontSize: 11, color: MUTED }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+          <Calendar size={10} />
+          {dateStr}
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+          <Clock size={10} />
+          {timeStr}
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 3, marginLeft: 'auto' }}>
+          <User size={10} />
+          {appt.practitioner_name}
+        </span>
+      </div>
+    </motion.div>
+  );
+}
+
+// =============================================================================
+// BOOKING ITEM
+// =============================================================================
+
 function BookingItem({
   booking, selected, onClick,
 }: {
@@ -490,9 +553,10 @@ export default function AppointmentsPage() {
   const [profile, setProfile]         = useState<StaffProfile | null>(null);
   const [userId, setUserId]           = useState('');
   const [bookings, setBookings]       = useState<BookingRequest[]>([]);
+  const [upcoming, setUpcoming]       = useState<AppointmentRow[]>([]);
   const [practitioners, setPractitioners] = useState<ClinikoPractitionerRow[]>([]);
   const [selected, setSelected]       = useState<BookingRequest | null>(null);
-  const [tab, setTab]                 = useState<TabFilter>('pending');
+  const [tab, setTab]                 = useState<TabFilter>('upcoming');
   const [search, setSearch]           = useState('');
   const [loading, setLoading]         = useState(true);
   const [confirmTarget, setConfirmTarget] = useState<string | null>(null);
@@ -508,12 +572,14 @@ export default function AppointmentsPage() {
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    const [all, practs] = await Promise.all([
+    const [all, practs, upcomingRes] = await Promise.all([
       getBookingRequests(),
       getPractitioners(),
+      getUpcomingAppointments(30),
     ]);
     setBookings(all);
     setPractitioners(practs);
+    setUpcoming(upcomingRes.appointments);
     setLoading(false);
   }, []);
 
@@ -555,6 +621,7 @@ export default function AppointmentsPage() {
       if (res.success) {
         setSyncMsg(`Synced — ${res.appointments ?? 0} appointment${(res.appointments ?? 0) !== 1 ? 's' : ''} updated`);
         await loadData();
+        setTab('upcoming');
       } else {
         setSyncMsg(res.error ?? 'Sync failed — check Cliniko connection in Integrations');
       }
@@ -651,7 +718,7 @@ export default function AppointmentsPage() {
                 Appointments
               </h1>
               <p style={{ fontSize: 13, color: TER, marginTop: 8, margin: 0 }}>
-                Booking requests from Komal · Confirm to sync directly to Cliniko
+                Upcoming appointments from Cliniko · Pending booking requests from Komal
               </p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -714,10 +781,10 @@ export default function AppointmentsPage() {
         {/* Stats strip */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: BORDER, borderBottom: `1px solid ${BORDER}`, marginBottom: 0 }}>
           {[
-            { label: 'Total',     value: bookings.length },
-            { label: 'Pending',   value: bookings.filter(b => b.status === 'pending').length },
+            { label: 'Upcoming (30d)', value: upcoming.length },
+            { label: 'Pending Requests', value: bookings.filter(b => b.status === 'pending').length },
             { label: 'Confirmed', value: bookings.filter(b => ['confirmed','synced_to_cliniko'].includes(b.status)).length },
-            { label: 'In Cliniko',value: bookings.filter(b => b.status === 'synced_to_cliniko').length },
+            { label: 'In Cliniko', value: bookings.filter(b => b.status === 'synced_to_cliniko').length },
           ].map(s => (
             <div key={s.label} style={{ background: BG, padding: '16px 24px' }}>
               <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.28em', fontWeight: 600, color: MUTED, marginBottom: 4 }}>
@@ -738,20 +805,25 @@ export default function AppointmentsPage() {
 
             {/* Tabs + search */}
             <div style={{ padding: '12px 16px', borderBottom: `1px solid ${BORDER}` }}>
-              <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
-                {(['pending', 'confirmed', 'all'] as TabFilter[]).map(t => (
+              <div style={{ display: 'flex', gap: 4, marginBottom: 10, flexWrap: 'wrap' }}>
+                {([
+                  { key: 'upcoming',  label: `Upcoming${upcoming.length > 0 ? ` (${upcoming.length})` : ''}` },
+                  { key: 'pending',   label: `Pending${pendingCount > 0 ? ` (${pendingCount})` : ''}` },
+                  { key: 'confirmed', label: 'Confirmed' },
+                  { key: 'all',       label: 'All Requests' },
+                ] as { key: TabFilter; label: string }[]).map(({ key, label }) => (
                   <button
-                    key={t}
-                    onClick={() => setTab(t)}
+                    key={key}
+                    onClick={() => setTab(key)}
                     style={{
-                      padding: '5px 14px', borderRadius: 20, fontSize: 11, fontWeight: 600,
+                      padding: '5px 12px', borderRadius: 20, fontSize: 11, fontWeight: 600,
                       cursor: 'pointer',
-                      background: tab === t ? `${ACCENT}18` : 'transparent',
-                      color: tab === t ? NAVY : MUTED,
-                      border: tab === t ? `1px solid ${ACCENT}40` : '1px solid transparent',
+                      background: tab === key ? `${ACCENT}18` : 'transparent',
+                      color: tab === key ? NAVY : MUTED,
+                      border: tab === key ? `1px solid ${ACCENT}40` : '1px solid transparent',
                     }}
                   >
-                    {t === 'pending' ? `Pending${pendingCount > 0 ? ` (${pendingCount})` : ''}` : t.charAt(0).toUpperCase() + t.slice(1)}
+                    {label}
                   </button>
                 ))}
               </div>
@@ -760,7 +832,7 @@ export default function AppointmentsPage() {
                 <input
                   value={search}
                   onChange={e => setSearch(e.target.value)}
-                  placeholder="Search name, treatment, phone…"
+                  placeholder={tab === 'upcoming' ? 'Search patient, treatment…' : 'Search name, treatment, phone…'}
                   style={{
                     width: '100%', padding: '7px 10px 7px 28px', borderRadius: 8,
                     border: `1px solid ${BORDER}`, background: 'transparent',
@@ -776,6 +848,32 @@ export default function AppointmentsPage() {
                 <div style={{ padding: 32, textAlign: 'center', color: MUTED, fontSize: 13 }}>
                   Loading…
                 </div>
+              ) : tab === 'upcoming' ? (
+                (() => {
+                  const q = search.toLowerCase();
+                  const rows = upcoming.filter(a =>
+                    !q || [a.patient_name, a.appointment_type, a.practitioner_name]
+                      .some(v => v?.toLowerCase().includes(q))
+                  );
+                  return rows.length === 0 ? (
+                    <div style={{ padding: 32, textAlign: 'center' }}>
+                      <div style={{ fontSize: 13, color: MUTED, marginBottom: 8 }}>
+                        {upcoming.length === 0
+                          ? 'No upcoming appointments in the next 30 days'
+                          : 'No results match your search'}
+                      </div>
+                      {upcoming.length === 0 && (
+                        <div style={{ fontSize: 11, color: MUTED }}>
+                          Click "Sync from Cliniko" to load your appointments
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <AnimatePresence>
+                      {rows.map(a => <UpcomingItem key={a.id} appt={a} />)}
+                    </AnimatePresence>
+                  );
+                })()
               ) : filtered.length === 0 ? (
                 <div style={{ padding: 32, textAlign: 'center', color: MUTED, fontSize: 13 }}>
                   {tab === 'pending' ? 'No pending bookings' : 'No bookings found'}
@@ -796,12 +894,22 @@ export default function AppointmentsPage() {
           </div>
 
           {/* Right: detail */}
-          <DetailPanel
-            booking={selected}
-            practitioners={practitioners}
-            onConfirm={(id) => setConfirmTarget(id)}
-            onDismiss={handleDismiss}
-          />
+          {tab === 'upcoming' ? (
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: MUTED, fontSize: 13, textAlign: 'center', padding: 32 }}>
+              <div>
+                <Calendar size={28} style={{ color: BORDER, margin: '0 auto 12px' }} />
+                <div style={{ fontWeight: 600, color: TER, marginBottom: 4 }}>Upcoming appointments from Cliniko</div>
+                <div style={{ fontSize: 11 }}>Sync from Cliniko to refresh · Click Calendar to see month view</div>
+              </div>
+            </div>
+          ) : (
+            <DetailPanel
+              booking={selected}
+              practitioners={practitioners}
+              onConfirm={(id) => setConfirmTarget(id)}
+              onDismiss={handleDismiss}
+            />
+          )}
         </div>
       </div>
     </div>

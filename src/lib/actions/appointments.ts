@@ -680,6 +680,91 @@ function buildDemoMonthCounts(year: number, month: number): Record<string, numbe
 }
 
 // =============================================================================
+// getUpcomingAppointments — next N days of appointments from cliniko_appointments
+// Used by the Appointments page "Upcoming" tab. Never returns demo data.
+// =============================================================================
+
+export async function getUpcomingAppointments(days = 30): Promise<{
+  appointments: AppointmentRow[];
+  total: number;
+  hasReal: boolean;
+}> {
+  try {
+    const db   = createSovereignClient();
+    const now  = new Date().toISOString();
+    const end  = new Date(Date.now() + days * 86400000).toISOString();
+
+    const { data: appts, error } = await db
+      .from('cliniko_appointments')
+      .select('id, cliniko_id, cliniko_patient_id, cliniko_practitioner_id, appointment_type, starts_at, ends_at, duration_minutes, status, notes')
+      .gte('starts_at', now)
+      .lte('starts_at', end)
+      .not('status', 'in', '("cancelled","did_not_arrive")')
+      .order('starts_at', { ascending: true })
+      .limit(200);
+
+    if (error) {
+      console.error('[appointments] getUpcomingAppointments error:', error.message);
+      return { appointments: [], total: 0, hasReal: false };
+    }
+    if (!appts || appts.length === 0) {
+      return { appointments: [], total: 0, hasReal: false };
+    }
+
+    const patientIds = Array.from(new Set(appts.map(a => a.cliniko_patient_id).filter(Boolean)));
+    const practIds   = Array.from(new Set(appts.map(a => a.cliniko_practitioner_id).filter(Boolean)));
+
+    const [patRes, practRes, allPractRes] = await Promise.all([
+      patientIds.length > 0
+        ? db.from('cliniko_patients').select('id, cliniko_id, first_name, last_name, email, phone').in('cliniko_id', patientIds)
+        : Promise.resolve({ data: [] }),
+      practIds.length > 0
+        ? db.from('cliniko_practitioners').select('id, cliniko_id, first_name, last_name').in('cliniko_id', practIds)
+        : Promise.resolve({ data: [] }),
+      db.from('cliniko_practitioners').select('cliniko_id').eq('is_active', true).order('created_at', { ascending: true }),
+    ]);
+
+    const patMap   = new Map((patRes.data  ?? []).map(p => [String(p.cliniko_id), p]));
+    const practMap = new Map((practRes.data ?? []).map(p => [String(p.cliniko_id), p]));
+    const colorMap = new Map((allPractRes.data ?? []).map((p, i) => [String(p.cliniko_id), practColor(i)]));
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rows: AppointmentRow[] = appts.map((a: any) => {
+      const pid   = String(a.cliniko_patient_id  ?? '');
+      const prid  = String(a.cliniko_practitioner_id ?? '');
+      const pat   = pid  ? patMap.get(pid)   : null;
+      const pract = prid ? practMap.get(prid) : null;
+      const color = prid ? (colorMap.get(prid) ?? '#5A6475') : '#5A6475';
+      return {
+        id:                     a.id,
+        cliniko_id:             String(a.cliniko_id ?? ''),
+        cliniko_patient_id:     pid || null,
+        patient_name:           pat ? `${pat.first_name} ${pat.last_name}` : 'Patient',
+        patient_email:          pat?.email ?? null,
+        patient_phone:          pat?.phone ?? null,
+        patient_db_id:          pat?.id ?? null,
+        practitioner_name:      pract ? `${pract.first_name} ${pract.last_name}` : 'Practitioner',
+        practitioner_cliniko_id: prid || null,
+        practitioner_color:     color,
+        appointment_type:       a.appointment_type ?? 'Appointment',
+        starts_at:              a.starts_at,
+        ends_at:                a.ends_at,
+        duration_minutes:       a.duration_minutes ?? 30,
+        status:                 (a.status as AppointmentStatus) ?? 'booked',
+        notes:                  a.notes,
+        source:                 'cliniko',
+        is_new_lead:            false,
+      } satisfies AppointmentRow;
+    });
+
+    return { appointments: rows, total: rows.length, hasReal: true };
+  } catch (err) {
+    console.error('[appointments] getUpcomingAppointments error:', err);
+    return { appointments: [], total: 0, hasReal: false };
+  }
+}
+
+// =============================================================================
 // updateAppointmentStatus — local cache update (syncs back on next Cliniko pull)
 // =============================================================================
 
