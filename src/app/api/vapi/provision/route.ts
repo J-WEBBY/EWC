@@ -55,6 +55,7 @@ const DEEPGRAM_TRANSCRIBER = {
   // Keyword boosting: tells Deepgram to bias recognition toward clinic-specific words.
   // Without this, "Edgbaston" is transcribed as "Edge Boston", "Ganata" gets mangled.
   // Format: "word:intensifier" where intensifier > 1 boosts, < 1 suppresses.
+  // Single words only — Vapi rejects multi-word keywords (no spaces allowed)
   keywords: [
     'Edgbaston:5',
     'Ganata:5',
@@ -63,7 +64,6 @@ const DEEPGRAM_TRANSCRIBER = {
     'CoolSculpting:3',
     'Profhilo:3',
     'microneedling:3',
-    'Seventy Hyal:3',
   ],
 };
 
