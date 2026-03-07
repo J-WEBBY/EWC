@@ -477,12 +477,13 @@ export default function AppointmentsPage() {
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    try {
-      const now = new Date();
-      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-      const todayEnd   = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+    const todayEnd   = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
 
-      const [statsRes, upRes, pastRes, pendRes, practRes, statusRes] = await Promise.all([
+    // Use allSettled so one failure doesn't zero-out everything else
+    const [statsSettled, upSettled, pastSettled, pendSettled, practSettled, statusSettled] =
+      await Promise.allSettled([
         getAppointmentStats(),
         getUpcomingAppointments(60),
         getPastAppointments(30),
@@ -490,22 +491,32 @@ export default function AppointmentsPage() {
         getPractitioners(),
         getClinikoConnectionStatus(),
       ]);
-      setClinikoStatus(statusRes);
 
-      setStats(statsRes);
-      setUpcoming(upRes.appointments);
-      setPast(pastRes.appointments);
-      setPending(pendRes.bookings);
-      setPractitioners(practRes);
+    const statsRes  = statsSettled.status   === 'fulfilled' ? statsSettled.value   : { total: 0, today: 0, thisWeek: 0, thisMonth: 0, upcoming: 0 };
+    const upRes     = upSettled.status      === 'fulfilled' ? upSettled.value      : { appointments: [], total: 0, hasReal: false };
+    const pastRes   = pastSettled.status    === 'fulfilled' ? pastSettled.value    : { appointments: [], total: 0 };
+    const pendRes   = pendSettled.status    === 'fulfilled' ? pendSettled.value    : { bookings: [], isDemo: false };
+    const practRes  = practSettled.status   === 'fulfilled' ? practSettled.value   : [];
+    const statusRes = statusSettled.status  === 'fulfilled' ? statusSettled.value  : { connected: false, lastSync: null, totalSynced: 0 };
 
-      // Today = upcoming appointments that start today
-      const todayList = upRes.appointments.filter(a => a.starts_at >= todayStart && a.starts_at < todayEnd);
-      setTodayAppts(todayList);
-    } catch (err) {
-      console.error('[appointments] loadData error:', err);
-    } finally {
-      setLoading(false);
-    }
+    if (statsSettled.status   === 'rejected') console.error('[appts] getAppointmentStats failed:', statsSettled.reason);
+    if (upSettled.status      === 'rejected') console.error('[appts] getUpcomingAppointments failed:', upSettled.reason);
+    if (pastSettled.status    === 'rejected') console.error('[appts] getPastAppointments failed:', pastSettled.reason);
+    if (pendSettled.status    === 'rejected') console.error('[appts] getPendingBookings failed:', pendSettled.reason);
+    if (practSettled.status   === 'rejected') console.error('[appts] getPractitioners failed:', practSettled.reason);
+    if (statusSettled.status  === 'rejected') console.error('[appts] getClinikoConnectionStatus failed:', statusSettled.reason);
+
+    setClinikoStatus(statusRes);
+    setStats(statsRes);
+    setUpcoming(upRes.appointments);
+    setPast(pastRes.appointments);
+    setPending(pendRes.bookings);
+    setPractitioners(practRes);
+
+    // Today = upcoming appointments that start today
+    const todayList = upRes.appointments.filter(a => a.starts_at >= todayStart && a.starts_at < todayEnd);
+    setTodayAppts(todayList);
+    setLoading(false);
   }, []);
 
   useEffect(() => {
