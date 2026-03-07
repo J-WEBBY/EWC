@@ -1,4 +1,5 @@
-'use server';
+// NOTE: No 'use server' — this module is imported by API routes.
+// Functions are called server-side only (never as client → server actions).
 
 import { createSovereignClient } from '@/lib/supabase/service';
 import { getAnthropicClient, ANTHROPIC_MODELS } from '@/lib/ai/anthropic';

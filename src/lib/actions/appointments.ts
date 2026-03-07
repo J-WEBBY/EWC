@@ -205,7 +205,7 @@ export async function getWeekAppointments(weekStart: string): Promise<{
 
     const { data: appts, error } = await db
       .from('cliniko_appointments')
-      .select('id, cliniko_id, cliniko_patient_id, cliniko_practitioner_id, appointment_type, starts_at, ends_at, duration_minutes, status, notes, source_type')
+      .select('id, cliniko_id, cliniko_patient_id, cliniko_practitioner_id, appointment_type, starts_at, ends_at, duration_minutes, status, notes')
       .gte('starts_at', weekStart)
       .lt('starts_at', weekEnd)
       .not('status', 'in', '("cancelled","did_not_arrive")')

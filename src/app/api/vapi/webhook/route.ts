@@ -15,10 +15,85 @@
 //   - Write to signals. Voice calls have their own call_logs table.
 // =============================================================================
 
+// NOTE: Uses Supabase directly — does NOT import from call-logs.ts or
+// booking-pipeline.ts ('use server'). Importing 'use server' modules from an
+// API route corrupts the server action registry globally.
+
 import { NextRequest, NextResponse } from 'next/server';
 import { createSovereignClient } from '@/lib/supabase/service';
-import { createCallLog, linkCallLogToBooking } from '@/lib/actions/call-logs';
-import { createBookingRequest } from '@/lib/actions/booking-pipeline';
+
+// ─── Inline helpers (replaces call-logs.ts createCallLog / linkCallLogToBooking) ─
+
+async function insertCallLog(
+  db: ReturnType<typeof createSovereignClient>,
+  params: Record<string, unknown>,
+): Promise<{ id?: string }> {
+  const { data, error } = await db
+    .from('call_logs')
+    .insert({
+      vapi_call_id:      params.vapi_call_id      ?? null,
+      caller_name:       params.caller_name        ?? null,
+      caller_phone:      params.caller_phone       ?? null,
+      caller_email:      params.caller_email       ?? null,
+      service_requested: params.service_requested  ?? null,
+      outcome:           params.outcome            ?? null,
+      direction:         params.direction          ?? 'inbound',
+      duration_seconds:  params.duration_seconds   ?? 0,
+      recording_url:     params.recording_url      ?? null,
+      ended_reason:      params.ended_reason       ?? null,
+      call_notes:        params.call_notes         ?? null,
+      call_summary:      params.call_summary       ?? null,
+      tools_used:        params.tools_used         ?? null,
+      agent_consulted:   params.agent_consulted    ?? null,
+      referral_source:   params.referral_source    ?? null,
+      referral_name:     params.referral_name      ?? null,
+      booking_request_id: params.booking_request_id ?? null,
+      transcript:        params.transcript          ?? null,
+    })
+    .select('id')
+    .single();
+  if (error) console.error('[vapi-webhook] insertCallLog error:', error);
+  return { id: data?.id };
+}
+
+async function linkLogToBooking(
+  db: ReturnType<typeof createSovereignClient>,
+  callLogId: string,
+  bookingRequestId: string,
+): Promise<void> {
+  await db.from('call_logs').update({ booking_request_id: bookingRequestId }).eq('id', callLogId);
+}
+
+// ─── Inline helper (replaces booking-pipeline.ts createBookingRequest) ─────────
+
+async function insertBookingRequest(
+  db: ReturnType<typeof createSovereignClient>,
+  params: Record<string, unknown>,
+): Promise<{ id?: string }> {
+  const { data, error } = await db
+    .from('booking_requests')
+    .insert({
+      signal_id:              params.signal_id              ?? null,
+      caller_name:            params.caller_name            ?? null,
+      caller_phone:           params.caller_phone           ?? null,
+      caller_email:           params.caller_email           ?? null,
+      service:                params.service               ?? null,
+      service_detail:         params.service_detail        ?? null,
+      preferred_date:         params.preferred_date        ?? null,
+      preferred_time:         params.preferred_time        ?? null,
+      preferred_practitioner: params.preferred_practitioner ?? null,
+      referral_source:        params.referral_source       ?? null,
+      referral_name:          params.referral_name         ?? null,
+      vapi_call_id:           params.vapi_call_id          ?? null,
+      call_notes:             params.call_notes            ?? null,
+      call_summary:           params.call_summary          ?? null,
+      status:                 'pending',
+    })
+    .select('id')
+    .single();
+  if (error) console.error('[vapi-webhook] insertBookingRequest error:', error);
+  return { id: data?.id };
+}
 
 // ---------------------------------------------------------------------------
 // Vapi payload types
@@ -268,7 +343,7 @@ export async function POST(req: NextRequest) {
           const hasService = !!(args.treatment ?? enriched.service);
 
           if (hasCaller && (hasService || toolsUsed.includes('create_booking_request'))) {
-            const fallback = await createBookingRequest({
+            const fallback = await insertBookingRequest(supabase, {
               caller_name:            args.patient_name          ?? enriched.name    ?? undefined,
               caller_phone:           args.phone                 ?? enriched.phone   ?? undefined,
               caller_email:           args.email                 ?? enriched.email   ?? undefined,
@@ -299,7 +374,7 @@ export async function POST(req: NextRequest) {
     // 1. call_logs — always, one row per call
     // -----------------------------------------------------------------------
 
-    const callLogResult = await createCallLog({
+    const callLogResult = await insertCallLog(supabase, {
       vapi_call_id:      call.id,
       caller_name:       enriched.name           ?? undefined,
       caller_phone:      enriched.phone          ?? undefined,
@@ -323,7 +398,7 @@ export async function POST(req: NextRequest) {
 
     // Link call_log → booking_request
     if (callLogResult.id && bookingId) {
-      await linkCallLogToBooking(callLogResult.id, bookingId);
+      await linkLogToBooking(supabase, callLogResult.id, bookingId);
     }
 
     // -----------------------------------------------------------------------
