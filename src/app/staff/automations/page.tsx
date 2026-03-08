@@ -10,7 +10,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Send, CheckCircle2, XCircle, Clock, RefreshCw,
-  Play, Pause, ChevronRight, ChevronDown,
+  Play, Pause, ChevronDown,
   Zap, MessageSquare, Sparkles,
   PhoneOff, CreditCard, RotateCcw, Target, CheckSquare,
   Syringe, Droplets, Snowflake, BookOpen, AlertCircle, Gift,

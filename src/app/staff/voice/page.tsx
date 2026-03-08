@@ -11,8 +11,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Phone, PhoneMissed, PhoneCall,
-  Mic, BarChart2, Clock, TrendingUp,
-  User, Settings, Check, X, AlertCircle,
+  Mic, Clock, TrendingUp,
+  User, Check, X, AlertCircle,
   ChevronRight, Calendar, MessageSquare,
   Headphones, Star, Shield, BookOpen,
   Save, Loader2,
@@ -849,7 +849,7 @@ export default function ReceptionistPage() {
                   <div>
                     <p className="text-[12px] font-medium mb-1" style={{ color: NAVY }}>Knowledge Base</p>
                     <p className="text-[11px] leading-relaxed" style={{ color: TER }}>
-                      Komal draws on your clinic's treatments, pricing, and FAQs. Manage content in the Knowledge Base.
+                      Komal draws on your clinic&apos;s treatments, pricing, and FAQs. Manage content in the Knowledge Base.
                     </p>
                     <button
                       onClick={() => router.push(`/staff/knowledge?userId=${userId}`)}

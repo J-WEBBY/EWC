@@ -10,9 +10,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Brain, Check, X, Edit3, AlertTriangle, Shield,
-  TrendingUp, TrendingDown, ChevronRight,
-  Activity, BookOpen, AlertCircle, Clock,
-  Target, Sliders, BarChart2,
+  ChevronRight,
+  Activity, Clock,
 } from 'lucide-react';
 import { getStaffProfile, getCurrentUser, type StaffProfile } from '@/lib/actions/staff-onboarding';
 import { StaffNav } from '@/components/staff-nav';
@@ -637,7 +636,7 @@ export default function JudgementPage() {
                   <div className="text-center">
                     <p className="text-[13px] font-medium" style={{ color: NAVY }}>AI Alignment</p>
                     <p className="text-[11px] mt-0.5" style={{ color: TER }}>
-                      How closely the AI acts in line with your clinic's values
+                      How closely the AI acts in line with your clinic&apos;s values
                     </p>
                   </div>
                   <div className="w-full space-y-2">
@@ -670,7 +669,7 @@ export default function JudgementPage() {
                 >
                   <div className="flex items-center gap-2 mb-4">
                     <Brain size={15} style={{ color: PURPLE }} />
-                    <p className="text-[12px] font-medium" style={{ color: NAVY }}>Today's Intelligence Brief</p>
+                    <p className="text-[12px] font-medium" style={{ color: NAVY }}>Today&apos;s Intelligence Brief</p>
                     {today && (
                       <span
                         className="ml-auto text-[10px] font-semibold uppercase tracking-[0.1em] px-2 py-0.5 rounded-full"
@@ -703,7 +702,7 @@ export default function JudgementPage() {
                       </div>
                     </>
                   ) : (
-                    <p className="text-[12px]" style={{ color: MUT }}>No assessment run yet. Click "Run Assessment" to generate today's brief.</p>
+                    <p className="text-[12px]" style={{ color: MUT }}>No assessment run yet. Click &quot;Run Assessment&quot; to generate today&apos;s brief.</p>
                   )}
                 </motion.div>
               </div>
@@ -810,7 +809,7 @@ export default function JudgementPage() {
           {activeTab === 'training' && (
             <motion.div key="training" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
               <p className="text-[13px] mb-6" style={{ color: TER }}>
-                Every decision you make trains the AI on your clinic's unique culture, preferences, and values. This record shows what the system has learned.
+                Every decision you make trains the AI on your clinic&apos;s unique culture, preferences, and values. This record shows what the system has learned.
               </p>
               <div className="space-y-3">
                 {DEMO_TRAINING.map((event, i) => {
