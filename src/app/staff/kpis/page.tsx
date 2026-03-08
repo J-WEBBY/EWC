@@ -10,7 +10,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  CheckCircle2, Circle, Plus, ChevronDown, ChevronRight,
+  CheckCircle2, Circle, Plus, ChevronRight,
   TrendingUp, TrendingDown, Bell, AlertCircle, CheckCheck,
   Target, Users, ShieldCheck, BarChart2, Sparkles,
   Clock, Calendar, Flag, Trash2, X, ArrowRight,
@@ -185,8 +185,8 @@ function SectionHead({ label, right }: { label: string; right?: React.ReactNode 
   );
 }
 
-function NavTab({ id, label, icon: Icon, active, onClick, badge }: {
-  id: TabId; label: string; icon: LucideIcon; active: boolean; onClick: () => void; badge?: number;
+function NavTab({ label, icon: Icon, active, onClick, badge }: {
+  label: string; icon: LucideIcon; active: boolean; onClick: () => void; badge?: number;
 }) {
   return (
     <button onClick={onClick}
@@ -592,7 +592,6 @@ export default function KpisPage() {
     ? Math.round((compOk / compliance.filter(c => c.is_mandatory).length || 1) * 100)
     : 100;
 
-  const goalsAtRisk   = goals.filter(g => g.status === 'at_risk' || g.status === 'missed').length;
   const perfScore     = kpi ? Math.round(
     (kpi.goals_on_track / Math.max(kpi.goals_total, 1)) * 40 +
     (kpi.compliance_score * 0.4) +
@@ -707,13 +706,13 @@ export default function KpisPage() {
 
             {/* Tab nav */}
             <nav className="flex flex-col gap-1">
-              <NavTab id="overview"    label="My Overview"   icon={BarChart2}   active={activeTab === 'overview'}    onClick={() => setActiveTab('overview')} />
-              <NavTab id="tasks"       label="Tasks"         icon={Target}      active={activeTab === 'tasks'}       onClick={() => setActiveTab('tasks')}
+              <NavTab label="My Overview"   icon={BarChart2}   active={activeTab === 'overview'}    onClick={() => setActiveTab('overview')} />
+              <NavTab label="Tasks"         icon={Target}      active={activeTab === 'tasks'}       onClick={() => setActiveTab('tasks')}
                 badge={goals.filter(g => g.status === 'at_risk' || g.status === 'missed').length || undefined} />
-              <NavTab id="compliance"  label="Compliance"    icon={ShieldCheck} active={activeTab === 'compliance'}  onClick={() => setActiveTab('compliance')}
+              <NavTab label="Compliance"    icon={ShieldCheck} active={activeTab === 'compliance'}  onClick={() => setActiveTab('compliance')}
                 badge={compOverdue || undefined} />
               {isManager && (
-                <NavTab id="team" label="Team" icon={Users} active={activeTab === 'team'} onClick={() => setActiveTab('team')} />
+                <NavTab label="Team" icon={Users} active={activeTab === 'team'} onClick={() => setActiveTab('team')} />
               )}
             </nav>
 
@@ -944,7 +943,7 @@ export default function KpisPage() {
 
                               {/* Checkbox */}
                               <button
-                                onClick={e => { e.stopPropagation(); isDone ? handleUncomplete(goal) : handleComplete(goal); }}
+                                onClick={e => { e.stopPropagation(); if (isDone) { handleUncomplete(goal); } else { handleComplete(goal); } }}
                                 disabled={completing === goal.id}
                                 className="mt-0.5 shrink-0 transition-all disabled:opacity-40">
                                 {completing === goal.id
