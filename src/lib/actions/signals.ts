@@ -87,6 +87,7 @@ export interface SignalStats {
   critical_count: number;
   pending_judgement: number;
   resolved_today: number;
+  signals_today: number;
   agentic_running: number;
   pending_approval_count: number;
   by_source: Record<SignalSource, number>;
@@ -309,6 +310,7 @@ export async function getSignalStats(
         critical_count: byPriority.critical,
         pending_judgement: active.filter(r => r.status === 'new').length,
         resolved_today: resolvedToday,
+        signals_today: rows.filter(r => r.created_at?.startsWith(todayStr)).length,
         agentic_running: agenticRunning,
         pending_approval_count: rows.filter(r => r.status === 'pending_approval').length,
         by_source: bySource,

@@ -290,17 +290,23 @@ export async function getClinikoStats(): Promise<{
   patients: number;
   appointments: number;
   appointments_upcoming: number;
+  appointments_this_month: number;
   invoices: number;
   revenue_outstanding: number;
   practitioners: number;
 }> {
   const supabase = createSovereignClient();
-  const now = new Date().toISOString();
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  const startOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
 
-  const [p, a, aUp, inv, pr] = await Promise.all([
+  const [p, a, aUp, aMth, inv, pr] = await Promise.all([
     supabase.from('cliniko_patients').select('id', { count: 'exact', head: true }),
     supabase.from('cliniko_appointments').select('id', { count: 'exact', head: true }),
-    supabase.from('cliniko_appointments').select('id', { count: 'exact', head: true }).gte('starts_at', now),
+    supabase.from('cliniko_appointments').select('id', { count: 'exact', head: true }).gte('starts_at', nowIso),
+    supabase.from('cliniko_appointments').select('id', { count: 'exact', head: true })
+      .gte('starts_at', startOfMonth).lt('starts_at', startOfNextMonth),
     supabase.from('cliniko_invoices').select('amount_outstanding').gt('amount_outstanding', 0).neq('status', 'cancelled'),
     supabase.from('cliniko_practitioners').select('id', { count: 'exact', head: true }).eq('is_active', true),
   ]);
@@ -308,12 +314,13 @@ export async function getClinikoStats(): Promise<{
   const outstanding = (inv.data ?? []).reduce((s, r) => s + (Number(r.amount_outstanding) || 0), 0);
 
   return {
-    patients:              p.count  ?? 0,
-    appointments:          a.count  ?? 0,
-    appointments_upcoming: aUp.count ?? 0,
-    invoices:              inv.data?.length ?? 0,
-    revenue_outstanding:   outstanding,
-    practitioners:         pr.count ?? 0,
+    patients:                p.count   ?? 0,
+    appointments:            a.count   ?? 0,
+    appointments_upcoming:   aUp.count ?? 0,
+    appointments_this_month: aMth.count ?? 0,
+    invoices:                inv.data?.length ?? 0,
+    revenue_outstanding:     outstanding,
+    practitioners:           pr.count  ?? 0,
   };
 }
 

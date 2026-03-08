@@ -64,10 +64,6 @@ function formatApptTime(iso: string): string {
   return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) + ` ${time}`;
 }
 
-function formatGBP(n: number): string {
-  if (n >= 1000) return `£${(n / 1000).toFixed(1)}k`;
-  return `£${n.toFixed(0)}`;
-}
 
 function seededRand(seed: number): number {
   let s = seed;
@@ -568,6 +564,7 @@ interface ClinikoStats {
   patients: number;
   appointments: number;
   appointments_upcoming: number;
+  appointments_this_month: number;
   invoices: number;
   revenue_outstanding: number;
   practitioners: number;
@@ -664,44 +661,52 @@ export default function DashboardPage() {
     );
   }
 
-  // ── Real clinic metrics ──────────────────────────────────────────────────────
+  // ── Tasks due today (from loaded goals) ──────────────────────────────────
+  const todayDate = new Date().toISOString().split('T')[0];
+  const tasksToday = myGoals.filter(
+    g => g.due_date <= todayDate && g.status !== 'completed' && g.status !== 'paused',
+  ).length;
+
+  // ── Real clinic metrics ───────────────────────────────────────────────────
   const CLINIC_METRICS = [
     {
-      label:  'Total Patients',
-      value:  (clinikoStats?.patients ?? 0).toLocaleString(),
-      detail: 'registered in Cliniko',
+      label:  'Clients This Month',
+      value:  (clinikoStats?.appointments_this_month ?? 0).toLocaleString(),
+      detail: 'appointments booked this month',
       seed: 1001, up: true, change: 'Live', color: '#0058E6',
     },
     {
-      label:  'Active Signals',
-      value:  String(stats?.total_active ?? 0),
-      detail: 'active across the system',
-      seed: 2002, up: true, change: `${stats?.pending_approval_count ?? 0} pending`, color: '#7C3AED',
+      label:  'Signals Today',
+      value:  String(stats?.signals_today ?? 0),
+      detail: `${stats?.pending_approval_count ?? 0} pending approval`,
+      seed: 2002, up: true,
+      change: `${stats?.total_active ?? 0} total active`,
+      color: '#7C3AED',
     },
     {
       label:  'Upcoming Appts',
       value:  (clinikoStats?.appointments_upcoming ?? 0).toLocaleString(),
-      detail: 'from now onwards',
+      detail: 'booked and scheduled ahead',
       seed: 3003, up: true, change: 'Live', color: '#00A693',
     },
     {
-      label:  'Outstanding',
-      value:  formatGBP(clinikoStats?.revenue_outstanding ?? 0),
-      detail: 'invoices not yet settled',
-      seed: 4004, up: false,
-      change: `${clinikoStats?.invoices ?? 0} invoices`,
+      label:  'Tasks Today',
+      value:  String(tasksToday),
+      detail: tasksToday === 0 ? 'all clear' : tasksToday === 1 ? '1 goal due today' : `${tasksToday} goals due or overdue`,
+      seed: 4004, up: tasksToday === 0,
+      change: `${myGoals.length} total goals`,
       color: '#D8A600',
     },
   ];
 
-  // ── Activity feed: merge appts + signals ──────────────────────────────────
+  // ── Activity feed: merge appts + signals — max 8 ─────────────────────────
   const apptItems: ActivityItem[] = [...upcomingAppts]
     .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())
     .map(a => ({ kind: 'appt' as const, appt: a }));
   const sigItems:  ActivityItem[] = feed.map(s => ({ kind: 'signal' as const, signal: s }));
 
-  // Interleave: appointments first (sorted by starts_at), then signals
-  const activityFeed: ActivityItem[] = [...apptItems, ...sigItems].slice(0, 14);
+  // Appointments first (soonest), then signals — oldest drops off at 8
+  const activityFeed: ActivityItem[] = [...apptItems, ...sigItems].slice(0, 8);
 
   // ── My priorities: at_risk first, then on_track, active ──────────────────
   const STATUS_SORT: Record<string, number> = {
