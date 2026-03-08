@@ -1050,3 +1050,34 @@ export async function getPatientStats() {
   }
 }
 
+// =============================================================================
+// UPDATE PATIENT PROFILE — writes local overrides to cliniko_patients cache
+// (Cliniko sync will overwrite on next run — direct Cliniko API write is Week 2)
+// =============================================================================
+
+export interface PatientProfileUpdate {
+  first_name?: string;
+  last_name?: string;
+  email?: string | null;
+  date_of_birth?: string | null;
+  gender?: string | null;
+  occupation?: string | null;
+  notes?: string | null;
+  emergency_contact?: string | null;
+}
+
+export async function updatePatientProfile(
+  patientId: string,
+  updates: PatientProfileUpdate,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const db = createSovereignClient();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await db.from('cliniko_patients').update(updates as any).eq('id', patientId);
+    if (error) throw error;
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: String(err) };
+  }
+}
+

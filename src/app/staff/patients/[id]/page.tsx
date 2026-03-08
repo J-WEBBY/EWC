@@ -12,14 +12,16 @@ import {
   Mic2, FileText, Target, User as UserIcon, X,
   CreditCard, Package, BarChart2, Users, ChevronDown,
   ClipboardList, CheckSquare, Circle, MapPin, Heart,
-  BookOpen, AlertTriangle, Paperclip, Camera,
+  BookOpen, AlertTriangle, Paperclip, Camera, Pen, Save,
+  DollarSign, CalendarPlus,
 } from 'lucide-react';
 import { getStaffProfile, getCurrentUser, type StaffProfile } from '@/lib/actions/staff-onboarding';
 import { StaffNav } from '@/components/staff-nav';
 import {
-  getPatientHub, addPatientNote, getPatientNotes, getPatientSignalList, setPatientLifecycle,
+  getPatientHub, addPatientNote, getPatientNotes, getPatientSignalList, setPatientLifecycle, updatePatientProfile,
   type PatientHubData, type PatientIntelligenceRow, type TimelineEvent,
   type PatientAppointment, type LifecycleStage, type PatientNote, type PatientSignal,
+  type PatientProfileUpdate,
 } from '@/lib/actions/patients';
 import {
   getTreatmentLogs, getPatientPlan, addTreatmentLog,
@@ -289,15 +291,16 @@ function TimelineItem({ ev, last }: { ev: TimelineEvent; last: boolean }) {
 // TABS
 // =============================================================================
 
-type Tab = 'overview' | 'client_detail' | 'ehr' | 'appointments' | 'communications' | 'payments' | 'intelligence';
+type Tab = 'overview' | 'profile' | 'journey' | 'appointments' | 'communications' | 'ehr' | 'financials' | 'intelligence';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'overview',       label: 'Overview' },
-  { id: 'client_detail',  label: 'Client Details' },
-  { id: 'ehr',            label: 'EHR Overview' },
+  { id: 'profile',        label: 'Profile' },
+  { id: 'journey',        label: 'Clinical Journey' },
   { id: 'appointments',   label: 'Appointments' },
   { id: 'communications', label: 'Communications' },
-  { id: 'payments',       label: 'Payments' },
+  { id: 'ehr',            label: 'EHR' },
+  { id: 'financials',     label: 'Financials' },
   { id: 'intelligence',   label: 'Intelligence' },
 ];
 
@@ -639,7 +642,7 @@ function LifecycleTab({ patient, timeline }: { patient: PatientIntelligenceRow; 
 
 type ApptFilter = 'all' | 'upcoming' | 'past' | 'cancelled';
 
-function AppointmentsTab({ patient, appointments }: { patient: PatientIntelligenceRow; appointments: PatientAppointment[] }) {
+function AppointmentsTab({ patient, appointments, userId }: { patient: PatientIntelligenceRow; appointments: PatientAppointment[]; userId: string }) {
   const [filter, setFilter] = useState<ApptFilter>('all');
   const [expanded, setExpanded] = useState<string | null>(null);
   const lcColor = LC_CFG[patient.lifecycle_stage].color;
@@ -661,19 +664,67 @@ function AppointmentsTab({ patient, appointments }: { patient: PatientIntelligen
 
   const attendanceRate = appointments.length > 0 ? Math.round((attended.length / appointments.length) * 100) : 0;
 
+  // Practitioners from appointment history
+  const practMap = new Map<string, { name: string; count: number; last: string | null }>();
+  for (const a of appointments) {
+    if (!a.practitioner_name) continue;
+    const cur = practMap.get(a.practitioner_name) ?? { name: a.practitioner_name, count: 0, last: null };
+    cur.count++;
+    if (!cur.last || (a.starts_at && a.starts_at > cur.last)) cur.last = a.starts_at;
+    practMap.set(a.practitioner_name, cur);
+  }
+  const practitioners = Array.from(practMap.values()).sort((a, b) => b.count - a.count);
+
   return (
     <div className="space-y-5">
+
+      {/* Header with Book button */}
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#96989B] mb-1">Appointment History</p>
+          <p className="text-[18px] font-black tracking-[-0.025em] text-[#181D23]">{appointments.length} appointments</p>
+        </div>
+        <a href={`/staff/appointments?userId=${userId}&patientName=${encodeURIComponent(patient.first_name + ' ' + patient.last_name)}`}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-bold transition-all"
+          style={{ backgroundColor: '#0058E618', border: '1px solid #0058E640', color: '#181D23' }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#0058E628'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#0058E618'; }}>
+          <CalendarPlus size={12} style={{ color: '#0058E6' }} /> Book Appointment
+        </a>
+      </div>
+
       <div className="grid grid-cols-4 gap-3">
         <StatTile label="Total Booked" value={String(appointments.length)} sub="all time" />
         <StatTile label="Attended" value={String(attended.length)} sub="completed" accent="#059669" />
         <StatTile label="Attendance Rate" value={`${attendanceRate}%`} sub="show rate" accent={attendanceRate >= 75 ? '#059669' : '#DC2626'} />
-        <StatTile label="Upcoming" value={String(upcoming.length)} sub="scheduled" accent={upcoming.length > 0 ? '#0284C7' : '#6B7280'} />
+        <StatTile label="Upcoming" value={String(upcoming.length)} sub="scheduled" accent={upcoming.length > 0 ? '#0058E6' : '#96989B'} />
       </div>
 
       {appointments.length > 0 && (
         <Panel>
           <PanelHeader title="Appointment Frequency — 12 months" />
           <div className="px-5 py-4"><AppointmentAreaChart appts={appointments} color={lcColor} /></div>
+        </Panel>
+      )}
+
+      {/* Practitioners */}
+      {practitioners.length > 0 && (
+        <Panel>
+          <PanelHeader title="Practitioners" />
+          <div>
+            {practitioners.map((p, i) => (
+              <div key={p.name} className="flex items-center gap-4 px-5 py-3" style={{ borderBottom: i < practitioners.length - 1 ? '1px solid #EBE5FF' : 'none' }}>
+                <div className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-black flex-shrink-0" style={{ backgroundColor: '#0058E614', color: '#0058E6' }}>
+                  {p.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[12px] font-semibold text-[#181D23]">{p.name}</p>
+                  <p className="text-[10px] text-[#96989B] mt-0.5">{p.count} appointment{p.count !== 1 ? 's' : ''} · last {fmtDate(p.last)}</p>
+                </div>
+                <span className="text-[9px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: '#F0F7FF', color: '#0058E6' }}>{Math.round((p.count / appointments.length) * 100)}%</span>
+              </div>
+            ))}
+          </div>
         </Panel>
       )}
 
@@ -1366,7 +1417,6 @@ function ClientDetailTab({ patient }: { patient: PatientIntelligenceRow }) {
         <DetailRow label="Gender"       value={genderDisplay} />
         <DetailRow label="Occupation"   value={patient.occupation} />
         <DetailRow label="Patient Since" value={patientSince} />
-        <DetailRow label="Cliniko ID"   value={patient.cliniko_id ? String(patient.cliniko_id) : null} mono />
         {!dob && !genderDisplay && !patient.occupation && (
           <div className="py-6 text-center">
             <p className="text-[12px] text-[#96989B]">No personal details on file</p>
@@ -2189,13 +2239,63 @@ function PatientPlanTab({ patient }: { patient: PatientIntelligenceRow }) {
 // TAB: INTELLIGENCE
 // =============================================================================
 
-function IntelligenceTab({ patient, onChatWithAgent }: {
-  patient: PatientIntelligenceRow; onChatWithAgent: () => void;
+function IntelligenceTab({ patient, onChatWithAgent, userId }: {
+  patient: PatientIntelligenceRow; onChatWithAgent: () => void; userId: string;
 }) {
   const isLeadOrNew = patient.lifecycle_stage === 'lead' || patient.lifecycle_stage === 'new';
   const agentName = isLeadOrNew ? 'Orion' : 'Aria';
   const agentColor = isLeadOrNew ? '#D8A600' : '#00A693';
   const lc = LC_CFG[patient.lifecycle_stage];
+
+  // AI Report generation
+  const [reportStatus, setReportStatus] = useState<'idle' | 'generating' | 'done' | 'error'>('idle');
+  const [reportText, setReportText] = useState('');
+  const reportRef = useRef<HTMLDivElement>(null);
+
+  const generateReport = useCallback(async () => {
+    setReportStatus('generating');
+    setReportText('');
+    const clv = Math.round(patient.total_visits * 180 + Math.max(0, patient.total_visits * 180 * 0.4));
+    const message = `Generate a concise patient intelligence report for: ${patient.first_name} ${patient.last_name}. ` +
+      `Stage: ${patient.lifecycle_stage}. Visits: ${patient.total_visits}. Engagement: ${patient.engagement_score}/100. ` +
+      `Last visit: ${patient.days_since_last_visit !== null ? `${patient.days_since_last_visit} days ago` : 'unknown'}. ` +
+      `Total revenue: £${patient.total_paid}. Est. CLV: £${clv}. Cancellation rate: ${Math.round(patient.cancellation_rate * 100)}%. ` +
+      `Treatments: ${patient.treatment_tags.slice(0, 5).join(', ') || 'none recorded'}. ` +
+      `Outstanding balance: ${patient.has_outstanding ? 'Yes' : 'No'}. ` +
+      `Include: relationship summary, retention priority, recommended actions, revenue opportunity. Keep it clinical and professional, under 300 words.`;
+    try {
+      const res = await fetch('/api/primary-agent/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenant_id: 'clinic', user_id: userId, conversation_id: `report-${patient.id}`, message, agent_scope: 'crm_agent' }),
+      });
+      if (!res.ok || !res.body) { setReportStatus('error'); return; }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split('\n');
+        buf = lines.pop() ?? '';
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = line.slice(6).trim();
+          if (data === '[DONE]') continue;
+          try {
+            const parsed = JSON.parse(data);
+            const chunk = parsed.delta?.text ?? parsed.text ?? '';
+            if (chunk) setReportText(t => t + chunk);
+          } catch { /* ignore */ }
+        }
+      }
+      setReportStatus('done');
+      setTimeout(() => reportRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
+    } catch {
+      setReportStatus('error');
+    }
+  }, [patient, userId]);
 
   // Financial
   const clv = Math.round(patient.total_visits * 180 + Math.max(0, patient.total_visits * 180 * 0.4));
@@ -2373,6 +2473,66 @@ function IntelligenceTab({ patient, onChatWithAgent }: {
         </Panel>
       )}
 
+      {/* AI Report Generation */}
+      <Panel>
+        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: reportStatus !== 'idle' ? '1px solid #EBE5FF' : 'none' }}>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#0058E614' }}>
+              <Sparkles size={15} style={{ color: '#0058E6' }} />
+            </div>
+            <div>
+              <p className="text-[12px] font-black text-[#181D23]">Generate Patient Report</p>
+              <p className="text-[10px] text-[#96989B]">Aria analyses this patient and produces an intelligence briefing</p>
+            </div>
+          </div>
+          <button
+            onClick={generateReport}
+            disabled={reportStatus === 'generating'}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-bold transition-all"
+            style={{ backgroundColor: reportStatus === 'generating' ? '#F5F3FF' : '#0058E618', border: `1px solid ${reportStatus === 'generating' ? '#C5BAF0' : '#0058E640'}`, color: '#181D23', opacity: reportStatus === 'generating' ? 0.7 : 1 }}
+            onMouseEnter={e => { if (reportStatus !== 'generating') (e.currentTarget as HTMLElement).style.backgroundColor = '#0058E628'; }}
+            onMouseLeave={e => { if (reportStatus !== 'generating') (e.currentTarget as HTMLElement).style.backgroundColor = '#0058E618'; }}>
+            {reportStatus === 'generating' ? (
+              <><Loader2 size={12} className="animate-spin" style={{ color: '#0058E6' }} /> Generating…</>
+            ) : (
+              <><Sparkles size={12} style={{ color: '#0058E6' }} /> {reportStatus === 'done' ? 'Regenerate' : 'Generate Report'}</>
+            )}
+          </button>
+        </div>
+
+        {reportStatus === 'error' && (
+          <div className="px-5 py-4 flex items-center gap-2">
+            <AlertCircle size={13} style={{ color: '#DC2626' }} />
+            <p className="text-[11px] text-[#DC2626]">Failed to generate report. Check your AI connection and try again.</p>
+          </div>
+        )}
+
+        <AnimatePresence>
+          {(reportStatus === 'generating' || reportStatus === 'done') && reportText && (
+            <motion.div
+              ref={reportRef}
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <div className="px-5 py-4">
+                <div className="flex items-center gap-1.5 mb-3">
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#00A693' }} />
+                  <span className="text-[8px] uppercase tracking-[0.22em] font-semibold" style={{ color: '#00A693' }}>Aria — Patient Intelligence</span>
+                  {reportStatus === 'generating' && <Loader2 size={10} className="animate-spin ml-1" style={{ color: '#00A693' }} />}
+                </div>
+                <p className="text-[12px] text-[#3D4451] leading-relaxed whitespace-pre-wrap">{reportText}</p>
+                {reportStatus === 'done' && (
+                  <p className="text-[9px] text-[#B0A8C8] mt-3">Generated by Aria · {new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </Panel>
+
       {/* Agent CTA */}
       <div className="p-5 rounded-2xl flex items-center gap-4" style={{ backgroundColor: agentColor + '08', border: `1px solid ${agentColor}25` }}>
         <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: agentColor + '18' }}>
@@ -2468,6 +2628,418 @@ function EHROverviewTab({ patient, userId }: { patient: PatientIntelligenceRow; 
             All 8 EHR sections will show live data for {patient.first_name} once the clinical schema is active.
             The <a href={`/staff/ehr?userId=${userId}`} className="underline" style={{ color: '#7C3AED' }}>EHR Hub</a> has full read/write functionality.
           </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// TAB: PROFILE (editable)
+// =============================================================================
+
+function ProfileTab({ patient, onUpdated }: { patient: PatientIntelligenceRow; onUpdated: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [form, setForm] = useState({
+    first_name: patient.first_name,
+    last_name: patient.last_name,
+    email: patient.email ?? '',
+    date_of_birth: patient.date_of_birth ?? '',
+    gender: patient.gender ?? '',
+    occupation: patient.occupation ?? '',
+    emergency_contact: patient.emergency_contact ?? '',
+    notes: patient.notes ?? '',
+  });
+
+  function showToast(ok: boolean, msg: string) {
+    setToast({ ok, msg });
+    setTimeout(() => setToast(null), 3500);
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    const updates: PatientProfileUpdate = {
+      first_name: form.first_name || undefined,
+      last_name: form.last_name || undefined,
+      email: form.email || null,
+      date_of_birth: form.date_of_birth || null,
+      gender: form.gender || null,
+      occupation: form.occupation || null,
+      emergency_contact: form.emergency_contact || null,
+      notes: form.notes || null,
+    };
+    const res = await updatePatientProfile(patient.id, updates);
+    setSaving(false);
+    if (res.success) {
+      setEditing(false);
+      showToast(true, 'Profile updated — syncs to Cliniko on next run');
+      onUpdated();
+    } else {
+      showToast(false, res.error ?? 'Save failed');
+    }
+  }
+
+  const F = ({ label, name, type = 'text', options }: { label: string; name: keyof typeof form; type?: string; options?: string[] }) => (
+    <div>
+      <p className="text-[9px] uppercase tracking-[0.22em] font-semibold text-[#96989B] mb-1.5">{label}</p>
+      {editing ? (
+        options ? (
+          <select value={form[name]} onChange={e => setForm(p => ({ ...p, [name]: e.target.value }))}
+            className="w-full px-3 py-2 rounded-xl text-[12px] outline-none"
+            style={{ border: '1px solid #EBE5FF', background: 'transparent', color: '#181D23' }}>
+            <option value="">Not specified</option>
+            {options.map(o => <option key={o} value={o}>{o}</option>)}
+          </select>
+        ) : type === 'textarea' ? (
+          <textarea value={form[name]} onChange={e => setForm(p => ({ ...p, [name]: e.target.value }))}
+            rows={3} className="w-full px-3 py-2 rounded-xl text-[12px] outline-none resize-none"
+            style={{ border: '1px solid #EBE5FF', background: 'transparent', color: '#181D23' }} />
+        ) : (
+          <input type={type} value={form[name]} onChange={e => setForm(p => ({ ...p, [name]: e.target.value }))}
+            className="w-full px-3 py-2 rounded-xl text-[12px] outline-none"
+            style={{ border: '1px solid #EBE5FF', background: 'transparent', color: '#181D23' }} />
+        )
+      ) : (
+        <p className="text-[13px] font-semibold text-[#181D23]">{form[name] || <span className="text-[#96989B] font-normal">Not on file</span>}</p>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="space-y-5">
+
+      {/* Action bar */}
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#96989B] mb-1">Patient Profile</p>
+          <p className="text-[18px] font-black tracking-[-0.025em] text-[#181D23]">{patient.first_name} {patient.last_name}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <AnimatePresence>
+            {toast && (
+              <motion.span initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
+                className="text-[11px] font-semibold px-3 py-1.5 rounded-xl"
+                style={{ backgroundColor: toast.ok ? '#ECFDF5' : '#FEE2E2', color: toast.ok ? '#059669' : '#DC2626' }}>
+                {toast.msg}
+              </motion.span>
+            )}
+          </AnimatePresence>
+          {editing ? (
+            <>
+              <button onClick={() => setEditing(false)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-semibold transition-all"
+                style={{ border: '1px solid #EBE5FF', color: '#96989B' }}>
+                <X size={11} /> Cancel
+              </button>
+              <button onClick={handleSave} disabled={saving}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-bold transition-all disabled:opacity-50"
+                style={{ backgroundColor: '#0058E618', border: '1px solid #0058E640', color: '#181D23' }}>
+                {saving ? <Loader2 size={11} className="animate-spin" /> : <Save size={11} style={{ color: '#0058E6' }} />}
+                {saving ? 'Saving…' : 'Save Changes'}
+              </button>
+            </>
+          ) : (
+            <button onClick={() => setEditing(true)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-bold transition-all"
+              style={{ backgroundColor: '#0058E618', border: '1px solid #0058E640', color: '#181D23' }}>
+              <Pen size={11} style={{ color: '#0058E6' }} /> Edit Profile
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Personal info */}
+      <Panel>
+        <PanelHeader title="Personal Information" />
+        <div className="p-5 grid grid-cols-2 gap-x-8 gap-y-4">
+          <F label="First Name" name="first_name" />
+          <F label="Last Name" name="last_name" />
+          <F label="Date of Birth" name="date_of_birth" type="date" />
+          <F label="Gender" name="gender" options={['Female', 'Male', 'Non-binary', 'Prefer not to say']} />
+          <F label="Occupation" name="occupation" />
+          <div>
+            <p className="text-[9px] uppercase tracking-[0.22em] font-semibold text-[#96989B] mb-1.5">Patient Since</p>
+            <p className="text-[13px] font-semibold text-[#181D23]">{patient.created_in_cliniko_at ? fmtDate(patient.created_in_cliniko_at) : '—'}</p>
+          </div>
+        </div>
+      </Panel>
+
+      {/* Contact */}
+      <Panel>
+        <PanelHeader title="Contact Details" />
+        <div className="p-5 grid grid-cols-2 gap-x-8 gap-y-4">
+          <F label="Email" name="email" type="email" />
+          <div>
+            <p className="text-[9px] uppercase tracking-[0.22em] font-semibold text-[#96989B] mb-1.5">Primary Phone</p>
+            <p className="text-[13px] font-semibold text-[#181D23]">{patient.phone || <span className="text-[#96989B] font-normal">Not on file</span>}</p>
+            {patient.phone && !editing && <a href={`tel:${patient.phone}`} className="text-[10px] text-[#0058E6] mt-0.5 block">Call patient</a>}
+          </div>
+          {patient.all_phones?.filter(p => p.number !== patient.phone).map((ph, i) => (
+            <div key={i}>
+              <p className="text-[9px] uppercase tracking-[0.22em] font-semibold text-[#96989B] mb-1.5">{ph.type || `Phone ${i + 2}`}</p>
+              <p className="text-[13px] font-semibold text-[#181D23]">{ph.number}</p>
+            </div>
+          ))}
+          {patient.email && !editing && (
+            <div>
+              <p className="text-[9px] uppercase tracking-[0.22em] font-semibold text-[#96989B] mb-1.5">Quick Actions</p>
+              <div className="flex gap-2 mt-1">
+                <a href={`tel:${patient.phone}`} className="flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 rounded-lg transition-all" style={{ backgroundColor: '#0058E618', border: '1px solid #0058E630', color: '#181D23' }}>
+                  <Phone size={10} style={{ color: '#0058E6' }} /> Call
+                </a>
+                <a href={`mailto:${patient.email}`} className="flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 rounded-lg transition-all" style={{ backgroundColor: '#0058E618', border: '1px solid #0058E630', color: '#181D23' }}>
+                  <Mail size={10} style={{ color: '#0058E6' }} /> Email
+                </a>
+              </div>
+            </div>
+          )}
+        </div>
+      </Panel>
+
+      {/* Address */}
+      {patient.address && (
+        <Panel>
+          <PanelHeader title="Address" />
+          <div className="p-5">
+            <div className="flex items-start gap-3">
+              <MapPin size={14} style={{ color: '#96989B', marginTop: 2 }} />
+              <div>
+                {[patient.address.line1, patient.address.line2, patient.address.line3, patient.address.city, patient.address.postcode, patient.address.country].filter(Boolean).map((l, i) => (
+                  <p key={i} className="text-[12px] font-semibold text-[#181D23] leading-relaxed">{l}</p>
+                ))}
+                {editing && <p className="text-[10px] text-[#96989B] mt-2">Address updates via Cliniko sync</p>}
+              </div>
+            </div>
+          </div>
+        </Panel>
+      )}
+
+      {/* Emergency + Notes */}
+      <Panel>
+        <PanelHeader title="Emergency Contact & Notes" />
+        <div className="p-5 grid grid-cols-2 gap-x-8 gap-y-4">
+          <div className="col-span-2">
+            <F label="Emergency Contact" name="emergency_contact" />
+          </div>
+          <div className="col-span-2">
+            <F label="Clinical Notes" name="notes" type="textarea" />
+          </div>
+        </div>
+      </Panel>
+
+      {editing && (
+        <p className="text-[10px] text-[#96989B] text-center py-2">
+          Changes are saved locally. Cliniko write API will sync changes back in Week 2 of the integration build.
+        </p>
+      )}
+    </div>
+  );
+}
+
+// =============================================================================
+// TAB: CLINICAL JOURNEY (lifecycle + engagement trend)
+// =============================================================================
+
+function JourneyTab({ patient, timeline }: { patient: PatientIntelligenceRow; timeline: TimelineEvent[] }) {
+  const lc = LC_CFG[patient.lifecycle_stage];
+
+  // Relationship milestones
+  const milestones = [
+    patient.created_in_cliniko_at && { date: patient.created_in_cliniko_at, label: 'Joined as patient', type: 'start' },
+    patient.last_appointment_at && { date: patient.last_appointment_at, label: `Last treatment: ${patient.latest_treatment ?? 'appointment'}`, type: 'appointment' },
+    patient.next_appointment_at && { date: patient.next_appointment_at, label: `Next appointment booked`, type: 'upcoming' },
+  ].filter(Boolean) as { date: string; label: string; type: string }[];
+
+  return (
+    <div className="space-y-5">
+
+      {/* Engagement trend chart */}
+      <Panel>
+        <PanelHeader title="12-Month Engagement Trend" />
+        <div className="px-5 pt-3 pb-4">
+          <EngagementTrendChart patient={patient} color={lc.color} />
+        </div>
+      </Panel>
+
+      {/* Lifecycle journey — reuse existing LifecycleTab */}
+      <LifecycleTab patient={patient} timeline={timeline} />
+
+      {/* Relationship milestones */}
+      {milestones.length > 0 && (
+        <Panel>
+          <PanelHeader title="Relationship Milestones" />
+          <div>
+            {milestones.map((m, i) => {
+              const col = m.type === 'start' ? '#0058E6' : m.type === 'upcoming' ? '#059669' : '#D8A600';
+              return (
+                <div key={i} className="flex items-center gap-4 px-5 py-3" style={{ borderBottom: i < milestones.length - 1 ? '1px solid #EBE5FF' : 'none' }}>
+                  <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: col }} />
+                  <div className="flex-1">
+                    <p className="text-[12px] font-semibold text-[#181D23]">{m.label}</p>
+                    <p className="text-[10px] text-[#96989B]">{fmtDate(m.date)}</p>
+                  </div>
+                  {m.type === 'upcoming' && (
+                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: '#ECFDF5', color: '#059669' }}>Upcoming</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </Panel>
+      )}
+
+      {/* Referral info */}
+      {patient.referral_source && (
+        <Panel>
+          <PanelHeader title="Acquisition" />
+          <div className="p-5 grid grid-cols-2 gap-4">
+            <div className="p-4 rounded-xl" style={{ border: '1px solid #EBE5FF' }}>
+              <p className="text-[8px] uppercase tracking-[0.22em] text-[#96989B] mb-2">Referral Source</p>
+              <p className="text-[16px] font-black text-[#181D23]">{patient.referral_source}</p>
+              <p className="text-[10px] text-[#96989B] mt-1">How {patient.first_name} found us</p>
+            </div>
+            <div className="p-4 rounded-xl" style={{ border: '1px solid #EBE5FF' }}>
+              <p className="text-[8px] uppercase tracking-[0.22em] text-[#96989B] mb-2">Treatment Focus</p>
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {patient.treatment_tags.slice(0, 4).map(t => (
+                  <span key={t} className="text-[10px] font-semibold px-2 py-0.5 rounded-lg" style={{ backgroundColor: '#F5F2FD', border: '1px solid #EBE5FF', color: '#3D4451' }}>{t}</span>
+                ))}
+                {patient.treatment_tags.length === 0 && <p className="text-[12px] text-[#96989B]">No treatments on record</p>}
+              </div>
+            </div>
+          </div>
+        </Panel>
+      )}
+    </div>
+  );
+}
+
+// =============================================================================
+// TAB: FINANCIALS
+// =============================================================================
+
+function FinancialsTab({ patient, appointments }: { patient: PatientIntelligenceRow; appointments: PatientAppointment[] }) {
+  const clv = Math.round(patient.total_visits * 180 + Math.max(0, patient.total_visits * 180 * 0.4));
+  const avgValue = patient.total_visits > 0 ? Math.round(patient.total_paid / patient.total_visits) : 180;
+
+  // Revenue trend: appointments per month over 12 months
+  const now = new Date();
+  const monthlyRevenue = Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - 11 + i, 1);
+    const next = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+    const monthAppts = appointments.filter(a => a.starts_at && new Date(a.starts_at) >= d && new Date(a.starts_at) < next && a.status === 'Attended');
+    return { month: fmtMonthLabel(d), count: monthAppts.length, est: monthAppts.length * avgValue };
+  });
+  const maxEst = Math.max(...monthlyRevenue.map(m => m.est), 1);
+  const totalEstRevenue = monthlyRevenue.reduce((s, m) => s + m.est, 0);
+
+  // Health indicator
+  const healthScore = Math.min(100, Math.round(
+    (patient.total_paid > 500 ? 40 : patient.total_paid > 0 ? 20 : 0) +
+    (!patient.has_outstanding ? 30 : 0) +
+    (patient.lifecycle_stage === 'loyal' ? 30 : patient.lifecycle_stage === 'active' ? 20 : 10)
+  ));
+  const healthLabel = healthScore >= 70 ? 'Excellent' : healthScore >= 45 ? 'Good' : 'Developing';
+  const healthColor = healthScore >= 70 ? '#059669' : healthScore >= 45 ? '#D8A600' : '#0058E6';
+
+  return (
+    <div className="space-y-5">
+
+      {/* KPI strip */}
+      <div className="grid grid-cols-4 gap-3">
+        {[
+          { label: 'Total Paid', value: fmtGBP(patient.total_paid), sub: 'confirmed payments', color: patient.total_paid > 0 ? '#059669' : '#96989B' },
+          { label: 'Avg Visit', value: fmtGBP(avgValue), sub: 'per appointment', color: '#181D23' },
+          { label: 'Est. CLV', value: fmtGBP(clv), sub: 'projected lifetime', color: '#059669' },
+          { label: '12-Mo Revenue', value: fmtGBP(totalEstRevenue), sub: 'last 12 months', color: '#0058E6' },
+        ].map(k => (
+          <div key={k.label} className="rounded-xl p-4" style={{ border: '1px solid #EBE5FF' }}>
+            <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B] mb-1.5">{k.label}</p>
+            <p className="text-[22px] font-black tracking-[-0.02em] leading-none" style={{ color: k.color }}>{k.value}</p>
+            <p className="text-[10px] text-[#96989B] mt-1">{k.sub}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Revenue bar chart */}
+      <Panel>
+        <PanelHeader title="Revenue by Month (Est.)" />
+        <div className="px-5 pt-4 pb-5">
+          <div className="flex items-end gap-1.5 h-[80px]">
+            {monthlyRevenue.map((m, i) => (
+              <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                <div className="w-full rounded-t-md transition-all"
+                  style={{ height: `${Math.round((m.est / maxEst) * 72)}px`, minHeight: m.est > 0 ? 4 : 0, backgroundColor: i === 11 ? '#0058E6' : '#0058E630' }} />
+                {i % 2 === 0 && <p className="text-[7px] text-[#96989B]">{m.month}</p>}
+              </div>
+            ))}
+          </div>
+          <p className="text-[10px] text-[#96989B] mt-2">Estimated from attended appointments × avg visit value. Connect Stripe for exact figures.</p>
+        </div>
+      </Panel>
+
+      {/* Financial health */}
+      <Panel>
+        <PanelHeader title="Financial Health" />
+        <div className="p-5">
+          <div className="flex items-center gap-5 mb-4">
+            <EngagementGauge score={healthScore} color={healthColor} />
+            <div className="flex-1">
+              <p className="text-[18px] font-black" style={{ color: healthColor }}>{healthLabel}</p>
+              <p className="text-[11px] text-[#5A6475] mt-1 leading-relaxed">
+                {patient.has_outstanding ? 'Outstanding balance detected — follow up recommended.' : 'No outstanding balance.'}{' '}
+                {patient.lifecycle_stage === 'loyal' ? `${patient.first_name} is a high-value loyal patient.` : `Average visit frequency: ${patient.total_visits > 0 ? Math.round(12 / Math.max(1, patient.total_visits)) : '—'} months.`}
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: 'Payment Status', value: patient.has_outstanding ? 'Outstanding' : 'Clear', ok: !patient.has_outstanding },
+              { label: 'Visit Value', value: avgValue > 250 ? 'Premium' : avgValue > 150 ? 'Standard' : 'Entry', ok: avgValue > 150 },
+              { label: 'Retention', value: patient.lifecycle_stage === 'loyal' || patient.lifecycle_stage === 'active' ? 'Strong' : patient.lifecycle_stage === 'at_risk' || patient.lifecycle_stage === 'lapsed' ? 'At Risk' : 'Building', ok: patient.lifecycle_stage === 'loyal' || patient.lifecycle_stage === 'active' },
+            ].map(item => (
+              <div key={item.label} className="p-3 rounded-xl text-center" style={{ border: '1px solid #EBE5FF' }}>
+                <p className="text-[8px] uppercase tracking-[0.22em] text-[#96989B] mb-1.5">{item.label}</p>
+                <p className="text-[13px] font-black" style={{ color: item.ok ? '#059669' : '#DC2626' }}>{item.value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </Panel>
+
+      {/* Invoice history placeholder */}
+      <Panel>
+        <PanelHeader title="Invoice History"
+          action={
+            <span className="text-[9px] font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: '#F5F3FF', color: '#7C3AED', border: '1px solid #C5BAF0' }}>
+              Cliniko sync required
+            </span>
+          } />
+        {patient.total_paid > 0 ? (
+          <div className="p-5">
+            <div className="flex items-center gap-3 p-4 rounded-xl" style={{ backgroundColor: '#F0FDF4', border: '1px solid #A7F3D0' }}>
+              <CheckCircle size={16} style={{ color: '#059669', flexShrink: 0 }} />
+              <div>
+                <p className="text-[12px] font-semibold text-[#181D23]">{fmtGBP(patient.total_paid)} confirmed across invoices</p>
+                <p className="text-[10px] text-[#5A6475] mt-0.5">Activate Cliniko integration to see individual invoice lines</p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <EmptyState title="No invoice data" sub="Run Cliniko sync to pull invoice history for this patient" />
+        )}
+      </Panel>
+
+      {/* Future revenue projection */}
+      <div className="p-5 rounded-2xl flex items-center gap-4" style={{ backgroundColor: '#0058E608', border: '1px solid #0058E625' }}>
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#0058E618' }}>
+          <TrendingUp size={18} style={{ color: '#0058E6' }} />
+        </div>
+        <div className="flex-1">
+          <p className="text-[12px] font-black text-[#181D23]">Projected Annual Value: {fmtGBP(Math.round(clv * 0.3))}</p>
+          <p className="text-[11px] text-[#5A6475] mt-0.5">Based on visit frequency and average value. Connect Stripe + Cliniko for live projections.</p>
         </div>
       </div>
     </div>
@@ -4392,9 +4964,9 @@ export default function PatientHubPage() {
           <button onClick={() => router.push('/staff/patients')} className="text-[12px] text-[#0058E6] hover:underline">Go back</button>
         </div>
       ) : (
-        <div className="max-w-[1440px] mx-auto">
+        <>
 
-          {/* Hero header */}
+          {/* Hero header — sticky, full-width within nav-offset */}
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="sticky top-0 z-20"
             style={{ backgroundColor: '#FAF7F2', borderBottom: '1px solid #EBE5FF' }}>
 
@@ -4406,6 +4978,28 @@ export default function PatientHubPage() {
               <div className="flex items-center gap-2">
                 {isDemo && <span className="text-[9px] px-2 py-0.5 rounded-full font-semibold" style={{ backgroundColor: '#F5F3FF', color: '#0058E6', border: '1px solid #DDD6FE' }}>Demo</span>}
                 {isVip && <span className="text-[9px] px-2.5 py-0.5 rounded-full font-semibold" style={{ backgroundColor: '#FFFBEB', color: '#D8A600', border: '1px solid #FDE68A' }}>VIP</span>}
+                {/* Quick actions */}
+                <a href={`/staff/appointments?userId=${userId}&patientName=${encodeURIComponent(patient.first_name + ' ' + patient.last_name)}`}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all"
+                  style={{ backgroundColor: '#0058E614', border: '1px solid #0058E630', color: '#181D23' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#0058E624'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#0058E614'; }}>
+                  <CalendarPlus size={11} style={{ color: '#0058E6' }} /> Book
+                </a>
+                <button onClick={() => setActiveTab('communications')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all"
+                  style={{ backgroundColor: 'transparent', border: '1px solid #EBE5FF', color: '#3D4451' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#F5F0FF'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}>
+                  <Plus size={11} /> Note
+                </button>
+                <button onClick={() => setActiveTab('intelligence')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all"
+                  style={{ backgroundColor: '#00A69314', border: '1px solid #00A69330', color: '#181D23' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#00A69324'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#00A69314'; }}>
+                  <Sparkles size={11} style={{ color: '#00A693' }} /> Report
+                </button>
                 <button onClick={load} className="w-7 h-7 rounded-lg flex items-center justify-center transition-all" style={{ background: 'rgba(0,0,0,0.02)', border: '1px solid #EBE5FF' }}>
                   <RefreshCw size={11} className="text-[#96989B]" />
                 </button>
@@ -4514,12 +5108,13 @@ export default function PatientHubPage() {
               <AnimatePresence mode="wait">
                 <motion.div key={activeTab} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
                   {activeTab === 'overview'       && <OverviewTab patient={patient} />}
-                  {activeTab === 'client_detail'  && <ClientDetailTab patient={patient} />}
-                  {activeTab === 'ehr'            && <EHROverviewTab patient={patient} userId={userId} />}
-                  {activeTab === 'appointments'   && <AppointmentsTab patient={patient} appointments={hub!.appointments} />}
+                  {activeTab === 'profile'        && <ProfileTab patient={patient} onUpdated={load} />}
+                  {activeTab === 'journey'        && <JourneyTab patient={patient} timeline={hub!.timeline} />}
+                  {activeTab === 'appointments'   && <AppointmentsTab patient={patient} appointments={hub!.appointments} userId={userId} />}
                   {activeTab === 'communications' && <CommunicationsTab patient={patient} timeline={hub!.timeline} />}
-                  {activeTab === 'payments'       && <PaymentsTab patient={patient} appointments={hub!.appointments} />}
-                  {activeTab === 'intelligence'   && <IntelligenceTab patient={patient} onChatWithAgent={handleChatWithAgent} />}
+                  {activeTab === 'ehr'            && <EHROverviewTab patient={patient} userId={userId} />}
+                  {activeTab === 'financials'     && <FinancialsTab patient={patient} appointments={hub!.appointments} />}
+                  {activeTab === 'intelligence'   && <IntelligenceTab patient={patient} onChatWithAgent={handleChatWithAgent} userId={userId} />}
                 </motion.div>
               </AnimatePresence>
             </div>
@@ -4527,7 +5122,7 @@ export default function PatientHubPage() {
               <ContextSidebar patient={patient} onChatWithAgent={handleChatWithAgent} onAddNote={handleAddNote} />
             </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );
