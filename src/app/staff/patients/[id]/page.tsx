@@ -34,6 +34,7 @@ import {
   getPatientWaitList, addToWaitList, updateWaitListStatus, removeFromWaitList,
   type WaitListEntry, type AddToWaitListInput,
 } from '@/lib/actions/waiting-list';
+import { createSignal } from '@/lib/actions/signals';
 import {
   getClinicalRecord, getSOAPNotes, getPatientConsents, getClinicalPhotos,
   addSOAPNote, updateSOAPNote, signOffSOAPNote, addPatientConsent, updateConsentStatus,
@@ -291,13 +292,14 @@ function TimelineItem({ ev, last }: { ev: TimelineEvent; last: boolean }) {
 // TABS
 // =============================================================================
 
-type Tab = 'overview' | 'profile' | 'journey' | 'appointments' | 'communications' | 'ehr' | 'financials' | 'intelligence';
+type Tab = 'overview' | 'profile' | 'journey' | 'appointments' | 'practitioners' | 'communications' | 'ehr' | 'financials' | 'intelligence';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'overview',       label: 'Overview' },
   { id: 'profile',        label: 'Profile' },
   { id: 'journey',        label: 'Clinical Journey' },
   { id: 'appointments',   label: 'Appointments' },
+  { id: 'practitioners',  label: 'Practitioners' },
   { id: 'communications', label: 'Communications' },
   { id: 'ehr',            label: 'EHR' },
   { id: 'financials',     label: 'Financials' },
@@ -323,14 +325,316 @@ function getRiskFlags(patient: PatientIntelligenceRow) {
   return flags;
 }
 
-function OverviewTab({ patient }: { patient: PatientIntelligenceRow }) {
+function OverviewTab({ patient, appointments, userId, onNavigate }: {
+  patient: PatientIntelligenceRow;
+  appointments: PatientAppointment[];
+  userId: string;
+  onNavigate: (tab: Tab) => void;
+}) {
   const clv = calcCLV(patient);
   const riskFlags = getRiskFlags(patient);
   const lc = LC_CFG[patient.lifecycle_stage];
   const isVip = patient.lifecycle_stage === 'loyal' && patient.engagement_score >= 70;
+  const now = new Date();
+
+  // Upcoming
+  const nextAppt = appointments
+    .filter(a => a.starts_at && new Date(a.starts_at) > now)
+    .sort((a, b) => new Date(a.starts_at!).getTime() - new Date(b.starts_at!).getTime())[0] ?? null;
+
+  // Practitioners
+  const practMap = new Map<string, { name: string; count: number; last: string | null }>();
+  for (const a of appointments) {
+    if (!a.practitioner_name) continue;
+    const cur = practMap.get(a.practitioner_name) ?? { name: a.practitioner_name, count: 0, last: null };
+    cur.count++;
+    if (!cur.last || (a.starts_at && a.starts_at > cur.last)) cur.last = a.starts_at;
+    practMap.set(a.practitioner_name, cur);
+  }
+  const practitioners = Array.from(practMap.values()).sort((a, b) => b.count - a.count);
+
+  const [managingPract, setManagingPract] = useState<string | null>(practitioners[0]?.name ?? null);
+  const [practMenu, setPractMenu] = useState(false);
+  const [showFlagModal, setShowFlagModal] = useState(false);
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [actionToast, setActionToast] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [flagForm, setFlagForm] = useState({ title: `Attention: ${patient.first_name} ${patient.last_name}`, description: '', priority: 'medium' as 'critical' | 'high' | 'medium' | 'low' });
+  const [flagSaving, setFlagSaving] = useState(false);
+  const [taskForm, setTaskForm] = useState({ title: '', description: '', practitioner: practitioners[0]?.name ?? '', priority: 'medium' as 'critical' | 'high' | 'medium' | 'low', due: '' });
+  const [taskSaving, setTaskSaving] = useState(false);
+  const [waitEntries, setWaitEntries] = useState<WaitListEntry[]>([]);
+  const ovClinikoId = String(patient.cliniko_id ?? patient.id ?? '');
+  useEffect(() => { getPatientWaitList(ovClinikoId).then(r => setWaitEntries(r.entries)); }, [ovClinikoId]);
+
+  function showToast(ok: boolean, msg: string) { setActionToast({ ok, msg }); setTimeout(() => setActionToast(null), 3000); }
+
+  async function handleFlagSignal() {
+    if (!flagForm.title.trim()) return;
+    setFlagSaving(true);
+    const res = await createSignal('clinic', { signalType: 'patient_flag', title: flagForm.title, description: flagForm.description || `Manual flag for ${patient.first_name} ${patient.last_name}.`, priority: flagForm.priority, sourceType: 'manual', createdByUserId: userId, data: { patient_id: patient.id, patient_name: `${patient.first_name} ${patient.last_name}`, lifecycle: patient.lifecycle_stage }, tags: ['patient', 'manual'], category: 'clinical' });
+    setFlagSaving(false); setShowFlagModal(false);
+    showToast(res.success, res.success ? 'Signal created — visible in Signals feed' : 'Failed to create signal');
+  }
+
+  async function handleAssignTask() {
+    if (!taskForm.title.trim()) return;
+    setTaskSaving(true);
+    const res = await createSignal('clinic', { signalType: 'task', title: taskForm.title, description: taskForm.description || `Task for ${patient.first_name} ${patient.last_name}${taskForm.practitioner ? ` → ${taskForm.practitioner}` : ''}.`, priority: taskForm.priority, sourceType: 'manual', createdByUserId: userId, data: { patient_id: patient.id, patient_name: `${patient.first_name} ${patient.last_name}`, assigned_practitioner: taskForm.practitioner || null, due_date: taskForm.due || null }, tags: ['task', 'patient'], category: 'operational' });
+    setTaskSaving(false); setShowTaskModal(false);
+    showToast(res.success, res.success ? 'Task created — visible in Signals feed' : 'Failed to create task');
+  }
+
+  const nba = patient.next_best_action;
+  const nbaColor = nba?.urgency === 'high' ? '#DC2626' : nba?.urgency === 'medium' ? '#EA580C' : '#059669';
 
   return (
     <div className="space-y-5">
+
+      {/* Toast */}
+      <AnimatePresence>
+        {actionToast && (
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+            className="fixed top-5 right-5 z-[100] flex items-center gap-2 px-4 py-2.5 rounded-xl shadow-lg text-[12px] font-semibold"
+            style={{ backgroundColor: actionToast.ok ? '#ECFDF5' : '#FFF1F2', border: `1px solid ${actionToast.ok ? '#A7F3D0' : '#FECDD3'}`, color: actionToast.ok ? '#059669' : '#DC2626' }}>
+            {actionToast.ok ? <CheckCircle size={13} /> : <AlertCircle size={13} />} {actionToast.msg}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ══ WHAT'S NEXT COMMAND PANEL ══════════════════════════ */}
+      <Panel>
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid #EBE5FF' }}>
+          <div className="flex items-center gap-2">
+            <motion.div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: '#0058E6' }}
+              animate={{ opacity: [0.4, 1, 0.4], scale: [0.8, 1.2, 0.8] }} transition={{ duration: 2.4, repeat: Infinity }} />
+            <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#96989B]">What&apos;s Next</p>
+          </div>
+          <a href={`/staff/kpis?userId=${userId}`}
+            className="flex items-center gap-1 text-[10px] font-semibold" style={{ color: '#0058E6' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.6'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}>
+            Sync to KPIs <ExternalLink size={10} />
+          </a>
+        </div>
+
+        {/* 3-col command cards */}
+        <div className="grid grid-cols-3" style={{ borderBottom: '1px solid #EBE5FF' }}>
+          <button onClick={() => onNavigate('appointments')} className="flex flex-col gap-1.5 p-4 text-left"
+            style={{ borderRight: '1px solid #EBE5FF' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#F9F7FF'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}>
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: nextAppt ? '#0058E6' : '#C5BAF0' }} />
+              <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B]">Next Appointment</p>
+            </div>
+            {nextAppt ? (
+              <>
+                <p className="text-[13px] font-black text-[#181D23] leading-tight">{nextAppt.appointment_type ?? 'Appointment'}</p>
+                <p className="text-[11px] font-medium text-[#3D4451]">{fmtDate(nextAppt.starts_at)}</p>
+                {nextAppt.practitioner_name && <p className="text-[10px] text-[#96989B]">{nextAppt.practitioner_name}</p>}
+                <span className="mt-1 self-start text-[9px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: '#EFF6FF', color: '#0284C7' }}>Scheduled</span>
+              </>
+            ) : (
+              <>
+                <p className="text-[12px] font-bold text-[#96989B]">None booked</p>
+                <p className="text-[10px] text-[#B0A8C8] leading-relaxed">Consider rebooking within the treatment window</p>
+                <span className="mt-1 self-start text-[9px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: '#FFF1F2', color: '#DC2626' }}>Action needed</span>
+              </>
+            )}
+          </button>
+
+          <button onClick={() => onNavigate('financials')} className="flex flex-col gap-1.5 p-4 text-left"
+            style={{ borderRight: '1px solid #EBE5FF' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#F9F7FF'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}>
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: patient.has_outstanding ? '#DC2626' : '#059669' }} />
+              <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B]">Financial Pulse</p>
+            </div>
+            <p className="text-[13px] font-black" style={{ color: patient.has_outstanding ? '#DC2626' : '#059669' }}>
+              {patient.has_outstanding ? 'Balance outstanding' : 'Account clear'}
+            </p>
+            <p className="text-[11px] font-medium text-[#3D4451]">Paid: {fmtGBP(patient.total_paid)}</p>
+            <p className="text-[10px] text-[#96989B]">CLV: {fmtGBP(clv)}</p>
+            <span className="mt-1 self-start text-[9px] font-bold px-2 py-0.5 rounded-full"
+              style={{ backgroundColor: patient.has_outstanding ? '#FFF1F2' : '#ECFDF5', color: patient.has_outstanding ? '#DC2626' : '#059669' }}>
+              {patient.has_outstanding ? 'Chase payment' : 'Up to date'}
+            </span>
+          </button>
+
+          <button onClick={() => onNavigate('intelligence')} className="flex flex-col gap-1.5 p-4 text-left"
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#F9F7FF'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}>
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: nba ? nbaColor : '#C5BAF0' }} />
+              <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B]">AI Suggestion</p>
+            </div>
+            {nba ? (
+              <>
+                <p className="text-[12px] font-black text-[#181D23] leading-tight line-clamp-2">{nba.title}</p>
+                <p className="text-[10px] text-[#5A6475] leading-relaxed line-clamp-3">{nba.description}</p>
+                <span className="mt-1 self-start text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide"
+                  style={{ backgroundColor: nbaColor + '15', color: nbaColor }}>{nba.urgency}</span>
+              </>
+            ) : (
+              <>
+                <p className="text-[12px] font-bold text-[#96989B]">No suggestion yet</p>
+                <p className="text-[10px] text-[#B0A8C8]">Generate a report in Intelligence to unlock AI recommendations</p>
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Managing practitioner */}
+        <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid #EBE5FF' }}>
+          <div className="flex items-center gap-3">
+            <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B] w-36 flex-shrink-0">Managing Practitioner</p>
+            {managingPract ? (
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black" style={{ backgroundColor: '#0058E614', color: '#0058E6' }}>
+                  {managingPract.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
+                </div>
+                <span className="text-[12px] font-bold text-[#181D23]">{managingPract}</span>
+                {practitioners[0]?.name === managingPract && (
+                  <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: '#0058E614', color: '#0058E6' }}>Primary</span>
+                )}
+              </div>
+            ) : (
+              <span className="text-[12px] text-[#96989B]">Not assigned</span>
+            )}
+          </div>
+          <div className="relative">
+            <button onClick={() => setPractMenu(v => !v)}
+              className="flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-lg"
+              style={{ border: '1px solid #EBE5FF', color: '#3D4451' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#F5F0FF'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}>
+              {managingPract ? 'Change' : 'Assign'} <ChevronDown size={10} />
+            </button>
+            <AnimatePresence>
+              {practMenu && (
+                <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+                  className="absolute right-0 top-full mt-1 z-50 rounded-xl overflow-hidden shadow-lg min-w-[180px]"
+                  style={{ backgroundColor: '#FAF7F2', border: '1px solid #EBE5FF' }}>
+                  {practitioners.length === 0 && <div className="px-4 py-3 text-[11px] text-[#96989B]">No practitioner history found</div>}
+                  {practitioners.map(p => (
+                    <button key={p.name} onClick={() => { setManagingPract(p.name); setPractMenu(false); }}
+                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] font-semibold text-[#3D4451] text-left"
+                      style={{ backgroundColor: managingPract === p.name ? '#F5F3FF' : 'transparent' }}
+                      onMouseEnter={e => { if (managingPract !== p.name) (e.currentTarget as HTMLElement).style.backgroundColor = '#F5F0FF'; }}
+                      onMouseLeave={e => { if (managingPract !== p.name) (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}>
+                      <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black flex-shrink-0" style={{ backgroundColor: '#0058E614', color: '#0058E6' }}>
+                        {p.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
+                      </div>
+                      {p.name}
+                      {managingPract === p.name && <CheckCircle size={11} className="ml-auto flex-shrink-0" style={{ color: '#0058E6' }} />}
+                    </button>
+                  ))}
+                  <div style={{ borderTop: '1px solid #EBE5FF' }}>
+                    <button onClick={() => { setManagingPract(null); setPractMenu(false); }}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-[11px] text-[#96989B] text-left"
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#F9F7FF'; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}>
+                      <X size={10} /> Unassign
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+
+        {/* Quick actions */}
+        <div className="flex items-center gap-2 px-5 py-3 flex-wrap">
+          <button onClick={() => setShowTaskModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold"
+            style={{ backgroundColor: '#0058E614', border: '1px solid #0058E630', color: '#181D23' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#0058E624'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#0058E614'; }}>
+            <ClipboardList size={11} style={{ color: '#0058E6' }} /> Assign Task
+          </button>
+          <button onClick={() => setShowFlagModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold"
+            style={{ backgroundColor: '#DC262614', border: '1px solid #DC262630', color: '#181D23' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#DC262624'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#DC262614'; }}>
+            <Flag size={11} style={{ color: '#DC2626' }} /> Flag Signal
+          </button>
+          <button onClick={() => onNavigate('practitioners')}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold"
+            style={{ border: '1px solid #EBE5FF', color: '#3D4451' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#F5F0FF'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}>
+            <Users size={11} /> Practitioners
+          </button>
+          <a href={`/staff/appointments?userId=${userId}&patientName=${encodeURIComponent(patient.first_name + ' ' + patient.last_name)}`}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold ml-auto"
+            style={{ backgroundColor: '#05966914', border: '1px solid #05966930', color: '#181D23' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#05966924'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#05966914'; }}>
+            <CalendarPlus size={11} style={{ color: '#059669' }} /> Book Appointment
+          </a>
+        </div>
+      </Panel>
+
+      {/* ══ WAITING LIST ══════════════════════════════════════ */}
+      <Panel>
+        <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: waitEntries.length > 0 ? '1px solid #EBE5FF' : 'none' }}>
+          <div className="flex items-center gap-2">
+            <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#96989B]">Waiting List</p>
+            {waitEntries.length > 0 && (
+              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: '#D8A60014', color: '#D8A600', border: '1px solid #D8A60030' }}>
+                {waitEntries.length} active
+              </span>
+            )}
+          </div>
+          <button onClick={() => onNavigate('appointments')}
+            className="flex items-center gap-1 text-[10px] font-semibold" style={{ color: '#0058E6' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.6'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}>
+            Manage <ExternalLink size={10} />
+          </button>
+        </div>
+        {waitEntries.length > 0 ? (
+          <div>
+            {waitEntries.slice(0, 3).map((entry, i) => {
+              const sc = entry.status === 'waiting' ? '#D8A600' : entry.status === 'offered' ? '#0058E6' : '#059669';
+              const sb = entry.status === 'waiting' ? '#FFFBEB' : entry.status === 'offered' ? '#EFF6FF' : '#ECFDF5';
+              return (
+                <div key={entry.id} className="flex items-center justify-between px-5 py-3"
+                  style={{ borderBottom: i < Math.min(waitEntries.length, 3) - 1 ? '1px solid #EBE5FF' : 'none' }}>
+                  <div>
+                    <p className="text-[12px] font-semibold text-[#181D23]">{entry.treatment_type}</p>
+                    <p className="text-[10px] text-[#96989B] mt-0.5">Added {fmtDate(entry.created_at)} · Priority {entry.priority}</p>
+                  </div>
+                  <span className="text-[9px] font-bold px-2 py-0.5 rounded-full capitalize" style={{ backgroundColor: sb, color: sc }}>{entry.status}</span>
+                </div>
+              );
+            })}
+            {waitEntries.length > 3 && (
+              <div className="px-5 py-2">
+                <button onClick={() => onNavigate('appointments')} className="text-[10px] font-semibold" style={{ color: '#0058E6' }}>
+                  +{waitEntries.length - 3} more entries →
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center justify-between px-5 py-4">
+            <p className="text-[11px] text-[#96989B]">Not currently on any waiting list</p>
+            <button onClick={() => onNavigate('appointments')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold"
+              style={{ backgroundColor: '#0058E614', border: '1px solid #0058E630', color: '#181D23' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#0058E624'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#0058E614'; }}>
+              <Plus size={11} style={{ color: '#0058E6' }} /> Add to Waiting List
+            </button>
+          </div>
+        )}
+      </Panel>
+
+      {/* ══ KPI TILES ════════════════════════════════════════ */}
       <div className="grid grid-cols-4 gap-3">
         <StatTile label="Total Visits" value={String(patient.total_visits)} sub="attended appointments" />
         <StatTile label="Last Visit" value={fmtDays(patient.days_since_last_visit)} sub={fmtDate(patient.last_appointment_at)} />
@@ -338,22 +642,19 @@ function OverviewTab({ patient }: { patient: PatientIntelligenceRow }) {
         <StatTile label="Engagement" value={`${patient.engagement_score}`} sub="out of 100" accent={lc.color} />
       </div>
 
+      {/* ══ RISK FLAGS ════════════════════════════════════════ */}
       {riskFlags.length > 0 && (
         <Panel>
           <PanelHeader title={`Risk Flags — ${riskFlags.length}`} badge={riskFlags.filter(f => f.severity === 'high').length} />
           <div>
             {riskFlags.map((f, i) => {
               const col = f.severity === 'high' ? '#DC2626' : f.severity === 'medium' ? '#D8A600' : '#6B7280';
-              const bg = f.severity === 'high' ? '#FFF1F2' : f.severity === 'medium' ? '#FFFBEB' : '#F9FAFB';
+              const bg  = f.severity === 'high' ? '#FFF1F2' : f.severity === 'medium' ? '#FFFBEB' : '#F9FAFB';
               return (
                 <div key={i} className="flex items-start gap-3 px-5 py-3" style={{ borderBottom: i < riskFlags.length - 1 ? '1px solid #EBE5FF' : 'none' }}>
                   <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5" style={{ backgroundColor: col }} />
-                  <div className="flex-1">
-                    <p className="text-[12px] font-semibold text-[#181D23]">{f.label}</p>
-                    <p className="text-[11px] text-[#5A6475] mt-0.5">{f.note}</p>
-                  </div>
-                  <span className="text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: bg, color: col }}>{f.severity}</span>
+                  <div className="flex-1"><p className="text-[12px] font-semibold text-[#181D23]">{f.label}</p><p className="text-[11px] text-[#5A6475] mt-0.5">{f.note}</p></div>
+                  <span className="text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full flex-shrink-0" style={{ backgroundColor: bg, color: col }}>{f.severity}</span>
                 </div>
               );
             })}
@@ -361,6 +662,47 @@ function OverviewTab({ patient }: { patient: PatientIntelligenceRow }) {
         </Panel>
       )}
 
+      {/* ══ RELATED PATIENTS ═════════════════════════════════ */}
+      {patient.treatment_tags.length > 0 && (
+        <Panel>
+          <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid #EBE5FF' }}>
+            <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#96989B]">Related Patients</p>
+            <a href={`/staff/patients?userId=${userId}`}
+              className="flex items-center gap-1 text-[10px] font-semibold" style={{ color: '#0058E6' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.6'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}>
+              View all <ExternalLink size={10} />
+            </a>
+          </div>
+          <div className="px-5 py-4 space-y-3">
+            <p className="text-[10px] text-[#5A6475] leading-relaxed">Patients sharing similar treatment profiles — useful for cohort analysis, group offers, and trend spotting.</p>
+            <div className="flex flex-wrap gap-2">
+              {patient.treatment_tags.slice(0, 5).map(tag => (
+                <a key={tag} href={`/staff/patients?userId=${userId}&treatment=${encodeURIComponent(tag)}`}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold"
+                  style={{ backgroundColor: '#F5F3FF', border: '1px solid #EBE5FF', color: '#3D4451' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#EDE9FF'; (e.currentTarget as HTMLElement).style.borderColor = '#C5BAF0'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#F5F3FF'; (e.currentTarget as HTMLElement).style.borderColor = '#EBE5FF'; }}>
+                  <Users size={10} style={{ color: '#7C3AED' }} /> {tag} cohort
+                </a>
+              ))}
+            </div>
+            {patient.referral_source && (
+              <div className="pt-3" style={{ borderTop: '1px solid #EBE5FF' }}>
+                <p className="text-[10px] text-[#96989B] mb-1.5">Same referral source:</p>
+                <a href={`/staff/patients?userId=${userId}&referral=${encodeURIComponent(patient.referral_source)}`}
+                  className="flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: '#0058E6' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.65'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}>
+                  <Users size={11} /> Referred via &quot;{patient.referral_source}&quot; <ExternalLink size={10} />
+                </a>
+              </div>
+            )}
+          </div>
+        </Panel>
+      )}
+
+      {/* ══ REVENUE ══════════════════════════════════════════ */}
       <Panel>
         <PanelHeader title="Revenue and Lifetime Value" />
         <div className="p-5">
@@ -370,25 +712,25 @@ function OverviewTab({ patient }: { patient: PatientIntelligenceRow }) {
               { label: 'Avg Visit Value', value: '£180', accent: '#059669' },
               { label: 'Est. CLV', value: fmtGBP(clv), accent: '#059669' },
             ].map(item => (
-              <div key={item.label} className="p-3 rounded-xl text-center" style={{ backgroundColor: 'transparent', border: '1px solid #EBE5FF' }}>
+              <div key={item.label} className="p-3 rounded-xl text-center" style={{ border: '1px solid #EBE5FF' }}>
                 <p className="text-[8px] uppercase tracking-[0.22em] text-[#96989B] mb-1">{item.label}</p>
                 <p className="text-[20px] font-black" style={{ color: item.accent }}>{item.value}</p>
               </div>
             ))}
           </div>
-          <div className="flex items-center gap-2 p-3 rounded-xl" style={{ backgroundColor: isVip ? '#FFFBEB' : '#FDFCFB', border: `1px solid ${isVip ? '#FDE68A' : '#EBE5FF'}` }}>
-            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: isVip ? '#D8A600' : '#C5BAF0' }} />
+          <div className="flex items-center gap-2 p-3 rounded-xl" style={{ backgroundColor: isVip ? '#FFFBEB' : 'transparent', border: `1px solid ${isVip ? '#FDE68A' : '#EBE5FF'}` }}>
+            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: isVip ? '#D8A600' : '#C5BAF0' }} />
             <p className="text-[11px]" style={{ color: isVip ? '#92400E' : '#96989B' }}>
-              {isVip ? 'VIP Patient — high-value loyal relationship. Prioritise for exclusive offers and personalised outreach.' : 'Connect Cliniko and Stripe to see live revenue figures per patient.'}
+              {isVip ? 'VIP Patient — high-value loyal relationship. Prioritise for exclusive offers and personalised outreach.' : 'Connect Cliniko and Stripe to see live revenue figures.'}
             </p>
           </div>
         </div>
       </Panel>
 
+      {/* ══ PATIENT DETAILS ══════════════════════════════════ */}
       <Panel>
         <PanelHeader title="Patient Details" />
         <div className="p-5 grid grid-cols-2 gap-x-8 gap-y-3.5">
-          {/* Primary contact */}
           {[
             ['Email', patient.email ?? '—'],
             ['Date of Birth', patient.date_of_birth ? `${fmtDate(patient.date_of_birth)} (${fmtAge(patient.date_of_birth)})` : '—'],
@@ -399,11 +741,11 @@ function OverviewTab({ patient }: { patient: PatientIntelligenceRow }) {
             ['Cancel Rate', `${Math.round(patient.cancellation_rate * 100)}%`],
             ['Open Signals', String(patient.open_signals_count)],
           ].map(([l, v]) => (
-            <div key={l}><p className="text-[8px] uppercase tracking-[0.22em] text-[#96989B] mb-0.5">{l}</p>
-              <p className="text-[12px] font-semibold text-[#3D4451]">{v}</p></div>
+            <div key={l}>
+              <p className="text-[8px] uppercase tracking-[0.22em] text-[#96989B] mb-0.5">{l}</p>
+              <p className="text-[12px] font-semibold text-[#3D4451]">{v}</p>
+            </div>
           ))}
-
-          {/* All phone numbers */}
           {patient.all_phones && patient.all_phones.length > 0 && (
             <div className="col-span-2 pt-3.5" style={{ borderTop: '1px solid #EBE5FF' }}>
               <p className="text-[8px] uppercase tracking-[0.22em] text-[#96989B] mb-2">Phone Numbers</p>
@@ -411,33 +753,26 @@ function OverviewTab({ patient }: { patient: PatientIntelligenceRow }) {
                 {patient.all_phones.map((ph, i) => (
                   <div key={i} className="flex items-center gap-3">
                     <span className="text-[9px] font-medium text-[#96989B] uppercase tracking-wide w-12 flex-shrink-0">{ph.type}</span>
-                    <a href={`tel:${ph.number}`} className="text-[12px] font-semibold text-[#3D4451] hover:text-[#181D23] transition-colors">{ph.number}</a>
+                    <a href={`tel:${ph.number}`} className="text-[12px] font-semibold text-[#3D4451] hover:text-[#181D23]">{ph.number}</a>
                   </div>
                 ))}
               </div>
             </div>
           )}
-
-          {/* Address */}
           {patient.address && (patient.address.line1 || patient.address.city) && (
             <div className="col-span-2 pt-3.5" style={{ borderTop: '1px solid #EBE5FF' }}>
               <p className="text-[8px] uppercase tracking-[0.22em] text-[#96989B] mb-1">Address</p>
               <p className="text-[12px] leading-relaxed text-[#3D4451]">
-                {[patient.address.line1, patient.address.line2, patient.address.line3, patient.address.city, patient.address.postcode, patient.address.country]
-                  .filter(Boolean).join(', ')}
+                {[patient.address.line1, patient.address.line2, patient.address.line3, patient.address.city, patient.address.postcode, patient.address.country].filter(Boolean).join(', ')}
               </p>
             </div>
           )}
-
-          {/* Emergency contact */}
           {patient.emergency_contact && (
             <div className="col-span-2 pt-3.5" style={{ borderTop: '1px solid #EBE5FF' }}>
               <p className="text-[8px] uppercase tracking-[0.22em] text-[#96989B] mb-1">Emergency Contact</p>
               <p className="text-[12px] font-semibold text-[#3D4451]">{patient.emergency_contact}</p>
             </div>
           )}
-
-          {/* Notes */}
           {patient.notes && (
             <div className="col-span-2 pt-3.5" style={{ borderTop: '1px solid #EBE5FF' }}>
               <p className="text-[8px] uppercase tracking-[0.22em] text-[#96989B] mb-1">Clinical Notes</p>
@@ -462,18 +797,129 @@ function OverviewTab({ patient }: { patient: PatientIntelligenceRow }) {
       <Panel>
         <PanelHeader title="Referral Network" />
         <div className="p-5 grid grid-cols-2 gap-4">
-          <div className="p-4 rounded-xl" style={{ backgroundColor: 'transparent', border: '1px solid #EBE5FF' }}>
+          <div className="p-4 rounded-xl" style={{ border: '1px solid #EBE5FF' }}>
             <p className="text-[8px] uppercase tracking-[0.22em] text-[#96989B] mb-2">Referred By</p>
             <p className="text-[13px] font-bold text-[#181D23]">{patient.referral_source ?? 'Unknown'}</p>
             <p className="text-[10px] text-[#96989B] mt-0.5">Acquisition source</p>
           </div>
-          <div className="p-4 rounded-xl" style={{ backgroundColor: 'transparent', border: '1px solid #EBE5FF' }}>
+          <div className="p-4 rounded-xl" style={{ border: '1px solid #EBE5FF' }}>
             <p className="text-[8px] uppercase tracking-[0.22em] text-[#96989B] mb-2">Referrals Made</p>
             <p className="text-[13px] font-bold text-[#181D23]">—</p>
             <p className="text-[10px] text-[#96989B] mt-0.5">Requires referral tracking</p>
           </div>
         </div>
       </Panel>
+
+      {/* ══ FLAG SIGNAL MODAL ════════════════════════════════ */}
+      <AnimatePresence>
+        {showFlagModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[90] flex items-center justify-center p-4"
+            style={{ backgroundColor: 'rgba(24,29,35,0.55)' }}
+            onClick={e => { if (e.target === e.currentTarget) setShowFlagModal(false); }}>
+            <motion.div initial={{ scale: 0.96, y: 8 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, y: 8 }}
+              className="w-full max-w-md rounded-2xl overflow-hidden"
+              style={{ backgroundColor: '#FAF7F2', border: '1px solid #EBE5FF' }}>
+              <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid #EBE5FF' }}>
+                <div className="flex items-center gap-2"><Flag size={14} style={{ color: '#DC2626' }} /><p className="text-[13px] font-black text-[#181D23]">Flag Signal — {patient.first_name} {patient.last_name}</p></div>
+                <button onClick={() => setShowFlagModal(false)}><X size={14} className="text-[#96989B]" /></button>
+              </div>
+              <div className="p-6 space-y-4">
+                <div><label className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B] block mb-1.5">Title</label>
+                  <input value={flagForm.title} onChange={e => setFlagForm(f => ({ ...f, title: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl text-[12px] outline-none"
+                    style={{ backgroundColor: '#F5F0FF', border: '1px solid #EBE5FF', color: '#181D23' }} /></div>
+                <div><label className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B] block mb-1.5">Description</label>
+                  <textarea value={flagForm.description} onChange={e => setFlagForm(f => ({ ...f, description: e.target.value }))}
+                    rows={3} placeholder="Describe what needs attention…"
+                    className="w-full px-3 py-2 rounded-xl text-[12px] outline-none resize-none"
+                    style={{ backgroundColor: '#F5F0FF', border: '1px solid #EBE5FF', color: '#181D23' }} /></div>
+                <div><label className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B] block mb-1.5">Priority</label>
+                  <div className="flex gap-2">
+                    {(['critical', 'high', 'medium', 'low'] as const).map(p => {
+                      const c = p === 'critical' || p === 'high' ? '#DC2626' : p === 'medium' ? '#D8A600' : '#6B7280';
+                      return (
+                        <button key={p} onClick={() => setFlagForm(f => ({ ...f, priority: p }))}
+                          className="flex-1 py-1.5 rounded-lg text-[11px] font-bold capitalize"
+                          style={{ backgroundColor: flagForm.priority === p ? c + '18' : 'transparent', border: `1px solid ${flagForm.priority === p ? c + '50' : '#EBE5FF'}`, color: flagForm.priority === p ? c : '#96989B' }}>
+                          {p}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button onClick={() => setShowFlagModal(false)} className="flex-1 py-2 rounded-xl text-[11px] font-semibold" style={{ border: '1px solid #EBE5FF', color: '#96989B' }}>Cancel</button>
+                  <button onClick={handleFlagSignal} disabled={!flagForm.title.trim() || flagSaving}
+                    className="flex-1 py-2 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5"
+                    style={{ backgroundColor: '#DC2626', color: '#FAF7F2', opacity: !flagForm.title.trim() || flagSaving ? 0.6 : 1 }}>
+                    {flagSaving ? <Loader2 size={11} className="animate-spin" /> : <Flag size={11} />} Create Signal
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ══ ASSIGN TASK MODAL ════════════════════════════════ */}
+      <AnimatePresence>
+        {showTaskModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[90] flex items-center justify-center p-4"
+            style={{ backgroundColor: 'rgba(24,29,35,0.55)' }}
+            onClick={e => { if (e.target === e.currentTarget) setShowTaskModal(false); }}>
+            <motion.div initial={{ scale: 0.96, y: 8 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, y: 8 }}
+              className="w-full max-w-md rounded-2xl overflow-hidden"
+              style={{ backgroundColor: '#FAF7F2', border: '1px solid #EBE5FF' }}>
+              <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid #EBE5FF' }}>
+                <div className="flex items-center gap-2"><ClipboardList size={14} style={{ color: '#0058E6' }} /><p className="text-[13px] font-black text-[#181D23]">Assign Task — {patient.first_name} {patient.last_name}</p></div>
+                <button onClick={() => setShowTaskModal(false)}><X size={14} className="text-[#96989B]" /></button>
+              </div>
+              <div className="p-6 space-y-4">
+                <div><label className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B] block mb-1.5">Task Title</label>
+                  <input value={taskForm.title} onChange={e => setTaskForm(f => ({ ...f, title: e.target.value }))}
+                    placeholder="e.g. Follow up on Botox consultation"
+                    className="w-full px-3 py-2 rounded-xl text-[12px] outline-none"
+                    style={{ backgroundColor: '#F5F0FF', border: '1px solid #EBE5FF', color: '#181D23' }} /></div>
+                <div><label className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B] block mb-1.5">Assign to Practitioner</label>
+                  <select value={taskForm.practitioner} onChange={e => setTaskForm(f => ({ ...f, practitioner: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl text-[12px] outline-none"
+                    style={{ backgroundColor: '#F5F0FF', border: '1px solid #EBE5FF', color: '#181D23' }}>
+                    <option value="">— Unassigned —</option>
+                    {practitioners.map(p => <option key={p.name} value={p.name}>{p.name} ({p.count} sessions)</option>)}
+                  </select></div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B] block mb-1.5">Priority</label>
+                    <select value={taskForm.priority} onChange={e => setTaskForm(f => ({ ...f, priority: e.target.value as 'critical' | 'high' | 'medium' | 'low' }))}
+                      className="w-full px-3 py-2 rounded-xl text-[12px] outline-none"
+                      style={{ backgroundColor: '#F5F0FF', border: '1px solid #EBE5FF', color: '#181D23' }}>
+                      <option value="critical">Critical</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option>
+                    </select></div>
+                  <div><label className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B] block mb-1.5">Due Date</label>
+                    <input type="date" value={taskForm.due} onChange={e => setTaskForm(f => ({ ...f, due: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-xl text-[12px] outline-none"
+                      style={{ backgroundColor: '#F5F0FF', border: '1px solid #EBE5FF', color: '#181D23' }} /></div>
+                </div>
+                <div><label className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B] block mb-1.5">Notes (optional)</label>
+                  <textarea value={taskForm.description} onChange={e => setTaskForm(f => ({ ...f, description: e.target.value }))}
+                    rows={2} placeholder="Context for the practitioner…"
+                    className="w-full px-3 py-2 rounded-xl text-[12px] outline-none resize-none"
+                    style={{ backgroundColor: '#F5F0FF', border: '1px solid #EBE5FF', color: '#181D23' }} /></div>
+                <div className="flex gap-2 pt-1">
+                  <button onClick={() => setShowTaskModal(false)} className="flex-1 py-2 rounded-xl text-[11px] font-semibold" style={{ border: '1px solid #EBE5FF', color: '#96989B' }}>Cancel</button>
+                  <button onClick={handleAssignTask} disabled={!taskForm.title.trim() || taskSaving}
+                    className="flex-1 py-2 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5"
+                    style={{ backgroundColor: '#181D23', color: '#FAF7F2', opacity: !taskForm.title.trim() || taskSaving ? 0.6 : 1 }}>
+                    {taskSaving ? <Loader2 size={11} className="animate-spin" /> : <ClipboardList size={11} />} Assign Task
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }
@@ -807,85 +1253,226 @@ function AppointmentsTab({ patient, appointments, userId }: { patient: PatientIn
 // TAB: PRACTITIONERS
 // =============================================================================
 
-function PractitionersTab({ patient, appointments }: { patient: PatientIntelligenceRow; appointments: PatientAppointment[] }) {
+function PractitionersTab({ patient, appointments, userId }: {
+  patient: PatientIntelligenceRow; appointments: PatientAppointment[]; userId: string;
+}) {
   const now = new Date();
+  const [filterPract, setFilterPract] = useState<string | null>(null);
+  const [showTaskModal, setShowTaskModal] = useState<string | null>(null);
+  const [taskForm, setTaskForm] = useState({ title: '', description: '', priority: 'medium' as 'critical' | 'high' | 'medium' | 'low', due: '' });
+  const [taskSaving, setTaskSaving] = useState(false);
+  const [toast, setToast] = useState<{ ok: boolean; msg: string } | null>(null);
 
-  // Build practitioner map
-  type PractMap = { name: string; services: Set<string>; count: number; lastDate: string | null; upcoming: PatientAppointment[] };
-  const practMap = new Map<string, PractMap>();
-
+  // Build rich practitioner map
+  type PractData = { name: string; services: Set<string>; count: number; pastDates: string[]; lastDate: string | null; upcoming: PatientAppointment[]; firstDate: string | null };
+  const practMap = new Map<string, PractData>();
   appointments.forEach(a => {
     if (!a.practitioner_name) return;
     const key = a.practitioner_name;
-    if (!practMap.has(key)) practMap.set(key, { name: key, services: new Set(), count: 0, lastDate: null, upcoming: [] });
+    if (!practMap.has(key)) practMap.set(key, { name: key, services: new Set(), count: 0, pastDates: [], lastDate: null, upcoming: [], firstDate: null });
     const p = practMap.get(key)!;
     p.count++;
     if (a.appointment_type) p.services.add(a.appointment_type);
-    const isUpcoming = a.starts_at && new Date(a.starts_at) > now;
-    if (isUpcoming) { p.upcoming.push(a); }
+    const isUp = a.starts_at && new Date(a.starts_at) > now;
+    if (isUp) { p.upcoming.push(a); }
     else if (a.starts_at) {
+      p.pastDates.push(a.starts_at);
       if (!p.lastDate || new Date(a.starts_at) > new Date(p.lastDate)) p.lastDate = a.starts_at;
+      if (!p.firstDate || new Date(a.starts_at) < new Date(p.firstDate)) p.firstDate = a.starts_at;
     }
   });
 
-  const practitioners = Array.from(practMap.values()).sort((a, b) => b.count - a.count);
-  const primaryPract = practitioners[0];
-  const upcomingAppts = appointments.filter(a => a.starts_at && new Date(a.starts_at) > now).sort((a, b) => new Date(a.starts_at!).getTime() - new Date(b.starts_at!).getTime());
+  const totalAppts = appointments.length;
 
-  const PRACT_COLORS = ['#0058E6', '#059669', '#0284C7', '#D8A600', '#DC2626'];
+  // Relationship score: recency (0–40) + frequency (0–40) + variety (0–20)
+  function calcScore(p: PractData): number {
+    let recency = 0;
+    if (p.lastDate) {
+      const days = Math.floor((now.getTime() - new Date(p.lastDate).getTime()) / 86400000);
+      recency = days <= 30 ? 40 : days <= 90 ? 30 : days <= 180 ? 20 : days <= 365 ? 10 : 0;
+    }
+    const freq = totalAppts > 0 ? Math.round((p.count / totalAppts) * 40) : 0;
+    const sv = p.services.size;
+    const variety = sv >= 4 ? 20 : sv === 3 ? 18 : sv === 2 ? 14 : sv === 1 ? 8 : 0;
+    return Math.min(100, recency + freq + variety);
+  }
+  function scoreLabel(s: number): { label: string; color: string } {
+    if (s >= 70) return { label: 'Strong', color: '#059669' };
+    if (s >= 45) return { label: 'Developing', color: '#D8A600' };
+    if (s >= 20) return { label: 'Infrequent', color: '#EA580C' };
+    return { label: 'Inactive', color: '#DC2626' };
+  }
+
+  const practitioners = Array.from(practMap.values())
+    .map(p => ({ ...p, score: calcScore(p) }))
+    .sort((a, b) => b.score - a.score || b.count - a.count);
+
+  const primaryPract = practitioners[0];
+  const primaryCount = primaryPract?.count ?? 0;
+  const continuityIndex = totalAppts > 0 ? Math.round((primaryCount / totalAppts) * 100) : 0;
+  const transferRisk = practitioners.length > 1 && continuityIndex < 60 ? 'High' : practitioners.length > 1 && continuityIndex < 80 ? 'Medium' : 'Low';
+
+  const PRACT_COLORS = ['#0058E6', '#059669', '#7C3AED', '#D8A600', '#DC2626', '#00A693'];
+
+  const filteredTimeline = (filterPract
+    ? appointments.filter(a => a.practitioner_name === filterPract)
+    : appointments
+  ).filter(a => a.starts_at).sort((a, b) => new Date(b.starts_at!).getTime() - new Date(a.starts_at!).getTime());
+
+  async function handleAssignTask() {
+    if (!taskForm.title || !showTaskModal) return;
+    setTaskSaving(true);
+    try {
+      const res = await createSignal('clinic', {
+        signalType: 'task', title: taskForm.title,
+        description: taskForm.description || `Task for ${showTaskModal} re: ${patient.first_name} ${patient.last_name}`,
+        priority: taskForm.priority, sourceType: 'manual', createdByUserId: userId,
+        data: { patient_id: patient.id, patient_name: `${patient.first_name} ${patient.last_name}`, assigned_practitioner: showTaskModal, due_date: taskForm.due },
+        tags: ['task', 'practitioner', 'manual'], category: 'operational',
+      });
+      if (res.success) {
+        setToast({ ok: true, msg: 'Task assigned to ' + showTaskModal });
+        setShowTaskModal(null);
+        setTaskForm({ title: '', description: '', priority: 'medium', due: '' });
+      } else { setToast({ ok: false, msg: res.error ?? 'Failed' }); }
+    } finally { setTaskSaving(false); setTimeout(() => setToast(null), 3500); }
+  }
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-3 gap-3">
-        <StatTile label="Practitioners" value={String(practitioners.length)} sub="total worked with" />
-        <StatTile label="Primary" value={primaryPract?.name ?? '—'} sub="most appointments" accent="#0058E6" />
-        <StatTile label="Upcoming" value={String(upcomingAppts.length)} sub="scheduled sessions" accent={upcomingAppts.length > 0 ? '#059669' : '#6B7280'} />
+      {/* Toast */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            className="fixed top-5 right-5 z-[200] px-4 py-3 rounded-xl text-[12px] font-semibold shadow-lg"
+            style={{ backgroundColor: toast.ok ? '#059669' : '#DC2626', color: '#FAF7F2', minWidth: 220 }}>
+            {toast.msg}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Header stats */}
+      <div className="grid grid-cols-4 gap-3">
+        <StatTile label="Practitioners" value={String(practitioners.length)} sub="total seen" />
+        <StatTile label="Primary" value={primaryPract?.name.split(' ')[0] ?? '—'} sub="strongest bond" accent="#0058E6" />
+        <StatTile label="Continuity" value={`${continuityIndex}%`} sub="with primary" accent={continuityIndex >= 80 ? '#059669' : continuityIndex >= 60 ? '#D8A600' : '#DC2626'} />
+        <StatTile label="Transfer Risk" value={transferRisk} sub="handoff sensitivity" accent={transferRisk === 'Low' ? '#059669' : transferRisk === 'Medium' ? '#D8A600' : '#DC2626'} />
       </div>
 
       {practitioners.length > 0 ? (
         <>
+          {/* Relationship Health */}
           <Panel>
-            <PanelHeader title="Practitioner Relationships" />
+            <PanelHeader title="Relationship Health Analysis" />
+            <div className="px-5 py-4 grid grid-cols-3 gap-3">
+              {[
+                { label: 'Continuity Index', val: `${continuityIndex}%`, col: continuityIndex >= 80 ? '#059669' : continuityIndex >= 60 ? '#D8A600' : '#DC2626', sub: continuityIndex >= 80 ? 'Excellent — consistent care' : continuityIndex >= 60 ? 'Good — minor fragmentation' : 'Low — distributed care' },
+                { label: 'Coverage', val: String(practitioners.length), col: '#181D23', sub: practitioners.length === 1 ? 'Single practitioner — loyal' : practitioners.length <= 3 ? 'Shared care — normal' : 'Wide coverage — monitor' },
+                { label: 'Transfer Risk', val: transferRisk, col: transferRisk === 'Low' ? '#059669' : transferRisk === 'Medium' ? '#D8A600' : '#DC2626', sub: transferRisk === 'Low' ? 'Stable relationship' : transferRisk === 'Medium' ? 'Monitor continuity' : 'High fragmentation risk' },
+              ].map(({ label, val, col, sub }) => (
+                <div key={label} className="p-3 rounded-xl" style={{ backgroundColor: '#F5F3FF', border: '1px solid #EBE5FF' }}>
+                  <p className="text-[8px] uppercase tracking-[0.24em] font-semibold text-[#96989B] mb-1">{label}</p>
+                  <p className="text-[22px] font-black" style={{ color: col }}>{val}</p>
+                  <p className="text-[10px] text-[#5A6475] mt-0.5">{sub}</p>
+                </div>
+              ))}
+            </div>
+          </Panel>
+
+          {/* Practitioner bond cards */}
+          <Panel>
+            <PanelHeader title="Practitioner Bonds" />
             <div>
               {practitioners.map((p, i) => {
                 const col = PRACT_COLORS[i % PRACT_COLORS.length];
                 const services = Array.from(p.services);
+                const sl = scoreLabel(p.score);
+                const isActive = p.upcoming.length > 0 || (!!p.lastDate && (now.getTime() - new Date(p.lastDate).getTime()) < 90 * 86400000);
                 return (
                   <div key={p.name} className="px-5 py-4" style={{ borderBottom: i < practitioners.length - 1 ? '1px solid #EBE5FF' : 'none' }}>
                     <div className="flex items-start gap-4">
-                      <div className="w-10 h-10 rounded-xl flex items-center justify-center text-[12px] font-black flex-shrink-0"
+                      {/* Avatar */}
+                      <div className="w-11 h-11 rounded-xl flex items-center justify-center text-[12px] font-black flex-shrink-0"
                         style={{ backgroundColor: col + '15', color: col }}>
                         {p.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
+                        {/* Name + badges */}
+                        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                           <p className="text-[13px] font-black text-[#181D23]">{p.name}</p>
-                          {i === 0 && <span className="text-[8px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide" style={{ backgroundColor: col + '15', color: col }}>Primary</span>}
-                          {p.upcoming.length > 0 && <span className="text-[8px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide" style={{ backgroundColor: '#EFF6FF', color: '#0284C7' }}>Upcoming</span>}
+                          {i === 0 && <span className="text-[8px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide" style={{ backgroundColor: col + '18', color: col }}>Primary</span>}
+                          {isActive
+                            ? <span className="text-[8px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide" style={{ backgroundColor: '#05966918', color: '#059669' }}>Active</span>
+                            : p.lastDate && <span className="text-[8px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide" style={{ backgroundColor: '#EBE5FF', color: '#96989B' }}>Inactive</span>
+                          }
                         </div>
-                        <div className="flex items-center gap-4 mb-2">
-                          <span className="text-[10px] text-[#96989B]">{p.count} appointment{p.count !== 1 ? 's' : ''}</span>
-                          {p.lastDate && <span className="text-[10px] text-[#96989B]">Last: {fmtDateShort(p.lastDate)}</span>}
+                        {/* Relationship score bar */}
+                        <div className="mb-2.5">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#96989B]">Relationship Score</span>
+                            <span className="text-[9px] font-bold" style={{ color: sl.color }}>{sl.label} · {p.score}/100</span>
+                          </div>
+                          <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: '#EBE5FF' }}>
+                            <motion.div initial={{ width: 0 }} animate={{ width: `${p.score}%` }} transition={{ duration: 0.6, delay: i * 0.1 }}
+                              className="h-full rounded-full" style={{ backgroundColor: sl.color }} />
+                          </div>
                         </div>
+                        {/* Meta row */}
+                        <div className="flex items-center gap-4 mb-2.5 flex-wrap">
+                          <span className="text-[10px] text-[#5A6475]">{p.count} session{p.count !== 1 ? 's' : ''}</span>
+                          {p.lastDate && <span className="text-[10px] text-[#5A6475]">Last: {fmtDateShort(p.lastDate)}</span>}
+                          {p.firstDate && p.firstDate !== p.lastDate && <span className="text-[10px] text-[#96989B]">Since: {fmtDateShort(p.firstDate)}</span>}
+                          {p.upcoming.length > 0 && <span className="text-[10px] font-medium" style={{ color: '#0058E6' }}>{p.upcoming.length} upcoming</span>}
+                        </div>
+                        {/* Services */}
                         {services.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5">
+                          <div className="flex flex-wrap gap-1.5 mb-2.5">
                             {services.map(s => (
                               <span key={s} className="text-[10px] px-2 py-0.5 rounded-md font-medium text-[#3D4451]"
                                 style={{ backgroundColor: '#F5F3FF', border: '1px solid #EBE5FF' }}>{s}</span>
                             ))}
                           </div>
                         )}
+                        {/* Next upcoming */}
                         {p.upcoming.length > 0 && (
-                          <div className="mt-2 p-2.5 rounded-lg" style={{ backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE' }}>
-                            <p className="text-[10px] font-semibold text-[#0284C7]">
+                          <div className="mb-2.5 p-2.5 rounded-lg" style={{ backgroundColor: '#0058E608', border: '1px solid #0058E620' }}>
+                            <p className="text-[10px] font-semibold" style={{ color: '#0058E6' }}>
                               Next: {fmtDate(p.upcoming[0].starts_at)} — {p.upcoming[0].appointment_type ?? 'Appointment'}
                             </p>
                           </div>
                         )}
+                        {/* Actions */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <button onClick={() => { setShowTaskModal(p.name); setTaskForm(f => ({ ...f, title: `Follow up with ${patient.first_name} — ${p.name}` })); }}
+                            className="text-[10px] px-2.5 py-1 rounded-lg font-semibold transition-all"
+                            style={{ backgroundColor: '#0058E614', border: '1px solid #0058E630', color: '#181D23' }}>
+                            Assign Task
+                          </button>
+                          <button onClick={() => setFilterPract(filterPract === p.name ? null : p.name)}
+                            className="text-[10px] px-2.5 py-1 rounded-lg font-semibold transition-all"
+                            style={{ backgroundColor: '#EBE5FF', border: '1px solid #D4C5FF', color: '#524D66' }}>
+                            {filterPract === p.name ? 'Show All' : 'View Timeline'}
+                          </button>
+                          <a href={`/staff/appointments?userId=${userId}&patientName=${encodeURIComponent(patient.first_name + ' ' + patient.last_name)}`}
+                            className="text-[10px] px-2.5 py-1 rounded-lg font-semibold transition-all"
+                            style={{ backgroundColor: '#05966914', border: '1px solid #05966930', color: '#181D23' }}>
+                            Book
+                          </a>
+                        </div>
                       </div>
+                      {/* Score ring */}
                       <div className="flex-shrink-0 text-right">
-                        <p className="text-[20px] font-black" style={{ color: col }}>{p.count}</p>
-                        <p className="text-[9px] text-[#96989B] uppercase tracking-wide">sessions</p>
+                        <div className="relative w-12 h-12">
+                          <svg viewBox="0 0 48 48" className="w-full h-full -rotate-90">
+                            <circle cx="24" cy="24" r="20" fill="none" stroke="#EBE5FF" strokeWidth="4" />
+                            <circle cx="24" cy="24" r="20" fill="none" stroke={sl.color} strokeWidth="4"
+                              strokeDasharray={`${(p.score / 100) * 125.6} 125.6`} strokeLinecap="round" />
+                          </svg>
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <p className="text-[10px] font-black" style={{ color: sl.color }}>{p.score}</p>
+                          </div>
+                        </div>
+                        <p className="text-[8px] text-[#96989B] uppercase tracking-wide mt-1">score</p>
                       </div>
                     </div>
                   </div>
@@ -894,32 +1481,125 @@ function PractitionersTab({ patient, appointments }: { patient: PatientIntellige
             </div>
           </Panel>
 
-          {upcomingAppts.length > 0 && (
-            <Panel>
-              <PanelHeader title="Upcoming Appointments" />
-              <div>
-                {upcomingAppts.map((a, i) => (
-                  <div key={a.id} className="flex items-center justify-between gap-4 px-5 py-3.5"
-                    style={{ borderBottom: i < upcomingAppts.length - 1 ? '1px solid #EBE5FF' : 'none' }}>
-                    <div>
-                      <p className="text-[12px] font-semibold text-[#181D23]">{a.appointment_type ?? 'Appointment'}</p>
-                      <div className="flex items-center gap-3 mt-0.5">
-                        <span className="text-[10px] text-[#96989B]">{fmtDate(a.starts_at)}</span>
-                        {a.practitioner_name && <span className="text-[10px] text-[#0284C7] font-medium">{a.practitioner_name}</span>}
+          {/* Appointment timeline */}
+          <Panel>
+            <div className="px-5 py-3.5 flex items-center justify-between" style={{ borderBottom: '1px solid #EBE5FF' }}>
+              <p className="text-[11px] font-black text-[#181D23] uppercase tracking-[0.1em]">Appointment Timeline</p>
+              <div className="flex items-center gap-2">
+                {filterPract && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: '#0058E614', color: '#0058E6', border: '1px solid #0058E630' }}>
+                    {filterPract}
+                    <button onClick={() => setFilterPract(null)} className="ml-1.5 opacity-60 hover:opacity-100">×</button>
+                  </span>
+                )}
+                <div className="flex gap-1">
+                  {practitioners.map((p, i) => (
+                    <button key={p.name} onClick={() => setFilterPract(filterPract === p.name ? null : p.name)} title={p.name}
+                      className="w-5 h-5 rounded-full text-[8px] font-black transition-all"
+                      style={{ backgroundColor: filterPract === p.name ? PRACT_COLORS[i % PRACT_COLORS.length] : PRACT_COLORS[i % PRACT_COLORS.length] + '25', color: filterPract === p.name ? '#FAF7F2' : PRACT_COLORS[i % PRACT_COLORS.length] }}>
+                      {p.name[0]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div>
+              {filteredTimeline.slice(0, 15).map((a, i) => {
+                const isPast = a.starts_at && new Date(a.starts_at) < now;
+                const practIdx = practitioners.findIndex(p => p.name === a.practitioner_name);
+                const col = practIdx >= 0 ? PRACT_COLORS[practIdx % PRACT_COLORS.length] : '#96989B';
+                const statusCol = a.status === 'Arrived' ? '#059669' : a.status === 'Did Not Arrive' ? '#DC2626' : a.status === 'Cancelled' ? '#EA580C' : isPast ? '#6E6688' : '#0058E6';
+                return (
+                  <div key={a.id} className="flex items-center gap-3 px-5 py-3"
+                    style={{ borderBottom: i < Math.min(filteredTimeline.length, 15) - 1 ? '1px solid #EBE5FF' : 'none' }}>
+                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: col }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] font-semibold text-[#181D23] truncate">{a.appointment_type ?? 'Appointment'}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[10px] text-[#96989B]">{fmtDateShort(a.starts_at)}</span>
+                        {a.practitioner_name && <span className="text-[10px] font-medium" style={{ color: col }}>{a.practitioner_name.split(' ')[0]}</span>}
                       </div>
                     </div>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold flex-shrink-0" style={{ backgroundColor: '#EFF6FF', color: '#0284C7' }}>Scheduled</span>
+                    <span className="text-[9px] px-2 py-0.5 rounded-full font-semibold flex-shrink-0"
+                      style={{ backgroundColor: statusCol + '18', color: statusCol, border: `1px solid ${statusCol}30` }}>
+                      {a.status ?? (isPast ? 'Past' : 'Upcoming')}
+                    </span>
                   </div>
-                ))}
-              </div>
-            </Panel>
-          )}
+                );
+              })}
+              {filteredTimeline.length === 0 && <EmptyState title="No appointments" sub={filterPract ? `No appointments with ${filterPract}` : 'No data'} />}
+              {filteredTimeline.length > 15 && (
+                <div className="px-5 py-3 text-center">
+                  <p className="text-[10px] text-[#96989B]">Showing 15 of {filteredTimeline.length} appointments</p>
+                </div>
+              )}
+            </div>
+          </Panel>
         </>
       ) : (
         <Panel>
           <EmptyState title="No practitioner data" sub="Practitioner information will appear once Cliniko is connected and synced" />
         </Panel>
       )}
+
+      {/* Assign Task modal */}
+      <AnimatePresence>
+        {showTaskModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-6"
+            style={{ backgroundColor: 'rgba(26,16,53,0.55)', backdropFilter: 'blur(4px)' }}
+            onClick={(e) => { if (e.target === e.currentTarget) setShowTaskModal(null); }}>
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              className="w-full max-w-sm rounded-2xl p-6 shadow-2xl"
+              style={{ backgroundColor: '#FAF7F2', border: '1px solid #EBE5FF' }}>
+              <p className="text-[14px] font-black text-[#181D23] mb-4">Assign Task — {showTaskModal}</p>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-[8px] uppercase tracking-[0.24em] font-semibold text-[#96989B] block mb-1">Task Title</label>
+                  <input value={taskForm.title} onChange={e => setTaskForm(f => ({ ...f, title: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-lg text-[12px] text-[#181D23] outline-none"
+                    style={{ backgroundColor: '#F5F3FF', border: '1px solid #EBE5FF' }} />
+                </div>
+                <div>
+                  <label className="text-[8px] uppercase tracking-[0.24em] font-semibold text-[#96989B] block mb-1">Priority</label>
+                  <div className="flex gap-2">
+                    {(['low', 'medium', 'high', 'critical'] as const).map(pv => (
+                      <button key={pv} onClick={() => setTaskForm(f => ({ ...f, priority: pv }))}
+                        className="flex-1 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wide transition-all"
+                        style={{ backgroundColor: taskForm.priority === pv ? (pv === 'critical' ? '#DC2626' : pv === 'high' ? '#EA580C' : pv === 'medium' ? '#D8A600' : '#059669') : '#EBE5FF', color: taskForm.priority === pv ? '#FAF7F2' : '#524D66' }}>
+                        {pv}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[8px] uppercase tracking-[0.24em] font-semibold text-[#96989B] block mb-1">Due Date</label>
+                  <input type="date" value={taskForm.due} onChange={e => setTaskForm(f => ({ ...f, due: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-lg text-[12px] text-[#181D23] outline-none"
+                    style={{ backgroundColor: '#F5F3FF', border: '1px solid #EBE5FF' }} />
+                </div>
+                <div>
+                  <label className="text-[8px] uppercase tracking-[0.24em] font-semibold text-[#96989B] block mb-1">Notes</label>
+                  <textarea value={taskForm.description} onChange={e => setTaskForm(f => ({ ...f, description: e.target.value }))}
+                    rows={2} placeholder="Optional context..."
+                    className="w-full px-3 py-2 rounded-lg text-[12px] text-[#181D23] outline-none resize-none"
+                    style={{ backgroundColor: '#F5F3FF', border: '1px solid #EBE5FF' }} />
+                </div>
+              </div>
+              <div className="flex gap-2 mt-4">
+                <button onClick={() => setShowTaskModal(null)}
+                  className="flex-1 py-2 rounded-xl text-[11px] font-semibold"
+                  style={{ backgroundColor: 'transparent', border: '1px solid #EBE5FF', color: '#524D66' }}>Cancel</button>
+                <button onClick={handleAssignTask} disabled={!taskForm.title || taskSaving}
+                  className="flex-1 py-2 rounded-xl text-[11px] font-bold transition-all disabled:opacity-50"
+                  style={{ backgroundColor: '#0058E618', border: '1px solid #0058E640', color: '#181D23' }}>
+                  {taskSaving ? 'Saving...' : 'Create Task'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -5107,10 +5787,11 @@ export default function PatientHubPage() {
             <div className="col-span-8">
               <AnimatePresence mode="wait">
                 <motion.div key={activeTab} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
-                  {activeTab === 'overview'       && <OverviewTab patient={patient} />}
+                  {activeTab === 'overview'       && <OverviewTab patient={patient} appointments={hub!.appointments} userId={userId} onNavigate={setActiveTab} />}
                   {activeTab === 'profile'        && <ProfileTab patient={patient} onUpdated={load} />}
                   {activeTab === 'journey'        && <JourneyTab patient={patient} timeline={hub!.timeline} />}
                   {activeTab === 'appointments'   && <AppointmentsTab patient={patient} appointments={hub!.appointments} userId={userId} />}
+                  {activeTab === 'practitioners'  && <PractitionersTab patient={patient} appointments={hub!.appointments} userId={userId} />}
                   {activeTab === 'communications' && <CommunicationsTab patient={patient} timeline={hub!.timeline} />}
                   {activeTab === 'ehr'            && <EHROverviewTab patient={patient} userId={userId} />}
                   {activeTab === 'financials'     && <FinancialsTab patient={patient} appointments={hub!.appointments} />}
