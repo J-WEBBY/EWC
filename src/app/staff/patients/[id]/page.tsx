@@ -105,7 +105,7 @@ function fmtGBP(n: number): string {
 function Panel({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
     <div className={`rounded-2xl overflow-hidden ${className}`}
-      style={{ backgroundColor: '#FFFFFF', border: '1px solid #EBE5FF' }}>
+      style={{ backgroundColor: 'transparent', border: '1px solid #EBE5FF' }}>
       {children}
     </div>
   );
@@ -126,7 +126,7 @@ function PanelHeader({ title, badge, action }: { title: string; badge?: number; 
 }
 function StatTile({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: string }) {
   return (
-    <div className="rounded-xl p-4" style={{ backgroundColor: '#FDFCFB', border: '1px solid #EBE5FF' }}>
+    <div className="rounded-xl p-4" style={{ backgroundColor: 'transparent', border: '1px solid #EBE5FF' }}>
       <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B] mb-1.5">{label}</p>
       <p className="text-[22px] font-black tracking-[-0.02em] leading-none" style={{ color: accent ?? '#181D23' }}>{value}</p>
       {sub && <p className="text-[10px] text-[#96989B] mt-1">{sub}</p>}
@@ -289,28 +289,16 @@ function TimelineItem({ ev, last }: { ev: TimelineEvent; last: boolean }) {
 // TABS
 // =============================================================================
 
-type Tab = 'overview' | 'lifecycle' | 'appointments' | 'practitioners' | 'communications' | 'payments' | 'files' | 'intelligence' | 'treatment_log' | 'plan' | 'client_detail' | 'clinical_record' | 'soap_notes' | 'consents' | 'photos' | 'prescriptions' | 'lab_results' | 'referrals' | 'waiting_list';
+type Tab = 'overview' | 'client_detail' | 'ehr' | 'appointments' | 'communications' | 'payments' | 'intelligence';
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'overview',         label: 'Overview' },
-  { id: 'lifecycle',        label: 'Lifecycle' },
-  { id: 'appointments',     label: 'Appointments' },
-  { id: 'waiting_list',     label: 'Waiting List' },
-  { id: 'practitioners',    label: 'Practitioners' },
-  { id: 'communications',   label: 'Communications' },
-  { id: 'payments',         label: 'Payments' },
-  { id: 'files',            label: 'Files' },
-  { id: 'client_detail',    label: 'Client Detail' },
-  { id: 'treatment_log',    label: 'Treatment Log' },
-  { id: 'plan',             label: 'Patient Plan' },
-  { id: 'clinical_record',  label: 'Clinical Record' },
-  { id: 'soap_notes',       label: 'SOAP Notes' },
-  { id: 'consents',         label: 'Consents' },
-  { id: 'photos',           label: 'Photos' },
-  { id: 'prescriptions',    label: 'Prescriptions' },
-  { id: 'lab_results',      label: 'Lab Results' },
-  { id: 'referrals',        label: 'Referrals' },
-  { id: 'intelligence',     label: 'Intelligence' },
+  { id: 'overview',       label: 'Overview' },
+  { id: 'client_detail',  label: 'Client Details' },
+  { id: 'ehr',            label: 'EHR Overview' },
+  { id: 'appointments',   label: 'Appointments' },
+  { id: 'communications', label: 'Communications' },
+  { id: 'payments',       label: 'Payments' },
+  { id: 'intelligence',   label: 'Intelligence' },
 ];
 
 // =============================================================================
@@ -379,7 +367,7 @@ function OverviewTab({ patient }: { patient: PatientIntelligenceRow }) {
               { label: 'Avg Visit Value', value: '£180', accent: '#059669' },
               { label: 'Est. CLV', value: fmtGBP(clv), accent: '#059669' },
             ].map(item => (
-              <div key={item.label} className="p-3 rounded-xl text-center" style={{ backgroundColor: '#FDFCFB', border: '1px solid #EBE5FF' }}>
+              <div key={item.label} className="p-3 rounded-xl text-center" style={{ backgroundColor: 'transparent', border: '1px solid #EBE5FF' }}>
                 <p className="text-[8px] uppercase tracking-[0.22em] text-[#96989B] mb-1">{item.label}</p>
                 <p className="text-[20px] font-black" style={{ color: item.accent }}>{item.value}</p>
               </div>
@@ -471,12 +459,12 @@ function OverviewTab({ patient }: { patient: PatientIntelligenceRow }) {
       <Panel>
         <PanelHeader title="Referral Network" />
         <div className="p-5 grid grid-cols-2 gap-4">
-          <div className="p-4 rounded-xl" style={{ backgroundColor: '#FDFCFB', border: '1px solid #EBE5FF' }}>
+          <div className="p-4 rounded-xl" style={{ backgroundColor: 'transparent', border: '1px solid #EBE5FF' }}>
             <p className="text-[8px] uppercase tracking-[0.22em] text-[#96989B] mb-2">Referred By</p>
             <p className="text-[13px] font-bold text-[#181D23]">{patient.referral_source ?? 'Unknown'}</p>
             <p className="text-[10px] text-[#96989B] mt-0.5">Acquisition source</p>
           </div>
-          <div className="p-4 rounded-xl" style={{ backgroundColor: '#FDFCFB', border: '1px solid #EBE5FF' }}>
+          <div className="p-4 rounded-xl" style={{ backgroundColor: 'transparent', border: '1px solid #EBE5FF' }}>
             <p className="text-[8px] uppercase tracking-[0.22em] text-[#96989B] mb-2">Referrals Made</p>
             <p className="text-[13px] font-bold text-[#181D23]">—</p>
             <p className="text-[10px] text-[#96989B] mt-0.5">Requires referral tracking</p>
@@ -587,11 +575,11 @@ function LifecycleTab({ patient, timeline }: { patient: PatientIntelligenceRow; 
           <PanelHeader title="Trajectory Forecast" />
           <div className="p-5 space-y-4">
             <div className="grid grid-cols-2 gap-3">
-              <div className="p-3 rounded-xl" style={{ backgroundColor: '#FDFCFB', border: '1px solid #EBE5FF' }}>
+              <div className="p-3 rounded-xl" style={{ backgroundColor: 'transparent', border: '1px solid #EBE5FF' }}>
                 <p className="text-[8px] uppercase tracking-[0.22em] text-[#96989B] mb-1.5">Velocity</p>
                 <p className="text-[16px] font-black" style={{ color: traj.velColor }}>{traj.velocity}</p>
               </div>
-              <div className="p-3 rounded-xl" style={{ backgroundColor: '#FDFCFB', border: '1px solid #EBE5FF' }}>
+              <div className="p-3 rounded-xl" style={{ backgroundColor: 'transparent', border: '1px solid #EBE5FF' }}>
                 <p className="text-[8px] uppercase tracking-[0.22em] text-[#96989B] mb-1.5">Forecast</p>
                 <p className="text-[16px] font-black" style={{ color: traj.foreColor }}>{traj.forecast}</p>
               </div>
@@ -1295,7 +1283,7 @@ function FilesTab({ patient }: { patient: PatientIntelligenceRow }) {
           <PanelHeader title={s.label}
             action={<button className="flex items-center gap-1 text-[10px] text-[#96989B] px-2.5 py-1 rounded-lg" style={{ border: '1px solid #EBE5FF', opacity: 0.5, cursor: 'not-allowed' }}><Upload size={10} /> Upload</button>} />
           <div className="p-5">
-            <div className="flex flex-col items-center justify-center py-8 gap-2.5 rounded-xl" style={{ border: '1.5px dashed #D4E2FF', backgroundColor: '#FDFCFB' }}>
+            <div className="flex flex-col items-center justify-center py-8 gap-2.5 rounded-xl" style={{ border: '1.5px dashed #D4E2FF', backgroundColor: 'transparent' }}>
               <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#F5F3FF' }}>
                 <FolderOpen size={14} style={{ color: '#C5BAF0' }} />
               </div>
@@ -1490,7 +1478,7 @@ function ClientDetailTab({ patient }: { patient: PatientIntelligenceRow }) {
         <PanelHeader title="Related Clients"
           action={<span className="text-[9px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wide" style={{ backgroundColor: '#F5F3FF', color: '#0058E6', border: '1px solid #DDD6FE' }}>Coming Soon</span>} />
         <div className="p-5">
-          <div className="flex flex-col items-center justify-center py-8 gap-2.5 rounded-xl" style={{ border: '1.5px dashed #D4E2FF', backgroundColor: '#FDFCFB' }}>
+          <div className="flex flex-col items-center justify-center py-8 gap-2.5 rounded-xl" style={{ border: '1.5px dashed #D4E2FF', backgroundColor: 'transparent' }}>
             <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#F5F3FF' }}>
               <Users size={14} style={{ color: '#C5BAF0' }} />
             </div>
@@ -1544,7 +1532,7 @@ function AddLogModal({
         value={(form[key] as string) ?? ''}
         onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
         className="w-full px-3 py-2 rounded-lg text-[12px] outline-none"
-        style={{ border: '1px solid #EBE5FF', background: '#FDFCFB', color: '#181D23' }} />
+        style={{ border: '1px solid #EBE5FF', background: 'transparent', color: '#181D23' }} />
     </div>
   );
 
@@ -1555,7 +1543,7 @@ function AddLogModal({
         value={(form[key] as string) ?? ''}
         onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
         className="w-full px-3 py-2 rounded-lg text-[12px] outline-none resize-none"
-        style={{ border: '1px solid #EBE5FF', background: '#FDFCFB', color: '#181D23' }} />
+        style={{ border: '1px solid #EBE5FF', background: 'transparent', color: '#181D23' }} />
     </div>
   );
 
@@ -1593,7 +1581,7 @@ function AddLogModal({
               <label className="block text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B] mb-1">Outcome</label>
               <select value={form.outcome ?? ''} onChange={e => setForm(f => ({ ...f, outcome: (e.target.value || null) as AddTreatmentLogInput['outcome'] }))}
                 className="w-full px-3 py-2 rounded-lg text-[12px] outline-none"
-                style={{ border: '1px solid #EBE5FF', background: '#FDFCFB', color: '#181D23' }}>
+                style={{ border: '1px solid #EBE5FF', background: 'transparent', color: '#181D23' }}>
                 <option value="">— Select outcome</option>
                 <option value="excellent">Excellent</option>
                 <option value="good">Good</option>
@@ -1606,7 +1594,7 @@ function AddLogModal({
               <input type="date" value={form.follow_up_date ?? ''}
                 onChange={e => setForm(f => ({ ...f, follow_up_date: e.target.value || undefined, follow_up_required: !!e.target.value }))}
                 className="w-full px-3 py-2 rounded-lg text-[12px] outline-none"
-                style={{ border: '1px solid #EBE5FF', background: '#FDFCFB', color: '#181D23' }} />
+                style={{ border: '1px solid #EBE5FF', background: 'transparent', color: '#181D23' }} />
             </div>
           </div>
           {form.follow_up_date && area('follow_up_notes', 'Follow-up Notes', 2)}
@@ -1870,7 +1858,7 @@ function TreatmentLogTab({ patient }: { patient: PatientIntelligenceRow }) {
         ) : displayed.length === 0 ? (
           <div className="p-5">
             <div className="flex flex-col items-center justify-center py-10 gap-3 rounded-xl"
-              style={{ border: '1.5px dashed #D4E2FF', backgroundColor: '#FDFCFB' }}>
+              style={{ border: '1.5px dashed #D4E2FF', backgroundColor: 'transparent' }}>
               <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: '#F5F3FF' }}>
                 <ClipboardList size={16} style={{ color: '#0058E6' }} />
               </div>
@@ -2001,7 +1989,7 @@ function PlanPhaseCard({ phase, index }: { phase: PlanPhase; index: number }) {
                         const tPct = t.sessions_planned > 0 ? (t.sessions_completed / t.sessions_planned) * 100 : 0;
                         return (
                           <div key={i} className="px-3 py-2.5 rounded-lg flex items-start gap-3"
-                            style={{ background: '#FDFCFB', border: '1px solid #EBE5FF' }}>
+                            style={{ background: 'transparent', border: '1px solid #EBE5FF' }}>
                             {done
                               ? <CheckSquare size={13} style={{ color: '#059669', marginTop: 2, flexShrink: 0 }} />
                               : <Circle size={13} className="text-[#C4BFD6] mt-0.5 flex-shrink-0" />
@@ -2146,7 +2134,7 @@ function PatientPlanTab({ patient }: { patient: PatientIntelligenceRow }) {
               { label: 'Target End', value: fmtD(plan.target_end_date) },
               { label: 'Next Review', value: fmtD(plan.review_date) },
             ].map(({ label, value }) => (
-              <div key={label} className="p-3 rounded-xl text-center" style={{ backgroundColor: '#FDFCFB', border: '1px solid #EBE5FF' }}>
+              <div key={label} className="p-3 rounded-xl text-center" style={{ backgroundColor: 'transparent', border: '1px solid #EBE5FF' }}>
                 <p className="text-[8px] uppercase tracking-[0.20em] text-[#96989B] mb-0.5">{label}</p>
                 <p className="text-[12px] font-bold text-[#181D23]">{value}</p>
               </div>
@@ -2201,103 +2189,169 @@ function PatientPlanTab({ patient }: { patient: PatientIntelligenceRow }) {
 // TAB: INTELLIGENCE
 // =============================================================================
 
-function IntelligenceTab({ patient, onGenerateReport, onChatWithAgent }: {
-  patient: PatientIntelligenceRow; onGenerateReport: () => void; onChatWithAgent: () => void;
+function IntelligenceTab({ patient, onChatWithAgent }: {
+  patient: PatientIntelligenceRow; onChatWithAgent: () => void;
 }) {
   const isLeadOrNew = patient.lifecycle_stage === 'lead' || patient.lifecycle_stage === 'new';
   const agentName = isLeadOrNew ? 'Orion' : 'Aria';
   const agentColor = isLeadOrNew ? '#D8A600' : '#00A693';
   const lc = LC_CFG[patient.lifecycle_stage];
 
+  // Financial
+  const clv = Math.round(patient.total_visits * 180 + Math.max(0, patient.total_visits * 180 * 0.4));
+  const avgValue = patient.total_visits > 0 ? Math.round(patient.total_paid / patient.total_visits) : 0;
+
+  // Engagement factors
   const factors = [
     { label: 'Recency (35%)', score: patient.days_since_last_visit === null ? 0 : Math.max(0, Math.round((1 - patient.days_since_last_visit / 180) * 100)) },
     { label: 'Frequency (40%)', score: Math.min(100, Math.round((patient.total_visits / 10) * 100)) },
     { label: 'Consistency (25%)', score: Math.round((1 - patient.cancellation_rate) * 100) },
   ];
 
-  // Sentiment (simulated)
+  // Composite risk score
+  const riskScore = Math.min(100, Math.round(
+    (patient.cancellation_rate > 0.35 ? 35 : 0) +
+    ((patient.days_since_last_visit ?? 0) > 180 ? 35 : (patient.days_since_last_visit ?? 0) > 90 ? 20 : 0) +
+    (patient.lifecycle_stage === 'at_risk' ? 20 : 0) +
+    (patient.open_signals_count > 2 ? 10 : 0)
+  ));
+  const riskLabel = riskScore >= 50 ? 'High Risk' : riskScore >= 25 ? 'Medium Risk' : 'Low Risk';
+  const riskColor = riskScore >= 50 ? '#DC2626' : riskScore >= 25 ? '#EA580C' : '#059669';
+
+  // Sentiment
   const sentimentScore = patient.lifecycle_stage === 'loyal' ? 88 : patient.lifecycle_stage === 'active' ? 72 : patient.lifecycle_stage === 'at_risk' ? 38 : patient.lifecycle_stage === 'lapsed' ? 25 : 60;
   const sentimentLabel = sentimentScore >= 70 ? 'Positive' : sentimentScore >= 45 ? 'Neutral' : 'Concerning';
-  const sentimentColor = sentimentScore >= 70 ? '#059669' : sentimentScore >= 45 ? '#D8A600' : '#DC2626';
+  const sentimentColor = sentimentScore >= 70 ? '#059669' : sentimentScore >= 45 ? '#EA580C' : '#DC2626';
 
-  // Annual plan (based on treatment tags)
+  // Treatment forecast
   const annualPlan = patient.treatment_tags.slice(0, 4).map((t, i) => ({
     treatment: t,
     frequency: i === 0 ? 'Every 3–4 months' : i === 1 ? 'Every 6 months' : 'Annually',
     nextDue: i === 0 ? 'Overdue' : i === 1 ? 'In 3 months' : 'In 6 months',
   }));
 
+  // Next best action
+  const nba = patient.next_best_action;
+  const nbaColor = nba?.urgency === 'high' ? '#DC2626' : nba?.urgency === 'medium' ? '#EA580C' : '#059669';
+
   return (
     <div className="space-y-5">
-      {/* Agent CTA */}
-      <Panel>
-        <div className="p-5">
-          <div className="flex items-start gap-4">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: agentColor + '15' }}>
-              <Brain size={18} style={{ color: agentColor }} />
-            </div>
-            <div className="flex-1">
-              <p className="text-[13px] font-black text-[#181D23]">Chat with {agentName}</p>
-              <p className="text-[11px] text-[#5A6475] mt-0.5 leading-relaxed">
-                {isLeadOrNew ? `${agentName} specialises in patient acquisition. Ask about this lead, objection handling, or booking strategy.` : `${agentName} specialises in patient retention. Ask about rebooking, engagement, or relationship strategy.`}
-              </p>
-            </div>
-          </div>
-          <button onClick={onChatWithAgent}
-            className="mt-4 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[12px] font-bold transition-all"
-            style={{ backgroundColor: agentColor, color: '#FFFFFF' }}
-            onMouseEnter={e => (e.currentTarget.style.opacity = '0.88')} onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
-            <MessageSquare size={13} /> Open {agentName} Chat with Patient Context <ExternalLink size={11} />
-          </button>
-        </div>
-      </Panel>
 
-      {/* Sentiment Tracker */}
+      {/* Financial Intelligence */}
+      <div className="grid grid-cols-4 gap-3">
+        <div className="rounded-xl p-4" style={{ border: '1px solid #EBE5FF' }}>
+          <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B] mb-1.5">Total Paid</p>
+          <p className="text-[22px] font-black tracking-[-0.02em] leading-none" style={{ color: patient.total_paid > 0 ? '#059669' : '#96989B' }}>{fmtGBP(patient.total_paid)}</p>
+          <p className="text-[10px] text-[#96989B] mt-1">lifetime revenue</p>
+        </div>
+        <div className="rounded-xl p-4" style={{ border: '1px solid #EBE5FF' }}>
+          <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B] mb-1.5">Avg Visit Value</p>
+          <p className="text-[22px] font-black tracking-[-0.02em] leading-none text-[#181D23]">{avgValue > 0 ? fmtGBP(avgValue) : '—'}</p>
+          <p className="text-[10px] text-[#96989B] mt-1">per appointment</p>
+        </div>
+        <div className="rounded-xl p-4" style={{ border: '1px solid #EBE5FF' }}>
+          <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B] mb-1.5">Est. CLV</p>
+          <p className="text-[22px] font-black tracking-[-0.02em] leading-none" style={{ color: '#059669' }}>{fmtGBP(clv)}</p>
+          <p className="text-[10px] text-[#96989B] mt-1">projected lifetime</p>
+        </div>
+        <div className="rounded-xl p-4" style={{ border: `1px solid ${patient.has_outstanding ? '#FECDD3' : '#EBE5FF'}`, backgroundColor: patient.has_outstanding ? '#FFF1F2' : 'transparent' }}>
+          <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B] mb-1.5">Outstanding</p>
+          <p className="text-[22px] font-black tracking-[-0.02em] leading-none" style={{ color: patient.has_outstanding ? '#DC2626' : '#059669' }}>{patient.has_outstanding ? 'Yes' : 'Clear'}</p>
+          <p className="text-[10px] text-[#96989B] mt-1">payment status</p>
+        </div>
+      </div>
+
+      {/* Next Best Action */}
+      {nba && (
+        <Panel>
+          <div className="p-5">
+            <div className="flex items-start gap-3 mb-3">
+              <div className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5" style={{ backgroundColor: nbaColor }} />
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <p className="text-[8px] uppercase tracking-[0.22em] font-semibold text-[#96989B]">Next Best Action</p>
+                  <span className="text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide" style={{ backgroundColor: nbaColor + '15', color: nbaColor }}>{nba.urgency}</span>
+                </div>
+                <p className="text-[14px] font-black text-[#181D23]">{nba.title}</p>
+                <p className="text-[11px] text-[#5A6475] mt-1 leading-relaxed">{nba.description}</p>
+              </div>
+            </div>
+            <button onClick={onChatWithAgent}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-[11px] font-bold transition-all"
+              style={{ backgroundColor: agentColor + '18', border: `1px solid ${agentColor}40`, color: '#181D23' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = agentColor + '28'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = agentColor + '18'; }}>
+              <MessageSquare size={12} style={{ color: agentColor }} /> Ask {agentName} how to action this
+            </button>
+          </div>
+        </Panel>
+      )}
+
+      {/* Risk Assessment */}
       <Panel>
-        <PanelHeader title="Patient Sentiment" />
+        <PanelHeader title="Risk Assessment" />
         <div className="p-5">
           <div className="flex items-center gap-5 mb-4">
-            <div className="flex-shrink-0">
-              <EngagementGauge score={sentimentScore} color={sentimentColor} />
-            </div>
+            <EngagementGauge score={riskScore} color={riskColor} />
             <div className="flex-1">
-              <p className="text-[18px] font-black" style={{ color: sentimentColor }}>{sentimentLabel}</p>
+              <p className="text-[18px] font-black" style={{ color: riskColor }}>{riskLabel}</p>
               <p className="text-[11px] text-[#5A6475] mt-1 leading-relaxed">
-                Derived from call transcripts, note tone, and engagement patterns. Sentiment is {sentimentLabel.toLowerCase()} — {sentimentScore >= 70 ? 'patient shows strong positive indicators.' : sentimentScore >= 45 ? 'monitor for changes in communication tone.' : 'proactive engagement recommended to address underlying concerns.'}
+                Composite score from visit gap ({patient.days_since_last_visit ?? 0} days), cancellation rate ({Math.round(patient.cancellation_rate * 100)}%), lifecycle stage, and open signals.
               </p>
             </div>
           </div>
-          <div className="p-3 rounded-xl text-center" style={{ backgroundColor: '#F9F7FF', border: '1px solid #EBE5FF' }}>
-            <p className="text-[10px] text-[#96989B]">Live sentiment analysis will use Komal call transcripts once voice is active.</p>
+          <div className="space-y-2 pt-3" style={{ borderTop: '1px solid #EBE5FF' }}>
+            {[
+              { label: 'Visit gap', value: (patient.days_since_last_visit ?? 0) > 180 ? 'Critical' : (patient.days_since_last_visit ?? 0) > 90 ? 'Elevated' : 'Normal', ok: (patient.days_since_last_visit ?? 0) <= 90 },
+              { label: 'Cancellation rate', value: patient.cancellation_rate > 0.35 ? 'High' : patient.cancellation_rate > 0.15 ? 'Moderate' : 'Low', ok: patient.cancellation_rate <= 0.15 },
+              { label: 'Lifecycle stability', value: patient.lifecycle_stage === 'at_risk' || patient.lifecycle_stage === 'lapsed' ? 'Unstable' : patient.lifecycle_stage === 'loyal' || patient.lifecycle_stage === 'active' ? 'Strong' : 'Developing', ok: patient.lifecycle_stage === 'loyal' || patient.lifecycle_stage === 'active' },
+              { label: 'Open signals', value: patient.open_signals_count > 2 ? `${patient.open_signals_count} unresolved` : patient.open_signals_count > 0 ? `${patient.open_signals_count} open` : 'Clear', ok: patient.open_signals_count === 0 },
+            ].map(f => (
+              <div key={f.label} className="flex items-center justify-between">
+                <p className="text-[11px] text-[#5A6475]">{f.label}</p>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: f.ok ? '#ECFDF5' : '#FFF1F2', color: f.ok ? '#059669' : '#DC2626' }}>{f.value}</span>
+              </div>
+            ))}
           </div>
         </div>
       </Panel>
 
-      {/* Engagement Score Breakdown */}
+      {/* Engagement Score */}
       <Panel>
-        <PanelHeader title="Engagement Score Breakdown" />
-        <div className="p-5 space-y-4">
-          {factors.map(f => {
-            const c = f.score >= 70 ? '#059669' : f.score >= 40 ? '#D8A600' : '#DC2626';
-            return (
-              <div key={f.label}>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[11px] font-semibold text-[#3D4451]">{f.label}</span>
-                  <span className="text-[14px] font-black" style={{ color: c }}>{f.score}</span>
+        <PanelHeader title="Engagement Score" />
+        <div className="p-5">
+          <div className="flex items-center gap-5 mb-4">
+            <EngagementGauge score={patient.engagement_score} color={lc.color} />
+            <div className="flex-1">
+              <p className="text-[18px] font-black" style={{ color: lc.color }}>{patient.engagement_score} / 100</p>
+              <p className="text-[11px] text-[#5A6475] mt-1 leading-relaxed">
+                Sentiment: <span style={{ color: sentimentColor, fontWeight: 700 }}>{sentimentLabel}</span> — {sentimentScore >= 70 ? 'strong positive relationship indicators.' : sentimentScore >= 45 ? 'stable, monitor for changes.' : 'proactive engagement recommended.'}
+              </p>
+            </div>
+          </div>
+          <div className="space-y-3">
+            {factors.map(f => {
+              const c = f.score >= 70 ? '#059669' : f.score >= 40 ? '#EA580C' : '#DC2626';
+              return (
+                <div key={f.label}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] font-semibold text-[#3D4451]">{f.label}</span>
+                    <span className="text-[13px] font-black" style={{ color: c }}>{f.score}</span>
+                  </div>
+                  <div className="h-[4px] rounded-full overflow-hidden" style={{ backgroundColor: '#EBE5FF' }}>
+                    <motion.div className="h-full rounded-full" initial={{ width: 0 }} animate={{ width: `${f.score}%` }} transition={{ duration: 0.8, delay: 0.1 }} style={{ backgroundColor: c }} />
+                  </div>
                 </div>
-                <div className="h-[4px] rounded-full overflow-hidden" style={{ backgroundColor: '#EBE5FF' }}>
-                  <motion.div className="h-full rounded-full" initial={{ width: 0 }} animate={{ width: `${f.score}%` }} transition={{ duration: 0.8, delay: 0.1 }} style={{ backgroundColor: c }} />
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </Panel>
 
-      {/* Annual Treatment Plan */}
+      {/* Treatment Forecast */}
       {annualPlan.length > 0 && (
         <Panel>
-          <PanelHeader title="Annual Treatment Plan" />
+          <PanelHeader title="Treatment Forecast" />
           <div>
             {annualPlan.map((item, i) => (
               <div key={item.treatment} className="flex items-center justify-between px-5 py-3.5"
@@ -2307,40 +2361,115 @@ function IntelligenceTab({ patient, onGenerateReport, onChatWithAgent }: {
                   <p className="text-[10px] text-[#96989B] mt-0.5">{item.frequency}</p>
                 </div>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-                  style={{ backgroundColor: item.nextDue === 'Overdue' ? '#FFF1F2' : '#EFF6FF', color: item.nextDue === 'Overdue' ? '#DC2626' : '#0284C7' }}>
+                  style={{ backgroundColor: item.nextDue === 'Overdue' ? '#FFF1F2' : '#F0F7FF', color: item.nextDue === 'Overdue' ? '#DC2626' : '#0058E6' }}>
                   {item.nextDue}
                 </span>
               </div>
             ))}
           </div>
           <div className="px-5 py-3" style={{ borderTop: '1px solid #EBE5FF' }}>
-            <p className="text-[10px] text-[#96989B]">Treatment plan generated from historical appointment data. Review with practitioner for accuracy.</p>
+            <p className="text-[10px] text-[#96989B]">Forecast from historical appointment data. Review with practitioner for accuracy.</p>
           </div>
         </Panel>
       )}
 
-      {/* Post-Treatment Follow-up Log */}
-      <Panel>
-        <PanelHeader title="Post-Treatment Follow-up Log"
-          action={<button className="flex items-center gap-1 text-[10px] text-[#96989B] px-2.5 py-1 rounded-lg transition-all" style={{ border: '1px solid #EBE5FF' }}><Plus size={10} /> Log</button>} />
-        <EmptyState title="No follow-up records" sub="Post-treatment calls, SMS check-ins, and reviews will be logged here automatically" />
-      </Panel>
-
-      {/* AI Report */}
-      <Panel>
-        <PanelHeader title="AI Patient Report" />
-        <div className="p-5">
-          <p className="text-[11px] text-[#5A6475] mb-4 leading-relaxed">
-            Generate a comprehensive patient relationship report — lifecycle analysis, engagement drivers, retention risk, and recommended next actions.
-          </p>
-          <button onClick={onGenerateReport}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12px] font-semibold transition-all"
-            style={{ backgroundColor: '#181D23', color: '#FFFFFF' }}
-            onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')} onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
-            <Sparkles size={13} /> Generate Patient Report
-          </button>
+      {/* Agent CTA */}
+      <div className="p-5 rounded-2xl flex items-center gap-4" style={{ backgroundColor: agentColor + '08', border: `1px solid ${agentColor}25` }}>
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: agentColor + '18' }}>
+          <Brain size={18} style={{ color: agentColor }} />
         </div>
-      </Panel>
+        <div className="flex-1">
+          <p className="text-[12px] font-black text-[#181D23]">{agentName} — {isLeadOrNew ? 'Acquisition Specialist' : 'Retention Specialist'}</p>
+          <p className="text-[11px] text-[#5A6475] mt-0.5">{isLeadOrNew ? 'Ask about this lead, objection handling, or booking strategy.' : 'Ask about rebooking windows, engagement, or relationship strategy.'}</p>
+        </div>
+        <button onClick={onChatWithAgent}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-bold flex-shrink-0 transition-all"
+          style={{ backgroundColor: agentColor + '18', border: `1px solid ${agentColor}40`, color: '#181D23' }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = agentColor + '28'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = agentColor + '18'; }}>
+          <MessageSquare size={12} style={{ color: agentColor }} /> Chat <ExternalLink size={10} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// TAB: EHR OVERVIEW
+// =============================================================================
+
+function EHROverviewTab({ patient, userId }: { patient: PatientIntelligenceRow; userId: string }) {
+  const EHR_CARDS = [
+    { id: 'treatment_log', label: 'Treatment Log', sub: 'Procedures, outcomes, reactions', icon: ClipboardList, color: '#0058E6' },
+    { id: 'plan', label: 'Patient Plan', sub: 'Active treatment pathways', icon: Target, color: '#059669' },
+    { id: 'clinical_record', label: 'Clinical Record', sub: 'Medical history & vitals', icon: Stethoscope, color: '#7C3AED' },
+    { id: 'soap_notes', label: 'SOAP Notes', sub: 'Subjective, objective, assessment', icon: FileText, color: '#00A693' },
+    { id: 'consents', label: 'Consents', sub: 'Signed consent documents', icon: CheckSquare, color: '#059669' },
+    { id: 'photos', label: 'Progress Photos', sub: 'Before / after imaging', icon: Camera, color: '#0058E6' },
+    { id: 'prescriptions', label: 'Prescriptions', sub: 'Medications & topicals', icon: Paperclip, color: '#EA580C' },
+    { id: 'lab_results', label: 'Lab Results', sub: 'Blood work & diagnostics', icon: BarChart2, color: '#181D23' },
+  ];
+
+  return (
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-[8px] uppercase tracking-[0.28em] font-semibold text-[#96989B] mb-1">Electronic Health Record</p>
+          <p className="text-[20px] font-black tracking-[-0.025em] text-[#181D23]">EHR Overview</p>
+        </div>
+        <a href={`/staff/ehr?userId=${userId}`}
+          className="flex items-center gap-1.5 text-[11px] font-bold transition-opacity"
+          style={{ color: '#0058E6' }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.65'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}>
+          Open EHR Hub <ExternalLink size={12} />
+        </a>
+      </div>
+
+      {/* 4×2 grid */}
+      <div className="grid grid-cols-4 gap-3">
+        {EHR_CARDS.map(card => {
+          const Icon = card.icon;
+          return (
+            <div key={card.id}
+              className="rounded-xl p-4 flex flex-col gap-3 transition-all cursor-default"
+              style={{ border: '1px solid #EBE5FF' }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLElement).style.borderColor = card.color + '50';
+                (e.currentTarget as HTMLElement).style.backgroundColor = card.color + '06';
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLElement).style.borderColor = '#EBE5FF';
+                (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent';
+              }}>
+              <div className="flex items-center justify-between">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: card.color + '14' }}>
+                  <Icon size={16} style={{ color: card.color }} />
+                </div>
+                <ChevronRight size={13} style={{ color: '#C5BAF0' }} />
+              </div>
+              <div>
+                <p className="text-[12px] font-bold text-[#181D23] leading-tight">{card.label}</p>
+                <p className="text-[10px] text-[#96989B] mt-0.5 leading-relaxed">{card.sub}</p>
+              </div>
+              <p className="text-[9px] font-semibold" style={{ color: '#C5BAF0' }}>No records yet</p>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Migration note */}
+      <div className="p-4 rounded-xl flex items-start gap-3" style={{ backgroundColor: '#F5F2FD', border: '1px solid #C5BAF0' }}>
+        <AlertCircle size={14} style={{ color: '#7C3AED', flexShrink: 0, marginTop: 2 }} />
+        <div>
+          <p className="text-[11px] font-semibold text-[#181D23] mb-0.5">Run migration 036_clinical.sql to activate</p>
+          <p className="text-[10px] text-[#524D66] leading-relaxed">
+            All 8 EHR sections will show live data for {patient.first_name} once the clinical schema is active.
+            The <a href={`/staff/ehr?userId=${userId}`} className="underline" style={{ color: '#7C3AED' }}>EHR Hub</a> has full read/write functionality.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -2411,9 +2540,10 @@ function ContextSidebar({ patient, onChatWithAgent, onAddNote }: {
           </p>
           <button onClick={onChatWithAgent}
             className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-bold transition-all"
-            style={{ backgroundColor: agentColor, color: '#FFFFFF' }}
-            onMouseEnter={e => (e.currentTarget.style.opacity = '0.88')} onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
-            <MessageSquare size={11} /> Chat with {agentName} <ExternalLink size={10} />
+            style={{ backgroundColor: agentColor + '18', border: `1px solid ${agentColor}40`, color: '#181D23' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = agentColor + '28'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = agentColor + '18'; }}>
+            <MessageSquare size={11} style={{ color: agentColor }} /> Chat with {agentName} <ExternalLink size={10} />
           </button>
         </div>
       </Panel>
@@ -4226,7 +4356,6 @@ export default function PatientHubPage() {
   }, [patient, router]);
 
   const handleAddNote = useCallback(() => setActiveTab('communications'), []);
-  const handleGenerateReport = useCallback(() => setActiveTab('intelligence'), []);
 
   const handleSetStatus = useCallback(async (stage: LifecycleStage | null) => {
     if (!patient || isDemo) return;
@@ -4385,24 +4514,12 @@ export default function PatientHubPage() {
               <AnimatePresence mode="wait">
                 <motion.div key={activeTab} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
                   {activeTab === 'overview'       && <OverviewTab patient={patient} />}
-                  {activeTab === 'lifecycle'      && <LifecycleTab patient={patient} timeline={hub!.timeline} />}
+                  {activeTab === 'client_detail'  && <ClientDetailTab patient={patient} />}
+                  {activeTab === 'ehr'            && <EHROverviewTab patient={patient} userId={userId} />}
                   {activeTab === 'appointments'   && <AppointmentsTab patient={patient} appointments={hub!.appointments} />}
-                  {activeTab === 'waiting_list'   && <WaitingListTab patient={patient} />}
-                  {activeTab === 'practitioners'  && <PractitionersTab patient={patient} appointments={hub!.appointments} />}
                   {activeTab === 'communications' && <CommunicationsTab patient={patient} timeline={hub!.timeline} />}
                   {activeTab === 'payments'       && <PaymentsTab patient={patient} appointments={hub!.appointments} />}
-                  {activeTab === 'files'          && <FilesTab patient={patient} />}
-                  {activeTab === 'client_detail'  && <ClientDetailTab patient={patient} />}
-                  {activeTab === 'treatment_log'    && <TreatmentLogTab patient={patient} />}
-                  {activeTab === 'plan'             && <PatientPlanTab patient={patient} />}
-                  {activeTab === 'clinical_record'  && <ClinicalRecordTab patient={patient} userId={userId} />}
-                  {activeTab === 'soap_notes'       && <SOAPNotesTab patient={patient} userId={userId} />}
-                  {activeTab === 'consents'         && <ConsentsTab patient={patient} userId={userId} />}
-                  {activeTab === 'photos'           && <PhotosTab patient={patient} />}
-                  {activeTab === 'prescriptions'    && <PrescriptionsTab patient={patient} />}
-                  {activeTab === 'lab_results'      && <LabResultsTab patient={patient} />}
-                  {activeTab === 'referrals'        && <ReferralsTab patient={patient} />}
-                  {activeTab === 'intelligence'     && <IntelligenceTab patient={patient} onGenerateReport={handleGenerateReport} onChatWithAgent={handleChatWithAgent} />}
+                  {activeTab === 'intelligence'   && <IntelligenceTab patient={patient} onChatWithAgent={handleChatWithAgent} />}
                 </motion.div>
               </AnimatePresence>
             </div>

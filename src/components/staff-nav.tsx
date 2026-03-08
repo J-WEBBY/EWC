@@ -82,7 +82,6 @@ export function StaffNav({
         { label: 'Dashboard',    href: `/staff/dashboard?userId=${userId}`,    icon: LayoutDashboard },
         { label: 'KPIs',         href: `/staff/kpis?userId=${userId}`,         icon: BarChart2 },
         { label: 'Signals',      href: `/staff/signals?userId=${userId}`,      icon: Activity },
-        { label: 'Patients',     href: `/staff/patients?userId=${userId}`,     icon: Users },
         { label: 'Calendar',     href: `/staff/calendar?userId=${userId}`,     icon: CalendarDays },
         { label: 'Appointments', href: `/staff/appointments?userId=${userId}`, icon: CalendarCheck },
         { label: 'Team',         href: `/staff/team?userId=${userId}`,         icon: LayoutGrid },
@@ -103,9 +102,10 @@ export function StaffNav({
     {
       title: 'Clinical',
       items: [
-        { label: 'EHR Hub',        href: `/staff/ehr?userId=${userId}`,       icon: Stethoscope },
-        { label: 'Knowledge Base', href: `/staff/knowledge?userId=${userId}`, icon: BookOpen },
-        { label: 'Consent Forms',  href: `/staff/consent?userId=${userId}`,   icon: ClipboardList },
+        { label: 'Patients',       href: `/staff/patients?userId=${userId}`,   icon: Users },
+        { label: 'EHR Hub',        href: `/staff/ehr?userId=${userId}`,        icon: Stethoscope },
+        { label: 'Knowledge Base', href: `/staff/knowledge?userId=${userId}`,  icon: BookOpen },
+        { label: 'Consent Forms',  href: `/staff/consent?userId=${userId}`,    icon: ClipboardList },
       ],
     },
     {

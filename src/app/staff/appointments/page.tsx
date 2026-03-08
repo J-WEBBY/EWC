@@ -619,7 +619,7 @@ export default function AppointmentsPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: BG, paddingLeft: 'var(--nav-w,240px)' }}>
-      <StaffNav profile={profile} userId={userId} brandColor={ACCENT} currentPath="/staff/appointments" />
+      <StaffNav profile={profile} userId={userId} brandColor={ACCENT} currentPath="Appointments" />
 
       {/* Toast */}
       <AnimatePresence>
