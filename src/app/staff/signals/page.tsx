@@ -1,130 +1,192 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+// =============================================================================
+// Signal Stream — Edgbaston Wellness Clinic
+// Intelligent notification hub. Reception | Automation | Compliance | General | Agentic
+// Stream/wave aesthetic. Inline EWC agent chat per signal.
+// =============================================================================
+
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ChevronDown, ChevronUp, Plus, Search, RefreshCw,
-  CheckCircle2, X, AlertTriangle, Zap, Bot, Clock,
-  User, Cpu, MessageSquare, Shield, Activity,
+  Phone, Zap, ShieldCheck, Activity, Bot,
+  CheckCircle2, X, Clock, Search, Plus, RefreshCw,
+  ChevronDown, ChevronRight, Send, Radio, Filter,
   type LucideIcon,
 } from 'lucide-react';
+import { StaffNav }    from '@/components/staff-nav';
+import OrbLoader       from '@/components/orb-loader';
 import {
   getStaffProfile, getCurrentUser,
   type StaffProfile,
 } from '@/lib/actions/staff-onboarding';
-import { StaffNav } from '@/components/staff-nav';
-import OrbLoader from '@/components/orb-loader';
 import {
   getSignalStats, getSignalFeed, getPendingSignals,
   approveSignal, rejectSignal, createSignal,
-  resolveSignal, dismissSignal, logSignalAction, askSignalAI,
-  type SignalStats, type SignalEntry, type PendingSignal,
-  type ActionLogEntry, type ResponseMode,
+  resolveSignal, dismissSignal, askSignalAI,
+  type SignalStats, type SignalEntry, type ActionLogEntry,
+  type ResponseMode,
 } from '@/lib/actions/signals';
-import type { SignalPriority, SignalStatus } from '@/lib/types/database';
+import type { SignalPriority } from '@/lib/types/database';
 
 // =============================================================================
-// CONSTANTS
+// DESIGN TOKENS
 // =============================================================================
+const BG     = '#FAF7F2';
+const NAVY   = '#181D23';
+const SEC    = '#3D4451';
+const TER    = '#5A6475';
+const MUTED  = '#96989B';
+const BORDER = '#EBE5FF';
+const BLUE   = '#0058E6';
+const GREEN  = '#059669';
+const ORANGE = '#EA580C';
+const RED    = '#DC2626';
+const GOLD   = '#D8A600';
+const PURPLE = '#7C3AED';
+const TEAL   = '#00A693';
 
-const MODE_CFG: Record<ResponseMode, { label: string; color: string; bg: string; desc: string; Icon: LucideIcon }> = {
-  auto:       { label: 'Auto',       color: '#059669', bg: 'rgba(5,150,105,0.08)',    desc: 'Handled automatically',       Icon: Zap    },
-  agentic:    { label: 'Agentic',    color: '#0058E6', bg: 'rgba(0,88,230,0.08)',     desc: 'Agent is acting',             Icon: Bot    },
-  supervised: { label: 'Supervised', color: '#EA580C', bg: 'rgba(234,88,12,0.08)',   desc: 'Awaiting your decision',       Icon: User   },
-  human_only: { label: 'Human Only', color: '#DC2626', bg: 'rgba(220,38,38,0.08)',   desc: 'Requires personal attention',  Icon: Shield },
+// =============================================================================
+// CATEGORY CONFIG
+// =============================================================================
+type SignalCategory = 'reception' | 'automation' | 'compliance' | 'general' | 'agentic';
+
+const CAT: Record<SignalCategory, { label: string; color: string; Icon: LucideIcon; desc: string }> = {
+  reception:  { label: 'Reception',  color: BLUE,   Icon: Phone,       desc: 'Bookings, calls & enquiries' },
+  automation: { label: 'Automation', color: GOLD,   Icon: Zap,         desc: 'Workflow events & triggers'  },
+  compliance: { label: 'Compliance', color: RED,    Icon: ShieldCheck, desc: 'Regulatory & CQC reminders'  },
+  general:    { label: 'General',    color: TEAL,   Icon: Activity,    desc: 'Clinic & team updates'       },
+  agentic:    { label: 'Agentic',    color: PURPLE, Icon: Bot,         desc: 'Agent actions & decisions'   },
 };
 
 const PRIO_COLOR: Record<SignalPriority, string> = {
-  critical: '#DC2626', high: '#DC2626', medium: '#EA580C', low: '#8B84A0',
+  critical: RED, high: RED, medium: ORANGE, low: MUTED,
 };
 
 const ACTOR_CFG: Record<string, { label: string; color: string }> = {
-  system:                { label: 'System',  color: '#8B84A0' },
-  'agent:crm_agent':     { label: 'Aria',    color: '#00A693' },
-  'agent:sales_agent':   { label: 'Orion',   color: '#D8A600' },
-  'agent:primary_agent': { label: 'EWC',     color: '#0058E6' },
-  patient:               { label: 'Patient', color: '#7C3AED' },
-  user:                  { label: 'Team',    color: '#524D66' },
+  system:                { label: 'System', color: MUTED   },
+  'agent:crm_agent':     { label: 'Aria',   color: TEAL    },
+  'agent:sales_agent':   { label: 'Orion',  color: GOLD    },
+  'agent:primary_agent': { label: 'EWC',    color: BLUE    },
+  patient:               { label: 'Patient', color: PURPLE },
+  user:                  { label: 'Team',   color: SEC     },
 };
 
-function actorCfg(actor: string) {
-  if (ACTOR_CFG[actor]) return ACTOR_CFG[actor];
-  if (actor.startsWith('automation:')) {
-    const name = actor.replace('automation:', '').replace(/_/g, ' ');
-    return { label: name, color: '#0058E6' };
-  }
-  if (actor.startsWith('agent:')) {
-    return { label: actor.replace('agent:', ''), color: '#7C3AED' };
-  }
-  return { label: actor, color: '#8B84A0' };
+// =============================================================================
+// HELPERS
+// =============================================================================
+
+function classifySignal(s: SignalEntry): SignalCategory {
+  const src  = (s.source       ?? '').toLowerCase();
+  const cat  = (s.category     ?? '').toLowerCase();
+  const tags = s.tags.map(t => t.toLowerCase()).join(' ');
+
+  if (src === 'agent' || s.response_mode === 'agentic') return 'agentic';
+  if (src === 'automation' || src === 'integration' || cat === 'automation') return 'automation';
+  if (cat === 'governance' || cat.includes('compli') || cat.includes('cqc') ||
+      tags.includes('compliance') || tags.includes('cqc')) return 'compliance';
+  if (src === 'user' || cat === 'engagement' || cat === 'communications' ||
+      tags.includes('booking') || tags.includes('call') || tags.includes('enquiry')) return 'reception';
+  return 'general';
 }
 
-const ACTION_LABEL: Record<string, string> = {
-  signal_created:         'Signal created',
-  sms_sent:               'SMS sent',
-  escalated:              'Escalated',
-  recommendation_generated: 'Recommendation',
-  processing:             'Processing started',
-  follow_up:              'Follow-up sent',
-  resolved:               'Resolved',
-  classified:             'Classified',
-  responded:              'Patient responded',
-  acknowledged:           'Acknowledged',
-  dismissed:              'Dismissed',
-  status_changed:         'Status updated',
-};
-
-function actionLabel(action: string): string {
-  if (ACTION_LABEL[action]) return ACTION_LABEL[action];
-  if (action.startsWith('status_changed_to_')) return 'Status updated';
-  return action.replace(/_/g, ' ');
+function actorCfg(actor: string): { label: string; color: string } {
+  if (ACTOR_CFG[actor]) return ACTOR_CFG[actor];
+  if (actor.startsWith('automation:')) return { label: actor.replace('automation:', '').replace(/_/g, ' '), color: GOLD };
+  if (actor.startsWith('agent:'))     return { label: actor.replace('agent:', ''), color: PURPLE };
+  return { label: actor, color: MUTED };
 }
 
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const m = Math.floor(diff / 60000);
-  if (m < 1) return 'just now';
+  if (m < 1)  return 'just now';
   if (m < 60) return `${m}m ago`;
   const h = Math.floor(m / 60);
   if (h < 24) return `${h}h ago`;
   const d = Math.floor(h / 24);
-  if (d === 1) return '1 day ago';
-  if (d < 7) return `${d} days ago`;
-  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  return d === 1 ? '1 day ago' : `${d} days ago`;
 }
 
-function formatTrailTime(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-GB', {
-    day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+function actionLabel(a: string): string {
+  const map: Record<string, string> = {
+    signal_created: 'Signal created', sms_sent: 'SMS sent', escalated: 'Escalated',
+    recommendation_generated: 'Recommendation', processing: 'Processing', follow_up: 'Follow-up',
+    resolved: 'Resolved', classified: 'Classified', responded: 'Responded',
+    acknowledged: 'Acknowledged', dismissed: 'Dismissed', status_changed: 'Status updated',
+  };
+  return map[a] ?? a.replace(/_/g, ' ');
+}
+
+// Build 24 hourly buckets from signal timestamps
+function buildHourlyBuckets(signals: SignalEntry[]): number[] {
+  const now = Date.now();
+  const buckets = new Array(24).fill(0);
+  signals.forEach(s => {
+    const h = Math.floor((now - new Date(s.created_at).getTime()) / 3_600_000);
+    if (h >= 0 && h < 24) buckets[23 - h]++;
   });
+  return buckets;
 }
 
 // =============================================================================
-// TRAIL ENTRY
+// WAVE CHART — 24h signal activity area chart
+// =============================================================================
+
+function WaveChart({ signals, color = BLUE }: { signals: SignalEntry[]; color?: string }) {
+  const buckets = useMemo(() => buildHourlyBuckets(signals), [signals]);
+  const max = Math.max(...buckets, 1);
+  const W = 800; const H = 72; const PAD = 4;
+  const step = (W - PAD * 2) / (buckets.length - 1);
+
+  const pts = buckets.map((v, i) => ({
+    x: i * step + PAD,
+    y: H - PAD - ((v / max) * (H - PAD * 2 - 8)),
+  }));
+
+  // Smooth bezier path
+  let d = `M ${pts[0].x},${pts[0].y}`;
+  for (let i = 1; i < pts.length; i++) {
+    const cp1x = pts[i - 1].x + step * 0.4;
+    const cp2x = pts[i].x - step * 0.4;
+    d += ` C ${cp1x},${pts[i - 1].y} ${cp2x},${pts[i].y} ${pts[i].x},${pts[i].y}`;
+  }
+  const area = d + ` L ${pts[pts.length - 1].x},${H} L ${pts[0].x},${H} Z`;
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: H }}>
+      <defs>
+        <linearGradient id="wg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.22" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={area} fill="url(#wg)" />
+      <path d={d} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// =============================================================================
+// TRAIL ROW
 // =============================================================================
 
 function TrailRow({ entry, isLast }: { entry: ActionLogEntry; isLast: boolean }) {
   const cfg = actorCfg(entry.actor);
   return (
     <div className="flex gap-3 relative">
-      {!isLast && (
-        <div
-          className="absolute left-[7px] top-5 bottom-0 w-px"
-          style={{ background: '#EBE5FF' }}
-        />
-      )}
-      <div
-        className="w-3.5 h-3.5 rounded-full flex-shrink-0 mt-0.5 ring-2 ring-white"
-        style={{ background: cfg.color, boxShadow: `0 0 6px ${cfg.color}55` }}
-      />
-      <div className="flex-1 min-w-0 pb-4">
-        <div className="flex items-center gap-2 flex-wrap mb-0.5">
+      {!isLast && <div className="absolute left-[5px] top-4 bottom-0 w-px" style={{ background: BORDER }} />}
+      <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1" style={{ background: cfg.color, boxShadow: `0 0 5px ${cfg.color}55` }} />
+      <div className="flex-1 min-w-0 pb-3">
+        <div className="flex items-center gap-2 mb-0.5">
           <span className="text-[11px] font-semibold" style={{ color: cfg.color }}>{cfg.label}</span>
-          <span className="text-[11px] text-[#5A6475]">·</span>
-          <span className="text-[11px] text-[#5A6475]">{actionLabel(entry.action)}</span>
-          <span className="text-[11px] text-[#5A6475] ml-auto">{formatTrailTime(entry.timestamp)}</span>
+          <span className="text-[10px]" style={{ color: MUTED }}>·</span>
+          <span className="text-[10px]" style={{ color: TER }}>{actionLabel(entry.action)}</span>
+          <span className="text-[10px] ml-auto" style={{ color: MUTED }}>
+            {new Date(entry.timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+          </span>
         </div>
-        <p className="text-[12px] text-[#3D4451] leading-relaxed">{entry.note}</p>
+        <p className="text-[11px] leading-relaxed" style={{ color: SEC }}>{entry.note}</p>
       </div>
     </div>
   );
@@ -135,423 +197,345 @@ function TrailRow({ entry, isLast }: { entry: ActionLogEntry; isLast: boolean })
 // =============================================================================
 
 function SignalCard({
-  signal,
-  onResolve,
-  onDismiss,
-  onApprove,
-  onReject,
-  tenantId,
-  userId,
+  signal, tenantId, userId,
+  onResolve, onDismiss, onApprove, onReject,
 }: {
   signal: SignalEntry;
+  tenantId: string; userId: string;
   onResolve: (id: string, note: string) => void;
   onDismiss: (id: string, reason: string) => void;
   onApprove: (id: string) => void;
-  onReject: (id: string) => void;
-  tenantId: string;
-  userId: string;
+  onReject:  (id: string) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const [noteText, setNoteText] = useState('');
-  const [busy, setBusy] = useState<string | null>(null);
-  const [ariaQuestion, setAriaQuestion] = useState('');
-  const [ariaResponse, setAriaResponse] = useState('');
-  const [ariaLoading, setAriaLoading] = useState(false);
+  const [expanded,    setExpanded]    = useState(false);
+  const [chatOpen,    setChatOpen]    = useState(false);
+  const [chatInput,   setChatInput]   = useState('');
+  const [chatHistory, setChatHistory] = useState<{ role: 'user' | 'ai'; text: string }[]>([]);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [noteText,    setNoteText]    = useState('');
+  const [busy,        setBusy]        = useState<string | null>(null);
 
-  const mode = MODE_CFG[signal.response_mode] || MODE_CFG.supervised;
-  const prio = PRIO_COLOR[signal.priority] || '#94a3b8';
-  const isResolved = signal.status === 'resolved' || signal.status === 'archived';
-  const isProcessing = signal.status === 'processing';
+  const category  = classifySignal(signal);
+  const catCfg    = CAT[category];
+  const prio      = PRIO_COLOR[signal.priority] ?? MUTED;
+  const isDone    = signal.status === 'resolved' || signal.status === 'archived';
   const isPending = signal.status === 'pending_approval';
-  const trailPreview = signal.action_log.slice(-2);
-  const recommendation = trailPreview.findLast(e => e.action === 'recommendation_generated');
+  const trailPrev = signal.action_log.slice(-2);
 
-  const handleResolve = () => {
-    setBusy('resolve');
-    onResolve(signal.id, noteText || 'Marked resolved by team');
-  };
-
-  const handleDismiss = () => {
-    setBusy('dismiss');
-    onDismiss(signal.id, noteText || 'Dismissed by team');
-  };
-
-  const handleAskAria = async () => {
-    if (!ariaQuestion.trim() || ariaLoading) return;
-    setAriaLoading(true);
-    setAriaResponse('');
-    const res = await askSignalAI(tenantId, userId, ariaQuestion, {
-      signalId: signal.id,
-      signalTitle: signal.title,
-      signalDescription: signal.description,
+  const sendChat = async () => {
+    if (!chatInput.trim() || chatLoading) return;
+    const q = chatInput.trim();
+    setChatInput('');
+    setChatHistory(h => [...h, { role: 'user', text: q }]);
+    setChatLoading(true);
+    const res = await askSignalAI(tenantId, userId, q, {
+      signalId: signal.id, signalTitle: signal.title, signalDescription: signal.description,
     });
-    setAriaResponse(res.response || 'No response.');
-    setAriaLoading(false);
+    setChatHistory(h => [...h, { role: 'ai', text: res.response || 'No response.' }]);
+    setChatLoading(false);
   };
 
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, y: 8 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-      transition={{ duration: 0.22 }}
-      className="rounded-xl overflow-hidden border border-[#D4E2FF] relative"
-      style={{ background: isResolved ? '#F5F2EB' : '#FFFFFF' }}
-    >
-      {/* Priority left edge */}
-      <div
-        className="absolute left-0 top-0 bottom-0 w-0.5 rounded-l-xl"
-        style={{ background: isResolved ? 'rgba(0,0,0,0.06)' : prio, opacity: isResolved ? 0.4 : 1 }}
-      />
+      exit={{ opacity: 0, height: 0 }}
+      transition={{ duration: 0.2 }}
+      className="rounded-2xl overflow-hidden relative"
+      style={{
+        border: `1px solid ${isDone ? BORDER : catCfg.color + '28'}`,
+        background: isDone ? 'rgba(0,0,0,0.01)' : BG,
+        opacity: isDone ? 0.65 : 1,
+      }}>
+
+      {/* Left category stripe */}
+      <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-2xl"
+        style={{ background: isDone ? BORDER : catCfg.color }} />
 
       <div className="pl-4">
-        {/* Header row */}
-        <button
-          className="w-full text-left p-4 flex items-start gap-3"
-          onClick={() => setExpanded(e => !e)}
-        >
-          {/* Mode badge */}
-          <div
-            className="flex items-center gap-1.5 px-2 py-0.5 rounded-full border flex-shrink-0 mt-0.5"
-            style={{ borderColor: `${mode.color}33`, background: mode.bg }}
-          >
-            <mode.Icon size={10} style={{ color: mode.color }} />
-            <span className="text-[10px] font-semibold tracking-[0.05em]" style={{ color: mode.color }}>
-              {mode.label}
-            </span>
-            {isProcessing && signal.response_mode === 'agentic' && (
-              <span
-                className="w-1.5 h-1.5 rounded-full flex-shrink-0 animate-pulse"
-                style={{ background: mode.color }}
-              />
-            )}
+        {/* Header */}
+        <button className="w-full text-left px-4 py-3.5 flex items-start gap-3"
+          onClick={() => setExpanded(e => !e)}>
+
+          {/* Category icon */}
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
+            style={{ background: catCfg.color + '14', border: `1px solid ${catCfg.color}28` }}>
+            <catCfg.Icon size={13} style={{ color: catCfg.color }} />
           </div>
 
-          {/* Priority chip */}
-          <span
-            className="text-[10px] font-bold uppercase tracking-[0.1em] flex-shrink-0 mt-0.5"
-            style={{ color: isResolved ? '#4b5563' : prio }}
-          >
-            {signal.priority}
-          </span>
-
-          {/* Title + description */}
+          {/* Content */}
           <div className="flex-1 min-w-0">
-            <p
-              className="text-[14px] font-medium leading-snug mb-1"
-              style={{ color: isResolved ? '#5A6475' : '#181D23' }}
-            >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] font-bold uppercase tracking-[0.14em]"
+                  style={{ color: catCfg.color }}>{catCfg.label}</span>
+                <span className="text-[10px]" style={{ color: BORDER }}>·</span>
+                <span className="text-[10px] font-semibold uppercase tracking-[0.1em]"
+                  style={{ color: prio }}>{signal.priority}</span>
+                {isPending && (
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded"
+                    style={{ background: ORANGE + '18', color: ORANGE, border: `1px solid ${ORANGE}28` }}>
+                    Pending approval
+                  </span>
+                )}
+              </div>
+              <span className="text-[10px] flex-shrink-0" style={{ color: MUTED }}>
+                {relativeTime(signal.created_at)}
+              </span>
+            </div>
+            <p className="text-[13px] font-semibold mt-1 leading-snug" style={{ color: isDone ? TER : NAVY }}>
               {signal.title}
             </p>
-            <p className="text-[12px] leading-relaxed line-clamp-2"
-              style={{ color: isResolved ? '#96989B' : '#5A6475' }}>
+            <p className="text-[11px] mt-0.5 line-clamp-2 leading-relaxed" style={{ color: TER }}>
               {signal.description}
             </p>
 
-            {/* Tags */}
-            {signal.tags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {signal.tags.slice(0, 4).map(tag => (
-                  <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full border border-[#D4E2FF] text-[#5A6475]">
-                    {tag}
-                  </span>
-                ))}
+            {/* Trail preview */}
+            {!expanded && trailPrev.length > 0 && (
+              <div className="mt-2 flex flex-col gap-0.5">
+                {trailPrev.map((e, i) => {
+                  const cfg = actorCfg(e.actor);
+                  return (
+                    <div key={i} className="flex items-center gap-1.5 text-[10px]">
+                      <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: cfg.color }} />
+                      <span className="font-semibold" style={{ color: cfg.color }}>{cfg.label}</span>
+                      <span style={{ color: MUTED }}>·</span>
+                      <span className="truncate" style={{ color: TER }}>{e.note}</span>
+                    </div>
+                  );
+                })}
               </div>
             )}
-
-            {/* Status + time */}
-            <div className="flex items-center gap-3 mt-2">
-              <span
-                className="text-[11px] uppercase tracking-[0.08em] font-medium"
-                style={{ color: isResolved ? '#4b5563' : '#5A6475' }}
-              >
-                {signal.status.replace(/_/g, ' ')}
-              </span>
-              <span className="text-[11px] text-[#5A6475]">{relativeTime(signal.created_at)}</span>
-              {signal.last_action_at && signal.last_action_at !== signal.created_at && (
-                <span className="text-[11px] text-[#96989B]">· updated {relativeTime(signal.last_action_at)}</span>
-              )}
-            </div>
           </div>
 
-          {/* Expand toggle */}
-          <div className="flex-shrink-0 mt-0.5 text-[#5A6475] hover:text-[#3D4451] transition-colors">
-            {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-          </div>
+          <ChevronDown size={12} style={{ color: MUTED, flexShrink: 0, marginTop: 4, transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
         </button>
 
-        {/* Trail preview (always visible, last 2 entries) */}
-        {!expanded && trailPreview.length > 0 && (
-          <div className="px-4 pb-4 border-t border-[#D4E2FF] pt-3">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-[10px] uppercase tracking-[0.12em] text-[#5A6475] font-medium">Trail</span>
-              <span className="text-[10px] text-[#96989B]">· {signal.action_log.length} events</span>
-            </div>
-            <div className="space-y-1">
-              {trailPreview.map((entry, i) => {
-                const cfg = actorCfg(entry.actor);
-                return (
-                  <div key={i} className="flex items-start gap-2">
-                    <div
-                      className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5"
-                      style={{ background: cfg.color }}
-                    />
-                    <p className="text-[11px] text-[#5A6475] leading-relaxed line-clamp-1">
-                      <span className="font-medium" style={{ color: cfg.color }}>{cfg.label}</span>
-                      {' · '}{actionLabel(entry.action)} — {entry.note}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </div>
+        {/* Expanded content */}
+        <AnimatePresence>
+          {expanded && (
+            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }}
+              className="overflow-hidden" style={{ borderTop: `1px solid ${BORDER}` }}>
+              <div className="px-4 py-4 grid grid-cols-[1fr_280px] gap-5">
 
-      {/* EXPANDED — Full trail + actions */}
-      <AnimatePresence>
-        {expanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: 'easeInOut' }}
-            className="overflow-hidden"
-          >
-            <div className="border-t border-[#D4E2FF] mx-4" />
-
-            <div className="p-4 pl-4 flex gap-6">
-              {/* Trail timeline */}
-              <div className="flex-1 min-w-0">
-                <p className="text-[10px] uppercase tracking-[0.12em] text-[#5A6475] font-medium mb-4">
-                  Activity Trail · {signal.action_log.length} events
-                </p>
+                {/* Trail */}
                 <div>
-                  {signal.action_log.length > 0 ? (
-                    signal.action_log.map((entry, i) => (
-                      <TrailRow key={i} entry={entry} isLast={i === signal.action_log.length - 1} />
-                    ))
-                  ) : (
-                    <p className="text-[12px] text-[#5A6475]">No trail entries yet.</p>
-                  )}
-                </div>
-              </div>
+                  <p className="text-[9px] uppercase tracking-[0.26em] font-semibold mb-3" style={{ color: MUTED }}>
+                    Activity Trail · {signal.action_log.length} events
+                  </p>
+                  {signal.action_log.length > 0
+                    ? signal.action_log.map((e, i) => <TrailRow key={i} entry={e} isLast={i === signal.action_log.length - 1} />)
+                    : <p className="text-[11px]" style={{ color: MUTED }}>No trail yet.</p>
+                  }
 
-              {/* Ask Aria */}
-              <div className="mt-5 pt-4 border-t border-[#D4E2FF]">
-                <p className="text-[10px] uppercase tracking-[0.12em] text-[#5A6475] font-medium mb-3 flex items-center gap-1.5">
-                  <Bot size={11} className="text-[#96989B]" /> Ask Aria
-                </p>
-                <div className="flex gap-2">
-                  <input
-                    value={ariaQuestion}
-                    onChange={e => setAriaQuestion(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') handleAskAria(); }}
-                    placeholder="Ask about this signal..."
-                    className="flex-1 bg-[#FAF7F2] border border-[#EBE5FF] rounded-lg px-3 py-2 text-[12px] text-[#3D4451] placeholder:text-[#96989B] outline-none focus:border-[#A8C4FF] transition-colors"
-                  />
-                  <button
-                    onClick={handleAskAria}
-                    disabled={ariaLoading || !ariaQuestion.trim()}
-                    className="px-3 py-2 rounded-lg bg-[#0058E618] border border-[#0058E640] text-[#1A1035] text-[12px] font-medium disabled:opacity-30 hover:bg-[#0058E625] transition-colors flex-shrink-0"
-                  >
-                    {ariaLoading ? '...' : 'Ask'}
-                  </button>
-                </div>
-                {ariaResponse && (
-                  <div className="mt-3 p-3 rounded-lg bg-[#FAF7F2] border border-[#EBE5FF]">
-                    <p className="text-[12px] text-[#3D4451] leading-relaxed">{ariaResponse}</p>
+                  {/* EWC chat */}
+                  <div className="mt-4 pt-4" style={{ borderTop: `1px solid ${BORDER}` }}>
+                    <button
+                      onClick={() => setChatOpen(c => !c)}
+                      className="flex items-center gap-2 text-[11px] font-semibold px-3 py-1.5 rounded-xl mb-3 transition-all"
+                      style={{ background: BLUE + '10', border: `1px solid ${BLUE}28`, color: NAVY }}>
+                      <Bot size={11} style={{ color: BLUE }} />
+                      Ask EWC about this signal
+                      <ChevronRight size={10} style={{ color: MUTED, transform: chatOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} />
+                    </button>
+
+                    <AnimatePresence>
+                      {chatOpen && (
+                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+                          {/* Chat history */}
+                          {chatHistory.length > 0 && (
+                            <div className="flex flex-col gap-2 mb-3 max-h-48 overflow-y-auto pr-1">
+                              {chatHistory.map((m, i) => (
+                                <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                  <div className="max-w-[85%] text-[11px] leading-relaxed px-3 py-2 rounded-xl"
+                                    style={{
+                                      background: m.role === 'user' ? BLUE + '14' : 'rgba(0,0,0,0.04)',
+                                      border: `1px solid ${m.role === 'user' ? BLUE + '28' : BORDER}`,
+                                      color: m.role === 'user' ? NAVY : SEC,
+                                    }}>
+                                    {m.role === 'ai' && (
+                                      <span className="block text-[9px] uppercase tracking-[0.18em] font-bold mb-1" style={{ color: BLUE }}>EWC</span>
+                                    )}
+                                    {m.text}
+                                  </div>
+                                </div>
+                              ))}
+                              {chatLoading && (
+                                <div className="flex justify-start">
+                                  <div className="px-3 py-2 rounded-xl" style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${BORDER}` }}>
+                                    <div className="flex gap-1">
+                                      {[0, 1, 2].map(i => (
+                                        <motion.div key={i} className="w-1.5 h-1.5 rounded-full"
+                                          style={{ background: BLUE }}
+                                          animate={{ opacity: [0.3, 1, 0.3] }}
+                                          transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }} />
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          <div className="flex gap-2">
+                            <input value={chatInput} onChange={e => setChatInput(e.target.value)}
+                              onKeyDown={e => e.key === 'Enter' && sendChat()}
+                              placeholder="What should we do about this signal?"
+                              className="flex-1 text-[12px] px-3 py-2 rounded-xl outline-none"
+                              style={{ background: 'rgba(0,0,0,0.03)', border: `1px solid ${BORDER}`, color: NAVY }} />
+                            <button onClick={sendChat} disabled={chatLoading || !chatInput.trim()}
+                              className="px-3 py-2 rounded-xl flex items-center gap-1.5 text-[11px] font-semibold disabled:opacity-30 transition-all"
+                              style={{ background: BLUE + '14', border: `1px solid ${BLUE}28`, color: NAVY }}>
+                              <Send size={10} />
+                            </button>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
-                )}
-              </div>
+                </div>
 
-              {/* Action zone */}
-              {!isResolved && (
-                <div className="w-64 flex-shrink-0">
-                  <p className="text-[10px] uppercase tracking-[0.12em] text-[#5A6475] font-medium mb-4">Actions</p>
+                {/* Action zone */}
+                <div className="flex flex-col gap-3">
+                  <p className="text-[9px] uppercase tracking-[0.26em] font-semibold" style={{ color: MUTED }}>Actions</p>
 
-                  {/* Recommendation block for supervised */}
-                  {recommendation && signal.response_mode === 'supervised' && (
-                    <div
-                      className="p-3 rounded-lg border mb-4"
-                      style={{ borderColor: `${mode.color}33`, background: mode.bg }}
-                    >
-                      <p className="text-[10px] uppercase tracking-[0.1em] font-medium mb-1.5" style={{ color: mode.color }}>
-                        Recommendation
+                  {isDone ? (
+                    <div className="flex flex-col items-center justify-center gap-2 py-6 opacity-50">
+                      <CheckCircle2 size={20} style={{ color: GREEN }} />
+                      <p className="text-[11px]" style={{ color: TER }}>
+                        {signal.status === 'archived' ? 'Dismissed' : 'Resolved'}
+                        {signal.resolved_at ? ` · ${relativeTime(signal.resolved_at)}` : ''}
                       </p>
-                      <p className="text-[12px] text-[#3D4451] leading-relaxed">{recommendation.note}</p>
                     </div>
-                  )}
-
-                  {/* Pending approval */}
-                  {isPending && (
-                    <div className="flex flex-col gap-2 mb-4">
-                      <button
-                        onClick={() => { setBusy('approve'); onApprove(signal.id); }}
-                        disabled={busy !== null}
-                        className="flex items-center justify-center gap-2 w-full py-2 rounded-lg text-[12px] font-medium border border-[#A8C4FF] bg-[#FAF9F5] hover:bg-[#F5F2FD] transition-colors disabled:opacity-30 text-[#181D23]"
-                      >
-                        <CheckCircle2 size={12} className="text-green-400" />
-                        Approve Signal
-                      </button>
-                      <button
-                        onClick={() => { setBusy('reject'); onReject(signal.id); }}
-                        disabled={busy !== null}
-                        className="flex items-center justify-center gap-2 w-full py-2 rounded-lg text-[12px] font-medium border border-[#D4E2FF] bg-[#F0ECFF] hover:bg-[#FAF7F2] transition-colors disabled:opacity-30 text-[#5A6475]"
-                      >
-                        <X size={12} /> Reject
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Resolution note */}
-                  {!isPending && (
+                  ) : (
                     <>
-                      <textarea
-                        value={noteText}
-                        onChange={e => setNoteText(e.target.value)}
-                        placeholder="Add a note (optional)..."
-                        rows={3}
-                        className="w-full bg-[#FAF7F2] border border-[#EBE5FF] rounded-lg px-3 py-2 text-[12px] text-[#3D4451] placeholder:text-[#5A6475] resize-none outline-none focus:border-[#A8C4FF] transition-colors mb-3"
-                      />
-
-                      {signal.response_mode !== 'auto' && (
-                        <div className="flex flex-col gap-2">
-                          <button
-                            onClick={handleResolve}
+                      {isPending && (
+                        <div className="flex flex-col gap-2 mb-2">
+                          <button onClick={() => { setBusy('approve'); onApprove(signal.id); }}
                             disabled={busy !== null}
-                            className="flex items-center justify-center gap-2 w-full py-2 rounded-lg text-[12px] font-medium border border-[#A8C4FF] bg-[#FAF9F5] hover:bg-[#F5F2FD] transition-colors disabled:opacity-30 text-[#181D23]"
-                          >
-                            <CheckCircle2 size={12} className="text-green-400" />
-                            Mark Resolved
+                            className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-[12px] font-semibold transition-all disabled:opacity-30"
+                            style={{ background: GREEN + '14', border: `1px solid ${GREEN}28`, color: NAVY }}>
+                            <CheckCircle2 size={12} style={{ color: GREEN }} /> Approve
                           </button>
-                          <button
-                            onClick={handleDismiss}
+                          <button onClick={() => { setBusy('reject'); onReject(signal.id); }}
                             disabled={busy !== null}
-                            className="flex items-center justify-center gap-2 w-full py-2 rounded-lg text-[12px] font-medium border border-[#D4E2FF] bg-transparent hover:bg-[#FAF7F2] transition-colors disabled:opacity-30 text-[#5A6475]"
-                          >
-                            <X size={12} /> Dismiss
+                            className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-[12px] font-semibold transition-all disabled:opacity-30"
+                            style={{ background: RED + '0a', border: `1px solid ${RED}20`, color: RED }}>
+                            <X size={12} /> Reject
                           </button>
                         </div>
+                      )}
+
+                      {!isPending && (
+                        <>
+                          <textarea value={noteText} onChange={e => setNoteText(e.target.value)}
+                            placeholder="Add a resolution note…" rows={3}
+                            className="w-full text-[11px] px-3 py-2 rounded-xl outline-none resize-none"
+                            style={{ background: 'rgba(0,0,0,0.02)', border: `1px solid ${BORDER}`, color: NAVY }} />
+                          <button onClick={() => { setBusy('resolve'); onResolve(signal.id, noteText || 'Resolved by team'); }}
+                            disabled={busy !== null}
+                            className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-[12px] font-semibold transition-all disabled:opacity-30"
+                            style={{ background: GREEN + '14', border: `1px solid ${GREEN}28`, color: NAVY }}>
+                            <CheckCircle2 size={12} style={{ color: GREEN }} />
+                            {busy === 'resolve' ? 'Resolving…' : 'Mark Resolved'}
+                          </button>
+                          <button onClick={() => { setBusy('dismiss'); onDismiss(signal.id, noteText || 'Dismissed'); }}
+                            disabled={busy !== null}
+                            className="flex items-center justify-center gap-2 w-full py-2 rounded-xl text-[11px] font-semibold transition-all disabled:opacity-30"
+                            style={{ border: `1px solid ${BORDER}`, color: TER, background: 'transparent' }}>
+                            <X size={11} /> {busy === 'dismiss' ? 'Dismissing…' : 'Dismiss'}
+                          </button>
+                        </>
                       )}
                     </>
                   )}
                 </div>
-              )}
-
-              {/* Resolved state */}
-              {isResolved && (
-                <div className="w-48 flex-shrink-0 flex flex-col items-center justify-center gap-2 opacity-40">
-                  <CheckCircle2 size={18} className="text-green-400" />
-                  <p className="text-[11px] text-[#5A6475] text-center">
-                    {signal.status === 'archived' ? 'Dismissed' : 'Resolved'}
-                  </p>
-                  {signal.resolved_at && (
-                    <p className="text-[10px] text-[#5A6475] text-center">{relativeTime(signal.resolved_at)}</p>
-                  )}
-                </div>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </motion.div>
   );
 }
 
 // =============================================================================
-// CREATE SIGNAL PANEL
+// CREATE SIGNAL DRAWER
 // =============================================================================
 
-function CreatePanel({ onClose, onCreated, tenantId }: {
-  onClose: () => void;
-  onCreated: () => void;
-  tenantId: string;
+function CreateDrawer({ onClose, onCreated, tenantId }: {
+  onClose: () => void; onCreated: () => void; tenantId: string;
 }) {
-  const [title, setTitle] = useState('');
-  const [desc, setDesc] = useState('');
+  const [title,    setTitle]    = useState('');
+  const [desc,     setDesc]     = useState('');
   const [priority, setPriority] = useState<SignalPriority>('medium');
-  const [mode, setMode] = useState<ResponseMode>('supervised');
-  const [category, setCategory] = useState('operations');
-  const [busy, setBusy] = useState(false);
+  const [mode,     setMode]     = useState<ResponseMode>('supervised');
+  const [category, setCategory] = useState<SignalCategory>('general');
+  const [busy,     setBusy]     = useState(false);
 
   const submit = async () => {
     if (!title.trim()) return;
     setBusy(true);
     await createSignal(tenantId, {
-      signalType: 'alert',
-      title: title.trim(),
-      description: desc.trim(),
-      priority,
-      responseMode: mode,
-      sourceType: 'manual',
-      category,
-      status: 'new',
+      signalType: 'alert', title: title.trim(), description: desc.trim(),
+      priority, responseMode: mode, sourceType: 'manual', category, status: 'new',
     });
-    onCreated();
-    onClose();
+    onCreated(); onClose();
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 20 }}
-      transition={{ duration: 0.2 }}
-      className="absolute right-0 top-0 bottom-0 w-80 bg-[#FAF7F2] border-l border-[#EBE5FF] z-20 flex flex-col shadow-xl"
-    >
-      <div className="p-5 border-b border-[#D4E2FF] flex items-center justify-between">
-        <p className="text-[13px] font-medium text-[#181D23]">New Signal</p>
-        <button onClick={onClose} className="text-[#5A6475] hover:text-[#3D4451] transition-colors">
-          <X size={14} />
-        </button>
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-5 space-y-4">
-        <div>
-          <label className="text-[11px] uppercase tracking-[0.1em] text-[#5A6475] font-medium block mb-1.5">Title</label>
-          <input
-            value={title}
-            onChange={e => setTitle(e.target.value)}
-            placeholder="Signal title..."
-            className="w-full bg-[#FAF7F2] border border-[#EBE5FF] rounded-lg px-3 py-2 text-[13px] text-[#181D23] placeholder:text-[#5A6475] outline-none focus:border-[#A8C4FF] transition-colors"
-          />
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex justify-end" style={{ background: 'rgba(24,29,35,0.35)' }}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <motion.div initial={{ x: 60 }} animate={{ x: 0 }} exit={{ x: 60 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+        className="h-full w-96 flex flex-col"
+        style={{ background: BG, borderLeft: `1px solid ${BORDER}` }}>
+        <div className="px-5 py-5 flex items-center justify-between" style={{ borderBottom: `1px solid ${BORDER}` }}>
+          <p className="text-[14px] font-bold" style={{ color: NAVY }}>New Signal</p>
+          <button onClick={onClose} className="w-7 h-7 rounded-lg flex items-center justify-center"
+            style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${BORDER}` }}>
+            <X size={13} style={{ color: TER }} />
+          </button>
         </div>
-
-        <div>
-          <label className="text-[11px] uppercase tracking-[0.1em] text-[#5A6475] font-medium block mb-1.5">Description</label>
-          <textarea
-            value={desc}
-            onChange={e => setDesc(e.target.value)}
-            placeholder="What needs attention..."
-            rows={3}
-            className="w-full bg-[#FAF7F2] border border-[#EBE5FF] rounded-lg px-3 py-2 text-[13px] text-[#181D23] placeholder:text-[#5A6475] resize-none outline-none focus:border-[#A8C4FF] transition-colors"
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-[11px] uppercase tracking-[0.1em] text-[#5A6475] font-medium block mb-1.5">Priority</label>
-            <select
-              value={priority}
-              onChange={e => setPriority(e.target.value as SignalPriority)}
-              className="w-full bg-[#FAF7F2] border border-[#EBE5FF] rounded-lg px-3 py-2 text-[12px] text-[#3D4451] outline-none"
-            >
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-              <option value="critical">Critical</option>
-            </select>
+        <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-4">
+          {[
+            { label: 'Title *', el: <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Signal title…"
+                className="w-full text-[13px] px-3 py-2.5 rounded-xl outline-none"
+                style={{ border: `1px solid ${BORDER}`, background: 'rgba(0,0,0,0.02)', color: NAVY }} /> },
+            { label: 'Description', el: <textarea value={desc} onChange={e => setDesc(e.target.value)} rows={3}
+                placeholder="What needs attention…" className="w-full text-[12px] px-3 py-2.5 rounded-xl outline-none resize-none"
+                style={{ border: `1px solid ${BORDER}`, background: 'rgba(0,0,0,0.02)', color: NAVY }} /> },
+          ].map(f => (
+            <div key={f.label}>
+              <label className="text-[9px] uppercase tracking-[0.22em] font-semibold block mb-1.5" style={{ color: MUTED }}>{f.label}</label>
+              {f.el}
+            </div>
+          ))}
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: 'Category', val: category, onChange: (v: string) => setCategory(v as SignalCategory),
+                opts: Object.entries(CAT).map(([k, v]) => ({ v: k, l: v.label })) },
+              { label: 'Priority', val: priority, onChange: (v: string) => setPriority(v as SignalPriority),
+                opts: [{ v: 'low', l: 'Low' }, { v: 'medium', l: 'Medium' }, { v: 'high', l: 'High' }, { v: 'critical', l: 'Critical' }] },
+            ].map(f => (
+              <div key={f.label}>
+                <label className="text-[9px] uppercase tracking-[0.22em] font-semibold block mb-1.5" style={{ color: MUTED }}>{f.label}</label>
+                <select value={f.val} onChange={e => f.onChange(e.target.value)}
+                  className="w-full text-[12px] px-3 py-2 rounded-xl outline-none"
+                  style={{ border: `1px solid ${BORDER}`, background: BG, color: NAVY }}>
+                  {f.opts.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+                </select>
+              </div>
+            ))}
           </div>
-
           <div>
-            <label className="text-[11px] uppercase tracking-[0.1em] text-[#5A6475] font-medium block mb-1.5">Response</label>
-            <select
-              value={mode}
-              onChange={e => setMode(e.target.value as ResponseMode)}
-              className="w-full bg-[#FAF7F2] border border-[#EBE5FF] rounded-lg px-3 py-2 text-[12px] text-[#3D4451] outline-none"
-            >
+            <label className="text-[9px] uppercase tracking-[0.22em] font-semibold block mb-1.5" style={{ color: MUTED }}>Response mode</label>
+            <select value={mode} onChange={e => setMode(e.target.value as ResponseMode)}
+              className="w-full text-[12px] px-3 py-2 rounded-xl outline-none"
+              style={{ border: `1px solid ${BORDER}`, background: BG, color: NAVY }}>
               <option value="auto">Auto</option>
               <option value="agentic">Agentic</option>
               <option value="supervised">Supervised</option>
@@ -559,146 +543,62 @@ function CreatePanel({ onClose, onCreated, tenantId }: {
             </select>
           </div>
         </div>
-
-        <div>
-          <label className="text-[11px] uppercase tracking-[0.1em] text-[#5A6475] font-medium block mb-1.5">Category</label>
-          <select
-            value={category}
-            onChange={e => setCategory(e.target.value)}
-            className="w-full bg-[#FAF7F2] border border-[#EBE5FF] rounded-lg px-3 py-2 text-[12px] text-[#3D4451] outline-none"
-          >
-            <option value="operations">Operations</option>
-            <option value="governance">Governance / Compliance</option>
-            <option value="finance">Finance</option>
-            <option value="welfare">Patient Welfare</option>
-            <option value="engagement">Engagement</option>
-            <option value="communications">Communications</option>
-          </select>
+        <div className="px-5 py-4" style={{ borderTop: `1px solid ${BORDER}` }}>
+          <button onClick={submit} disabled={busy || !title.trim()}
+            className="w-full py-3 rounded-xl text-[13px] font-semibold transition-all disabled:opacity-30"
+            style={{ background: BLUE + '14', border: `1px solid ${BLUE}30`, color: NAVY }}>
+            {busy ? 'Creating…' : 'Create Signal'}
+          </button>
         </div>
-      </div>
-
-      <div className="p-5 border-t border-[#D4E2FF]">
-        <button
-          onClick={submit}
-          disabled={busy || !title.trim()}
-          className="w-full py-2.5 rounded-xl text-[13px] font-medium bg-[#0058E618] border border-[#0058E640] text-[#1A1035] hover:bg-[#0058E625] transition-colors disabled:opacity-30"
-        >
-          {busy ? 'Creating...' : 'Create Signal'}
-        </button>
-      </div>
+      </motion.div>
     </motion.div>
   );
 }
 
 // =============================================================================
-// STAT CELL
+// PAGE
 // =============================================================================
 
-function StatCell({ label, value, color, sub, Icon }: {
-  label: string; value: number | string; color?: string;
-  sub?: string; Icon?: LucideIcon;
-}) {
-  return (
-    <div className="bg-[#FAF7F2] border border-[#EBE5FF] rounded-xl p-4 flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] uppercase tracking-[0.14em] text-[#5A6475] font-medium">{label}</span>
-        {Icon && <Icon size={12} className="text-[#96989B]" />}
-      </div>
-      <p className="text-[26px] font-semibold tracking-tight leading-none" style={{ color: color || '#181D23' }}>
-        {value}
-      </p>
-      {sub && <p className="text-[11px] text-[#5A6475]">{sub}</p>}
-    </div>
-  );
-}
-
-// =============================================================================
-// MODE TAB
-// =============================================================================
-
-function ModeTab({ id, label, count, color, active, onClick }: {
-  id: string; label: string; count: number; color: string;
-  active: boolean; onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all relative"
-      style={{
-        background: active ? `${color}15` : 'transparent',
-        color: active ? color : '#5A6475',
-        border: active ? `1px solid ${color}30` : '1px solid transparent',
-      }}
-    >
-      {label}
-      {count > 0 && (
-        <span
-          className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold"
-          style={{
-            background: active ? `${color}25` : 'rgba(0,0,0,0.05)',
-            color: active ? color : '#5A6475',
-          }}
-        >
-          {count}
-        </span>
-      )}
-    </button>
-  );
-}
-
-// =============================================================================
-// MAIN PAGE
-// =============================================================================
-
-type ModeTab = 'all' | ResponseMode | 'resolved';
+type CatFilter = 'all' | SignalCategory;
+type StatusFilter = 'active' | 'resolved';
 
 export default function SignalsPage() {
-  const [profile, setProfile] = useState<StaffProfile | null>(null);
-  const [tenantId, setTenantId] = useState('clinic');
-  const [userId, setUserId] = useState('');
-  const [brandColor, setBrandColor] = useState('#ffffff');
+  const [profile,    setProfile]    = useState<StaffProfile | null>(null);
+  const [tenantId,   setTenantId]   = useState('clinic');
+  const [userId,     setUserId]     = useState('');
 
-  const [stats, setStats] = useState<SignalStats | null>(null);
-  const [signals, setSignals] = useState<SignalEntry[]>([]);
-  const [pending, setPending] = useState<PendingSignal[]>([]);
+  const [stats,    setStats]    = useState<SignalStats | null>(null);
+  const [signals,  setSignals]  = useState<SignalEntry[]>([]);
 
-  const [activeTab, setActiveTab] = useState<ModeTab>('all');
-  const [search, setSearch] = useState('');
-  const [priorityFilter, setPriorityFilter] = useState<SignalPriority | ''>('');
-  const [showCreate, setShowCreate] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [catFilter,    setCatFilter]    = useState<CatFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
+  const [prioFilter,   setPrioFilter]   = useState<SignalPriority | ''>('');
+  const [search,       setSearch]       = useState('');
+  const [showCreate,   setShowCreate]   = useState(false);
+  const [showFilter,   setShowFilter]   = useState(false);
+  const [loading,      setLoading]      = useState(true);
+  const [refreshing,   setRefreshing]   = useState(false);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const load = useCallback(async (quiet = false) => {
-    if (!quiet) setLoading(true);
-    else setRefreshing(true);
-
+    if (!quiet) setLoading(true); else setRefreshing(true);
     try {
       const { userId: uid } = await getCurrentUser();
       const safeUid = uid || '';
-      setTenantId('clinic');
-      setUserId(safeUid);
-
-      const [profileRes, statsRes, feedRes, pendingRes] = await Promise.all([
+      setTenantId('clinic'); setUserId(safeUid);
+      const [profRes, statsRes, feedRes] = await Promise.allSettled([
         getStaffProfile('clinic', safeUid),
         getSignalStats('clinic'),
         getSignalFeed('clinic'),
-        getPendingSignals('clinic'),
       ]);
-
-      if (profileRes.success && profileRes.data?.profile) {
-        setProfile(profileRes.data.profile);
-        setBrandColor(profileRes.data.profile.brandColor || '#0058E6');
-      }
-      if (statsRes.success && statsRes.stats)         setStats(statsRes.stats);
-      if (feedRes.success && feedRes.signals)         setSignals(feedRes.signals);
-      if (pendingRes.success && pendingRes.signals)   setPending(pendingRes.signals);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+      if (profRes.status   === 'fulfilled' && profRes.value.success && profRes.value.data?.profile)
+        setProfile(profRes.value.data.profile);
+      if (statsRes.status  === 'fulfilled' && statsRes.value.success && statsRes.value.stats)
+        setStats(statsRes.value.stats);
+      if (feedRes.status   === 'fulfilled' && feedRes.value.success && feedRes.value.signals)
+        setSignals(feedRes.value.signals);
+    } finally { setLoading(false); setRefreshing(false); }
   }, []);
 
   useEffect(() => {
@@ -707,212 +607,236 @@ export default function SignalsPage() {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [load]);
 
-  // Filter signals by tab + search + priority
-  const filtered = signals.filter(s => {
-    if (activeTab === 'resolved') return s.status === 'resolved' || s.status === 'archived';
-    if (activeTab !== 'all') {
-      if (s.response_mode !== activeTab) return false;
-      if (s.status === 'resolved' || s.status === 'archived') return false;
-    } else {
-      if (s.status === 'resolved' || s.status === 'archived') return false;
-    }
-    if (priorityFilter && s.priority !== priorityFilter) return false;
+  // ── Derived counts ──────────────────────────────────────────────────────────
+  const activeSignals   = signals.filter(s => s.status !== 'resolved' && s.status !== 'archived');
+  const resolvedSignals = signals.filter(s => s.status === 'resolved' || s.status === 'archived');
+
+  const catCounts = useMemo(() => {
+    const src = statusFilter === 'active' ? activeSignals : resolvedSignals;
+    return Object.fromEntries(
+      (Object.keys(CAT) as SignalCategory[]).map(c => [c, src.filter(s => classifySignal(s) === c).length])
+    ) as Record<SignalCategory, number>;
+  }, [activeSignals, resolvedSignals, statusFilter]);
+
+  // ── Filtered feed ───────────────────────────────────────────────────────────
+  const filtered = useMemo(() => {
+    let src = statusFilter === 'active' ? activeSignals : resolvedSignals;
+    if (catFilter !== 'all')  src = src.filter(s => classifySignal(s) === catFilter);
+    if (prioFilter)            src = src.filter(s => s.priority === prioFilter);
     if (search) {
       const q = search.toLowerCase();
-      if (!s.title.toLowerCase().includes(q) && !s.description.toLowerCase().includes(q)) return false;
+      src = src.filter(s => s.title.toLowerCase().includes(q) || s.description.toLowerCase().includes(q));
     }
-    return true;
-  });
+    return src;
+  }, [activeSignals, resolvedSignals, statusFilter, catFilter, prioFilter, search]);
 
-  // Tab counts (active signals only)
-  const activeSignals = signals.filter(s => s.status !== 'resolved' && s.status !== 'archived');
-  const tabCounts: Record<ModeTab, number> = {
-    all:        activeSignals.length,
-    auto:       activeSignals.filter(s => s.response_mode === 'auto').length,
-    agentic:    activeSignals.filter(s => s.response_mode === 'agentic').length,
-    supervised: activeSignals.filter(s => s.response_mode === 'supervised').length,
-    human_only: activeSignals.filter(s => s.response_mode === 'human_only').length,
-    resolved:   signals.filter(s => s.status === 'resolved' || s.status === 'archived').length,
-  };
+  const handleResolve = async (id: string, note: string) => { await resolveSignal(tenantId, id, note); await load(true); };
+  const handleDismiss = async (id: string, note: string) => { await dismissSignal(tenantId, id, note); await load(true); };
+  const handleApprove = async (id: string) => { await approveSignal(tenantId, id); await load(true); };
+  const handleReject  = async (id: string) => { await rejectSignal(tenantId, id); await load(true); };
 
-  const handleResolve = async (signalId: string, note: string) => {
-    await resolveSignal(tenantId, signalId, note);
-    await load(true);
-  };
+  if (loading) return <OrbLoader />;
 
-  const handleDismiss = async (signalId: string, reason: string) => {
-    await dismissSignal(tenantId, signalId, reason);
-    await load(true);
-  };
-
-  const handleApprove = async (signalId: string) => {
-    await approveSignal(tenantId, signalId);
-    await load(true);
-  };
-
-  const handleReject = async (signalId: string) => {
-    await rejectSignal(tenantId, signalId);
-    await load(true);
-  };
-
-  if (loading) {
-    return <OrbLoader />;
-  }
+  const pendingCount = activeSignals.filter(s => s.status === 'pending_approval').length;
 
   return (
-    <div className="min-h-screen nav-offset">
-      {profile && <StaffNav profile={profile} userId={userId} brandColor={brandColor} currentPath="Signals" />}
+    <div className="min-h-screen nav-offset" style={{ background: BG }}>
+      {profile && <StaffNav profile={profile} userId={userId} brandColor={profile.brandColor ?? BLUE} currentPath="Signals" />}
 
-      <div className="max-w-[1400px] mx-auto px-6 py-10">
-
-        {/* PAGE HEADER */}
-        <div className="flex items-end justify-between mb-8">
-          <div>
-            <h1 className="text-[28px] font-semibold tracking-tight text-[#181D23] leading-none mb-1.5">
-              Signal Operations
-            </h1>
-            <p className="text-[13px] text-[#5A6475]">
-              {activeSignals.length} active · {stats?.agentic_running || 0} agents working · {stats?.resolved_today || 0} resolved today
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => load(true)}
-              className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#D4E2FF] text-[#5A6475] hover:text-[#3D4451] transition-colors"
-            >
-              <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
-            </button>
-            <button
-              onClick={() => setShowCreate(s => !s)}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#A8C4FF] bg-[#FAF9F5] text-[12px] font-medium text-[#3D4451] hover:bg-[#F5F2FD] hover:text-[#1A1035] transition-colors"
-            >
-              <Plus size={12} /> New Signal
-            </button>
-          </div>
-        </div>
-
-        {/* STATS STRIP */}
-        <div className="grid grid-cols-5 gap-3 mb-8">
-          <StatCell label="Active"           value={activeSignals.length}           Icon={Activity}    />
-          <StatCell label="Critical"         value={stats?.critical_count || 0}     color="#f87171"    Icon={AlertTriangle} />
-          <StatCell label="Agentic Running"  value={stats?.agentic_running || 0}    color="#c084fc"    Icon={Bot}  sub="agents processing" />
-          <StatCell label="Pending Approval" value={pending.length}                  color="#fbbf24"    Icon={Clock} />
-          <StatCell label="Resolved Today"   value={stats?.resolved_today || 0}     color="#34d399"    Icon={CheckCircle2} />
-        </div>
-
-        {/* PENDING APPROVAL BANNER */}
-        <AnimatePresence>
-          {pending.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              className="mb-6 p-4 rounded-xl border"
-              style={{ borderColor: '#D8A600', background: '#FEF3C7' }}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <Clock size={13} style={{ color: '#fbbf24' }} />
-                  <span className="text-[12px] font-medium" style={{ color: '#fbbf24' }}>
-                    {pending.length} signal{pending.length > 1 ? 's' : ''} awaiting approval
-                  </span>
+      {/* ── HEADER BAND ─────────────────────────────────────────────────────── */}
+      <div style={{ borderBottom: `1px solid ${BORDER}` }}>
+        <div className="px-8 pt-7 pb-0">
+          {/* Top row */}
+          <div className="flex items-start justify-between mb-5">
+            <div>
+              <div className="flex items-center gap-2.5 mb-1">
+                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full"
+                  style={{ background: GREEN + '14', border: `1px solid ${GREEN}28` }}>
+                  <motion.div className="w-1.5 h-1.5 rounded-full" style={{ background: GREEN }}
+                    animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.6, repeat: Infinity }} />
+                  <span className="text-[9px] font-bold uppercase tracking-[0.18em]" style={{ color: GREEN }}>Live</span>
                 </div>
+                <span className="text-[9px] uppercase tracking-[0.28em] font-semibold" style={{ color: MUTED }}>Signal Stream</span>
               </div>
-              <div className="space-y-2">
-                {pending.map(p => (
-                  <div key={p.id} className="flex items-center gap-4 p-3 rounded-lg bg-[#FAF7F2] border border-[#EBE5FF]">
-                    <div className="w-1 self-stretch rounded-full" style={{ background: PRIO_COLOR[p.priority] }} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-medium text-[#181D23]">{p.title}</p>
-                      <p className="text-[11px] text-[#5A6475] mt-0.5">{p.description}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleApprove(p.id)}
-                        className="px-3 py-1.5 rounded-lg text-[11px] font-medium bg-[#FAF9F5] border border-[#A8C4FF] text-[#3D4451] hover:bg-[#EBE5FF] transition-colors"
-                      >
-                        Approve
-                      </button>
-                      <button
-                        onClick={() => handleReject(p.id)}
-                        className="px-3 py-1.5 rounded-lg text-[11px] font-medium bg-transparent border border-[#D4E2FF] text-[#5A6475] hover:bg-[#FAF9F5] transition-colors"
-                      >
-                        Reject
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* MODE TABS + FILTERS */}
-        <div className="flex items-center justify-between mb-4 gap-4">
-          <div className="flex items-center gap-1 flex-wrap">
-            <ModeTab id="all"        label="All"        count={tabCounts.all}        color="#3D4451" active={activeTab === 'all'}        onClick={() => setActiveTab('all')} />
-            <ModeTab id="auto"       label="Auto"       count={tabCounts.auto}       color="#60a5fa" active={activeTab === 'auto'}       onClick={() => setActiveTab('auto')} />
-            <ModeTab id="agentic"    label="Agentic"    count={tabCounts.agentic}    color="#c084fc" active={activeTab === 'agentic'}    onClick={() => setActiveTab('agentic')} />
-            <ModeTab id="supervised" label="Supervised" count={tabCounts.supervised} color="#fbbf24" active={activeTab === 'supervised'} onClick={() => setActiveTab('supervised')} />
-            <ModeTab id="human_only" label="Human Only" count={tabCounts.human_only} color="#f87171" active={activeTab === 'human_only'} onClick={() => setActiveTab('human_only')} />
-            <div className="w-px h-4 bg-[#A8C4FF] mx-1" />
-            <ModeTab id="resolved"   label="Resolved"   count={tabCounts.resolved}   color="#34d399" active={activeTab === 'resolved'}   onClick={() => setActiveTab('resolved')} />
+              <h1 className="text-[32px] font-black tracking-[-0.035em] leading-none" style={{ color: NAVY }}>
+                Clinic Intelligence
+              </h1>
+              <p className="text-[12px] mt-1.5" style={{ color: TER }}>
+                {activeSignals.length} active · {stats?.agentic_running ?? 0} agents working · {stats?.resolved_today ?? 0} resolved today
+                {pendingCount > 0 && (
+                  <span className="ml-2 font-semibold" style={{ color: ORANGE }}>
+                    · {pendingCount} pending approval
+                  </span>
+                )}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={() => load(true)}
+                className="flex items-center gap-2 text-[11px] font-semibold px-3 py-2 rounded-xl transition-all"
+                style={{ border: `1px solid ${BORDER}`, color: TER, background: 'transparent' }}>
+                <RefreshCw size={11} className={refreshing ? 'animate-spin' : ''} />
+                Refresh
+              </button>
+              <button onClick={() => setShowCreate(true)}
+                className="flex items-center gap-2 text-[11px] font-semibold px-3 py-2 rounded-xl transition-all"
+                style={{ background: BLUE + '14', border: `1px solid ${BLUE}30`, color: NAVY }}>
+                <Plus size={11} /> New Signal
+              </button>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <select
-              value={priorityFilter}
-              onChange={e => setPriorityFilter(e.target.value as SignalPriority | '')}
-              className="bg-[#FAF7F2] border border-[#EBE5FF] rounded-lg px-3 py-1.5 text-[12px] text-[#3D4451] outline-none"
-            >
-              <option value="">All priorities</option>
-              <option value="critical">Critical</option>
-              <option value="high">High</option>
-              <option value="medium">Medium</option>
-              <option value="low">Low</option>
-            </select>
+          {/* Stats strip */}
+          <div className="grid grid-cols-5 gap-3 mb-5">
+            {[
+              { label: 'Active',       value: activeSignals.length,                          color: NAVY  },
+              { label: 'Critical',     value: activeSignals.filter(s => s.priority === 'critical' || s.priority === 'high').length, color: RED },
+              { label: 'Pending',      value: pendingCount,                                  color: ORANGE },
+              { label: 'Resolved Today', value: stats?.resolved_today ?? 0,                 color: GREEN },
+              { label: 'Agents Working', value: stats?.agentic_running ?? 0,                color: BLUE  },
+            ].map(s => (
+              <div key={s.label} className="rounded-2xl px-4 py-3" style={{ border: `1px solid ${BORDER}` }}>
+                <p className="text-[8px] uppercase tracking-[0.26em] font-semibold mb-1" style={{ color: MUTED }}>{s.label}</p>
+                <p className="text-[26px] font-black tracking-[-0.04em]" style={{ color: s.color }}>{s.value}</p>
+              </div>
+            ))}
+          </div>
 
-            <div className="relative">
-              <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#5A6475]" />
-              <input
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Search signals..."
-                className="bg-[#FAF7F2] border border-[#EBE5FF] rounded-lg pl-8 pr-3 py-1.5 text-[12px] text-[#3D4451] placeholder:text-[#5A6475] outline-none focus:border-[#A8C4FF] transition-colors w-44"
-              />
+          {/* Wave chart */}
+          <div className="relative -mx-1" style={{ opacity: 0.85 }}>
+            <WaveChart signals={signals} color={BLUE} />
+            <div className="absolute bottom-0 left-0 right-0 flex justify-between px-1">
+              {['24h ago', '18h', '12h', '6h', 'Now'].map(l => (
+                <span key={l} className="text-[8px]" style={{ color: MUTED }}>{l}</span>
+              ))}
             </div>
           </div>
         </div>
+      </div>
 
-        {/* SIGNAL FEED */}
-        <div className="relative">
-          <AnimatePresence>
-            {showCreate && (
-              <CreatePanel
-                tenantId={tenantId}
-                onClose={() => setShowCreate(false)}
-                onCreated={() => load(true)}
-              />
-            )}
-          </AnimatePresence>
+      {/* ── BODY ────────────────────────────────────────────────────────────── */}
+      <div className="flex">
 
-          <div className="space-y-3">
+        {/* ── SIDEBAR ─────────────────────────────────────────────────────── */}
+        <div className="shrink-0 overflow-y-auto flex flex-col" style={{ width: 240, borderRight: `1px solid ${BORDER}`, minHeight: 'calc(100vh - 240px)' }}>
+          <div className="px-4 py-5 flex flex-col gap-5">
+
+            {/* Status toggle */}
+            <div className="flex flex-col gap-1">
+              {(['active', 'resolved'] as StatusFilter[]).map(f => (
+                <button key={f} onClick={() => setStatusFilter(f)}
+                  className="flex items-center justify-between px-3 py-2.5 rounded-xl text-left transition-all text-[12px] font-semibold capitalize"
+                  style={{
+                    background: statusFilter === f ? NAVY : 'transparent',
+                    color:      statusFilter === f ? BG : SEC,
+                    border:     statusFilter === f ? `1px solid ${NAVY}` : '1px solid transparent',
+                  }}>
+                  {f === 'active' ? 'Active' : 'Resolved'}
+                  <span className="text-[10px] font-bold"
+                    style={{ color: statusFilter === f ? BG + 'bb' : MUTED }}>
+                    {f === 'active' ? activeSignals.length : resolvedSignals.length}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {/* Category filters */}
+            <div>
+              <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-2" style={{ color: MUTED }}>Category</p>
+              <div className="flex flex-col gap-0.5">
+                <button onClick={() => setCatFilter('all')}
+                  className="flex items-center justify-between px-3 py-2.5 rounded-xl text-left transition-all"
+                  style={{
+                    background: catFilter === 'all' ? BLUE + '12' : 'transparent',
+                    border:     catFilter === 'all' ? `1px solid ${BLUE}28` : '1px solid transparent',
+                  }}>
+                  <div className="flex items-center gap-2">
+                    <Radio size={12} style={{ color: catFilter === 'all' ? BLUE : MUTED }} />
+                    <span className="text-[12px] font-semibold" style={{ color: catFilter === 'all' ? BLUE : SEC }}>All signals</span>
+                  </div>
+                  <span className="text-[10px] font-bold" style={{ color: MUTED }}>
+                    {statusFilter === 'active' ? activeSignals.length : resolvedSignals.length}
+                  </span>
+                </button>
+                {(Object.entries(CAT) as [SignalCategory, typeof CAT[SignalCategory]][]).map(([key, cfg]) => (
+                  <button key={key} onClick={() => setCatFilter(key)}
+                    className="flex items-center justify-between px-3 py-2.5 rounded-xl text-left transition-all"
+                    style={{
+                      background: catFilter === key ? cfg.color + '10' : 'transparent',
+                      border:     catFilter === key ? `1px solid ${cfg.color}28` : '1px solid transparent',
+                    }}>
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-1.5 h-1.5 rounded-full" style={{ background: catFilter === key ? cfg.color : MUTED }} />
+                      <span className="text-[12px] font-semibold" style={{ color: catFilter === key ? cfg.color : SEC }}>{cfg.label}</span>
+                    </div>
+                    {catCounts[key] > 0 && (
+                      <span className="text-[10px] font-bold" style={{ color: catFilter === key ? cfg.color : MUTED }}>
+                        {catCounts[key]}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Priority filter */}
+            <div>
+              <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-2" style={{ color: MUTED }}>Priority</p>
+              <div className="flex flex-col gap-0.5">
+                {[{ v: '' as const, l: 'All' }, { v: 'critical' as const, l: 'Critical' }, { v: 'high' as const, l: 'High' }, { v: 'medium' as const, l: 'Medium' }, { v: 'low' as const, l: 'Low' }].map(f => (
+                  <button key={f.v} onClick={() => setPrioFilter(f.v)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-left transition-all"
+                    style={{
+                      background: prioFilter === f.v ? 'rgba(0,0,0,0.04)' : 'transparent',
+                    }}>
+                    {f.v && <div className="w-1.5 h-1.5 rounded-full" style={{ background: PRIO_COLOR[f.v as SignalPriority] }} />}
+                    <span className="text-[11px]" style={{ color: prioFilter === f.v ? NAVY : TER }}>{f.l}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        {/* ── MAIN FEED ─────────────────────────────────────────────────────── */}
+        <div className="flex-1 px-6 py-5">
+
+          {/* Search + filter bar */}
+          <div className="flex items-center gap-3 mb-5">
+            <div className="flex-1 relative">
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: MUTED }} />
+              <input value={search} onChange={e => setSearch(e.target.value)}
+                placeholder="Search signals…"
+                className="w-full pl-9 pr-4 py-2.5 rounded-xl text-[12px] outline-none transition-all"
+                style={{ background: 'rgba(0,0,0,0.025)', border: `1px solid ${BORDER}`, color: NAVY }} />
+            </div>
+            <button onClick={() => setShowFilter(f => !f)}
+              className="flex items-center gap-2 text-[11px] font-semibold px-3 py-2.5 rounded-xl transition-all"
+              style={{
+                background: showFilter ? BLUE + '10' : 'transparent',
+                border: `1px solid ${showFilter ? BLUE + '30' : BORDER}`,
+                color: showFilter ? BLUE : TER,
+              }}>
+              <Filter size={11} /> Filter {(prioFilter || catFilter !== 'all') && <span className="w-1.5 h-1.5 rounded-full" style={{ background: BLUE }} />}
+            </button>
+          </div>
+
+          {/* Signal cards */}
+          {filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-4">
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
+                style={{ background: 'rgba(0,0,0,0.03)', border: `1px solid ${BORDER}` }}>
+                <Radio size={20} style={{ color: MUTED }} />
+              </div>
+              <p className="text-[14px] font-semibold" style={{ color: TER }}>No signals in this view</p>
+              <p className="text-[12px]" style={{ color: MUTED }}>
+                {search ? `No results for "${search}"` : 'All clear — nothing to action right now'}
+              </p>
+            </div>
+          ) : (
             <AnimatePresence mode="popLayout">
-              {filtered.length === 0 ? (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="flex flex-col items-center justify-center py-20 gap-3"
-                >
-                  <Cpu size={24} className="text-[#96989B]" />
-                  <p className="text-[13px] text-[#5A6475]">
-                    {activeTab === 'resolved'
-                      ? 'No resolved signals yet'
-                      : 'No signals in this category'}
-                  </p>
-                </motion.div>
-              ) : (
-                filtered.map(signal => (
+              <div className="flex flex-col gap-3">
+                {filtered.map(signal => (
                   <SignalCard
                     key={signal.id}
                     signal={signal}
@@ -923,13 +847,23 @@ export default function SignalsPage() {
                     onApprove={handleApprove}
                     onReject={handleReject}
                   />
-                ))
-              )}
+                ))}
+              </div>
             </AnimatePresence>
-          </div>
+          )}
         </div>
-
       </div>
+
+      {/* ── DRAWERS ──────────────────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {showCreate && (
+          <CreateDrawer
+            tenantId={tenantId}
+            onClose={() => setShowCreate(false)}
+            onCreated={() => load(true)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

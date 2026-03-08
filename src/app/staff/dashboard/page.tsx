@@ -16,6 +16,7 @@ import {
 } from '@/lib/actions/staff-onboarding';
 import { StaffNav } from '@/components/staff-nav';
 import OrbLoader from '@/components/orb-loader';
+import NotificationPanel, { useNotifCount } from '@/components/notification-panel';
 import {
   getSignalStats, getPendingSignals, getSignalFeed,
   approveSignal, rejectSignal,
@@ -590,6 +591,8 @@ export default function DashboardPage() {
   const [upcomingAppts, setUpcomingAppts] = useState<AppointmentRow[]>([]);
   const [loading,     setLoading]     = useState(true);
   const [refreshing,  setRefreshing]  = useState(false);
+  const [notifOpen,   setNotifOpen]   = useState(false);
+  const notifCount = useNotifCount(userId ?? '');
 
   const brandColor = profile?.brandColor || '#0058E6';
 
@@ -759,16 +762,16 @@ export default function DashboardPage() {
               </p>
             </div>
             <button
-              onClick={() => router.push(`/staff/signals?userId=${userId}`)}
+              onClick={() => setNotifOpen(true)}
               className="relative w-9 h-9 rounded-xl flex items-center justify-center transition-all"
               style={{ background: 'transparent', border: '1px solid #EBE5FF' }}
               onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.04)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
               <Bell size={14} className="text-[#5A6475]" />
-              {(stats?.pending_approval_count ?? 0) > 0 && (
+              {notifCount > 0 && (
                 <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-[8px] font-bold flex items-center justify-center"
                   style={{ background: '#DC2626', color: '#FAF7F2' }}>
-                  {Math.min(stats!.pending_approval_count!, 9)}
+                  {Math.min(notifCount, 9)}
                 </span>
               )}
             </button>
@@ -1016,6 +1019,14 @@ export default function DashboardPage() {
 
         </div>
       </div>
+
+      {userId && (
+        <NotificationPanel
+          userId={userId}
+          isOpen={notifOpen}
+          onClose={() => setNotifOpen(false)}
+        />
+      )}
     </div>
   );
 }
