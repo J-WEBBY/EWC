@@ -51,6 +51,23 @@ export type DraftPurpose  =
   | 'follow_up'
   | 'general';
 
+export type ConversationStatus = 'ai_active' | 'intercepted' | 'escalated' | 'resolved';
+export type AgentHandle        = 'orion' | 'aria';
+
+export interface Conversation {
+  patient_id:        string;
+  patient_name:      string;
+  patient_phone:     string | null;
+  patient_email:     string | null;
+  last_treatment:    string | null;
+  channel:           'whatsapp' | 'sms' | 'email' | 'voice';
+  last_message:      string;
+  last_message_at:   string;
+  agent_handle:      AgentHandle;
+  status:            ConversationStatus;
+  interaction_count: number;
+}
+
 // =============================================================================
 // SIMULATED PATIENT DATA (Week 1 — replaced by Cliniko sync in Week 2)
 // =============================================================================
@@ -482,4 +499,102 @@ export async function draftMessageWithAI(
 
     return { success: true, draft: fallback[purpose]?.[channel] ?? '' };
   }
+}
+
+// =============================================================================
+// DEMO CONVERSATIONS (derived from demo patients + timelines)
+// =============================================================================
+
+const DEMO_CONVERSATIONS: Conversation[] = [
+  {
+    patient_id: 'pat-001', patient_name: 'Sarah Jones',
+    patient_phone: '+44 7700 900123', patient_email: 'sarah.jones@gmail.com',
+    last_treatment: 'Botox Anti-Wrinkle', channel: 'voice',
+    last_message: 'Inbound call 4m 32s — rebooking intent confirmed, strong summer demand',
+    last_message_at: mAgo(2), agent_handle: 'aria', status: 'ai_active', interaction_count: 12,
+  },
+  {
+    patient_id: 'pat-002', patient_name: 'Emma Richardson',
+    patient_phone: '+44 7700 900456', patient_email: 'emma.r@outlook.com',
+    last_treatment: null, channel: 'email',
+    last_message: 'Hi, I came across EWC on Instagram and I am very interested in B12 injections...',
+    last_message_at: hAgo(1), agent_handle: 'orion', status: 'escalated', interaction_count: 1,
+  },
+  {
+    patient_id: 'pat-003', patient_name: 'Rachel Morrison',
+    patient_phone: '+44 7700 900789', patient_email: 'r.morrison@hotmail.co.uk',
+    last_treatment: 'Botox Anti-Wrinkle', channel: 'sms',
+    last_message: 'Hi Rachel, no worries at all about yesterday — we would love to get you rebooked.',
+    last_message_at: dAgo(1), agent_handle: 'aria', status: 'escalated', interaction_count: 8,
+  },
+  {
+    patient_id: 'pat-004', patient_name: 'Sophie Harte',
+    patient_phone: '+44 7700 900234', patient_email: 'sophie.harte@gmail.com',
+    last_treatment: 'CoolSculpting', channel: 'sms',
+    last_message: 'CoolSculpting consultation confirmed for Mon 24 Feb at 10:30am.',
+    last_message_at: dAgo(3), agent_handle: 'orion', status: 'ai_active', interaction_count: 2,
+  },
+  {
+    patient_id: 'pat-005', patient_name: 'Michael Taylor',
+    patient_phone: '+44 7700 900567', patient_email: 'm.taylor@yahoo.co.uk',
+    last_treatment: 'Health Screening', channel: 'email',
+    last_message: 'Google review response drafted and awaiting approval.',
+    last_message_at: dAgo(8), agent_handle: 'aria', status: 'ai_active', interaction_count: 5,
+  },
+  {
+    patient_id: 'pat-006', patient_name: 'Priya Sharma',
+    patient_phone: '+44 7700 900890', patient_email: 'priya.sharma@gmail.com',
+    last_treatment: 'IV Vitamin Drip', channel: 'sms',
+    last_message: 'Feeling great thank you! Will definitely book again.',
+    last_message_at: dAgo(4), agent_handle: 'aria', status: 'ai_active', interaction_count: 7,
+  },
+  {
+    patient_id: 'pat-007', patient_name: 'Catherine Blake',
+    patient_phone: '+44 7700 900321', patient_email: 'c.blake@btopenworld.com',
+    last_treatment: 'Weight Management', channel: 'sms',
+    last_message: 'Re-engagement recommended — patient inactive for 6 weeks.',
+    last_message_at: dAgo(12), agent_handle: 'aria', status: 'ai_active', interaction_count: 4,
+  },
+  {
+    patient_id: 'pat-008', patient_name: 'James Worthington',
+    patient_phone: '+44 7700 900654', patient_email: 'j.worthington@worthington.co.uk',
+    last_treatment: 'Corporate Health Screen', channel: 'email',
+    last_message: 'Corporate wellness proposal sent — 12 partners, awaiting response.',
+    last_message_at: dAgo(20), agent_handle: 'orion', status: 'ai_active', interaction_count: 3,
+  },
+];
+
+// =============================================================================
+// SERVER ACTION — CONVERSATIONS
+// =============================================================================
+
+export async function getConversations(): Promise<Conversation[]> {
+  try {
+    const db = createSovereignClient();
+    const { data } = await db
+      .from('cliniko_patients')
+      .select('id, first_name, last_name, email, phone, created_at')
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (data && data.length > 0) {
+      const channels: Conversation['channel'][] = ['sms', 'email', 'whatsapp', 'voice'];
+      const agents:   AgentHandle[]             = ['aria', 'orion'];
+      return (data as Record<string, unknown>[]).map((p, i) => ({
+        patient_id:        p.id as string,
+        patient_name:      `${p.first_name} ${p.last_name}`.trim(),
+        patient_phone:     (p.phone  as string | null) ?? null,
+        patient_email:     (p.email  as string | null) ?? null,
+        last_treatment:    null,
+        channel:           channels[i % channels.length],
+        last_message:      'No recent messages on record',
+        last_message_at:   p.created_at as string,
+        agent_handle:      agents[i % agents.length],
+        status:            'ai_active',
+        interaction_count: 0,
+      }));
+    }
+  } catch { /* fall through to demo */ }
+
+  return DEMO_CONVERSATIONS;
 }

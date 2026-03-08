@@ -1,288 +1,747 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useState, useEffect, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Search, Phone, Mail, MessageSquare, Mic, Bot, Zap,
-  CalendarCheck, AlertTriangle, ChevronDown, ChevronRight,
-  Send, Sparkles, ArrowUpRight, ArrowDownLeft,
-  Loader2, CheckCircle2, MessageCircle, RefreshCw,
+  Search, MessageSquare, Mail, Mic, Bot, Zap,
+  CalendarCheck, AlertTriangle, Send, Loader2,
+  MessageCircle, Eye, Shield, Phone, UserCheck,
+  CheckCircle2, ChevronDown, RefreshCw,
 } from 'lucide-react';
 import { StaffNav } from '@/components/staff-nav';
 import {
-  getPatientList, getPatientTimeline, sendPatientMessage, draftMessageWithAI,
-  type PatientSummary, type TimelineItem, type TimelineSource,
-  type SendChannel, type DraftPurpose,
+  getConversations, getPatientTimeline, sendPatientMessage, draftMessageWithAI,
+  type Conversation, type ConversationStatus, type AgentHandle,
+  type TimelineItem, type TimelineSource, type SendChannel, type DraftPurpose,
 } from '@/lib/actions/bridge';
-import { getStaffProfile, type StaffProfile } from '@/lib/actions/staff-onboarding';
-
-const FALLBACK: StaffProfile = {
-  userId: '', firstName: '—', lastName: '', email: '', jobTitle: null,
-  departmentName: null, departmentId: null, roleName: null, isAdmin: false,
-  isOwner: false, companyName: '', aiName: 'Aria', brandColor: '#0058E6',
-  logoUrl: null, industry: null, reportsTo: null, teamSize: 0,
-};
+import { getStaffProfile, getCurrentUser, type StaffProfile } from '@/lib/actions/staff-onboarding';
+import OrbLoader from '@/components/orb-loader';
 
 // =============================================================================
-// SOURCE CONFIG
+// DESIGN TOKENS
 // =============================================================================
 
-const SOURCE_CONFIG: Record<TimelineSource, { label: string; color: string; bg: string; Icon: React.ElementType }> = {
-  voice_komal: { label: 'VOICE · KOMAL', color: '#0058E6', bg: 'rgba(124,58,237,0.07)',  Icon: Mic },
-  agent_aria:  { label: 'AGENT · ARIA',  color: '#00A693', bg: 'rgba(13,148,136,0.07)',  Icon: Bot },
-  agent_orion: { label: 'AGENT · ORION', color: '#D8A600', bg: 'rgba(217,119,6,0.07)',   Icon: Bot },
-  agent_ewc:   { label: 'AGENT · EWC',   color: '#0058E6', bg: 'rgba(109,40,217,0.07)',  Icon: Bot },
-  automation:  { label: 'AUTOMATION',    color: '#EA580C', bg: 'rgba(234,88,12,0.06)',    Icon: Zap },
-  appointment: { label: 'CLINIKO',       color: '#0058E6', bg: 'rgba(0,88,230,0.06)',     Icon: CalendarCheck },
-  signal:      { label: 'SIGNAL',        color: '#DC2626', bg: 'rgba(220,38,38,0.06)',    Icon: AlertTriangle },
-  sms_out:     { label: 'SMS',           color: '#5A6475', bg: 'rgba(110,102,136,0.05)',  Icon: MessageSquare },
-  sms_in:      { label: 'SMS',           color: '#96989B', bg: 'rgba(139,132,160,0.05)', Icon: MessageSquare },
-  email_out:   { label: 'EMAIL',         color: '#5A6475', bg: 'rgba(110,102,136,0.05)', Icon: Mail },
-  email_in:    { label: 'EMAIL',         color: '#96989B', bg: 'rgba(139,132,160,0.05)', Icon: Mail },
+const BG     = '#F8FAFF';
+const NAVY   = '#181D23';
+const SEC    = '#3D4451';
+const TER    = '#5A6475';
+const MUT    = '#96989B';
+const BORDER = '#D4E2FF';
+const BLUE   = '#0058E6';
+const GOLD   = '#D8A600';
+const TEAL   = '#00A693';
+const RED    = '#DC2626';
+const ORANGE = '#EA580C';
+const GREEN  = '#059669';
+const PURPLE = '#7C3AED';
+
+// =============================================================================
+// CONFIG
+// =============================================================================
+
+const AGENTS: Record<AgentHandle, { name: string; color: string; label: string }> = {
+  orion: { name: 'Orion', color: GOLD,   label: 'Acquisition' },
+  aria:  { name: 'Aria',  color: TEAL,   label: 'Retention'   },
 };
 
-const PURPOSE_LABELS: Record<DraftPurpose, string> = {
-  appointment_reminder:   'Appointment Reminder',
-  post_treatment_checkin: 'Post-treatment Check-in',
-  rebooking:              'Rebooking Invitation',
-  payment_chase:          'Payment Follow-up',
-  follow_up:              'General Follow-up',
-  general:                'General Message',
+type ChannelKey = 'whatsapp' | 'sms' | 'email' | 'voice';
+const CHANNELS: Record<ChannelKey, { label: string; color: string; Icon: React.ElementType }> = {
+  whatsapp: { label: 'WhatsApp', color: '#25D366', Icon: MessageCircle },
+  sms:      { label: 'SMS',      color: BLUE,       Icon: MessageSquare  },
+  email:    { label: 'Email',    color: NAVY,        Icon: Mail           },
+  voice:    { label: 'Voice',    color: PURPLE,      Icon: Mic            },
 };
 
-type TimelineFilter = 'all' | 'voice' | 'agent' | 'messages' | 'automation' | 'cliniko';
-
-const FILTER_MATCH: Record<TimelineFilter, TimelineSource[]> = {
-  all:        [],
-  voice:      ['voice_komal'],
-  agent:      ['agent_aria', 'agent_orion', 'agent_ewc'],
-  messages:   ['sms_out', 'sms_in', 'email_out', 'email_in'],
-  automation: ['automation'],
-  cliniko:    ['appointment'],
+const STATUS_CFG: Record<ConversationStatus, { label: string; color: string }> = {
+  ai_active:   { label: 'AI active',   color: GREEN  },
+  intercepted: { label: 'Intercepted', color: BLUE   },
+  escalated:   { label: 'Needs reply', color: ORANGE },
+  resolved:    { label: 'Resolved',    color: MUT    },
 };
+
+// Sources that render as a whisper note (AI internal) or event chip
+const WHISPER_SOURCES = new Set<TimelineSource>(['agent_aria', 'agent_orion', 'agent_ewc']);
+const EVENT_SOURCES   = new Set<TimelineSource>(['appointment', 'automation', 'signal']);
 
 // =============================================================================
 // HELPERS
 // =============================================================================
 
 function fmtTime(iso: string): string {
-  const ms  = Date.now() - new Date(iso).getTime();
-  const m   = Math.floor(ms / 60000);
-  const h   = Math.floor(m / 60);
-  const day = Math.floor(h / 24);
+  const ms = Date.now() - new Date(iso).getTime();
+  const m  = Math.floor(ms / 60000);
+  const h  = Math.floor(m / 60);
+  const d  = Math.floor(h / 24);
   if (m  <  2) return 'just now';
-  if (m  < 60) return `${m}m ago`;
-  if (h  < 24) return `${h}h ago`;
-  if (day === 1) return 'yesterday';
-  if (day <  7) return `${day}d ago`;
+  if (m  < 60) return `${m}m`;
+  if (h  < 24) return `${h}h`;
+  if (d === 1) return 'yesterday';
+  if (d  <  7) return `${d}d`;
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 }
 
 function fmtDateLabel(iso: string): string {
-  const d         = new Date(iso);
-  const now       = new Date();
-  const today     = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const yesterday = today - 86400000;
-  const target    = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-  if (target === today)     return 'Today';
-  if (target === yesterday) return 'Yesterday';
+  const d        = new Date(iso);
+  const now      = new Date();
+  const todayMs  = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const targetMs = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const diff     = todayMs - targetMs;
+  if (diff === 0)         return 'Today';
+  if (diff === 86400000)  return 'Yesterday';
   return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
-function getInitials(name: string) { return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2); }
-function avatarColor(name: string) {
-  const p = ['#0058E6','#0058E6','#D8A600','#00A693','#DC2626','#059669','#DC2626','#0058E6'];
-  let h = 0; for (const c of name) h = (h * 31 + c.charCodeAt(0)) % p.length;
-  return p[h];
+function getInitials(name: string) {
+  return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 }
 
-function groupByDate(items: TimelineItem[]) {
-  const sorted = [...items].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-  const groups: { label: string; items: TimelineItem[] }[] = [];
+function avatarBg(name: string): string {
+  const colors = [BLUE, PURPLE, GOLD, TEAL, RED, GREEN];
+  let h = 0;
+  for (const c of name) h = (h * 31 + c.charCodeAt(0)) % colors.length;
+  return colors[h];
+}
+
+function groupByDate(items: TimelineItem[]): { date: string; label: string; items: TimelineItem[] }[] {
+  // Ascending order — oldest first (chat convention)
+  const sorted = [...items].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  const groups: { date: string; label: string; items: TimelineItem[] }[] = [];
   const seen: Record<string, TimelineItem[]> = {};
   for (const item of sorted) {
-    const lbl = fmtDateLabel(item.timestamp);
-    if (!seen[lbl]) { seen[lbl] = []; groups.push({ label: lbl, items: seen[lbl] }); }
-    seen[lbl].push(item);
+    const label = fmtDateLabel(item.timestamp);
+    if (!seen[label]) {
+      seen[label] = [];
+      groups.push({ date: item.timestamp, label, items: seen[label] });
+    }
+    seen[label].push(item);
   }
   return groups;
 }
 
 // =============================================================================
-// PATIENT ROW
+// SUBCOMPONENTS — LEFT PANEL
 // =============================================================================
 
-function PatientRow({ patient, selected, onClick }: { patient: PatientSummary; selected: boolean; onClick: () => void }) {
-  const col = avatarColor(patient.full_name);
+function StatusDot({ status }: { status: ConversationStatus }) {
+  const cfg   = STATUS_CFG[status];
+  const pulse = status === 'escalated' || status === 'ai_active';
+  return (
+    <span className="relative inline-flex items-center justify-center w-2 h-2 flex-shrink-0">
+      {pulse && (
+        <motion.span
+          className="absolute inset-0 rounded-full"
+          style={{ backgroundColor: cfg.color }}
+          animate={{ opacity: [0.3, 0.7, 0.3], scale: [1, 1.8, 1] }}
+          transition={{ duration: 1.8, repeat: Infinity }}
+        />
+      )}
+      <span className="relative w-2 h-2 rounded-full" style={{ backgroundColor: cfg.color }} />
+    </span>
+  );
+}
+
+function AgentBadge({ agent }: { agent: AgentHandle }) {
+  const cfg = AGENTS[agent];
+  return (
+    <span
+      className="text-[9px] font-semibold uppercase tracking-[0.10em] px-1.5 py-0.5 rounded"
+      style={{ backgroundColor: `${cfg.color}18`, color: cfg.color, border: `1px solid ${cfg.color}28` }}
+    >
+      {cfg.name}
+    </span>
+  );
+}
+
+function ConvRow({
+  conv, selected, interceptedIds, onClick,
+}: {
+  conv: Conversation;
+  selected: boolean;
+  interceptedIds: Set<string>;
+  onClick: () => void;
+}) {
+  const status: ConversationStatus = interceptedIds.has(conv.patient_id) ? 'intercepted' : conv.status;
+  const ch     = CHANNELS[conv.channel];
+  const ChIcon = ch.Icon;
   return (
     <button
       onClick={onClick}
-      className="w-full text-left px-3 py-2.5 flex items-center gap-2.5 transition-all"
+      className="w-full text-left px-4 py-3.5 flex gap-3 transition-colors"
       style={{
-        backgroundColor: selected ? `${col}0c` : 'transparent',
-        borderLeft:      selected ? `2px solid ${col}` : '2px solid transparent',
+        backgroundColor: selected ? `${BLUE}08` : 'transparent',
+        borderLeft:      `2px solid ${selected ? BLUE : 'transparent'}`,
+        borderBottom:    `1px solid ${BORDER}`,
       }}
-      onMouseEnter={e => { if (!selected) (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(0,88,230,0.04)'; }}
-      onMouseLeave={e => { if (!selected) (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent'; }}
     >
-      <div className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
-        style={{ backgroundColor: `${col}14`, color: col, border: `1px solid ${col}30` }}>
-        {getInitials(patient.full_name)}
+      <div
+        className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0 mt-0.5"
+        style={{ backgroundColor: avatarBg(conv.patient_name) }}
+      >
+        {getInitials(conv.patient_name)}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-[12px] font-medium truncate" style={{ color: selected ? '#1A1035' : '#3D4451' }}>{patient.full_name}</p>
-        <p className="text-[9px] truncate mt-0.5" style={{ color: '#96989B' }}>{patient.last_treatment ?? 'No treatments'}</p>
+        <div className="flex items-center justify-between mb-0.5">
+          <span className="text-[13px] font-medium truncate" style={{ color: NAVY }}>{conv.patient_name}</span>
+          <span className="text-[10px] flex-shrink-0 ml-2" style={{ color: MUT }}>{fmtTime(conv.last_message_at)}</span>
+        </div>
+        <p className="text-[11px] truncate mb-1.5" style={{ color: TER }}>{conv.last_message}</p>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <StatusDot status={status} />
+          <span className="text-[9px]" style={{ color: STATUS_CFG[status].color }}>{STATUS_CFG[status].label}</span>
+          <span className="text-[9px]" style={{ color: BORDER }}>·</span>
+          <ChIcon size={9} style={{ color: ch.color }} />
+          <span className="text-[9px]" style={{ color: MUT }}>{ch.label}</span>
+          <span className="text-[9px]" style={{ color: BORDER }}>·</span>
+          <AgentBadge agent={conv.agent_handle} />
+        </div>
       </div>
-      <p className="text-[9px] flex-shrink-0" style={{ color: '#96989B' }}>
-        {patient.last_contact ? fmtTime(patient.last_contact) : '—'}
-      </p>
     </button>
   );
 }
 
 // =============================================================================
-// TRANSCRIPT VIEWER
+// SUBCOMPONENTS — THREAD HEADER
 // =============================================================================
 
-function TranscriptViewer({ transcript }: { transcript: { role: 'komal' | 'patient'; text: string }[] }) {
+function ThreadHeader({
+  conv, interceptedIds, onIntercept, onResume, onViewProfile,
+}: {
+  conv: Conversation;
+  interceptedIds: Set<string>;
+  onIntercept: () => void;
+  onResume: () => void;
+  onViewProfile: () => void;
+}) {
+  const isIntercepted = interceptedIds.has(conv.patient_id);
+  const isEscalated   = conv.status === 'escalated';
+  const ch     = CHANNELS[conv.channel];
+  const ChIcon = ch.Icon;
+  const agent  = AGENTS[conv.agent_handle];
+
   return (
-    <div className="mt-3 rounded-xl overflow-hidden" style={{ border: '1px solid #C5BAF0', backgroundColor: 'rgba(124,58,237,0.03)' }}>
-      <div className="px-3 py-1.5 flex items-center gap-2" style={{ borderBottom: '1px solid #EBE5FF', backgroundColor: 'rgba(124,58,237,0.05)' }}>
-        <Mic className="w-2.5 h-2.5" style={{ color: '#0058E6' }} />
-        <p className="text-[9px] uppercase tracking-[0.12em] font-semibold" style={{ color: '#0058E6' }}>Call Transcript</p>
+    <div
+      className="flex items-center gap-4 px-6 py-4 flex-shrink-0"
+      style={{ borderBottom: `1px solid ${BORDER}` }}
+    >
+      <div
+        className="w-10 h-10 rounded-full flex items-center justify-center text-[12px] font-bold text-white flex-shrink-0"
+        style={{ backgroundColor: avatarBg(conv.patient_name) }}
+      >
+        {getInitials(conv.patient_name)}
       </div>
-      <div className="p-3 space-y-2.5 max-h-52 overflow-y-auto">
-        {transcript.map((line, i) => (
-          <div key={i} className={`flex gap-2 ${line.role === 'patient' ? 'flex-row-reverse' : ''}`}>
-            <div className="w-4 h-4 rounded-full flex items-center justify-center text-[7px] font-bold flex-shrink-0 mt-0.5"
-              style={{ backgroundColor: line.role === 'komal' ? 'rgba(124,58,237,0.15)' : '#EBE5FF', color: line.role === 'komal' ? '#0058E6' : '#5A6475' }}>
-              {line.role === 'komal' ? 'K' : 'P'}
-            </div>
-            <div className="px-2.5 py-1.5 rounded-lg" style={{ maxWidth: '85%',
-              backgroundColor: line.role === 'komal' ? 'rgba(124,58,237,0.06)' : '#FAF7F2',
-              border: '1px solid #EBE5FF' }}>
-              <p className="text-[10px] leading-relaxed" style={{ color: line.role === 'komal' ? '#3D4451' : '#5A6475' }}>{line.text}</p>
-            </div>
-          </div>
-        ))}
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-0.5">
+          <span className="text-[15px] font-semibold" style={{ color: NAVY }}>{conv.patient_name}</span>
+          <button
+            onClick={onViewProfile}
+            className="text-[10px] transition-opacity hover:opacity-60"
+            style={{ color: BLUE }}
+          >
+            View profile
+          </button>
+        </div>
+        <div className="flex items-center gap-3 flex-wrap">
+          {conv.patient_phone && (
+            <span className="text-[11px] flex items-center gap-1" style={{ color: TER }}>
+              <Phone size={9} /> {conv.patient_phone}
+            </span>
+          )}
+          {conv.patient_email && (
+            <span className="text-[11px] flex items-center gap-1" style={{ color: TER }}>
+              <Mail size={9} /> {conv.patient_email}
+            </span>
+          )}
+          <span className="flex items-center gap-1 text-[11px]" style={{ color: ch.color }}>
+            <ChIcon size={9} /> {ch.label}
+          </span>
+        </div>
       </div>
+
+      {/* Agent handling label */}
+      <div className="hidden xl:flex items-center gap-1.5 text-[11px] flex-shrink-0" style={{ color: TER }}>
+        <Bot size={12} style={{ color: agent.color }} />
+        <span>Handled by</span>
+        <span className="font-semibold" style={{ color: agent.color }}>{agent.name} ({agent.label})</span>
+      </div>
+
+      {/* Intercept / Resume button */}
+      {isIntercepted ? (
+        <button
+          onClick={onResume}
+          className="flex items-center gap-1.5 text-[11px] font-medium px-3 py-1.5 rounded-lg flex-shrink-0"
+          style={{ backgroundColor: `${TEAL}14`, border: `1px solid ${TEAL}35`, color: TEAL }}
+        >
+          <Bot size={12} /> Resume AI
+        </button>
+      ) : isEscalated ? (
+        <button
+          onClick={onIntercept}
+          className="flex items-center gap-1.5 text-[11px] font-medium px-3 py-1.5 rounded-lg flex-shrink-0"
+          style={{ backgroundColor: `${ORANGE}14`, border: `1px solid ${ORANGE}35`, color: ORANGE }}
+        >
+          <UserCheck size={12} /> Take Over
+        </button>
+      ) : (
+        <button
+          onClick={onIntercept}
+          className="flex items-center gap-1.5 text-[11px] font-medium px-3 py-1.5 rounded-lg flex-shrink-0"
+          style={{ backgroundColor: `${BLUE}0a`, border: `1px solid ${BLUE}22`, color: BLUE }}
+        >
+          <Shield size={12} /> Intercept
+        </button>
+      )}
+    </div>
+  );
+}
+
+function EscalationBanner({ agentName, onIntercept }: { agentName: string; onIntercept: () => void }) {
+  return (
+    <div
+      className="flex items-center gap-3 px-6 py-3 flex-shrink-0"
+      style={{ backgroundColor: `${ORANGE}0a`, borderBottom: `1px solid ${ORANGE}25` }}
+    >
+      <AlertTriangle size={13} style={{ color: ORANGE }} />
+      <span className="flex-1 text-[12px]" style={{ color: ORANGE }}>
+        {agentName} has escalated this conversation — patient is awaiting a staff reply
+      </span>
+      <button
+        onClick={onIntercept}
+        className="text-[11px] font-semibold px-3 py-1 rounded-lg"
+        style={{ backgroundColor: `${ORANGE}18`, border: `1px solid ${ORANGE}40`, color: ORANGE }}
+      >
+        Take over
+      </button>
     </div>
   );
 }
 
 // =============================================================================
-// TIMELINE ITEM CARD
+// SUBCOMPONENTS — MESSAGE TYPES
 // =============================================================================
 
-function TimelineItemCard({ item, expanded, onToggle }: { item: TimelineItem; expanded: boolean; onToggle: () => void }) {
-  const cfg  = SOURCE_CONFIG[item.source];
-  const Icon = cfg.Icon;
+function WhisperCard({ item, agentHandle }: { item: TimelineItem; agentHandle: AgentHandle }) {
+  const agent = item.source === 'agent_orion' ? AGENTS.orion
+    : item.source === 'agent_aria'            ? AGENTS.aria
+    : AGENTS[agentHandle];
+
   return (
-    <motion.div layout initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-      className="rounded-xl border overflow-hidden" style={{ borderColor: `${cfg.color}20`, backgroundColor: cfg.bg }}>
-      <div className="p-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md flex-shrink-0"
-              style={{ backgroundColor: `${cfg.color}12`, border: `1px solid ${cfg.color}25` }}>
-              <Icon className="w-2 h-2" style={{ color: cfg.color }} />
-              <span className="text-[8px] font-semibold uppercase tracking-[0.10em]" style={{ color: cfg.color }}>{cfg.label}</span>
-            </div>
-            <p className="text-[11px] font-medium truncate" style={{ color: '#1A1035' }}>{item.title}</p>
-          </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <p className="text-[9px]" style={{ color: '#96989B' }}>{fmtTime(item.timestamp)}</p>
-            {item.is_expandable && (
-              <button onClick={onToggle} className="p-0.5 rounded" style={{ color: '#96989B' }}>
-                {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-              </button>
-            )}
-          </div>
-        </div>
-        <p className="mt-2 text-[11px] leading-relaxed" style={{ color: '#5A6475' }}>
-          {expanded ? item.body : item.body.slice(0, 160) + (item.body.length > 160 ? '…' : '')}
-        </p>
-        {item.metadata && Object.keys(item.metadata).length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {Object.entries(item.metadata).map(([k, v]) => v !== null && (
-              <span key={k} className="text-[8px] px-1.5 py-0.5 rounded-md"
-                style={{ backgroundColor: 'rgba(0,88,230,0.08)', color: '#5A6475', border: '1px solid #EBE5FF' }}>
-                {k.replace(/_/g, ' ')}: {String(v)}
-              </span>
-            ))}
-          </div>
-        )}
-        <AnimatePresence>
-          {expanded && item.transcript && (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2 }}>
-              <TranscriptViewer transcript={item.transcript} />
-            </motion.div>
-          )}
-        </AnimatePresence>
+    <motion.div
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="rounded-xl p-3.5 mx-6"
+      style={{
+        border:           `1px dashed ${agent.color}45`,
+        borderLeft:       `2px solid ${agent.color}70`,
+        backgroundColor:  `${agent.color}07`,
+      }}
+    >
+      <div className="flex items-center gap-1.5 mb-2">
+        <Eye size={9} style={{ color: agent.color }} />
+        <span className="text-[9px] font-semibold uppercase tracking-[0.12em]" style={{ color: agent.color }}>
+          {agent.name} insight
+        </span>
+        <span className="text-[9px] uppercase tracking-[0.08em]" style={{ color: MUT }}>
+          — internal only
+        </span>
+        <span className="ml-auto text-[9px]" style={{ color: MUT }}>{fmtTime(item.timestamp)}</span>
       </div>
+      <p className="text-[11px] leading-relaxed italic" style={{ color: TER }}>{item.body}</p>
     </motion.div>
   );
 }
 
-// =============================================================================
-// MESSAGE BUBBLE
-// =============================================================================
-
-function MessageBubble({ item }: { item: TimelineItem }) {
-  const isOut = item.direction === 'outbound';
-  const cfg   = SOURCE_CONFIG[item.source];
-  const isEmail = item.source === 'email_out' || item.source === 'email_in';
+function VoiceCard({
+  item, expanded, onToggle,
+}: { item: TimelineItem; expanded: boolean; onToggle: () => void }) {
   return (
-    <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
-      className={`flex ${isOut ? 'justify-end' : 'justify-start'}`}>
-      {!isOut && (
-        <div className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold flex-shrink-0 mr-2 mt-1"
-          style={{ backgroundColor: '#EBE5FF', color: '#96989B' }}>P</div>
-      )}
-      <div style={{ maxWidth: '78%' }}>
-        <div className={`flex items-center gap-1.5 mb-1 ${isOut ? 'justify-end' : 'justify-start'}`}>
-          <span className="text-[8px] uppercase tracking-[0.08em]" style={{ color: '#96989B' }}>
-            {isOut ? `${isEmail ? 'Email' : 'SMS'} · ${String(item.metadata?.sent_by ?? 'Staff')}` : `${isEmail ? 'Email' : 'SMS'} · Received`}
-          </span>
-          <span className="text-[8px]" style={{ color: '#96989B' }}>{fmtTime(item.timestamp)}</span>
+    <motion.div
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="rounded-xl overflow-hidden mx-6"
+      style={{ border: `1px solid ${PURPLE}28`, backgroundColor: `${PURPLE}07` }}
+    >
+      <div className="flex items-center gap-3 px-4 py-3">
+        <div
+          className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+          style={{ backgroundColor: `${PURPLE}16` }}
+        >
+          <Mic size={12} style={{ color: PURPLE }} />
         </div>
-        <div className="px-3 py-2.5 rounded-2xl text-[11px] leading-relaxed"
-          style={{
-            backgroundColor: isOut ? 'rgba(0,88,230,0.08)' : '#FAF7F2',
-            color:           isOut ? '#1A1035' : '#3D4451',
-            border:          `1px solid ${isOut ? '#C5BAF0' : '#EBE5FF'}`,
-            borderBottomRightRadius: isOut ? '4px' : '16px',
-            borderBottomLeftRadius:  isOut ? '16px' : '4px',
-          }}>
+        <div className="flex-1 min-w-0">
+          <p className="text-[12px] font-medium" style={{ color: NAVY }}>{item.title}</p>
+          <p className="text-[10px] mt-0.5 truncate" style={{ color: TER }}>
+            {item.body.slice(0, 110)}{item.body.length > 110 ? '...' : ''}
+          </p>
+        </div>
+        <span className="text-[9px] flex-shrink-0" style={{ color: MUT }}>{fmtTime(item.timestamp)}</span>
+        {item.transcript && (
+          <button onClick={onToggle} style={{ color: MUT }}>
+            <motion.div animate={{ rotate: expanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
+              <ChevronDown size={13} />
+            </motion.div>
+          </button>
+        )}
+      </div>
+
+      <AnimatePresence>
+        {expanded && item.transcript && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            style={{ borderTop: `1px solid ${PURPLE}20` }}
+          >
+            <div className="px-4 py-3 space-y-2.5 max-h-56 overflow-y-auto">
+              {item.transcript.map((line, i) => (
+                <div key={i} className={`flex gap-2 ${line.role === 'patient' ? 'flex-row-reverse' : ''}`}>
+                  <div
+                    className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold flex-shrink-0"
+                    style={{
+                      backgroundColor: line.role === 'komal' ? `${PURPLE}18` : BORDER,
+                      color:           line.role === 'komal' ? PURPLE : TER,
+                    }}
+                  >
+                    {line.role === 'komal' ? 'K' : 'P'}
+                  </div>
+                  <div
+                    className="px-3 py-2 rounded-xl text-[10px] leading-relaxed"
+                    style={{
+                      maxWidth: '82%',
+                      backgroundColor: line.role === 'komal' ? `${PURPLE}09` : BG,
+                      border: `1px solid ${BORDER}`,
+                      color:  line.role === 'komal' ? SEC : TER,
+                    }}
+                  >
+                    {line.text}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
+function EventChip({ item }: { item: TimelineItem }) {
+  const Icon  = item.source === 'appointment' ? CalendarCheck
+    : item.source === 'automation'            ? Zap
+    : AlertTriangle;
+  const color = item.source === 'appointment' ? BLUE
+    : item.source === 'automation'            ? ORANGE
+    : RED;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="flex items-center gap-3 px-6 my-1"
+    >
+      <div className="flex-1 h-px" style={{ backgroundColor: `${color}22` }} />
+      <div
+        className="flex items-center gap-1.5 px-2.5 py-1 rounded-full"
+        style={{ backgroundColor: `${color}0e`, border: `1px solid ${color}28` }}
+      >
+        <Icon size={9} style={{ color }} />
+        <span className="text-[9px]" style={{ color }}>{item.title}</span>
+        <span className="text-[8px]" style={{ color: MUT }}>{fmtTime(item.timestamp)}</span>
+      </div>
+      <div className="flex-1 h-px" style={{ backgroundColor: `${color}22` }} />
+    </motion.div>
+  );
+}
+
+function ChatBubble({ item, conv }: { item: TimelineItem; conv: Conversation }) {
+  const isIn      = item.direction === 'inbound';
+  const sentBy    = String(item.metadata?.sent_by ?? '');
+  const isAuto    = sentBy === 'Automation';
+  const isAgent   = sentBy === 'Aria' || sentBy === 'Orion';
+  const agent     = AGENTS[conv.agent_handle];
+  const isEmail   = item.source === 'email_out' || item.source === 'email_in';
+  const SourceIcon = isEmail ? Mail : MessageSquare;
+
+  const bubbleBg = isIn ? BG
+    : isAuto    ? `${ORANGE}0e`
+    : isAgent   ? `${agent.color}12`
+    : `${BLUE}0e`;
+
+  const bubbleBorder = isIn ? BORDER
+    : isAuto    ? `${ORANGE}35`
+    : isAgent   ? `${agent.color}35`
+    : `${BLUE}28`;
+
+  const senderLabel = isIn ? 'Patient'
+    : isAuto    ? 'Automation'
+    : isAgent   ? sentBy
+    : sentBy || 'Staff';
+
+  const senderColor = isIn ? MUT
+    : isAuto    ? ORANGE
+    : isAgent   ? agent.color
+    : SEC;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`flex items-end gap-2 px-6 ${isIn ? 'justify-start' : 'justify-end'}`}
+    >
+      {isIn && (
+        <div
+          className="w-6 h-6 rounded-full flex items-center justify-center text-[8px] font-bold text-white flex-shrink-0 mb-1"
+          style={{ backgroundColor: avatarBg(conv.patient_name) }}
+        >
+          {getInitials(conv.patient_name)}
+        </div>
+      )}
+
+      <div style={{ maxWidth: '68%' }}>
+        <div
+          className={`px-3.5 py-2.5 rounded-2xl text-[12px] leading-relaxed ${isIn ? 'rounded-bl-sm' : 'rounded-br-sm'}`}
+          style={{ backgroundColor: bubbleBg, border: `1px solid ${bubbleBorder}`, color: isIn ? SEC : NAVY }}
+        >
           {isEmail && (
-            <div className="flex items-center gap-1 mb-1.5">
-              <Mail className="w-2.5 h-2.5" style={{ color: cfg.color }} />
-              <span className="text-[8px] uppercase tracking-[0.08em] font-semibold" style={{ color: cfg.color }}>
-                {isOut ? 'Sent email' : 'Received email'}
+            <div className="flex items-center gap-1 mb-1.5 pb-1.5" style={{ borderBottom: `1px solid ${bubbleBorder}` }}>
+              <SourceIcon size={9} style={{ color: senderColor }} />
+              <span className="text-[8px] uppercase tracking-[0.08em] font-medium" style={{ color: senderColor }}>
+                {isIn ? 'Email received' : 'Email sent'}
               </span>
             </div>
           )}
           {item.body}
         </div>
-        <div className={`flex mt-1 ${isOut ? 'justify-end' : 'justify-start'}`}>
-          {isOut ? <ArrowUpRight className="w-2.5 h-2.5" style={{ color: '#C5BAF0' }} />
-                 : <ArrowDownLeft className="w-2.5 h-2.5" style={{ color: '#C5BAF0' }} />}
+        <div className={`flex items-center gap-1 mt-1 ${isIn ? 'justify-start pl-1' : 'justify-end pr-1'}`}>
+          <span className="text-[9px]" style={{ color: senderColor }}>{senderLabel}</span>
+          <span className="text-[8px]" style={{ color: MUT }}>{fmtTime(item.timestamp)}</span>
         </div>
       </div>
-      {isOut && (
-        <div className="w-5 h-5 rounded-full flex items-center justify-center text-[7px] font-bold flex-shrink-0 ml-2 mt-1"
-          style={{ backgroundColor: '#EBE5FF', color: '#5A6475' }}>EWC</div>
+
+      {!isIn && (
+        <div
+          className="w-6 h-6 rounded-full flex items-center justify-center text-[7px] font-bold flex-shrink-0 mb-1"
+          style={{
+            backgroundColor: isAuto ? `${ORANGE}18` : isAgent ? `${agent.color}18` : `${BLUE}18`,
+            color:           isAuto ? ORANGE          : isAgent ? agent.color         : BLUE,
+          }}
+        >
+          {isAuto ? 'AU' : isAgent ? sentBy.slice(0, 2).toUpperCase() : 'ST'}
+        </div>
       )}
     </motion.div>
   );
 }
 
-function EmptyState({ label }: { label: string }) {
+function ThreadMessage({
+  item, conv, expandedSet, onToggle,
+}: {
+  item: TimelineItem;
+  conv: Conversation;
+  expandedSet: Set<string>;
+  onToggle: (id: string) => void;
+}) {
+  if (WHISPER_SOURCES.has(item.source) && item.direction === 'system') {
+    return <WhisperCard item={item} agentHandle={conv.agent_handle} />;
+  }
+  if (item.source === 'voice_komal') {
+    return <VoiceCard item={item} expanded={expandedSet.has(item.id)} onToggle={() => onToggle(item.id)} />;
+  }
+  if (EVENT_SOURCES.has(item.source)) {
+    return <EventChip item={item} />;
+  }
+  if (item.direction === 'inbound' || item.direction === 'outbound') {
+    return <ChatBubble item={item} conv={conv} />;
+  }
+  return null;
+}
+
+// =============================================================================
+// REPLY AREA
+// =============================================================================
+
+const PURPOSE_OPTIONS: { value: DraftPurpose; label: string }[] = [
+  { value: 'follow_up',              label: 'General follow-up'      },
+  { value: 'rebooking',              label: 'Rebooking invitation'    },
+  { value: 'post_treatment_checkin', label: 'Post-treatment check-in' },
+  { value: 'appointment_reminder',   label: 'Appointment reminder'    },
+  { value: 'payment_chase',          label: 'Payment follow-up'       },
+  { value: 'general',                label: 'General message'         },
+];
+
+function ReplyArea({
+  conv, interceptedIds, onIntercept, onSend,
+}: {
+  conv: Conversation;
+  interceptedIds: Set<string>;
+  onIntercept: () => void;
+  onSend: (channel: SendChannel, body: string, purpose: DraftPurpose) => Promise<void>;
+}) {
+  const isIntercepted = interceptedIds.has(conv.patient_id);
+  const isEscalated   = conv.status === 'escalated';
+  const canReply      = isIntercepted || isEscalated;
+  const agent         = AGENTS[conv.agent_handle];
+
+  const [channel, setChannel] = useState<SendChannel>('sms');
+  const [purpose, setPurpose] = useState<DraftPurpose>('follow_up');
+  const [body,    setBody]    = useState('');
+  const [drafting, setDrafting] = useState(false);
+  const [sending,  setSending]  = useState(false);
+  const [sent,     setSent]     = useState(false);
+
+  const handleDraft = async () => {
+    if (drafting) return;
+    setDrafting(true);
+    const res = await draftMessageWithAI(conv.patient_name, conv.last_treatment, channel, purpose);
+    if (res.success && res.draft) setBody(res.draft);
+    setDrafting(false);
+  };
+
+  const handleSend = async () => {
+    if (!body.trim() || sending) return;
+    setSending(true);
+    await onSend(channel, body.trim(), purpose);
+    setBody('');
+    setSent(true);
+    setTimeout(() => setSent(false), 3000);
+    setSending(false);
+  };
+
+  // AI-managed state — show prompt to intercept
+  if (!canReply) {
+    return (
+      <div className="flex-shrink-0 p-5" style={{ borderTop: `1px solid ${BORDER}` }}>
+        <div
+          className="rounded-xl p-4 text-center"
+          style={{ backgroundColor: `${agent.color}07`, border: `1px solid ${agent.color}22` }}
+        >
+          <div className="flex items-center justify-center gap-2 mb-1.5">
+            <Bot size={13} style={{ color: agent.color }} />
+            <span className="text-[12px] font-medium" style={{ color: NAVY }}>
+              {agent.name} is managing this conversation
+            </span>
+          </div>
+          <p className="text-[11px] mb-3" style={{ color: TER }}>
+            The AI agent is handling this patient&apos;s messages. Intercept to reply directly.
+          </p>
+          <button
+            onClick={onIntercept}
+            className="flex items-center gap-1.5 mx-auto px-4 py-2 rounded-lg text-[11px] font-medium"
+            style={{ backgroundColor: `${BLUE}0d`, border: `1px solid ${BLUE}28`, color: BLUE }}
+          >
+            <Shield size={12} /> Intercept and reply
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-3">
-      <MessageCircle className="w-10 h-10" style={{ color: '#C5BAF0' }} />
-      <p className="text-[12px]" style={{ color: '#96989B' }}>{label}</p>
+    <div className="flex-shrink-0" style={{ borderTop: `1px solid ${BORDER}` }}>
+      {/* Status bar */}
+      <div
+        className="flex items-center justify-between px-5 py-2"
+        style={{ backgroundColor: `${BLUE}06`, borderBottom: `1px solid ${BORDER}` }}
+      >
+        <div className="flex items-center gap-1.5">
+          <Shield size={11} style={{ color: BLUE }} />
+          <span className="text-[10px] font-medium" style={{ color: BLUE }}>
+            You are managing this conversation
+          </span>
+        </div>
+        <select
+          className="text-[10px] rounded-md px-2 py-1 focus:outline-none"
+          style={{ backgroundColor: BG, border: `1px solid ${BORDER}`, color: SEC }}
+          value={purpose}
+          onChange={e => setPurpose(e.target.value as DraftPurpose)}
+        >
+          {PURPOSE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+      </div>
+
+      {/* Channel selector */}
+      <div className="flex items-center gap-2 px-5 py-2.5" style={{ borderBottom: `1px solid ${BORDER}` }}>
+        {(['sms', 'email', 'whatsapp'] as SendChannel[]).map(ch => {
+          const cfg  = CHANNELS[ch as ChannelKey];
+          const Icon = cfg.Icon;
+          return (
+            <button
+              key={ch}
+              onClick={() => setChannel(ch)}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium transition-colors"
+              style={{
+                backgroundColor: channel === ch ? `${cfg.color}14` : 'transparent',
+                border:          `1px solid ${channel === ch ? cfg.color + '40' : BORDER}`,
+                color:           channel === ch ? cfg.color : MUT,
+              }}
+            >
+              <Icon size={10} /> {cfg.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Compose area */}
+      <div className="px-5 py-3.5 space-y-3">
+        <textarea
+          className="w-full px-3.5 py-3 rounded-xl text-[12px] leading-relaxed resize-none focus:outline-none"
+          style={{ backgroundColor: BG, border: `1px solid ${BORDER}`, color: NAVY, minHeight: 76 }}
+          placeholder="Type your reply..."
+          value={body}
+          onChange={e => setBody(e.target.value)}
+          onFocus={e  => { (e.target as HTMLTextAreaElement).style.borderColor = '#A8C4FF'; }}
+          onBlur={e   => { (e.target as HTMLTextAreaElement).style.borderColor = BORDER;    }}
+        />
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleDraft}
+            disabled={drafting}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-medium transition-colors"
+            style={{ backgroundColor: `${TEAL}0d`, border: `1px solid ${TEAL}28`, color: drafting ? MUT : TEAL }}
+          >
+            {drafting ? <Loader2 size={11} className="animate-spin" /> : <Bot size={11} />}
+            {drafting ? 'Drafting...' : 'AI Draft'}
+          </button>
+
+          <div className="flex-1" />
+
+          {channel === 'sms' && (
+            <span className="text-[9px] tabular-nums" style={{ color: body.length > 160 ? RED : MUT }}>
+              {body.length}/160
+            </span>
+          )}
+
+          <button
+            onClick={handleSend}
+            disabled={sending || !body.trim()}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[11px] font-semibold transition-colors"
+            style={{
+              backgroundColor: sent ? `${GREEN}10` : body.trim() ? `${BLUE}10` : 'transparent',
+              border:  `1px solid ${sent ? GREEN + '35' : body.trim() ? BLUE + '30' : BORDER}`,
+              color:   sent ? GREEN : body.trim() ? BLUE : MUT,
+              cursor:  !body.trim() ? 'not-allowed' : 'pointer',
+            }}
+          >
+            <AnimatePresence mode="wait">
+              {sent ? (
+                <motion.span key="ok" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-1">
+                  <CheckCircle2 size={11} /> Sent
+                </motion.span>
+              ) : sending ? (
+                <motion.span key="spin" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-1">
+                  <Loader2 size={11} className="animate-spin" /> Sending...
+                </motion.span>
+              ) : (
+                <motion.span key="send" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-1">
+                  <Send size={11} /> Send
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -292,364 +751,328 @@ function EmptyState({ label }: { label: string }) {
 // =============================================================================
 
 export default function BridgePage() {
+  const router       = useRouter();
   const searchParams = useSearchParams();
-  const userId       = searchParams.get('userId') ?? '';
+  const urlUserId    = searchParams.get('userId');
 
-  const [profile,    setProfile]    = useState<StaffProfile | null>(null);
-  const [brandColor, setBrandColor] = useState('#0058E6');
-  const [patients,        setPatients]        = useState<PatientSummary[]>([]);
-  const [search,          setSearch]          = useState('');
-  const [selectedPatient, setSelectedPatient] = useState<PatientSummary | null>(null);
-  const [timeline,        setTimeline]        = useState<TimelineItem[]>([]);
-  const [timelineFilter,  setTimelineFilter]  = useState<TimelineFilter>('all');
-  const [expandedItems,   setExpandedItems]   = useState<Set<string>>(new Set());
-  const [timelineLoading, setTimelineLoading] = useState(false);
-  const [compose, setCompose] = useState<{ channel: SendChannel; purpose: DraftPurpose; body: string }>(
-    { channel: 'sms', purpose: 'general', body: '' }
-  );
-  const [sending,     setSending]     = useState(false);
-  const [drafting,    setDrafting]    = useState(false);
-  const [sendSuccess, setSendSuccess] = useState(false);
+  const [userId,      setUserId]      = useState<string | null>(urlUserId);
+  const [profile,     setProfile]     = useState<StaffProfile | null>(null);
+  const [convs,       setConvs]       = useState<Conversation[]>([]);
+  const [selectedId,  setSelectedId]  = useState<string | null>(null);
+  const [timeline,    setTimeline]    = useState<TimelineItem[]>([]);
+  const [expanded,    setExpanded]    = useState<Set<string>>(new Set());
+  const [intercepted, setIntercepted] = useState<Set<string>>(new Set());
+  const [filter,      setFilter]      = useState<'all' | 'attention' | 'orion' | 'aria'>('all');
+  const [search,      setSearch]      = useState('');
   const [loading,     setLoading]     = useState(true);
-  const timelineRef = useRef<HTMLDivElement>(null);
+  const [threadLoading, setThreadLoading] = useState(false);
+  const threadRef = useRef<HTMLDivElement>(null);
 
+  const selectedConv = convs.find(c => c.patient_id === selectedId) ?? null;
+
+  // Initial load
   useEffect(() => {
-    if (!userId) return;
-    getStaffProfile('clinic', userId).then(r => {
-      if (r.success && r.data?.profile) { setProfile(r.data.profile); setBrandColor(r.data.profile.brandColor ?? '#0058E6'); }
+    (async () => {
+      let uid = urlUserId;
+      if (!uid) {
+        const fb = await getCurrentUser();
+        if (fb.success && fb.userId) uid = fb.userId;
+      }
+      if (!uid) { router.push('/login'); return; }
+      setUserId(uid);
+
+      const [profileRes, convList] = await Promise.all([
+        getStaffProfile('clinic', uid),
+        getConversations(),
+      ]);
+
+      if (profileRes.success && profileRes.data) setProfile(profileRes.data.profile);
+      setConvs(convList);
+      setLoading(false);
+    })();
+  }, [urlUserId, router]);
+
+  // Load thread when conversation selected
+  useEffect(() => {
+    if (!selectedId) return;
+    setThreadLoading(true);
+    setTimeline([]);
+    setExpanded(new Set());
+    getPatientTimeline(selectedId).then(items => {
+      setTimeline(items);
+      setThreadLoading(false);
     });
-    getPatientList().then(list => { setPatients(list); setLoading(false); });
-  }, [userId]);
+  }, [selectedId]);
 
+  // Scroll to bottom when messages load
   useEffect(() => {
-    if (!selectedPatient) return;
-    setTimelineLoading(true); setTimeline([]); setExpandedItems(new Set());
-    getPatientTimeline(selectedPatient.id).then(items => { setTimeline(items); setTimelineLoading(false); });
-  }, [selectedPatient]);
+    if (threadRef.current && timeline.length > 0) {
+      threadRef.current.scrollTop = threadRef.current.scrollHeight;
+    }
+  }, [timeline]);
 
-  useEffect(() => { if (timelineRef.current) timelineRef.current.scrollTop = 0; }, [selectedPatient]);
+  const attentionCount = convs.filter(c => c.status === 'escalated').length;
 
-  const filteredPatients = useMemo(() => {
-    if (!search) return patients;
-    const q = search.toLowerCase();
-    return patients.filter(p => p.full_name.toLowerCase().includes(q) || (p.phone ?? '').includes(q) || (p.email ?? '').toLowerCase().includes(q));
-  }, [patients, search]);
+  const filteredConvs = convs.filter(c => {
+    const matchSearch = !search || c.patient_name.toLowerCase().includes(search.toLowerCase())
+      || (c.patient_email ?? '').toLowerCase().includes(search.toLowerCase());
+    const matchFilter = filter === 'all'       ? true
+      : filter === 'attention'                 ? c.status === 'escalated'
+      : filter === 'orion'                     ? c.agent_handle === 'orion'
+      : c.agent_handle === 'aria';
+    return matchSearch && matchFilter;
+  });
 
-  const filteredTimeline = useMemo(() => {
-    if (timelineFilter === 'all') return timeline;
-    return timeline.filter(item => FILTER_MATCH[timelineFilter].includes(item.source));
-  }, [timeline, timelineFilter]);
-
-  const groupedTimeline = useMemo(() => groupByDate(filteredTimeline), [filteredTimeline]);
-
-  const filterCounts = useMemo<Record<TimelineFilter, number>>(() => ({
-    all:        timeline.length,
-    voice:      timeline.filter(i => FILTER_MATCH.voice.includes(i.source)).length,
-    agent:      timeline.filter(i => FILTER_MATCH.agent.includes(i.source)).length,
-    messages:   timeline.filter(i => FILTER_MATCH.messages.includes(i.source)).length,
-    automation: timeline.filter(i => FILTER_MATCH.automation.includes(i.source)).length,
-    cliniko:    timeline.filter(i => FILTER_MATCH.cliniko.includes(i.source)).length,
-  }), [timeline]);
+  const groupedTimeline = groupByDate(timeline);
 
   function toggleExpand(id: string) {
-    setExpandedItems(prev => { const next = new Set(prev); if (next.has(id)) { next.delete(id); } else { next.add(id); } return next; });
+    setExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
   }
 
-  async function handleSelectPatient(patient: PatientSummary) {
-    setSelectedPatient(patient); setTimelineFilter('all'); setCompose(c => ({ ...c, body: '' })); setSendSuccess(false);
+  function handleIntercept(patientId: string) {
+    setIntercepted(prev => new Set(prev).add(patientId));
   }
 
-  async function handleAIDraft() {
-    if (!selectedPatient || drafting) return;
-    setDrafting(true);
-    const res = await draftMessageWithAI(selectedPatient.full_name, selectedPatient.last_treatment, compose.channel, compose.purpose);
-    if (res.success && res.draft) setCompose(c => ({ ...c, body: res.draft! }));
-    setDrafting(false);
+  function handleResume(patientId: string) {
+    setIntercepted(prev => {
+      const next = new Set(prev);
+      next.delete(patientId);
+      return next;
+    });
   }
 
-  async function handleSend() {
-    if (!selectedPatient || !compose.body.trim() || sending) return;
-    setSending(true);
+  async function handleSend(channel: SendChannel, body: string, purpose: DraftPurpose) {
+    if (!selectedConv) return;
+    const staffName = profile ? `${profile.firstName} ${profile.lastName}`.trim() : 'Staff';
     const res = await sendPatientMessage({
-      patient_id: selectedPatient.id, patient_name: selectedPatient.full_name,
-      patient_phone: selectedPatient.phone, patient_email: selectedPatient.email,
-      channel: compose.channel, body: compose.body.trim(),
-      sent_by_name: profile ? `${profile.firstName} ${profile.lastName}`.trim() : 'Staff',
-      purpose: compose.purpose,
+      patient_id:    selectedConv.patient_id,
+      patient_name:  selectedConv.patient_name,
+      patient_phone: selectedConv.patient_phone,
+      patient_email: selectedConv.patient_email,
+      channel, body,
+      sent_by_name: staffName,
+      purpose,
     });
     if (res.success) {
       const newItem: TimelineItem = {
-        id: `local-${Date.now()}`, source: compose.channel === 'email' ? 'email_out' : 'sms_out',
-        timestamp: new Date().toISOString(), title: compose.channel === 'email' ? 'Email sent' : 'SMS sent',
-        body: compose.body.trim(), direction: 'outbound', is_expandable: false,
-        metadata: { sent_by: profile ? `${profile.firstName} ${profile.lastName}`.trim() : 'Staff' },
+        id:            `local-${Date.now()}`,
+        source:        channel === 'email' ? 'email_out' : 'sms_out',
+        timestamp:     new Date().toISOString(),
+        title:         channel === 'email' ? 'Email sent' : 'SMS sent',
+        body,
+        direction:     'outbound',
+        is_expandable: false,
+        metadata:      { sent_by: staffName },
       };
-      setTimeline(prev => [newItem, ...prev]);
-      setCompose(c => ({ ...c, body: '' }));
-      setSendSuccess(true); setTimeout(() => setSendSuccess(false), 3000);
+      setTimeline(prev => [...prev, newItem]);
     }
-    setSending(false);
   }
 
-  const selColor = selectedPatient ? avatarColor(selectedPatient.full_name) : '#0058E6';
+  async function handleRefresh() {
+    if (!selectedId) return;
+    setThreadLoading(true);
+    const items = await getPatientTimeline(selectedId);
+    setTimeline(items);
+    setThreadLoading(false);
+  }
+
+  const brandColor = profile?.brandColor || BLUE;
+  if (loading || !profile) return <OrbLoader />;
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ backgroundColor: '#FAF7F2', paddingLeft: 'var(--nav-w, 240px)' }}>
-      <StaffNav profile={profile ?? FALLBACK} userId={userId} brandColor={brandColor} currentPath="Bridge" />
+    <div
+      className="flex h-screen overflow-hidden"
+      style={{ backgroundColor: BG, paddingLeft: 'var(--nav-w, 240px)' }}
+    >
+      <StaffNav profile={profile} userId={userId!} brandColor={brandColor} currentPath="Bridge" />
 
-      {/* ===== LEFT: PATIENT LIST ===== */}
-      <div className="w-[248px] flex-shrink-0 flex flex-col overflow-hidden" style={{ borderRight: '1px solid #EBE5FF' }}>
-        <div className="px-4 pt-5 pb-3" style={{ borderBottom: '1px solid #EBE5FF' }}>
-          <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-3" style={{ color: '#96989B' }}>
-            Patients
-            {patients.length > 0 && <span className="ml-2 px-1.5 py-0.5 rounded-md text-[8px]" style={{ backgroundColor: 'rgba(0,88,230,0.08)', color: '#96989B' }}>{patients.length}</span>}
-          </p>
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3" style={{ color: '#96989B' }} />
+      {/* ── LEFT PANEL — Conversation List ── */}
+      <div
+        className="w-[320px] flex-shrink-0 flex flex-col overflow-hidden"
+        style={{ borderRight: `1px solid ${BORDER}` }}
+      >
+        {/* Header */}
+        <div className="px-5 pt-6 pb-4 flex-shrink-0" style={{ borderBottom: `1px solid ${BORDER}` }}>
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.18em] mb-0.5" style={{ color: MUT }}>
+                Communications
+              </p>
+              <h1 className="text-[20px] font-semibold leading-tight" style={{ color: NAVY }}>Bridge</h1>
+            </div>
+            {attentionCount > 0 && (
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg"
+                style={{ backgroundColor: `${ORANGE}12`, border: `1px solid ${ORANGE}30` }}
+              >
+                <AlertTriangle size={11} style={{ color: ORANGE }} />
+                <span className="text-[11px] font-semibold" style={{ color: ORANGE }}>
+                  {attentionCount} need reply
+                </span>
+              </motion.div>
+            )}
+          </div>
+
+          {/* Search */}
+          <div className="relative mb-3">
+            <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: MUT }} />
             <input
-              className="w-full pl-7 pr-3 py-2 rounded-lg text-[11px] focus:outline-none"
-              style={{ backgroundColor: '#FAF7F2', border: '1px solid #EBE5FF', color: '#1A1035' }}
-              placeholder="Search patients…"
+              className="w-full pl-8 pr-3 py-2 rounded-lg text-[12px] focus:outline-none"
+              style={{ backgroundColor: 'rgba(0,88,230,0.03)', border: `1px solid ${BORDER}`, color: NAVY }}
+              placeholder="Search conversations..."
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
           </div>
-        </div>
-        <div className="flex-1 overflow-y-auto py-1">
-          {loading ? (
-            <div className="flex items-center justify-center py-12"><Loader2 className="w-4 h-4 animate-spin" style={{ color: '#96989B' }} /></div>
-          ) : filteredPatients.length === 0 ? (
-            <p className="text-center text-[11px] py-8" style={{ color: '#96989B' }}>No patients found</p>
-          ) : filteredPatients.map(p => <PatientRow key={p.id} patient={p} selected={selectedPatient?.id === p.id} onClick={() => handleSelectPatient(p)} />)}
-        </div>
-      </div>
 
-      {/* ===== CENTER: SECTION B — INTERACTION LOG ===== */}
-      <div className="flex-1 flex flex-col overflow-hidden" style={{ borderRight: '1px solid #EBE5FF' }}>
-
-        {/* Header */}
-        <div className="px-5 py-3.5 flex items-center justify-between flex-shrink-0" style={{ borderBottom: '1px solid #EBE5FF' }}>
-          <div className="flex items-center gap-3">
-            <div className="px-2 py-0.5 rounded-md" style={{ backgroundColor: 'rgba(0,88,230,0.08)', border: '1px solid #EBE5FF' }}>
-              <span className="text-[8px] uppercase tracking-[0.16em] font-semibold" style={{ color: '#96989B' }}>Section B</span>
-            </div>
-            <span className="text-[13px] font-semibold" style={{ color: '#1A1035' }}>Interaction Log</span>
-            {selectedPatient && <span className="text-[13px]" style={{ color: '#96989B' }}>· {selectedPatient.full_name}</span>}
-          </div>
-          {selectedPatient && (
-            <button
-              onClick={() => { setTimelineLoading(true); getPatientTimeline(selectedPatient.id).then(items => { setTimeline(items); setTimelineLoading(false); }); }}
-              className="p-1.5 rounded-lg transition-colors" style={{ color: '#96989B' }}
-              onMouseEnter={e => (e.currentTarget.style.color = '#5A6475')}
-              onMouseLeave={e => (e.currentTarget.style.color = '#96989B')}
-              title="Refresh"
-            ><RefreshCw className="w-3.5 h-3.5" /></button>
-          )}
-        </div>
-
-        {/* Patient mini-card */}
-        {selectedPatient && (
-          <div className="px-5 py-3 flex items-center gap-3 flex-shrink-0" style={{ borderBottom: '1px solid #EBE5FF', backgroundColor: `${selColor}05` }}>
-            <div className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
-              style={{ backgroundColor: `${selColor}14`, color: selColor, border: `1px solid ${selColor}25` }}>
-              {getInitials(selectedPatient.full_name)}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-semibold" style={{ color: '#1A1035' }}>{selectedPatient.full_name}</p>
-              <div className="flex items-center gap-3 mt-0.5">
-                {selectedPatient.phone && <span className="flex items-center gap-1 text-[10px]" style={{ color: '#5A6475' }}><Phone className="w-2.5 h-2.5" />{selectedPatient.phone}</span>}
-                {selectedPatient.email && <span className="flex items-center gap-1 text-[10px]" style={{ color: '#5A6475' }}><Mail className="w-2.5 h-2.5" />{selectedPatient.email}</span>}
-              </div>
-            </div>
-            <div className="text-right flex-shrink-0">
-              {selectedPatient.last_treatment && <p className="text-[10px] font-medium" style={{ color: '#3D4451' }}>{selectedPatient.last_treatment}</p>}
-              <p className="text-[9px] mt-0.5" style={{ color: '#96989B' }}>{selectedPatient.interaction_count} interactions</p>
-            </div>
-          </div>
-        )}
-
-        {/* Filters */}
-        {selectedPatient && (
-          <div className="px-5 py-2.5 flex items-center gap-1.5 overflow-x-auto flex-shrink-0" style={{ borderBottom: '1px solid #EBE5FF' }}>
-            {(Object.keys(FILTER_MATCH) as TimelineFilter[]).map(f => (
-              <button key={f} onClick={() => setTimelineFilter(f)}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-semibold uppercase tracking-[0.10em] transition-all whitespace-nowrap"
+          {/* Filter tabs */}
+          <div className="flex gap-1">
+            {[
+              { key: 'all',       label: 'All'    },
+              { key: 'attention', label: attentionCount > 0 ? `Reply (${attentionCount})` : 'Reply' },
+              { key: 'orion',     label: 'Orion'  },
+              { key: 'aria',      label: 'Aria'   },
+            ].map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setFilter(tab.key as typeof filter)}
+                className="flex-1 py-1.5 rounded-lg text-[10px] font-medium transition-colors"
                 style={{
-                  backgroundColor: timelineFilter === f ? 'rgba(0,88,230,0.12)' : 'transparent',
-                  color:           timelineFilter === f ? '#0058E6' : '#96989B',
-                  border:          timelineFilter === f ? '1px solid #C5BAF0' : '1px solid transparent',
-                }}>
-                {f === 'all' ? 'All' : f}
-                {filterCounts[f] > 0 && <span className="px-1 rounded text-[7px]" style={{ backgroundColor: timelineFilter === f ? 'rgba(109,40,217,0.12)' : 'rgba(0,88,230,0.06)', color: timelineFilter === f ? '#0058E6' : '#96989B' }}>{filterCounts[f]}</span>}
+                  backgroundColor: filter === tab.key ? NAVY : 'transparent',
+                  color:           filter === tab.key ? BG   : MUT,
+                  border:          `1px solid ${filter === tab.key ? NAVY : BORDER}`,
+                }}
+              >
+                {tab.label}
               </button>
             ))}
           </div>
-        )}
-
-        {/* Timeline */}
-        {!selectedPatient ? (
-          <EmptyState label="Select a patient to view their interaction history" />
-        ) : timelineLoading ? (
-          <div className="flex-1 flex items-center justify-center"><Loader2 className="w-5 h-5 animate-spin" style={{ color: '#96989B' }} /></div>
-        ) : groupedTimeline.length === 0 ? (
-          <EmptyState label="No interactions found for this filter" />
-        ) : (
-          <div ref={timelineRef} className="flex-1 overflow-y-auto px-5 py-5 space-y-6">
-            <AnimatePresence>
-              {groupedTimeline.map(group => (
-                <div key={group.label}>
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="flex-1 h-px" style={{ backgroundColor: '#EBE5FF' }} />
-                    <span className="text-[9px] uppercase tracking-[0.14em] font-medium px-2" style={{ color: '#96989B' }}>{group.label}</span>
-                    <div className="flex-1 h-px" style={{ backgroundColor: '#EBE5FF' }} />
-                  </div>
-                  <div className="space-y-3">
-                    {group.items.map(item =>
-                      item.direction === 'system'
-                        ? <TimelineItemCard key={item.id} item={item} expanded={expandedItems.has(item.id)} onToggle={() => toggleExpand(item.id)} />
-                        : <MessageBubble key={item.id} item={item} />
-                    )}
-                  </div>
-                </div>
-              ))}
-            </AnimatePresence>
-            <div className="h-4" />
-          </div>
-        )}
-      </div>
-
-      {/* ===== RIGHT: SECTION A — OUTREACH ===== */}
-      <div className="w-[308px] flex-shrink-0 flex flex-col overflow-hidden">
-        <div className="px-5 py-3.5 flex items-center gap-3 flex-shrink-0" style={{ borderBottom: '1px solid #EBE5FF' }}>
-          <div className="px-2 py-0.5 rounded-md" style={{ backgroundColor: 'rgba(0,88,230,0.08)', border: '1px solid #EBE5FF' }}>
-            <span className="text-[8px] uppercase tracking-[0.16em] font-semibold" style={{ color: '#96989B' }}>Section A</span>
-          </div>
-          <span className="text-[13px] font-semibold" style={{ color: '#1A1035' }}>Outreach</span>
         </div>
 
-        {!selectedPatient ? (
-          <EmptyState label="Select a patient to send a message" />
-        ) : (
-          <div className="flex-1 flex flex-col overflow-y-auto">
-            <div className="p-5 space-y-5">
-              {/* TO */}
-              <div>
-                <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-2" style={{ color: '#96989B' }}>To</p>
-                <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl" style={{ border: '1px solid #EBE5FF', backgroundColor: 'transparent' }}>
-                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
-                    style={{ backgroundColor: `${selColor}14`, color: selColor }}>
-                    {getInitials(selectedPatient.full_name)}
-                  </div>
-                  <div>
-                    <p className="text-[12px] font-medium" style={{ color: '#1A1035' }}>{selectedPatient.full_name}</p>
-                    <p className="text-[10px] mt-0.5" style={{ color: '#96989B' }}>{selectedPatient.phone ?? selectedPatient.email ?? 'No contact details'}</p>
-                  </div>
-                </div>
-              </div>
+        {/* Conversation list */}
+        <div className="flex-1 overflow-y-auto">
+          <AnimatePresence>
+            {filteredConvs.length === 0 ? (
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-center text-[12px] py-10"
+                style={{ color: MUT }}
+              >
+                No conversations found
+              </motion.p>
+            ) : (
+              filteredConvs.map(conv => (
+                <motion.div key={conv.patient_id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                  <ConvRow
+                    conv={conv}
+                    selected={selectedId === conv.patient_id}
+                    interceptedIds={intercepted}
+                    onClick={() => setSelectedId(conv.patient_id)}
+                  />
+                </motion.div>
+              ))
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
 
-              {/* CHANNEL */}
-              <div>
-                <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-2" style={{ color: '#96989B' }}>Channel</p>
-                <div className="flex gap-2">
-                  {(['sms', 'email', 'whatsapp'] as SendChannel[]).map(ch => (
-                    <button key={ch} onClick={() => ch !== 'whatsapp' && setCompose(c => ({ ...c, channel: ch, body: '' }))}
-                      className="flex-1 py-2 rounded-xl text-[10px] font-semibold uppercase tracking-[0.08em] transition-all"
-                      style={{
-                        backgroundColor: compose.channel === ch ? 'rgba(0,88,230,0.10)' : 'transparent',
-                        color:           compose.channel === ch ? '#0058E6' : '#96989B',
-                        border:          compose.channel === ch ? '1px solid #C5BAF0' : '1px solid #EBE5FF',
-                        opacity:         ch === 'whatsapp' ? 0.4 : 1,
-                        cursor:          ch === 'whatsapp' ? 'not-allowed' : 'pointer',
-                      }}>
-                      {ch === 'sms' ? 'SMS' : ch === 'email' ? 'Email' : 'WA'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* PURPOSE */}
-              <div>
-                <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-2" style={{ color: '#96989B' }}>Purpose</p>
-                <select className="w-full px-3 py-2.5 rounded-xl text-[11px] focus:outline-none appearance-none"
-                  style={{ backgroundColor: '#FAF7F2', border: '1px solid #EBE5FF', color: '#1A1035' }}
-                  value={compose.purpose}
-                  onChange={e => setCompose(c => ({ ...c, purpose: e.target.value as DraftPurpose, body: '' }))}>
-                  {(Object.entries(PURPOSE_LABELS) as [DraftPurpose, string][]).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                </select>
-              </div>
-
-              {/* MESSAGE */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-[8px] uppercase tracking-[0.28em] font-semibold" style={{ color: '#96989B' }}>Message</p>
-                  {compose.channel === 'sms' && (
-                    <p className="text-[9px] tabular-nums" style={{ color: compose.body.length > 160 ? '#DC2626' : '#96989B' }}>
-                      {compose.body.length}/160
-                    </p>
-                  )}
-                </div>
-                <textarea
-                  className="w-full px-3 py-2.5 rounded-xl text-[11px] leading-relaxed resize-none focus:outline-none transition-colors"
-                  style={{ backgroundColor: '#FAF7F2', border: '1px solid #EBE5FF', color: '#1A1035', minHeight: compose.channel === 'email' ? '120px' : '80px' }}
-                  onFocus={e => (e.target.style.borderColor = '#D5CCFF')}
-                  onBlur={e  => (e.target.style.borderColor = '#EBE5FF')}
-                  placeholder={compose.channel === 'email' ? 'Subject: …\n\nMessage body…' : 'Type your message…'}
-                  value={compose.body}
-                  onChange={e => setCompose(c => ({ ...c, body: e.target.value }))}
-                />
-              </div>
-
-              {/* ACTIONS */}
-              <div className="flex items-center gap-2">
-                <button onClick={handleAIDraft} disabled={drafting}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-semibold transition-all flex-1"
-                  style={{ backgroundColor: 'rgba(0,88,230,0.06)', border: '1px solid #EBE5FF', color: drafting ? '#96989B' : '#0058E6' }}
-                  onMouseEnter={e => { if (!drafting) (e.currentTarget as HTMLButtonElement).style.borderColor = '#C5BAF0'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#EBE5FF'; }}>
-                  {drafting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                  {drafting ? 'Drafting…' : 'AI Draft'}
-                </button>
-                <button onClick={handleSend} disabled={sending || !compose.body.trim()}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[10px] font-bold transition-all"
-                  style={{
-                    backgroundColor: sendSuccess ? 'rgba(5,150,105,0.10)' : (compose.body.trim() ? 'rgba(0,88,230,0.10)' : 'transparent'),
-                    border:          sendSuccess ? '1px solid rgba(5,150,105,0.30)' : (compose.body.trim() ? '1px solid #C5BAF0' : '1px solid #EBE5FF'),
-                    color:           sendSuccess ? '#059669' : (compose.body.trim() ? '#0058E6' : '#96989B'),
-                    cursor:          !compose.body.trim() ? 'not-allowed' : 'pointer',
-                  }}>
-                  <AnimatePresence mode="wait">
-                    {sendSuccess ? <motion.span key="ok" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Sent</motion.span>
-                    : sending    ? <motion.span key="spin" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Sending…</motion.span>
-                    :              <motion.span key="send" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-1"><Send className="w-3 h-3" /> Send</motion.span>}
-                  </AnimatePresence>
-                </button>
-              </div>
-
-              <div className="h-px" style={{ backgroundColor: '#EBE5FF' }} />
-
-              {/* RECENTLY SENT */}
-              {timeline.filter(i => ['sms_out', 'email_out'].includes(i.source)).length > 0 && (
-                <div>
-                  <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-3" style={{ color: '#96989B' }}>Recently Sent</p>
-                  <div className="space-y-2">
-                    {timeline.filter(i => ['sms_out', 'email_out'].includes(i.source)).slice(0, 4).map(item => (
-                      <div key={item.id} className="px-3 py-2.5 rounded-xl" style={{ border: '1px solid #EBE5FF', backgroundColor: 'transparent' }}>
-                        <div className="flex items-center justify-between mb-1">
-                          <div className="flex items-center gap-1.5">
-                            {item.source === 'email_out' ? <Mail className="w-2.5 h-2.5" style={{ color: '#96989B' }} /> : <MessageSquare className="w-2.5 h-2.5" style={{ color: '#96989B' }} />}
-                            <span className="text-[9px] font-semibold uppercase tracking-[0.08em]" style={{ color: '#96989B' }}>{item.source === 'email_out' ? 'Email' : 'SMS'}</span>
-                            {item.metadata?.sent_by && <span className="text-[9px]" style={{ color: '#96989B' }}>· {String(item.metadata.sent_by)}</span>}
-                          </div>
-                          <span className="text-[8px]" style={{ color: '#96989B' }}>{fmtTime(item.timestamp)}</span>
-                        </div>
-                        <p className="text-[10px] leading-relaxed line-clamp-2" style={{ color: '#5A6475' }}>{item.body}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+      {/* ── RIGHT PANEL — Thread ── */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {!selectedConv ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-3">
+            <MessageCircle size={44} style={{ color: BORDER }} />
+            <p className="text-[14px] font-medium" style={{ color: MUT }}>Select a conversation</p>
+            <p className="text-[12px]" style={{ color: MUT }}>
+              {convs.length} active {convs.length === 1 ? 'thread' : 'threads'} across all channels
+            </p>
           </div>
+        ) : (
+          <>
+            {/* Thread header */}
+            <ThreadHeader
+              conv={selectedConv}
+              interceptedIds={intercepted}
+              onIntercept={() => handleIntercept(selectedConv.patient_id)}
+              onResume={() => handleResume(selectedConv.patient_id)}
+              onViewProfile={() => router.push(`/staff/patients/${selectedConv.patient_id}?userId=${userId}`)}
+            />
+
+            {/* Escalation banner */}
+            {selectedConv.status === 'escalated' && !intercepted.has(selectedConv.patient_id) && (
+              <EscalationBanner
+                agentName={AGENTS[selectedConv.agent_handle].name}
+                onIntercept={() => handleIntercept(selectedConv.patient_id)}
+              />
+            )}
+
+            {/* Thread messages */}
+            {threadLoading ? (
+              <div className="flex-1 flex items-center justify-center">
+                <Loader2 size={20} className="animate-spin" style={{ color: MUT }} />
+              </div>
+            ) : (
+              <div ref={threadRef} className="flex-1 overflow-y-auto py-6">
+                {groupedTimeline.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full gap-2">
+                    <MessageCircle size={32} style={{ color: BORDER }} />
+                    <p className="text-[12px]" style={{ color: MUT }}>No messages yet</p>
+                  </div>
+                ) : (
+                  groupedTimeline.map(group => (
+                    <div key={group.label} className="mb-4">
+                      {/* Date divider */}
+                      <div className="flex items-center gap-3 px-6 mb-4">
+                        <div className="flex-1 h-px" style={{ backgroundColor: BORDER }} />
+                        <span className="text-[10px] uppercase tracking-[0.12em]" style={{ color: MUT }}>
+                          {group.label}
+                        </span>
+                        <div className="flex-1 h-px" style={{ backgroundColor: BORDER }} />
+                      </div>
+
+                      {/* Messages */}
+                      <div className="space-y-3">
+                        {group.items.map(item => (
+                          <ThreadMessage
+                            key={item.id}
+                            item={item}
+                            conv={selectedConv}
+                            expandedSet={expanded}
+                            onToggle={toggleExpand}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))
+                )}
+
+                {/* Refresh button at bottom */}
+                <div className="flex justify-center mt-4">
+                  <button
+                    onClick={handleRefresh}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] transition-colors"
+                    style={{ color: MUT, border: `1px solid ${BORDER}` }}
+                  >
+                    <RefreshCw size={10} /> Refresh
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Reply area */}
+            <ReplyArea
+              conv={selectedConv}
+              interceptedIds={intercepted}
+              onIntercept={() => handleIntercept(selectedConv.patient_id)}
+              onSend={handleSend}
+            />
+          </>
         )}
       </div>
     </div>
