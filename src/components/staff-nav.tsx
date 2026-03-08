@@ -10,19 +10,16 @@ import {
   Link2,
   Bot,
   Mic,
-  Zap,
   UserCircle,
   LogOut,
   BarChart2,
   Shield,
-  FileText,
   Settings,
   ChevronLeft,
   CalendarDays,
   LayoutGrid,
   Brain,
   Package,
-  Scale,
   BookOpen,
   ClipboardList,
   Building2,
@@ -92,11 +89,9 @@ export function StaffNav({
     {
       title: 'Intelligence',
       items: [
-        { label: 'Analytics',        href: `/staff/analytics?userId=${userId}`,  icon: Brain },
-        { label: 'Judgement Engine', href: `/staff/judgement?userId=${userId}`,  icon: Scale },
-        { label: 'Agents',           href: `/staff/agents?userId=${userId}`,     icon: Bot },
-        { label: 'Receptionist',     href: `/staff/voice?userId=${userId}`,      icon: Mic },
-        { label: 'Bridge',           href: `/staff/bridge?userId=${userId}`,     icon: Link2 },
+        { label: 'Agents',       href: `/staff/agents?userId=${userId}`,     icon: Bot },
+        { label: 'Receptionist', href: `/staff/voice?userId=${userId}`,      icon: Mic },
+        { label: 'Bridge',       href: `/staff/bridge?userId=${userId}`,     icon: Link2 },
       ],
     },
     {
@@ -111,9 +106,9 @@ export function StaffNav({
     {
       title: 'Governance',
       items: [
-        { label: 'Compliance',    href: `/staff/compliance?userId=${userId}`,  icon: Shield },
+        { label: 'Analytics',      href: `/staff/governance?userId=${userId}`, icon: Brain },
+        { label: 'Compliance',     href: `/staff/compliance?userId=${userId}`, icon: Shield },
         { label: 'CPD & Learning', href: `/staff/learning?userId=${userId}`,   icon: GraduationCap },
-        { label: 'Reports',       href: `/staff/reports?userId=${userId}`,     icon: FileText },
       ],
     },
   ];
