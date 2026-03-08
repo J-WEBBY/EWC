@@ -171,6 +171,7 @@ export interface ClinicKPIMetrics {
 export interface StaffGoalsSummary {
   userId:       string;
   displayName:  string;
+  first_name:   string;
   roleName:     string;
   departmentName: string | null;
   goals_total:  number;
@@ -181,6 +182,14 @@ export interface StaffGoalsSummary {
   completion_rate: number;
   compliance_score: number;
   appointments_mtd: number;
+}
+
+export interface MonthlyStatPoint {
+  month: string;       // 'Jan 25'
+  iso:   string;       // '2025-01'
+  appointments: number;
+  goals_completed: number;
+  est_revenue: number; // appointments × avg £130
 }
 
 // =============================================================================
@@ -447,6 +456,7 @@ export async function getAllStaffGoalsSummary(): Promise<StaffGoalsSummary[]> {
         userId,
         displayName:     (u.display_name as string | null)
           ?? `${u.first_name as string} ${u.last_name as string}`,
+        first_name:      (u.first_name as string) ?? '',
         roleName:        role,
         departmentName:  dept,
         goals_total:     goals.length,
@@ -462,6 +472,70 @@ export async function getAllStaffGoalsSummary(): Promise<StaffGoalsSummary[]> {
   );
 
   return summaries;
+}
+
+// =============================================================================
+// MONTHLY PERFORMANCE HISTORY
+// =============================================================================
+
+const AVG_APPT_VALUE = 130; // £ per appointment (EWC average)
+
+export async function getStaffMonthlyStats(
+  firstName: string,
+  monthsBack: number = 24,
+): Promise<MonthlyStatPoint[]> {
+  const db = createSovereignClient();
+  const now   = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth() - monthsBack + 1, 1);
+
+  // Fetch appointment starts_at for this practitioner
+  const { data: apptData } = await db
+    .from('cliniko_appointments')
+    .select('starts_at')
+    .ilike('practitioner_name', `%${firstName}%`)
+    .gte('starts_at', start.toISOString())
+    .neq('status', 'Cancelled');
+
+  // Build month buckets
+  const points: MonthlyStatPoint[] = [];
+  for (let i = monthsBack - 1; i >= 0; i--) {
+    const d   = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const label = d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
+    const appts = (apptData ?? []).filter(r => r.starts_at?.startsWith(iso)).length;
+    points.push({
+      month:           label,
+      iso,
+      appointments:    appts,
+      goals_completed: 0,        // updated below if we have goal data
+      est_revenue:     appts * AVG_APPT_VALUE,
+    });
+  }
+  return points;
+}
+
+// Fetch all-time appointment totals for a staff member (since a given date)
+export async function getStaffAllTimeTotals(
+  firstName: string,
+  sinceDate?: string,
+): Promise<{ total_appointments: number; total_est_revenue: number; earliest_appointment: string | null }> {
+  const db = createSovereignClient();
+  let query = db
+    .from('cliniko_appointments')
+    .select('starts_at', { count: 'exact' })
+    .ilike('practitioner_name', `%${firstName}%`)
+    .neq('status', 'Cancelled');
+
+  if (sinceDate) query = query.gte('starts_at', sinceDate);
+
+  const { count, data } = await query.order('starts_at', { ascending: true }).limit(1);
+  const total = count ?? 0;
+  const earliest = data?.[0]?.starts_at ?? null;
+  return {
+    total_appointments: total,
+    total_est_revenue:  total * AVG_APPT_VALUE,
+    earliest_appointment: earliest,
+  };
 }
 
 // =============================================================================

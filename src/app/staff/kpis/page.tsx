@@ -12,9 +12,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   CheckCircle2, Circle, Plus, ChevronRight,
   TrendingUp, TrendingDown, Bell, AlertCircle, CheckCheck,
-  Target, Users, ShieldCheck, BarChart2, Sparkles,
+  Target, Users, ShieldCheck, BarChart2,
   Clock, Calendar, Flag, Trash2, X, ArrowRight,
-  Activity, Award, type LucideIcon,
+  Activity, Award, Edit2, type LucideIcon,
 } from 'lucide-react';
 import { StaffNav } from '@/components/staff-nav';
 import OrbLoader from '@/components/orb-loader';
@@ -25,8 +25,10 @@ import {
   getMyGoals, createGoal, updateGoalProgress, deleteGoal,
   getMyComplianceItems, seedComplianceItemsForUser,
   getPersonalKPIMetrics, getAllStaffGoalsSummary,
+  getStaffMonthlyStats, getStaffAllTimeTotals,
   type StaffGoal, type ComplianceItem,
   type PersonalKPIMetrics, type StaffGoalsSummary,
+  type MonthlyStatPoint,
   type GoalCategory, type GoalUnit,
 } from '@/lib/actions/kpi-goals';
 import { getClinikoStats } from '@/lib/actions/cliniko';
@@ -186,6 +188,70 @@ function SectionHead({ label, right }: { label: string; right?: React.ReactNode 
   );
 }
 
+/** Mini animated orb — replaces Sparkles icon in AI briefing sections */
+function MiniOrb() {
+  return (
+    <div className="relative flex items-center justify-center flex-shrink-0" style={{ width: 20, height: 20, marginTop: 1 }}>
+      <motion.div className="absolute rounded-full"
+        style={{ width: 18, height: 18, background: `radial-gradient(circle, ${BLUE}22 0%, transparent 70%)` }}
+        animate={{ opacity: [0.5, 1, 0.5], scale: [0.9, 1.1, 0.9] }}
+        transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }} />
+      <div className="rounded-full" style={{ width: 7, height: 7, background: `radial-gradient(circle at 35% 35%, #4A8FFF, ${BLUE})`, boxShadow: `0 0 5px ${BLUE}90` }} />
+    </div>
+  );
+}
+
+/** SVG polyline chart for monthly history */
+function HistoryChart({
+  data, valueKey, color = BLUE, height = 60,
+}: {
+  data: MonthlyStatPoint[];
+  valueKey: 'appointments' | 'est_revenue' | 'goals_completed';
+  color?: string;
+  height?: number;
+}) {
+  if (data.length < 2) return null;
+  const vals = data.map(d => d[valueKey]);
+  const max  = Math.max(...vals, 1);
+  const w    = 100; // viewBox units per point (scaled)
+  const pad  = 6;
+  const vw   = (data.length - 1) * w + pad * 2;
+  const vh   = height;
+
+  const pts  = vals.map((v, i) => `${i * w + pad},${vh - pad - ((v / max) * (vh - pad * 2))}`).join(' ');
+  const area = `${pad},${vh - pad} ` + pts + ` ${(data.length - 1) * w + pad},${vh - pad}`;
+
+  return (
+    <svg viewBox={`0 0 ${vw} ${vh}`} preserveAspectRatio="none" style={{ width: '100%', height }}>
+      <defs>
+        <linearGradient id={`hg-${color.slice(1)}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.18" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <polygon points={area} fill={`url(#hg-${color.slice(1)})`} />
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      {/* Last point dot */}
+      {vals.length > 0 && (
+        <circle
+          cx={(vals.length - 1) * w + pad}
+          cy={vh - pad - ((vals[vals.length - 1] / max) * (vh - pad * 2))}
+          r="3" fill={color} />
+      )}
+    </svg>
+  );
+}
+
+function fmtTenure(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  const months = Math.floor(ms / (1000 * 60 * 60 * 24 * 30.4));
+  if (months < 1)  return 'Less than a month';
+  if (months < 12) return `${months} month${months > 1 ? 's' : ''}`;
+  const years = Math.floor(months / 12);
+  const rem   = months % 12;
+  return `${years}yr${years > 1 ? 's' : ''}${rem > 0 ? ` ${rem}mo` : ''}`;
+}
+
 function NavTab({ label, icon: Icon, active, onClick, badge }: {
   label: string; icon: LucideIcon; active: boolean; onClick: () => void; badge?: number;
 }) {
@@ -294,7 +360,7 @@ function AddTaskModal({ userId, onClose, onAdded }: {
               <select value={category} onChange={e => setCategory(e.target.value as GoalCategory)}
                 className="w-full text-[12px] px-3 py-2.5 rounded-xl outline-none"
                 style={{ border: `1px solid ${BORDER}`, background: 'rgba(0,0,0,0.02)', color: NAVY }}>
-                {(['operations','compliance','engagement','finance','governance','welfare','communications','custom'] as GoalCategory[]).map(c => (
+                {(['operational','compliance','appointments','revenue','patients','training','personal','retention','acquisition'] as GoalCategory[]).map(c => (
                   <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
                 ))}
               </select>
@@ -333,8 +399,10 @@ function AddTaskModal({ userId, onClose, onAdded }: {
 }
 
 // =============================================================================
-// STAFF DETAIL PANEL (manager view)
+// STAFF DETAIL PANEL (manager view) — full history + value metrics
 // =============================================================================
+
+type DetailPeriod = '1m' | '3m' | '6m' | '1y' | 'all';
 
 function StaffDetailPanel({ staff, onClose }: { staff: StaffGoalsSummary; onClose: () => void }) {
   const compColor = staff.compliance_score >= 80 ? GREEN : staff.compliance_score >= 60 ? ORANGE : RED;
@@ -342,6 +410,50 @@ function StaffDetailPanel({ staff, onClose }: { staff: StaffGoalsSummary; onClos
   const perfScore = Math.round((goalPct * 0.4) + (staff.compliance_score * 0.4) + Math.min(staff.appointments_mtd * 2, 20));
   const perfColor = perfScore >= 70 ? GREEN : perfScore >= 50 ? ORANGE : RED;
   const insight   = teamInsight(staff);
+
+  const startKey = `ewc_start_${staff.userId}`;
+  const [startDate, setStartDate]   = useState<string>(() => {
+    if (typeof window === 'undefined') return '';
+    return localStorage.getItem(startKey) ?? '';
+  });
+  const [editingStart, setEditingStart] = useState(false);
+  const [startInput,   setStartInput]   = useState(startDate);
+
+  const [detailPeriod, setDetailPeriod] = useState<DetailPeriod>('6m');
+  const [history,      setHistory]      = useState<MonthlyStatPoint[]>([]);
+  const [allTime,      setAllTime]      = useState<{ total_appointments: number; total_est_revenue: number; earliest_appointment: string | null } | null>(null);
+  const [loadingHist,  setLoadingHist]  = useState(false);
+
+  useEffect(() => {
+    if (!staff.first_name) return;
+    setLoadingHist(true);
+    Promise.allSettled([
+      getStaffMonthlyStats(staff.first_name, 24),
+      getStaffAllTimeTotals(staff.first_name, startDate || undefined),
+    ]).then(([hRes, atRes]) => {
+      if (hRes.status === 'fulfilled') setHistory(hRes.value);
+      if (atRes.status === 'fulfilled') setAllTime(atRes.value);
+      setLoadingHist(false);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [staff.userId]);
+
+  const saveStart = () => {
+    localStorage.setItem(startKey, startInput);
+    setStartDate(startInput);
+    setEditingStart(false);
+    // Reload all-time totals with new start date
+    if (staff.first_name) {
+      getStaffAllTimeTotals(staff.first_name, startInput || undefined).then(setAllTime).catch(() => {});
+    }
+  };
+
+  // Slice history by selected period
+  const sliceMap: Record<DetailPeriod, number> = { '1m': 1, '3m': 3, '6m': 6, '1y': 12, 'all': 24 };
+  const histSlice = history.slice(-sliceMap[detailPeriod]);
+  const totAppts  = histSlice.reduce((s, p) => s + p.appointments, 0);
+  const totRev    = histSlice.reduce((s, p) => s + p.est_revenue, 0);
+  const peakMonth = histSlice.length > 0 ? histSlice.reduce((b, p) => p.appointments > b.appointments ? p : b, histSlice[0]) : null;
 
   return (
     <motion.div
@@ -352,19 +464,39 @@ function StaffDetailPanel({ staff, onClose }: { staff: StaffGoalsSummary; onClos
       <motion.div
         initial={{ x: 60 }} animate={{ x: 0 }} exit={{ x: 60 }}
         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-        className="h-full w-[440px] overflow-y-auto flex flex-col"
+        className="h-full w-[520px] overflow-y-auto flex flex-col"
         style={{ background: BG, borderLeft: `1px solid ${BORDER}` }}>
 
-        {/* Header */}
+        {/* ── Header ──────────────────────────────────────────────────────── */}
         <div className="px-6 pt-6 pb-4 flex items-start justify-between" style={{ borderBottom: `1px solid ${BORDER}` }}>
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl flex items-center justify-center font-black text-[14px]"
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center font-black text-[15px]"
               style={{ background: BLUE + '18', color: BLUE, border: `1px solid ${BLUE}28` }}>
               {staff.displayName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
             </div>
             <div>
-              <p className="text-[15px] font-bold" style={{ color: NAVY }}>{staff.displayName}</p>
+              <p className="text-[16px] font-bold" style={{ color: NAVY }}>{staff.displayName}</p>
               <p className="text-[11px]" style={{ color: TER }}>{staff.roleName}{staff.departmentName ? ` · ${staff.departmentName}` : ''}</p>
+              {/* Start date / tenure */}
+              <div className="flex items-center gap-1.5 mt-1">
+                {startDate ? (
+                  <>
+                    <span className="text-[10px]" style={{ color: MUTED }}>
+                      {fmtTenure(startDate)} at EWC · since {new Date(startDate).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}
+                    </span>
+                    <button onClick={() => { setStartInput(startDate); setEditingStart(true); }}
+                      className="p-0.5 rounded" style={{ color: MUTED }}>
+                      <Edit2 size={9} />
+                    </button>
+                  </>
+                ) : (
+                  <button onClick={() => { setStartInput(''); setEditingStart(true); }}
+                    className="text-[10px] flex items-center gap-1 px-2 py-0.5 rounded-lg"
+                    style={{ background: BLUE + '10', border: `1px solid ${BLUE}25`, color: BLUE }}>
+                    <Plus size={9} /> Set start date
+                  </button>
+                )}
+              </div>
             </div>
           </div>
           <button onClick={onClose} className="w-7 h-7 rounded-lg flex items-center justify-center"
@@ -373,54 +505,153 @@ function StaffDetailPanel({ staff, onClose }: { staff: StaffGoalsSummary; onClos
           </button>
         </div>
 
+        {/* ── Start date editor ────────────────────────────────────────────── */}
+        <AnimatePresence>
+          {editingStart && (
+            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden px-6 py-3 flex items-center gap-3" style={{ background: BLUE + '06', borderBottom: `1px solid ${BLUE}20` }}>
+              <p className="text-[11px] font-semibold shrink-0" style={{ color: NAVY }}>Employment start date</p>
+              <input type="date" value={startInput} onChange={e => setStartInput(e.target.value)}
+                className="text-[12px] px-3 py-1.5 rounded-lg outline-none flex-1"
+                style={{ border: `1px solid ${BORDER}`, background: BG, color: NAVY }} />
+              <button onClick={saveStart}
+                className="text-[11px] font-semibold px-3 py-1.5 rounded-lg"
+                style={{ background: BLUE + '14', border: `1px solid ${BLUE}30`, color: NAVY }}>
+                Save
+              </button>
+              <button onClick={() => setEditingStart(false)}
+                className="text-[11px] px-2 py-1.5 rounded-lg"
+                style={{ border: `1px solid ${BORDER}`, color: TER }}>
+                Cancel
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <div className="px-6 py-5 flex flex-col gap-5">
 
-          {/* AI Insight */}
+          {/* ── AI Insight ──────────────────────────────────────────────────── */}
           <div className="flex items-start gap-3 p-4 rounded-2xl" style={{ background: BLUE + '08', border: `1px solid ${BLUE}20` }}>
-            <Sparkles size={14} style={{ color: BLUE, flexShrink: 0, marginTop: 1 }} />
+            <MiniOrb />
             <p className="text-[12px] leading-relaxed" style={{ color: SEC }}>{insight}</p>
           </div>
 
-          {/* Performance ring + stats */}
-          <div className="flex items-center gap-5">
-            <div className="relative shrink-0">
-              <RingChart value={perfScore} size={80} stroke={7} color={perfColor} />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-[16px] font-black" style={{ color: NAVY }}>{perfScore}</span>
+          {/* ── Performance ring + 3 value tiles ──────────────────────────── */}
+          <div className="grid grid-cols-4 gap-3">
+            <div className="rounded-2xl p-4 flex flex-col items-center justify-center gap-2 col-span-1" style={{ border: `1px solid ${BORDER}` }}>
+              <div className="relative">
+                <RingChart value={perfScore} size={72} stroke={6} color={perfColor} />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-[14px] font-black" style={{ color: NAVY }}>{perfScore}</span>
+                </div>
               </div>
+              <p className="text-[8px] uppercase tracking-[0.18em] font-semibold text-center" style={{ color: MUTED }}>Perf Score</p>
             </div>
-            <div className="flex flex-col gap-2 flex-1">
-              <p className="text-[9px] uppercase tracking-[0.24em] font-semibold" style={{ color: MUTED }}>Performance Score</p>
-              <p className="text-[13px] font-bold" style={{ color: perfColor }}>
-                {perfScore >= 80 ? 'Excellent' : perfScore >= 60 ? 'On Track' : perfScore >= 40 ? 'Needs Attention' : 'At Risk'}
-              </p>
-              <p className="text-[10px]" style={{ color: TER }}>Goals · Compliance · Activity</p>
-            </div>
-          </div>
-
-          {/* Key metrics */}
-          <div className="grid grid-cols-2 gap-3">
             {[
-              { label: 'Goals On Track',    value: `${staff.goals_on_track}/${staff.goals_total}`, color: staff.goals_at_risk > 0 ? ORANGE : GREEN },
-              { label: 'Goals At Risk',      value: String(staff.goals_at_risk),  color: staff.goals_at_risk > 0 ? RED : MUTED },
-              { label: 'Compliance Score',   value: `${staff.compliance_score}%`,  color: compColor },
-              { label: 'Appointments MTD',   value: String(staff.appointments_mtd), color: BLUE },
+              { label: 'Compliance',   value: `${staff.compliance_score}%`,       color: compColor },
+              { label: 'Goals On Track', value: `${staff.goals_on_track}/${staff.goals_total}`, color: goalPct >= 60 ? GREEN : ORANGE },
+              { label: 'Appts MTD',    value: String(staff.appointments_mtd),     color: BLUE },
             ].map(m => (
-              <div key={m.label} className="rounded-xl p-3" style={{ background: 'rgba(0,0,0,0.02)', border: `1px solid ${BORDER}` }}>
-                <p className="text-[8px] uppercase tracking-[0.20em] font-semibold mb-1" style={{ color: MUTED }}>{m.label}</p>
+              <div key={m.label} className="rounded-2xl p-4 flex flex-col justify-center" style={{ border: `1px solid ${BORDER}` }}>
+                <p className="text-[8px] uppercase tracking-[0.18em] font-semibold mb-1" style={{ color: MUTED }}>{m.label}</p>
                 <p className="text-[22px] font-black" style={{ color: m.color }}>{m.value}</p>
               </div>
             ))}
           </div>
 
-          {/* Goals breakdown */}
+          {/* ── Value metrics — 3 tiles: patients seen / revenue / est LTV ── */}
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: 'Appts This Period',  value: totAppts.toString(),       sub: `${detailPeriod === 'all' ? 'All time' : detailPeriod}`, color: BLUE   },
+              { label: 'Est. Revenue',        value: fmtGBP(totRev),            sub: 'at £130 avg per appt',                                    color: GOLD   },
+              { label: 'Peak Month',          value: peakMonth ? String(peakMonth.appointments) : '—', sub: peakMonth?.month ?? '',              color: GREEN  },
+            ].map(m => (
+              <div key={m.label} className="rounded-2xl p-4" style={{ background: m.color + '08', border: `1px solid ${m.color}25` }}>
+                <p className="text-[8px] uppercase tracking-[0.18em] font-semibold mb-1" style={{ color: MUTED }}>{m.label}</p>
+                <p className="text-[22px] font-black" style={{ color: m.color }}>{m.value}</p>
+                <p className="text-[9px] mt-0.5" style={{ color: TER }}>{m.sub}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* ── All-time totals (if start date set) ────────────────────────── */}
+          {startDate && allTime && (
+            <div className="rounded-2xl p-4 flex flex-col gap-3" style={{ background: 'rgba(0,0,0,0.015)', border: `1px solid ${BORDER}` }}>
+              <p className="text-[8px] uppercase tracking-[0.28em] font-semibold" style={{ color: MUTED }}>
+                All-time since {new Date(startDate).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}
+              </p>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <p className="text-[10px]" style={{ color: TER }}>Total appointments</p>
+                  <p className="text-[20px] font-black" style={{ color: BLUE }}>{allTime.total_appointments.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-[10px]" style={{ color: TER }}>Est. total revenue</p>
+                  <p className="text-[20px] font-black" style={{ color: GOLD }}>{fmtGBP(allTime.total_est_revenue)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px]" style={{ color: TER }}>Tenure</p>
+                  <p className="text-[14px] font-bold" style={{ color: NAVY }}>{fmtTenure(startDate)}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Monthly history chart ────────────────────────────────────── */}
+          <div className="rounded-2xl p-5 flex flex-col gap-4" style={{ border: `1px solid ${BORDER}` }}>
+            <div className="flex items-center justify-between">
+              <p className="text-[9px] uppercase tracking-[0.26em] font-semibold" style={{ color: MUTED }}>Appointment History</p>
+              <div className="flex items-center gap-1">
+                {(['1m', '3m', '6m', '1y', 'all'] as DetailPeriod[]).map(p => (
+                  <button key={p} onClick={() => setDetailPeriod(p)}
+                    className="text-[9px] font-semibold px-2 py-0.5 rounded-lg transition-all capitalize"
+                    style={{
+                      background: detailPeriod === p ? BLUE + '14' : 'transparent',
+                      color:      detailPeriod === p ? BLUE : MUTED,
+                      border:     detailPeriod === p ? `1px solid ${BLUE}30` : `1px solid transparent`,
+                    }}>
+                    {p}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {loadingHist ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="w-5 h-5 border-2 rounded-full animate-spin" style={{ borderColor: BLUE, borderTopColor: 'transparent' }} />
+              </div>
+            ) : histSlice.length < 2 ? (
+              <div className="py-6 flex flex-col items-center gap-2">
+                <Activity size={18} style={{ color: MUTED }} />
+                <p className="text-[11px]" style={{ color: TER }}>
+                  {histSlice.length === 0 ? 'No appointment data available' : 'Not enough data for chart'}
+                </p>
+              </div>
+            ) : (
+              <>
+                <HistoryChart data={histSlice} valueKey="appointments" color={BLUE} height={72} />
+                {/* X labels */}
+                <div className="flex justify-between">
+                  {[histSlice[0], histSlice[Math.floor(histSlice.length / 2)], histSlice[histSlice.length - 1]].map(p => (
+                    <span key={p.iso} className="text-[8px]" style={{ color: MUTED }}>{p.month}</span>
+                  ))}
+                </div>
+                {/* Revenue chart */}
+                <div className="mt-2 flex flex-col gap-1">
+                  <p className="text-[9px] uppercase tracking-[0.18em] font-semibold" style={{ color: MUTED }}>Est. Revenue</p>
+                  <HistoryChart data={histSlice} valueKey="est_revenue" color={GOLD} height={48} />
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* ── Goals breakdown ──────────────────────────────────────────── */}
           <div>
-            <SectionHead label="Goals" />
+            <SectionHead label="Goals Breakdown" />
             <div className="flex flex-col gap-2">
               {[
-                { label: 'On track',  count: staff.goals_on_track,  color: GREEN },
-                { label: 'At risk',   count: staff.goals_at_risk,   color: RED },
-                { label: 'Completed', count: staff.goals_completed,  color: BLUE },
+                { label: 'On track',  count: staff.goals_on_track,  color: GREEN  },
+                { label: 'At risk',   count: staff.goals_at_risk,   color: RED    },
+                { label: 'Completed', count: staff.goals_completed,  color: BLUE   },
                 { label: 'Missed',    count: staff.goals_missed,     color: ORANGE },
               ].map(row => (
                 <div key={row.label} className="flex items-center gap-3">
@@ -433,30 +664,51 @@ function StaffDetailPanel({ staff, onClose }: { staff: StaffGoalsSummary; onClos
             </div>
           </div>
 
-          {/* Suggested actions */}
+          {/* ── Suggested actions ───────────────────────────────────────── */}
           <div>
-            <SectionHead label="Suggested Actions" />
+            <SectionHead label="Manager Actions" />
             <div className="flex flex-col gap-2">
               {staff.goals_at_risk > 0 && (
-                <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: RED + '08', border: `1px solid ${RED}20` }}>
-                  <Flag size={12} style={{ color: RED }} />
-                  <span className="text-[11px]" style={{ color: SEC }}>Schedule a goal review with {staff.displayName.split(' ')[0]}</span>
+                <div className="flex items-start gap-3 p-3 rounded-xl" style={{ background: RED + '08', border: `1px solid ${RED}20` }}>
+                  <Flag size={12} style={{ color: RED, marginTop: 1, flexShrink: 0 }} />
+                  <span className="text-[11px]" style={{ color: SEC }}>
+                    {staff.goals_at_risk} goal{staff.goals_at_risk > 1 ? 's' : ''} at risk — schedule a 1:1 with {staff.displayName.split(' ')[0]} to identify blockers
+                  </span>
                 </div>
               )}
               {staff.compliance_score < 80 && (
-                <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: ORANGE + '08', border: `1px solid ${ORANGE}20` }}>
-                  <ShieldCheck size={12} style={{ color: ORANGE }} />
-                  <span className="text-[11px]" style={{ color: SEC }}>Compliance needs attention — review outstanding items</span>
+                <div className="flex items-start gap-3 p-3 rounded-xl" style={{ background: ORANGE + '08', border: `1px solid ${ORANGE}20` }}>
+                  <ShieldCheck size={12} style={{ color: ORANGE, marginTop: 1, flexShrink: 0 }} />
+                  <span className="text-[11px]" style={{ color: SEC }}>
+                    Compliance at {staff.compliance_score}% — review outstanding items and set a resolution deadline
+                  </span>
                 </div>
               )}
-              {staff.goals_at_risk === 0 && staff.compliance_score >= 80 && (
-                <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: GREEN + '08', border: `1px solid ${GREEN}20` }}>
-                  <Award size={12} style={{ color: GREEN }} />
-                  <span className="text-[11px]" style={{ color: SEC }}>Performing well — consider assigning a stretch goal</span>
+              {staff.appointments_mtd === 0 && staff.roleName.toLowerCase().includes('practi') && (
+                <div className="flex items-start gap-3 p-3 rounded-xl" style={{ background: ORANGE + '08', border: `1px solid ${ORANGE}20` }}>
+                  <Calendar size={12} style={{ color: ORANGE, marginTop: 1, flexShrink: 0 }} />
+                  <span className="text-[11px]" style={{ color: SEC }}>No appointments recorded this month — check rota and availability</span>
+                </div>
+              )}
+              {staff.goals_completed > 0 && staff.compliance_score >= 85 && (
+                <div className="flex items-start gap-3 p-3 rounded-xl" style={{ background: GREEN + '08', border: `1px solid ${GREEN}20` }}>
+                  <Award size={12} style={{ color: GREEN, marginTop: 1, flexShrink: 0 }} />
+                  <span className="text-[11px]" style={{ color: SEC }}>
+                    {staff.displayName.split(' ')[0]} is performing well — consider recognition or a stretch goal
+                  </span>
+                </div>
+              )}
+              {!startDate && (
+                <div className="flex items-start gap-3 p-3 rounded-xl" style={{ background: PURPLE + '08', border: `1px solid ${PURPLE}20` }}>
+                  <Clock size={12} style={{ color: PURPLE, marginTop: 1, flexShrink: 0 }} />
+                  <span className="text-[11px]" style={{ color: SEC }}>
+                    Set {staff.displayName.split(' ')[0]}&apos;s employment start date to enable all-time analytics and tenure tracking
+                  </span>
                 </div>
               )}
             </div>
           </div>
+
         </div>
       </motion.div>
     </motion.div>
@@ -485,6 +737,10 @@ export default function KpisPage() {
   const [teamSummary,  setTeamSummary]  = useState<StaffGoalsSummary[]>([]);
   const [teamLoading,  setTeamLoading]  = useState(false);
   const teamLoaded = useRef(false);
+
+  // Personal history
+  const [personalHistory, setPersonalHistory] = useState<MonthlyStatPoint[]>([]);
+  const [histPeriod,      setHistPeriod]      = useState<'3m' | '6m' | '1y'>('6m');
 
   // UI state
   const [showAddTask,    setShowAddTask]    = useState(false);
@@ -523,6 +779,11 @@ export default function KpisPage() {
       if (kpiRes.status    === 'fulfilled') setKpi(kpiRes.value);
       if (goalsRes.status  === 'fulfilled') setGoals(goalsRes.value);
       if (csRes.status     === 'fulfilled') setClinikoStats(csRes.value);
+
+      // Personal history — load quietly in background after profile resolves
+      if (prof?.firstName) {
+        getStaffMonthlyStats(prof.firstName, 24).then(setPersonalHistory).catch(() => {});
+      }
 
       if (compRes.status === 'fulfilled') {
         if (compRes.value.length === 0) {
@@ -745,7 +1006,7 @@ export default function KpisPage() {
 
                 {/* AI Briefing */}
                 <div className="flex items-start gap-3 p-4 rounded-2xl" style={{ background: BLUE + '08', border: `1px solid ${BLUE}20` }}>
-                  <Sparkles size={15} style={{ color: BLUE, flexShrink: 0, marginTop: 2 }} />
+                  <MiniOrb />
                   <div>
                     <p className="text-[9px] uppercase tracking-[0.24em] font-semibold mb-1" style={{ color: BLUE + 'bb' }}>AI Briefing</p>
                     <p className="text-[13px] leading-relaxed" style={{ color: SEC }}>
@@ -866,6 +1127,80 @@ export default function KpisPage() {
                     </div>
                   </div>
                 )}
+
+                {/* Performance History */}
+                {personalHistory.length > 1 && (() => {
+                  const sliceMap: Record<string, number> = { '3m': 3, '6m': 6, '1y': 12 };
+                  const slice  = personalHistory.slice(-sliceMap[histPeriod]);
+                  const totAppts = slice.reduce((s, p) => s + p.appointments, 0);
+                  const totRev   = slice.reduce((s, p) => s + p.est_revenue, 0);
+                  const peakMo   = slice.reduce((best, p) => p.appointments > best.appointments ? p : best, slice[0]);
+                  return (
+                    <div className="rounded-2xl p-5 flex flex-col gap-4" style={{ border: `1px solid ${BORDER}` }}>
+                      <div className="flex items-center justify-between">
+                        <SectionHead label="My Performance History" />
+                        <div className="flex items-center gap-1.5 mb-4">
+                          {(['3m', '6m', '1y'] as const).map(p => (
+                            <button key={p} onClick={() => setHistPeriod(p)}
+                              className="text-[10px] font-semibold px-2.5 py-1 rounded-lg transition-all"
+                              style={{
+                                background: histPeriod === p ? BLUE + '14' : 'transparent',
+                                color:      histPeriod === p ? BLUE : MUTED,
+                                border:     histPeriod === p ? `1px solid ${BLUE}30` : `1px solid ${BORDER}`,
+                              }}>
+                              {p === '3m' ? '3 months' : p === '6m' ? '6 months' : '1 year'}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Summary stats */}
+                      <div className="grid grid-cols-3 gap-3">
+                        {[
+                          { label: 'Appointments', value: totAppts.toString(), color: BLUE },
+                          { label: 'Est. Revenue',  value: fmtGBP(totRev), color: GOLD },
+                          { label: 'Peak Month',    value: peakMo.appointments.toString(), sub: peakMo.month, color: GREEN },
+                        ].map(s => (
+                          <div key={s.label} className="rounded-xl p-3" style={{ background: s.color + '08', border: `1px solid ${s.color}20` }}>
+                            <p className="text-[8px] uppercase tracking-[0.20em] font-semibold mb-1" style={{ color: MUTED }}>{s.label}</p>
+                            <p className="text-[20px] font-black" style={{ color: s.color }}>{s.value}</p>
+                            {'sub' in s && <p className="text-[9px]" style={{ color: TER }}>{s.sub}</p>}
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Chart */}
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[9px] uppercase tracking-[0.18em] font-semibold" style={{ color: MUTED }}>Appointments per month</p>
+                          <div className="flex items-center gap-1">
+                            <div className="w-3 h-[1.5px] rounded" style={{ background: BLUE }} />
+                            <span className="text-[9px]" style={{ color: MUTED }}>Appointments</span>
+                          </div>
+                        </div>
+                        <HistoryChart data={slice} valueKey="appointments" color={BLUE} height={64} />
+                        {/* Month labels */}
+                        <div className="flex justify-between">
+                          {[slice[0], slice[Math.floor(slice.length / 2)], slice[slice.length - 1]].map(p => (
+                            <span key={p.iso} className="text-[8px]" style={{ color: MUTED }}>{p.month}</span>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Revenue chart */}
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[9px] uppercase tracking-[0.18em] font-semibold" style={{ color: MUTED }}>Est. Revenue per month</p>
+                          <div className="flex items-center gap-1">
+                            <div className="w-3 h-[1.5px] rounded" style={{ background: GOLD }} />
+                            <span className="text-[9px]" style={{ color: MUTED }}>Revenue</span>
+                          </div>
+                        </div>
+                        <HistoryChart data={slice} valueKey="est_revenue" color={GOLD} height={48} />
+                      </div>
+                    </div>
+                  );
+                })()}
               </motion.div>
             )}
 
@@ -1240,6 +1575,7 @@ export default function KpisPage() {
                         const goalPctM   = member.goals_total > 0 ? Math.round((member.goals_on_track / member.goals_total) * 100) : 0;
                         const insight    = teamInsight(member);
 
+                        const estRevMTD = member.appointments_mtd * 130;
                         return (
                           <motion.button
                             key={member.userId}
@@ -1257,7 +1593,7 @@ export default function KpisPage() {
                                 </div>
                                 <div>
                                   <p className="text-[13px] font-bold" style={{ color: NAVY }}>{member.displayName}</p>
-                                  <p className="text-[10px]" style={{ color: TER }}>{member.roleName}</p>
+                                  <p className="text-[10px]" style={{ color: TER }}>{member.roleName}{member.departmentName ? ` · ${member.departmentName}` : ''}</p>
                                 </div>
                               </div>
                               {atRisk && (
@@ -1268,19 +1604,23 @@ export default function KpisPage() {
                               )}
                             </div>
 
-                            {/* Mini stats */}
-                            <div className="grid grid-cols-3 gap-2">
+                            {/* Stats — 4 col */}
+                            <div className="grid grid-cols-4 gap-2">
                               <div className="text-center">
-                                <p className="text-[16px] font-black" style={{ color: goalPctM >= 60 ? GREEN : ORANGE }}>{goalPctM}%</p>
+                                <p className="text-[15px] font-black" style={{ color: goalPctM >= 60 ? GREEN : ORANGE }}>{goalPctM}%</p>
                                 <p className="text-[8px]" style={{ color: MUTED }}>Goals</p>
                               </div>
                               <div className="text-center">
-                                <p className="text-[16px] font-black" style={{ color: compCol }}>{member.compliance_score}%</p>
+                                <p className="text-[15px] font-black" style={{ color: compCol }}>{member.compliance_score}%</p>
                                 <p className="text-[8px]" style={{ color: MUTED }}>Compliance</p>
                               </div>
                               <div className="text-center">
-                                <p className="text-[16px] font-black" style={{ color: BLUE }}>{member.appointments_mtd}</p>
+                                <p className="text-[15px] font-black" style={{ color: BLUE }}>{member.appointments_mtd}</p>
                                 <p className="text-[8px]" style={{ color: MUTED }}>Appts MTD</p>
+                              </div>
+                              <div className="text-center">
+                                <p className="text-[15px] font-black" style={{ color: GOLD }}>{fmtGBP(estRevMTD)}</p>
+                                <p className="text-[8px]" style={{ color: MUTED }}>Est. Rev</p>
                               </div>
                             </div>
 
