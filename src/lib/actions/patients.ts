@@ -65,6 +65,9 @@ export interface PatientIntelligenceRow {
   has_agent_memories: boolean;
   next_best_action: NextBestAction | null;
   source: 'cliniko' | 'signal_lead' | 'demo';
+  // Financial
+  total_paid: number;
+  has_outstanding: boolean;
 }
 
 export interface TimelineEvent {
@@ -269,6 +272,7 @@ const DEMO_PATIENTS: PatientIntelligenceRow[] = [
     next_best_action: { type: 'referral_ask', title: 'Referral opportunity', description: '11 visits over 18 months — Sarah loves the clinic. Ideal time for a referral ask.', urgency: 'low' },
     lifecycle_override: null, lifecycle_manually_set: false,
     occupation: null, emergency_contact: null, all_phones: [], address: null, source: 'demo',
+    total_paid: 3850, has_outstanding: false,
   },
   {
     id: 'demo-002', cliniko_id: null,
@@ -285,6 +289,7 @@ const DEMO_PATIENTS: PatientIntelligenceRow[] = [
     next_best_action: { type: 'outreach', title: 'Re-engagement needed', description: '142 days since last B12 session — trending towards lapsed. A check-in call could recover this patient.', urgency: 'medium' },
     lifecycle_override: null, lifecycle_manually_set: false,
     occupation: null, emergency_contact: null, all_phones: [], address: null, source: 'demo',
+    total_paid: 1200, has_outstanding: true,
   },
   {
     id: 'demo-003', cliniko_id: null,
@@ -301,6 +306,7 @@ const DEMO_PATIENTS: PatientIntelligenceRow[] = [
     next_best_action: { type: 'rebook', title: 'IV Therapy session due', description: '38 days since last Wellness Drip — approaching the 6-week window. Confirm their upcoming appointment.', urgency: 'low', days_until_due: 18 },
     lifecycle_override: null, lifecycle_manually_set: false,
     occupation: null, emergency_contact: null, all_phones: [], address: null, source: 'demo',
+    total_paid: 2100, has_outstanding: false,
   },
   {
     id: 'demo-004', cliniko_id: null,
@@ -317,6 +323,7 @@ const DEMO_PATIENTS: PatientIntelligenceRow[] = [
     next_best_action: { type: 'followup', title: 'Post-treatment follow-up', description: '14 days since first Botox treatment. A follow-up call builds confidence and encourages rebooking.', urgency: 'medium' },
     lifecycle_override: null, lifecycle_manually_set: false,
     occupation: null, emergency_contact: null, all_phones: [], address: null, source: 'demo',
+    total_paid: 350, has_outstanding: false,
   },
   {
     id: 'demo-005', cliniko_id: null,
@@ -333,6 +340,7 @@ const DEMO_PATIENTS: PatientIntelligenceRow[] = [
     next_best_action: { type: 'book_first', title: 'Book first consultation', description: 'Priya enquired about CoolSculpting via Komal 8 days ago. Offer a free consultation to move her forward.', urgency: 'high' },
     lifecycle_override: null, lifecycle_manually_set: false,
     occupation: null, emergency_contact: null, all_phones: [], address: null, source: 'demo',
+    total_paid: 0, has_outstanding: false,
   },
   {
     id: 'demo-006', cliniko_id: null,
@@ -349,6 +357,7 @@ const DEMO_PATIENTS: PatientIntelligenceRow[] = [
     next_best_action: { type: 'winback', title: 'Winback outreach', description: '271 days inactive. A personalised message about new treatments or an offer could re-engage Robert.', urgency: 'high' },
     lifecycle_override: null, lifecycle_manually_set: false,
     occupation: null, emergency_contact: null, all_phones: [], address: null, source: 'demo',
+    total_paid: 450, has_outstanding: false,
   },
   {
     id: 'demo-007', cliniko_id: null,
@@ -365,6 +374,7 @@ const DEMO_PATIENTS: PatientIntelligenceRow[] = [
     next_best_action: { type: 'rebook', title: 'Filler review due', description: 'Lip filler booked 55 days ago — review window at 6 months. Good time to confirm the next session.', urgency: 'low' },
     lifecycle_override: null, lifecycle_manually_set: false,
     occupation: null, emergency_contact: null, all_phones: [], address: null, source: 'demo',
+    total_paid: 1950, has_outstanding: false,
   },
   {
     id: 'demo-008', cliniko_id: null,
@@ -381,6 +391,7 @@ const DEMO_PATIENTS: PatientIntelligenceRow[] = [
     next_best_action: { type: 'referral_ask', title: 'Referral opportunity', description: '18 visits over 2+ years. Charlotte is the clinic\'s strongest advocate — a referral programme offer would be very well received.', urgency: 'low' },
     lifecycle_override: null, lifecycle_manually_set: false,
     occupation: null, emergency_contact: null, all_phones: [], address: null, source: 'demo',
+    total_paid: 6200, has_outstanding: false,
   },
   {
     id: 'demo-009', cliniko_id: null,
@@ -397,6 +408,7 @@ const DEMO_PATIENTS: PatientIntelligenceRow[] = [
     next_best_action: { type: 'followup', title: 'New patient follow-up overdue', description: 'Marcus has had 1 visit 62 days ago with no follow-up booked. Reach out to understand his experience and encourage a next step.', urgency: 'medium' },
     lifecycle_override: null, lifecycle_manually_set: false,
     occupation: null, emergency_contact: null, all_phones: [], address: null, source: 'demo',
+    total_paid: 150, has_outstanding: false,
   },
   {
     id: 'demo-010', cliniko_id: null,
@@ -413,6 +425,7 @@ const DEMO_PATIENTS: PatientIntelligenceRow[] = [
     next_best_action: { type: 'outreach', title: 'Re-engagement needed', description: 'Lisa was on a monthly plan — 118 days of silence is concerning. A personal outreach from the clinic could recover her.', urgency: 'medium' },
     lifecycle_override: null, lifecycle_manually_set: false,
     occupation: null, emergency_contact: null, all_phones: [], address: null, source: 'demo',
+    total_paid: 1400, has_outstanding: true,
   },
 ];
 
@@ -516,6 +529,25 @@ export async function getPatientPage(params: {
       apptMap.get(pid)!.push(a);
     }
 
+    // Fetch invoices for this page's patients
+    type InvRow = { cliniko_patient_id: number | null; amount_paid: string | null; amount_outstanding: string | null };
+    let invs: InvRow[] = [];
+    if (ids.length > 0) {
+      const { data: invData } = await db
+        .from('cliniko_invoices')
+        .select('cliniko_patient_id, amount_paid, amount_outstanding')
+        .in('cliniko_patient_id', ids);
+      invs = (invData ?? []) as InvRow[];
+    }
+    const invMap = new Map<string, { totalPaid: number; hasOutstanding: boolean }>();
+    for (const inv of invs) {
+      const pid = String(inv.cliniko_patient_id);
+      const cur = invMap.get(pid) ?? { totalPaid: 0, hasOutstanding: false };
+      cur.totalPaid += Number(inv.amount_paid) || 0;
+      if ((Number(inv.amount_outstanding) || 0) > 0) cur.hasOutstanding = true;
+      invMap.set(pid, cur);
+    }
+
     const now = new Date().toISOString();
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -548,6 +580,7 @@ export async function getPatientPage(params: {
         : (dbStage ?? computed);
       const engagement = computeEngagement(totalVisits, daysSince, cancelRate);
       const nba        = computeNextBestAction(lifecycle, latestTreat, daysSince, totalVisits);
+      const invData    = invMap.get(String(r.cliniko_id)) ?? { totalPaid: 0, hasOutstanding: false };
 
       return {
         id: r.id, cliniko_id: r.cliniko_id,
@@ -567,6 +600,7 @@ export async function getPatientPage(params: {
         latest_treatment: latestTreat, treatment_tags: tags,
         cancellation_rate: cancelRate, open_signals_count: 0,
         has_agent_memories: false, next_best_action: nba, source: 'cliniko',
+        total_paid: invData.totalPaid, has_outstanding: invData.hasOutstanding,
       } satisfies PatientIntelligenceRow;
     });
 
@@ -716,6 +750,7 @@ export async function getPatientIntelligenceList(search?: string): Promise<{
         has_agent_memories: false,
         next_best_action: nba,
         source: 'cliniko',
+        total_paid: 0, has_outstanding: false,
       } satisfies PatientIntelligenceRow;
     });
 
@@ -789,6 +824,18 @@ export async function getPatientHub(id: string): Promise<{
     const engagement = computeEngagement(totalVisits, daysSince, cancelRate);
     const nba = computeNextBestAction(lifecycle, latestTreatment, daysSince, totalVisits);
 
+    // Fetch invoice totals for this patient
+    const { data: invRows } = await db
+      .from('cliniko_invoices')
+      .select('amount_paid, amount_outstanding')
+      .eq('cliniko_patient_id', row.cliniko_id);
+    let totalPaid = 0;
+    let hasOutstanding = false;
+    for (const inv of invRows ?? []) {
+      totalPaid += Number(inv.amount_paid) || 0;
+      if ((Number(inv.amount_outstanding) || 0) > 0) hasOutstanding = true;
+    }
+
     const patient: PatientIntelligenceRow = {
       id: r.id, cliniko_id: r.cliniko_id,
       first_name: r.first_name ?? '', last_name: r.last_name ?? '',
@@ -808,6 +855,7 @@ export async function getPatientHub(id: string): Promise<{
       latest_treatment: latestTreatment, treatment_tags: tags,
       cancellation_rate: cancelRate, open_signals_count: 0,
       has_agent_memories: false, next_best_action: nba, source: 'cliniko',
+      total_paid: totalPaid, has_outstanding: hasOutstanding,
     };
 
     // Build timeline from appointments

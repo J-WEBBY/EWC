@@ -231,8 +231,8 @@ function EngagementBar({ score }: { score: number }) {
 // PATIENT ROW
 // =============================================================================
 
-function PatientRow({ patient, onClick }: {
-  patient: PatientIntelligenceRow; onClick: () => void;
+function PatientRow({ patient, onClick, activeSort }: {
+  patient: PatientIntelligenceRow; onClick: () => void; activeSort: FilterState['sort'];
 }) {
   const [hov, setHov] = useState(false);
   const lc    = LC_CFG[patient.lifecycle_stage];
@@ -334,10 +334,24 @@ function PatientRow({ patient, onClick }: {
         </div>
       </div>
 
-      {/* Visits */}
-      <div className="hidden lg:flex flex-col items-end flex-shrink-0 w-[36px]">
-        <p className="text-[8px] uppercase tracking-[0.18em] mb-0.5" style={{ color: MUTED }}>Visits</p>
-        <p className="text-[16px] font-black leading-none" style={{ color: NAVY }}>{patient.total_visits}</p>
+      {/* Visits / Paid (context-aware) */}
+      <div className="hidden lg:flex flex-col items-end flex-shrink-0 w-[60px]">
+        {activeSort === 'paid' ? (
+          <>
+            <p className="text-[8px] uppercase tracking-[0.18em] mb-0.5" style={{ color: MUTED }}>Paid</p>
+            <p className="text-[13px] font-black leading-none" style={{ color: patient.total_paid > 0 ? GREEN : MUTED }}>
+              {patient.total_paid > 0 ? `£${patient.total_paid.toLocaleString()}` : '—'}
+            </p>
+            {patient.has_outstanding && (
+              <p className="text-[8px] mt-0.5 font-semibold" style={{ color: ORANGE }}>Outstanding</p>
+            )}
+          </>
+        ) : (
+          <>
+            <p className="text-[8px] uppercase tracking-[0.18em] mb-0.5" style={{ color: MUTED }}>Visits</p>
+            <p className="text-[16px] font-black leading-none" style={{ color: NAVY }}>{patient.total_visits}</p>
+          </>
+        )}
       </div>
 
       {/* Engagement */}
@@ -388,26 +402,29 @@ interface FilterState {
   hasSignals: 'all' | 'yes' | 'no';
   gender: 'all' | 'Female' | 'Male';
   source: 'all' | 'Google' | 'Instagram' | 'Referral' | 'Walk-in';
-  sort: 'last_visit' | 'engagement' | 'name' | 'next_appointment' | 'signals' | 'visits';
+  sort: 'last_visit' | 'name' | 'next_appointment' | 'signals' | 'visits' | 'paid';
+  paid_status: 'all' | 'paid' | 'unpaid';
+  signal_type: 'all' | 'booking' | 'followup' | 'attended';
 }
 
 const DEFAULT_FILTERS: FilterState = {
   lifecycle: 'all', engagement: 'all', lastVisit: 'all',
   hasUpcoming: 'all', hasSignals: 'all', gender: 'all', source: 'all',
-  sort: 'last_visit',
+  sort: 'last_visit', paid_status: 'all', signal_type: 'all',
 };
 
 const SORT_OPTIONS: { value: FilterState['sort']; label: string }[] = [
   { value: 'last_visit',       label: 'Recent'       },
   { value: 'next_appointment', label: 'Upcoming'     },
-  { value: 'engagement',       label: 'Engagement'   },
   { value: 'visits',           label: 'Most visits'  },
   { value: 'signals',          label: 'Signals'      },
+  { value: 'paid',             label: 'Paid'         },
   { value: 'name',             label: 'Name A–Z'     },
 ];
 
 function applyFilters(patients: PatientIntelligenceRow[], f: FilterState): PatientIntelligenceRow[] {
   let out = patients;
+  // Advanced panel filters
   if (f.engagement !== 'all') out = out.filter(p =>
     f.engagement === 'high'   ? p.engagement_score >= 70 :
     f.engagement === 'medium' ? p.engagement_score >= 40 && p.engagement_score < 70 :
@@ -432,17 +449,46 @@ function applyFilters(patients: PatientIntelligenceRow[], f: FilterState): Patie
     if (f.source === 'Walk-in')   return src.includes('walk');
     return true;
   });
+  // Paid status filter
+  if (f.paid_status === 'paid')   out = out.filter(p => p.total_paid > 0);
+  if (f.paid_status === 'unpaid') out = out.filter(p => p.total_paid === 0);
+  // Signal type sub-filter (when signals sort is active)
+  if (f.sort === 'signals' && f.signal_type !== 'all') out = out.filter(p => {
+    if (f.signal_type === 'booking')  return p.lifecycle_stage === 'lead' || p.lifecycle_stage === 'new';
+    if (f.signal_type === 'followup') return p.open_signals_count > 0;
+    if (f.signal_type === 'attended') return !!p.last_appointment_at;
+    return true;
+  });
   return [...out].sort((a, b) => {
-    if (f.sort === 'last_visit')      return (a.days_since_last_visit ?? 9999) - (b.days_since_last_visit ?? 9999);
-    if (f.sort === 'engagement')      return b.engagement_score - a.engagement_score;
-    if (f.sort === 'name')            return `${a.last_name}${a.first_name}`.localeCompare(`${b.last_name}${b.first_name}`);
+    if (f.sort === 'last_visit') {
+      // Most recent interaction first — null (no visits) at bottom
+      const aT = a.last_appointment_at ? new Date(a.last_appointment_at).getTime() : 0;
+      const bT = b.last_appointment_at ? new Date(b.last_appointment_at).getTime() : 0;
+      return bT - aT;
+    }
     if (f.sort === 'next_appointment') {
+      // Soonest upcoming appointment first — no appointment at bottom
       const aN = a.next_appointment_at ? new Date(a.next_appointment_at).getTime() : Infinity;
       const bN = b.next_appointment_at ? new Date(b.next_appointment_at).getTime() : Infinity;
       return aN - bN;
     }
-    if (f.sort === 'signals') return b.open_signals_count - a.open_signals_count;
-    if (f.sort === 'visits')  return b.total_visits - a.total_visits;
+    if (f.sort === 'signals') {
+      // Active signals first, then by most recent appointment
+      if (b.open_signals_count !== a.open_signals_count) return b.open_signals_count - a.open_signals_count;
+      const aT = a.last_appointment_at ? new Date(a.last_appointment_at).getTime() : 0;
+      const bT = b.last_appointment_at ? new Date(b.last_appointment_at).getTime() : 0;
+      return bT - aT;
+    }
+    if (f.sort === 'visits') return b.total_visits - a.total_visits;
+    if (f.sort === 'paid')   return b.total_paid - a.total_paid;
+    if (f.sort === 'name') {
+      // First name A-Z; names starting with non-alpha go to bottom
+      const alphaA = /^[a-zA-Z]/.test(a.first_name);
+      const alphaB = /^[a-zA-Z]/.test(b.first_name);
+      if (alphaA && !alphaB) return -1;
+      if (!alphaA && alphaB) return 1;
+      return a.first_name.localeCompare(b.first_name);
+    }
     return 0;
   });
 }
@@ -533,7 +579,12 @@ export default function PatientsPage() {
   }, [search, loadPage, filters.lifecycle]);
 
   const setFilter = <K extends keyof FilterState>(key: K, val: FilterState[K]) => {
-    setFilters(f => ({ ...f, [key]: val }));
+    setFilters(f => ({
+      ...f,
+      [key]: val,
+      // Reset signal sub-filter when changing sort away from signals
+      ...(key === 'sort' && val !== 'signals' ? { signal_type: 'all' } : {}),
+    }));
   };
 
   const filtered         = applyFilters(patients, filters);
@@ -697,11 +748,30 @@ export default function PatientsPage() {
                   </button>
                 );
               })}
+              {/* Paid / Unpaid chips */}
+              <div className="w-px h-4 mx-1" style={{ background: BORDER }} />
+              {(['all', 'paid', 'unpaid'] as const).map(v => {
+                const label = v === 'all' ? 'Any payment' : v === 'paid' ? 'Paid' : 'Unpaid';
+                const isActive = filters.paid_status === v;
+                return (
+                  <button
+                    key={v}
+                    onClick={() => setFilter('paid_status', v)}
+                    className="px-3 py-1 rounded-lg text-[10px] font-semibold transition-all"
+                    style={isActive
+                      ? { background: NAVY, color: BG, border: `1px solid ${NAVY}` }
+                      : { background: 'transparent', color: TER, border: `1px solid ${BORDER}` }
+                    }
+                  >
+                    {label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
           {/* Sort chips */}
-          <div className="px-6 pb-3 flex items-center gap-1.5">
+          <div className="px-6 pb-1 flex items-center gap-1.5">
             <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mr-1" style={{ color: MUTED }}>Sort</p>
             {SORT_OPTIONS.map(opt => (
               <button
@@ -719,6 +789,38 @@ export default function PatientsPage() {
               </button>
             ))}
           </div>
+
+          {/* Signal sub-filter — shown only when Signals sort is active */}
+          <AnimatePresence>
+            {filters.sort === 'signals' && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.18 }}
+                className="overflow-hidden"
+              >
+                <div className="px-6 pb-3 flex items-center gap-1.5">
+                  <p className="text-[8px] uppercase tracking-[0.24em] font-semibold mr-1" style={{ color: MUTED }}>
+                    Signal type
+                  </p>
+                  {([['all', 'All'], ['booking', 'Booking'], ['followup', 'Follow-up'], ['attended', 'Attended']] as const).map(([v, l]) => (
+                    <button
+                      key={v}
+                      onClick={() => setFilter('signal_type', v)}
+                      className="px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all"
+                      style={filters.signal_type === v
+                        ? { background: ORANGE + '14', color: ORANGE, border: `1px solid ${ORANGE}35` }
+                        : { background: 'transparent', color: MUTED, border: `1px solid transparent` }
+                      }
+                      onMouseEnter={e => { if (filters.signal_type !== v) (e.currentTarget as HTMLElement).style.color = TER; }}
+                      onMouseLeave={e => { if (filters.signal_type !== v) (e.currentTarget as HTMLElement).style.color = MUTED; }}
+                    >
+                      {l}
+                    </button>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Advanced filters */}
           <AnimatePresence>
@@ -840,6 +942,7 @@ export default function PatientsPage() {
                   key={p.id}
                   patient={p}
                   onClick={() => router.push(`/staff/patients/${p.id}`)}
+                  activeSort={filters.sort}
                 />
               ))}
             </AnimatePresence>
