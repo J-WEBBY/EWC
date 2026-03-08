@@ -384,7 +384,7 @@ function MeetingSetup({ members, onStart }: { members: TeamMember[]; onStart: (m
                 const checked = selected.has(m.id);
                 return (
                   <button key={m.id}
-                    onClick={() => setSelected(prev => { const s = new Set(prev); checked ? s.delete(m.id) : s.add(m.id); return s; })}
+                    onClick={() => setSelected(prev => { const s = new Set(prev); if (checked) s.delete(m.id); else s.add(m.id); return s; })}
                     className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all text-left"
                     style={{ border: `1px solid ${checked ? ACCENT+'30' : BORDER}`, backgroundColor: checked ? `${ACCENT}05` : 'transparent' }}>
                     <div className="w-4 h-4 rounded flex items-center justify-center flex-shrink-0"
