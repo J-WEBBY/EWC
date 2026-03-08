@@ -518,7 +518,7 @@ const DEMO_CONVERSATIONS: Conversation[] = [
     patient_phone: '+44 7700 900456', patient_email: 'emma.r@outlook.com',
     last_treatment: null, channel: 'email',
     last_message: 'Hi, I came across EWC on Instagram and I am very interested in B12 injections...',
-    last_message_at: hAgo(1), agent_handle: 'orion', status: 'escalated', interaction_count: 1,
+    last_message_at: hAgo(1), agent_handle: 'aria', status: 'escalated', interaction_count: 1,
   },
   {
     patient_id: 'pat-003', patient_name: 'Rachel Morrison',
@@ -532,7 +532,7 @@ const DEMO_CONVERSATIONS: Conversation[] = [
     patient_phone: '+44 7700 900234', patient_email: 'sophie.harte@gmail.com',
     last_treatment: 'CoolSculpting', channel: 'sms',
     last_message: 'CoolSculpting consultation confirmed for Mon 24 Feb at 10:30am.',
-    last_message_at: dAgo(3), agent_handle: 'orion', status: 'ai_active', interaction_count: 2,
+    last_message_at: dAgo(3), agent_handle: 'aria', status: 'ai_active', interaction_count: 2,
   },
   {
     patient_id: 'pat-005', patient_name: 'Michael Taylor',
@@ -560,7 +560,7 @@ const DEMO_CONVERSATIONS: Conversation[] = [
     patient_phone: '+44 7700 900654', patient_email: 'j.worthington@worthington.co.uk',
     last_treatment: 'Corporate Health Screen', channel: 'email',
     last_message: 'Corporate wellness proposal sent — 12 partners, awaiting response.',
-    last_message_at: dAgo(20), agent_handle: 'orion', status: 'ai_active', interaction_count: 3,
+    last_message_at: dAgo(20), agent_handle: 'aria', status: 'ai_active', interaction_count: 3,
   },
 ];
 
@@ -579,7 +579,7 @@ export async function getConversations(): Promise<Conversation[]> {
 
     if (data && data.length > 0) {
       const channels: Conversation['channel'][] = ['sms', 'email', 'whatsapp', 'voice'];
-      const agents:   AgentHandle[]             = ['aria', 'orion'];
+      
       return (data as Record<string, unknown>[]).map((p, i) => ({
         patient_id:        p.id as string,
         patient_name:      `${p.first_name} ${p.last_name}`.trim(),
@@ -589,7 +589,7 @@ export async function getConversations(): Promise<Conversation[]> {
         channel:           channels[i % channels.length],
         last_message:      'No recent messages on record',
         last_message_at:   p.created_at as string,
-        agent_handle:      agents[i % agents.length],
+        agent_handle:      'aria',
         status:            'ai_active',
         interaction_count: 0,
       }));

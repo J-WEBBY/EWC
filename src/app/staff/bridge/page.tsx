@@ -631,36 +631,52 @@ function ReplyArea({
     setSending(false);
   };
 
-  // AI-managed: locked compose box
+  // AI-managed: minimal locked compose box
   if (!canReply) {
     return (
       <div className="flex-shrink-0 px-6 py-4" style={{ borderTop: `1px solid ${BORDER}` }}>
         <div
           className="rounded-2xl overflow-hidden"
-          style={{ border: `1px solid ${BORDER}`, backgroundColor: `${agent.color}05` }}
+          style={{ border: `1px solid ${BORDER}` }}
         >
-          <div className="px-4 py-4 flex items-center gap-3">
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-              style={{ backgroundColor: `${agent.color}14` }}
-            >
-              <Bot size={14} style={{ color: agent.color }} />
-            </div>
-            <div className="flex-1">
-              <p className="text-[12px] font-medium" style={{ color: NAVY }}>
-                {agent.name} is managing this conversation
-              </p>
-              <p className="text-[10px] mt-0.5" style={{ color: TER }}>
-                AI is handling all outbound messages. Intercept to reply directly.
-              </p>
+          {/* Aria status strip */}
+          <div
+            className="flex items-center justify-between px-4 py-2"
+            style={{ borderBottom: `1px solid ${BORDER}`, backgroundColor: `${TEAL}08` }}
+          >
+            <div className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: TEAL }} />
+              <span className="text-[10px] font-medium" style={{ color: TEAL }}>Aria handling</span>
             </div>
             <button
               onClick={onIntercept}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-semibold flex-shrink-0 transition-opacity hover:opacity-80"
-              style={{ backgroundColor: `${BLUE}0c`, border: `1px solid ${BLUE}28`, color: BLUE }}
+              className="text-[10px] font-semibold transition-opacity hover:opacity-75"
+              style={{ color: BLUE }}
             >
-              <Shield size={11} /> Intercept
+              Intercept
             </button>
+          </div>
+          {/* Grayed-out textarea */}
+          <div className="px-4 py-3" style={{ backgroundColor: `${BORDER}08` }}>
+            <p className="text-[12px]" style={{ color: MUT }}>
+              Message {conv.patient_name.split(' ')[0]}...
+            </p>
+          </div>
+          {/* Disabled toolbar */}
+          <div
+            className="flex items-center gap-3 px-4 py-2.5"
+            style={{ borderTop: `1px solid ${BORDER}`, backgroundColor: `${BORDER}08` }}
+          >
+            {(['sms', 'whatsapp', 'email'] as const).map(ch => {
+              const ChDef = CHANNELS[ch];
+              const ChIcon = ChDef.Icon;
+              return (
+                <div key={ch} className="flex items-center gap-1 opacity-30">
+                  <ChIcon size={10} style={{ color: ChDef.color }} />
+                  <span className="text-[10px]" style={{ color: MUT }}>{ChDef.label}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -792,57 +808,63 @@ function ReplyArea({
 // =============================================================================
 
 function EmptyThread({ conv, onIntercept }: { conv: Conversation; onIntercept: () => void }) {
-  const agent = AGENTS[conv.agent_handle];
-  const ch    = CHANNELS[conv.channel];
+  const ch     = CHANNELS[conv.channel];
   const ChIcon = ch.Icon;
+  const initials = conv.patient_name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase();
+  const firstName = conv.patient_name.split(' ')[0];
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center px-8 py-12 gap-6">
+    <div className="flex-1 flex flex-col items-center justify-center px-8 py-12 gap-5">
+      {/* Patient avatar */}
       <div
-        className="w-16 h-16 rounded-2xl flex items-center justify-center"
-        style={{ backgroundColor: `${agent.color}10`, border: `1px solid ${agent.color}25` }}
+        className="w-20 h-20 rounded-full flex items-center justify-center text-[22px] font-bold flex-shrink-0"
+        style={{ backgroundColor: `${BLUE}0d`, border: `2px solid ${BLUE}20`, color: BLUE }}
       >
-        <Bot size={26} style={{ color: agent.color }} />
-      </div>
-      <div className="text-center">
-        <p className="text-[15px] font-semibold mb-1" style={{ color: NAVY }}>
-          {agent.name} is managing {conv.patient_name.split(' ')[0]}
-        </p>
-        <p className="text-[12px] leading-relaxed max-w-xs" style={{ color: TER }}>
-          All messages are handled via <span className="font-medium" style={{ color: ch.color }}>{ch.label}</span>.
-          Intercept to whisper or reply directly.
-        </p>
-      </div>
-      <div className="flex items-center gap-3">
-        <button
-          onClick={onIntercept}
-          className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-[11px] font-semibold"
-          style={{ backgroundColor: `${BLUE}0c`, border: `1px solid ${BLUE}28`, color: BLUE }}
-        >
-          <Shield size={12} /> Intercept conversation
-        </button>
+        {initials}
       </div>
 
-      {/* Stats */}
-      <div className="flex items-center gap-6 mt-2">
-        <div className="text-center">
-          <p className="text-[18px] font-bold" style={{ color: NAVY }}>{conv.interaction_count}</p>
-          <p className="text-[9px] uppercase tracking-[0.12em]" style={{ color: MUT }}>interactions</p>
+      {/* Patient info */}
+      <div className="text-center">
+        <p className="text-[17px] font-semibold mb-0.5" style={{ color: NAVY }}>{conv.patient_name}</p>
+        {conv.patient_email && (
+          <p className="text-[12px] mb-0.5" style={{ color: TER }}>{conv.patient_email}</p>
+        )}
+        {conv.patient_phone && (
+          <p className="text-[12px]" style={{ color: TER }}>{conv.patient_phone}</p>
+        )}
+      </div>
+
+      {/* Channel + last treatment */}
+      <div className="flex items-center gap-3">
+        <div
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-medium"
+          style={{ backgroundColor: `${ch.color}0d`, border: `1px solid ${ch.color}25`, color: ch.color }}
+        >
+          <ChIcon size={10} /> {ch.label}
         </div>
         {conv.last_treatment && (
-          <div className="text-center">
-            <p className="text-[12px] font-semibold" style={{ color: NAVY }}>{conv.last_treatment}</p>
-            <p className="text-[9px] uppercase tracking-[0.12em]" style={{ color: MUT }}>last treatment</p>
+          <div
+            className="px-3 py-1.5 rounded-full text-[10px] font-medium"
+            style={{ backgroundColor: `${BORDER}`, color: SEC }}
+          >
+            {conv.last_treatment}
           </div>
         )}
-        <div className="text-center">
-          <div className="flex items-center gap-1 justify-center">
-            <ChIcon size={11} style={{ color: ch.color }} />
-            <p className="text-[12px] font-semibold" style={{ color: NAVY }}>{ch.label}</p>
-          </div>
-          <p className="text-[9px] uppercase tracking-[0.12em]" style={{ color: MUT }}>channel</p>
-        </div>
       </div>
+
+      {/* No messages copy */}
+      <div className="text-center mt-1">
+        <p className="text-[12px]" style={{ color: MUT }}>No messages on record yet</p>
+      </div>
+
+      {/* CTA */}
+      <button
+        onClick={onIntercept}
+        className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-[12px] font-semibold transition-opacity hover:opacity-75"
+        style={{ backgroundColor: `${BLUE}0c`, border: `1px solid ${BLUE}28`, color: BLUE }}
+      >
+        <Shield size={12} /> Message {firstName} directly
+      </button>
     </div>
   );
 }
@@ -863,7 +885,7 @@ export default function BridgePage() {
   const [timeline,    setTimeline]    = useState<TimelineItem[]>([]);
   const [expanded,    setExpanded]    = useState<Set<string>>(new Set());
   const [intercepted, setIntercepted] = useState<Set<string>>(new Set());
-  const [filter,      setFilter]      = useState<'all' | 'attention' | 'orion' | 'aria'>('all');
+  const [filter,      setFilter]      = useState<'all' | 'attention' | 'aria'>('all');
   const [search,      setSearch]      = useState('');
   const [loading,     setLoading]     = useState(true);
   const [threadLoading, setThreadLoading] = useState(false);
@@ -910,7 +932,6 @@ export default function BridgePage() {
   }, [timeline]);
 
   const attentionCount = convs.filter(c => c.status === 'escalated').length;
-  const orionCount     = convs.filter(c => c.agent_handle === 'orion').length;
   const ariaCount      = convs.filter(c => c.agent_handle === 'aria').length;
 
   const filteredConvs = convs.filter(c => {
@@ -919,7 +940,6 @@ export default function BridgePage() {
       || (c.patient_email ?? '').toLowerCase().includes(search.toLowerCase());
     const matchFilter = filter === 'all'       ? true
       : filter === 'attention'                 ? c.status === 'escalated'
-      : filter === 'orion'                     ? c.agent_handle === 'orion'
       : c.agent_handle === 'aria';
     return matchSearch && matchFilter;
   });
@@ -991,10 +1011,7 @@ export default function BridgePage() {
             </div>
             <div className="text-right text-[10px] mt-1" style={{ color: MUT }}>
               <div className="flex items-center gap-1 justify-end">
-                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: GOLD }} />
-                <span style={{ color: GOLD }}>{orionCount}</span>
-                <span style={{ color: BORDER }}>·</span>
-                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: TEAL }} />
+                                                                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: TEAL }} />
                 <span style={{ color: TEAL }}>{ariaCount}</span>
               </div>
             </div>
@@ -1017,10 +1034,9 @@ export default function BridgePage() {
           {/* Filter tabs — underline style */}
           <div className="flex" style={{ borderBottom: `1px solid ${BORDER}` }}>
             {([
-              { key: 'all',       label: 'All',   count: convs.length         },
-              { key: 'attention', label: 'Reply', count: attentionCount        },
-              { key: 'orion',     label: 'Orion', count: orionCount            },
-              { key: 'aria',      label: 'Aria',  count: ariaCount             },
+              { key: 'all',       label: 'All',   count: convs.length  },
+              { key: 'attention', label: 'Reply', count: attentionCount },
+              { key: 'aria',      label: 'Aria',  count: ariaCount      },
             ] as const).map(tab => (
               <button
                 key={tab.key}
