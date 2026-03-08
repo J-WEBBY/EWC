@@ -9,7 +9,7 @@
 import { useState, useEffect, useCallback, type Dispatch, type SetStateAction } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ChevronLeft, ChevronRight, Plus, X, Clock, User, ArrowUpRight, RefreshCw,
+  ChevronLeft, ChevronRight, Plus, X, Clock, User, ArrowUpRight,
   Check, Trash2, AlertCircle, Shield, Briefcase, Edit3,
   CalendarDays, BookOpen, Ban, type LucideIcon,
 } from 'lucide-react';
@@ -163,9 +163,7 @@ export default function CalendarPage() {
   const [practs,     PractsFn]      = useState<PractitionerRow[]>([]);
 
   const [loading,    setLoading]    = useState(true);
-  const [syncing,    setSyncing]    = useState(false);
-  const [syncMsg,    setSyncMsg]    = useState<string|null>(null);
-  const [showAdd,    setShowAdd]    = useState(false);
+const [showAdd,    setShowAdd]    = useState(false);
   const [addForm,    setAddForm]    = useState<AddForm>(mkForm());
   const [saving,     setSaving]     = useState(false);
   const [toast,      setToast]      = useState<{ok:boolean;msg:string}|null>(null);
@@ -251,18 +249,7 @@ export default function CalendarPage() {
   // ── Handlers ─────────────────────────────────────────────────────────────────
   function showT(ok:boolean,msg:string){ setToast({ok,msg}); setTimeout(()=>setToast(null),3200); }
 
-  async function handleSync() {
-    setSyncing(true); setSyncMsg(null);
-    try {
-      const r=await fetch('/api/cliniko/sync-now',{method:'POST',signal:AbortSignal.timeout(65_000)});
-      const res=await r.json() as {success:boolean;appointments?:number;error?:string};
-      if(res.success){ setSyncMsg(`Synced — ${res.appointments??0} updated`); await loadRange(year,month); }
-      else setSyncMsg(res.error??'Sync failed');
-    } catch(e){ setSyncMsg(String(e)); }
-    finally { setSyncing(false); setTimeout(()=>setSyncMsg(null),5000); }
-  }
-
-  async function handleApptStatus(id:string, status:'arrived'|'cancelled') {
+async function handleApptStatus(id:string, status:'arrived'|'cancelled') {
     setApptUpd(id);
     try {
       const res = await updateAppointmentStatus(id, status);
@@ -468,13 +455,6 @@ export default function CalendarPage() {
                   </button>
                 ))}
               </div>
-              {syncMsg&&<span className="text-[11px] font-medium" style={{color:syncMsg.includes('Synced')?GREEN:RED}}>{syncMsg}</span>}
-              <button onClick={handleSync} disabled={syncing}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all disabled:opacity-50"
-                style={{background:`${BLUE}12`,border:`1px solid ${BLUE}30`,color:NAVY}}>
-                <RefreshCw size={12} className={syncing?'animate-spin':''}/>
-                {syncing?'Syncing…':'Sync Cliniko'}
-              </button>
             </div>
           </div>
 

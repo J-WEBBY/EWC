@@ -8,8 +8,10 @@ import {
   Play, ChevronRight, ChevronDown, Info,
   Clock, PhoneOff, CreditCard, RotateCcw, Target, CheckSquare,
   Syringe, Sparkles, Droplets, Snowflake, BookOpen, AlertCircle, Gift,
+  Shield, ArrowUpRight, Scale,
   type LucideIcon,
 } from 'lucide-react';
+import Link from 'next/link';
 import { getAgentsForTenant, type DBAgent } from '@/lib/actions/agent-service';
 import OrbLoader from '@/components/orb-loader';
 import {
@@ -21,8 +23,12 @@ import {
   type AutomationConfig,
 } from '@/lib/actions/automations';
 import { AUTOMATION_REGISTRY } from '@/lib/automations/registry';
+import {
+  getJudgementData, runManualAssessment, toggleRedline,
+  type JudgementData, type RedlineRule, type RiskLevel,
+} from '@/lib/actions/judgement';
 
-type PageTab = 'agents' | 'automations';
+type PageTab = 'agents' | 'automations' | 'judgement';
 
 // =============================================================================
 // AUTOMATION ICON MAP
@@ -349,6 +355,278 @@ function AutomationCard({ automation, onToggle, onRunNow }: {
 }
 
 // =============================================================================
+// JUDGEMENT ENGINE — Inline tab components
+// =============================================================================
+
+const RISK_COLORS: Record<RiskLevel, { bg: string; border: string; text: string; dot: string }> = {
+  critical: { bg: 'rgba(220,38,38,0.07)',  border: 'rgba(220,38,38,0.25)',  text: '#DC2626', dot: '#DC2626' },
+  high:     { bg: 'rgba(217,119,6,0.07)',  border: 'rgba(217,119,6,0.25)',  text: '#D8A600', dot: '#D8A600' },
+  medium:   { bg: 'rgba(37,99,235,0.06)',  border: 'rgba(37,99,235,0.20)',  text: '#2563EB', dot: '#2563EB' },
+  low:      { bg: 'rgba(5,150,105,0.06)',  border: 'rgba(5,150,105,0.20)', text: '#059669', dot: '#059669' },
+  clear:    { bg: 'rgba(0,88,230,0.05)',   border: '#EBE5FF',              text: '#0058E6', dot: '#0058E6' },
+};
+
+function JudgementGauge({ score, level }: { score: number; level: RiskLevel }) {
+  const r = 44;
+  const circumference = 2 * Math.PI * r;
+  const filled = (score / 100) * circumference;
+  const color = RISK_COLORS[level].dot;
+  return (
+    <svg width={108} height={108} viewBox="0 0 108 108">
+      <circle cx={54} cy={54} r={r} fill="none" stroke="#EBE5FF" strokeWidth={8} />
+      <circle cx={54} cy={54} r={r} fill="none" stroke={color} strokeWidth={8}
+        strokeDasharray={`${filled} ${circumference - filled}`} strokeLinecap="round"
+        transform="rotate(-90 54 54)" style={{ transition: 'stroke-dasharray 0.8s ease' }} />
+      <text x={54} y={50} textAnchor="middle" fill="#181D23" fontSize={24} fontWeight={900} fontFamily="inherit">{score}</text>
+      <text x={54} y={64} textAnchor="middle" fill="#96989B" fontSize={8} fontFamily="inherit">RISK SCORE</text>
+    </svg>
+  );
+}
+
+function JudgementTab({ userId, brandColor }: { userId: string; brandColor: string }) {
+  const [data, setData] = useState<JudgementData | null>(null);
+  const [redlines, setRedlines] = useState<RedlineRule[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [reassessing, setReassessing] = useState(false);
+  const [subTab, setSubTab] = useState<'brief' | 'redlines'>('brief');
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const res = await getJudgementData();
+      if (res.success && res.data) {
+        setData(res.data);
+        setRedlines(res.data.redlines);
+      }
+      setLoading(false);
+    })();
+  }, []);
+
+  async function handleReassess() {
+    setReassessing(true);
+    const result = await runManualAssessment();
+    if (result.success && result.data && data) {
+      setData(prev => prev ? { ...prev, today: result.data!, last_assessed: new Date().toISOString() } : prev);
+    }
+    setReassessing(false);
+  }
+
+  function handleRedlineToggle(id: string, enabled: boolean) {
+    setRedlines(prev => prev.map(r => r.id === id ? { ...r, enabled, status: (enabled ? 'active' : 'suppressed') as RedlineRule['status'] } : r));
+    toggleRedline('clinic', id, enabled);
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <div style={{ width: 28, height: 28, border: '2px solid #EBE5FF', borderTopColor: brandColor, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      </div>
+    );
+  }
+
+  const today = data?.today;
+  const triggeredCount = redlines.filter(r => r.status === 'triggered').length;
+
+  return (
+    <motion.div key="judgement" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.18 }}>
+
+      {/* Sub-header */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          {today && (
+            <div style={{ padding: '5px 12px', borderRadius: 8, background: RISK_COLORS[today.overall_level].bg, border: `1px solid ${RISK_COLORS[today.overall_level].border}` }}>
+              <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.14em', color: RISK_COLORS[today.overall_level].text }}>
+                {today.overall_level} risk
+              </span>
+            </div>
+          )}
+          {triggeredCount > 0 && (
+            <div style={{ padding: '5px 12px', borderRadius: 8, background: 'rgba(220,38,38,0.07)', border: '1px solid rgba(220,38,38,0.25)' }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: '#DC2626', letterSpacing: '0.1em' }}>
+                {triggeredCount} REDLINE{triggeredCount > 1 ? 'S' : ''} ACTIVE
+              </span>
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={handleReassess} disabled={reassessing}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-[12px] font-semibold transition-all"
+            style={{ background: `${brandColor}14`, border: `1px solid ${brandColor}30`, color: '#181D23', opacity: reassessing ? 0.6 : 1, cursor: reassessing ? 'wait' : 'pointer' }}>
+            <Scale size={13} style={{ animation: reassessing ? 'spin 0.8s linear infinite' : 'none' }} />
+            {reassessing ? 'Assessing…' : 'Re-assess Now'}
+          </button>
+          <Link href={`/staff/judgement?userId=${userId}`}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[12px] font-semibold border border-[#EBE5FF] text-[#5A6475] hover:text-[#181D23] hover:border-[#A8C4FF] transition-colors no-underline">
+            Full Report <ArrowUpRight size={12} />
+          </Link>
+        </div>
+      </div>
+
+      {/* Sub-tabs */}
+      <div className="flex gap-0 border-b border-[#EBE5FF] mb-6">
+        {(['brief', 'redlines'] as const).map(t => (
+          <button key={t} onClick={() => setSubTab(t)}
+            className="px-4 py-2 text-[11px] font-semibold transition-all relative capitalize"
+            style={{ color: subTab === t ? '#181D23' : '#96989B', borderBottom: `2px solid ${subTab === t ? brandColor : 'transparent'}`, background: 'transparent', border: 'none', cursor: 'pointer', paddingBottom: 10 }}>
+            {t === 'brief' ? 'Daily Brief' : `Redlines${triggeredCount > 0 ? ` (${triggeredCount})` : ''}`}
+          </button>
+        ))}
+      </div>
+
+      <AnimatePresence mode="wait">
+
+        {/* ── DAILY BRIEF ── */}
+        {subTab === 'brief' && today && (
+          <motion.div key="brief" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+            <div className="grid grid-cols-2 gap-6">
+
+              {/* Left: gauge + brief */}
+              <div className="flex flex-col gap-4">
+                <div className="bg-[#FAF7F2] border border-[#EBE5FF] rounded-2xl p-5 flex gap-5 items-center">
+                  <JudgementGauge score={today.overall_score} level={today.overall_level} />
+                  <div className="flex-1">
+                    <p className="text-[8px] font-bold uppercase tracking-[0.24em] text-[#96989B] mb-2">Overall Assessment</p>
+                    <p className="text-[18px] font-black text-[#181D23] tracking-tight capitalize leading-tight">{today.overall_level} Risk</p>
+                    <p className="text-[11px] text-[#5A6475] mt-2">Confidence: <strong className="text-[#181D23]">{today.confidence}%</strong></p>
+                    <p className="text-[11px] text-[#5A6475] mt-1">{today.signals_reviewed} signals reviewed</p>
+                    <p className="text-[10px] text-[#96989B] mt-1">Last assessed: {new Date(data?.last_assessed ?? today.date).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</p>
+                  </div>
+                </div>
+
+                <div className="bg-[#FAF7F2] border border-[#EBE5FF] rounded-2xl p-5">
+                  <p className="text-[8px] font-bold uppercase tracking-[0.24em] text-[#96989B] mb-3">AI Risk Brief</p>
+                  <p className="text-[12px] text-[#3D4451] leading-relaxed">{today.brief}</p>
+                </div>
+
+                <div className="bg-[#FAF7F2] border border-[#EBE5FF] rounded-2xl p-5">
+                  <p className="text-[8px] font-bold uppercase tracking-[0.24em] text-[#96989B] mb-3">Key Risks</p>
+                  <div className="flex flex-col gap-2">
+                    {today.key_risks.map((risk, i) => (
+                      <div key={i} className="flex items-start gap-2">
+                        <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#D8A600', flexShrink: 0, marginTop: 5 }} />
+                        <span className="text-[11px] text-[#3D4451] leading-relaxed">{risk}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Right: categories + recommendations */}
+              <div className="flex flex-col gap-4">
+                <div>
+                  <p className="text-[8px] font-bold uppercase tracking-[0.24em] text-[#96989B] mb-3">Risk by Category</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {today.categories.map(cat => {
+                      const rc = RISK_COLORS[cat.level];
+                      const catColors: Record<string, string> = { clinical: '#DC2626', compliance: '#D8A600', operational: '#2563EB', revenue: '#059669' };
+                      return (
+                        <div key={cat.category} className="bg-[#FAF7F2] border border-[#EBE5FF] rounded-xl p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#96989B]">{cat.category}</span>
+                            <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 5, background: rc.bg, border: `1px solid ${rc.border}`, color: rc.text, textTransform: 'uppercase', letterSpacing: '0.12em' }}>
+                              {cat.level}
+                            </span>
+                          </div>
+                          <p className="text-[28px] font-black text-[#181D23] tracking-tight leading-none mb-2">{cat.score}</p>
+                          <div style={{ height: 3, borderRadius: 2, background: 'rgba(0,88,230,0.08)', overflow: 'hidden' }}>
+                            <div style={{ height: '100%', width: `${cat.score}%`, background: catColors[cat.category] ?? '#0058E6', borderRadius: 2, transition: 'width 0.6s ease' }} />
+                          </div>
+                          <p className="text-[10px] text-[#5A6475] mt-2 leading-tight">{cat.top_factor}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="bg-[#FAF7F2] border border-[#EBE5FF] rounded-2xl p-5">
+                  <p className="text-[8px] font-bold uppercase tracking-[0.24em] text-[#96989B] mb-3">Recommendations</p>
+                  <div className="flex flex-col gap-2">
+                    {today.recommendations.map((rec, i) => (
+                      <div key={i} className="flex items-start gap-3 p-3 rounded-lg" style={{ background: `${brandColor}06`, border: '1px solid #EBE5FF' }}>
+                        <span className="text-[10px] font-black flex-shrink-0 mt-0.5" style={{ color: brandColor }}>{i + 1}</span>
+                        <span className="text-[11px] text-[#3D4451] leading-relaxed">{rec}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ── REDLINES ── */}
+        {subTab === 'redlines' && (
+          <motion.div key="redlines" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+            <div className="grid grid-cols-3 gap-6">
+              <div className="col-span-2">
+                <p className="text-[8px] font-bold uppercase tracking-[0.24em] text-[#96989B] mb-4">{redlines.length} rules</p>
+                <div>
+                  {redlines.map(rule => {
+                    const sStyle: Record<RedlineRule['status'], { bg: string; border: string; text: string; label: string }> = {
+                      triggered:  { bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.25)', text: '#DC2626', label: 'Triggered'  },
+                      active:     { bg: 'rgba(0,88,230,0.06)',  border: '#EBE5FF',              text: '#0058E6', label: 'Monitoring' },
+                      resolved:   { bg: 'rgba(5,150,105,0.06)', border: 'rgba(5,150,105,0.2)', text: '#059669', label: 'Resolved'   },
+                      suppressed: { bg: 'rgba(110,102,136,0.06)', border: '#EBE5FF',            text: '#96989B', label: 'Suppressed' },
+                    };
+                    const s = sStyle[rule.status];
+                    return (
+                      <div key={rule.id} className="flex items-center gap-3 py-3" style={{ borderBottom: '1px solid #EBE5FF' }}>
+                        <div style={{ width: 6, height: 6, borderRadius: '50%', background: rule.severity === 'critical' ? '#DC2626' : '#D8A600', flexShrink: 0 }} />
+                        <span className="text-[9px] font-bold text-[#96989B] w-10 flex-shrink-0">{rule.code}</span>
+                        <span className="flex-1 text-[12px] font-semibold text-[#181D23]">{rule.title}</span>
+                        <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 5, background: s.bg, border: `1px solid ${s.border}`, color: s.text, textTransform: 'uppercase', letterSpacing: '0.1em', flexShrink: 0 }}>{s.label}</span>
+                        <button onClick={() => handleRedlineToggle(rule.id, !rule.enabled)}
+                          style={{ width: 34, height: 18, borderRadius: 9, border: 'none', cursor: 'pointer', background: rule.enabled ? brandColor : '#C5BAF0', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+                          <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#fff', position: 'absolute', top: 3, left: rule.enabled ? 19 : 3, transition: 'left 0.2s' }} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Sidebar summary */}
+              <div className="flex flex-col gap-4">
+                {triggeredCount > 0 && (
+                  <div style={{ border: '1px solid rgba(220,38,38,0.25)', borderRadius: 16, background: 'rgba(220,38,38,0.04)', padding: '16px 18px' }}>
+                    <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#DC2626] mb-3">Active Redlines</p>
+                    {redlines.filter(r => r.status === 'triggered').map(r => (
+                      <div key={r.id} className="flex items-center gap-2 mb-2">
+                        <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#DC2626', flexShrink: 0 }} />
+                        <span className="text-[11px] font-semibold text-[#181D23]">{r.title}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="bg-[#FAF7F2] border border-[#EBE5FF] rounded-2xl p-4 grid grid-cols-2 gap-4">
+                  {[
+                    { label: 'Total Rules', value: redlines.length },
+                    { label: 'Enabled',     value: redlines.filter(r => r.enabled).length },
+                    { label: 'Triggered',   value: triggeredCount },
+                    { label: 'Triggers',    value: redlines.reduce((s, r) => s + r.trigger_count, 0) },
+                  ].map(m => (
+                    <div key={m.label}>
+                      <p className="text-[8px] font-bold uppercase tracking-[0.18em] text-[#96989B]">{m.label}</p>
+                      <p className="text-[22px] font-black text-[#181D23] tracking-tight mt-1">{m.value}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="bg-[#FAF7F2] border border-[#EBE5FF] rounded-2xl p-4">
+                  <p className="text-[8px] font-bold uppercase tracking-[0.18em] text-[#96989B] mb-2">What are Redlines?</p>
+                  <p className="text-[11px] text-[#3D4451] leading-relaxed">Hard-coded safety rules enforced unconditionally. A triggered Redline demands immediate clinical or operational action.</p>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
+// =============================================================================
 // MAIN PAGE
 // =============================================================================
 
@@ -475,17 +753,19 @@ export default function AgentsPage() {
           transition={{ delay: 0.08 }}
           className="flex items-center gap-1 mb-6 border-b border-[#D4E2FF]"
         >
-          {(['agents', 'automations'] as const).map(t => (
+          {(['agents', 'automations', 'judgement'] as const).map(t => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`px-4 py-2.5 text-[12px] font-medium transition-all relative capitalize ${
+              className={`px-4 py-2.5 text-[12px] font-medium transition-all relative ${
                 tab === t ? 'text-[#181D23]' : 'text-[#5A6475] hover:text-[#3D4451]'
               }`}
             >
               {t === 'agents'
                 ? `Agents (${activeAgents.length})`
-                : `Automations (${activeAutos} active)`}
+                : t === 'automations'
+                ? `Automations (${activeAutos} active)`
+                : 'Judgement Engine'}
               {tab === t && (
                 <motion.div
                   layoutId="agent-tab-underline"
@@ -584,6 +864,14 @@ export default function AgentsPage() {
                   <AutomationCard key={auto.id} automation={auto} onToggle={handleToggle} onRunNow={handleRunNow} />
                 ))}
               </div>
+            </motion.div>
+          )}
+
+          {/* ── JUDGEMENT ENGINE TAB ── */}
+          {tab === 'judgement' && (
+            <motion.div key="judgement" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.18 }}>
+              <JudgementTab userId={userId!} brandColor={brandColor} />
             </motion.div>
           )}
         </AnimatePresence>
