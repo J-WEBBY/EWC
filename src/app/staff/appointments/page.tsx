@@ -872,7 +872,7 @@ export default function AppointmentsPage() {
   // ── Filter helpers ──────────────────────────────────────────────────────────
 
   const filterAppts = useCallback((list: AppointmentRow[]) => {
-    let result = filterPract ? list.filter(a => a.practitioner_name === filterPract) : list;
+    const result = filterPract ? list.filter(a => a.practitioner_name === filterPract) : list;
     const q = search.toLowerCase();
     return !q ? result : result.filter(a =>
       [a.patient_name, a.appointment_type, a.practitioner_name].some(v => v?.toLowerCase().includes(q))
@@ -891,16 +891,7 @@ export default function AppointmentsPage() {
   const confirmBooking  = pendingBookings.find(b => b.id === confirmTarget) ?? null;
   const overdueCount    = overdueIds.size;
 
-  if (!profile) return null;
-
-  const TABS: { key: Tab; label: string; count?: number }[] = [
-    { key: 'today',    label: 'Today',    count: stats.today     },
-    { key: 'upcoming', label: 'Upcoming', count: stats.upcoming  },
-    { key: 'past',     label: 'Past 30d'                         },
-    { key: 'requests', label: 'Requests', count: pendingCount || undefined },
-  ];
-
-  // Unique practitioners in current view for filter chips
+  // Unique practitioners for filter chips (must be before early return)
   const practsInView = useMemo(() => {
     const seen = new Set<string>();
     const list: PractitionerRow[] = [];
@@ -909,6 +900,15 @@ export default function AppointmentsPage() {
     });
     return list;
   }, [practitioners]);
+
+  if (!profile) return null;
+
+  const TABS: { key: Tab; label: string; count?: number }[] = [
+    { key: 'today',    label: 'Today',    count: stats.today     },
+    { key: 'upcoming', label: 'Upcoming', count: stats.upcoming  },
+    { key: 'past',     label: 'Past 30d'                         },
+    { key: 'requests', label: 'Requests', count: pendingCount || undefined },
+  ];
 
   return (
     <div style={{ minHeight: '100vh', background: BG, paddingLeft: 'var(--nav-w,240px)' }}>
