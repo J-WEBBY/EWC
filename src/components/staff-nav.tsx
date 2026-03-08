@@ -26,6 +26,8 @@ import {
   GraduationCap,
   Stethoscope,
   CalendarCheck,
+  Zap,
+  FileText,
 } from 'lucide-react';
 import type { StaffProfile } from '@/lib/actions/staff-onboarding';
 
@@ -89,9 +91,11 @@ export function StaffNav({
     {
       title: 'Intelligence',
       items: [
-        { label: 'Agents',       href: `/staff/agents?userId=${userId}`,     icon: Bot },
-        { label: 'Receptionist', href: `/staff/voice?userId=${userId}`,      icon: Mic },
-        { label: 'Bridge',       href: `/staff/bridge?userId=${userId}`,     icon: Link2 },
+        { label: 'Agents',          href: `/staff/agents?userId=${userId}`,      icon: Bot },
+        { label: 'Automations',     href: `/staff/automations?userId=${userId}`, icon: Zap },
+        { label: 'Judgement Engine',href: `/staff/judgement?userId=${userId}`,   icon: Brain },
+        { label: 'Receptionist',    href: `/staff/voice?userId=${userId}`,       icon: Mic },
+        { label: 'Bridge',          href: `/staff/bridge?userId=${userId}`,      icon: Link2 },
       ],
     },
     {
@@ -106,7 +110,7 @@ export function StaffNav({
     {
       title: 'Governance',
       items: [
-        { label: 'Analytics',      href: `/staff/governance?userId=${userId}`, icon: Brain },
+        { label: 'Analytics',      href: `/staff/governance?userId=${userId}`, icon: FileText },
         { label: 'Compliance',     href: `/staff/compliance?userId=${userId}`, icon: Shield },
         { label: 'CPD & Learning', href: `/staff/learning?userId=${userId}`,   icon: GraduationCap },
       ],
