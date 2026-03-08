@@ -5,8 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   ArrowUpRight, ChevronRight, Check,
-  Activity, Zap, Brain, BookOpen,
-  TrendingUp, TrendingDown,
+  Zap, Brain,
 } from 'lucide-react';
 import { getAgentsForTenant } from '@/lib/actions/agent-service';
 import type { Agent } from '@/lib/types/database';
@@ -37,7 +36,6 @@ const AGENT_META: Record<string, {
   tagline: string;
   color: string;
   capabilities: string[];
-  metrics: { label: string; value: string; trend: 'up' | 'down' | 'flat' }[];
 }> = {
   primary_agent: {
     role: 'Primary Orchestrator',
@@ -48,11 +46,6 @@ const AGENT_META: Record<string, {
       'Surface operational signals and priorities',
       'Generate morning intelligence briefings',
       'Answer complex multi-domain queries end-to-end',
-    ],
-    metrics: [
-      { label: 'Queries resolved', value: '1,247', trend: 'up' },
-      { label: 'Actions taken',   value: '89',    trend: 'up' },
-      { label: 'Accuracy',        value: '96%',   trend: 'flat' },
     ],
   },
   sales_agent: {
@@ -65,11 +58,6 @@ const AGENT_META: Record<string, {
       'Manage corporate account relationships',
       'Follow up on unanswered booking requests',
     ],
-    metrics: [
-      { label: 'Leads converted',   value: '34',  trend: 'up' },
-      { label: 'Bookings assisted', value: '127', trend: 'up' },
-      { label: 'Conversion rate',   value: '71%', trend: 'up' },
-    ],
   },
   crm_agent: {
     role: 'Patient Retention',
@@ -80,11 +68,6 @@ const AGENT_META: Record<string, {
       'Identify and re-engage at-risk patients',
       'Manage loyalty and referral programmes',
       'Track and improve patient lifetime value',
-    ],
-    metrics: [
-      { label: 'Follow-ups sent',  value: '203', trend: 'up' },
-      { label: 'Patients retained', value: '41', trend: 'up' },
-      { label: 'Return rate',      value: '68%', trend: 'flat' },
     ],
   },
 };
@@ -109,22 +92,6 @@ const MODULES = [
     icon: Brain,
     color: '#7C3AED',
     href: '/staff/judgement',
-  },
-  {
-    key: 'knowledge',
-    label: 'Knowledge Base',
-    description: 'Manage the content that powers your AI — treatments, policies, FAQs, and clinical protocols.',
-    icon: BookOpen,
-    color: TEAL,
-    href: '/staff/knowledge',
-  },
-  {
-    key: 'bridge',
-    label: 'System Bridge',
-    description: 'Monitor integrations, data pipelines, and connections to Cliniko, Vapi, and other systems.',
-    icon: Activity,
-    color: GOLD,
-    href: '/staff/bridge',
   },
 ];
 
@@ -170,11 +137,6 @@ function AgentOrb({ color, size = 48 }: { color: string; size?: number }) {
   );
 }
 
-function TrendIcon({ trend }: { trend: 'up' | 'down' | 'flat' }) {
-  if (trend === 'up')   return <TrendingUp  size={10} style={{ color: '#059669' }} />;
-  if (trend === 'down') return <TrendingDown size={10} style={{ color: '#DC2626' }} />;
-  return null;
-}
 
 function AgentCard({
   agent,
@@ -239,27 +201,11 @@ function AgentCard({
         </p>
 
         {/* Capabilities */}
-        <div className="mb-5 space-y-1.5">
+        <div className="space-y-1.5">
           {meta.capabilities.map((cap, i) => (
             <div key={i} className="flex items-start gap-2">
               <Check size={11} className="mt-0.5 flex-shrink-0" style={{ color: meta.color }} />
               <span className="text-[11px]" style={{ color: SEC }}>{cap}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Metrics */}
-        <div
-          className="grid grid-cols-3 gap-3 pt-4"
-          style={{ borderTop: `1px solid ${BORDER}` }}
-        >
-          {meta.metrics.map((m, i) => (
-            <div key={i}>
-              <div className="flex items-center gap-1 mb-0.5">
-                <p className="text-[15px] font-semibold" style={{ color: NAVY }}>{m.value}</p>
-                <TrendIcon trend={m.trend} />
-              </div>
-              <p className="text-[10px]" style={{ color: MUT }}>{m.label}</p>
             </div>
           ))}
         </div>
@@ -351,7 +297,6 @@ export default function AgentsPage() {
                 tagline: agent.description ?? 'Intelligent AI agent.',
                 color: BLUE,
                 capabilities: [],
-                metrics: [],
               };
               return (
                 <AgentCard
