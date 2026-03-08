@@ -128,16 +128,16 @@ export function StaffNav({
       className="fixed top-0 left-0 h-screen flex flex-col z-50 select-none overflow-hidden"
       animate={{ width: collapsed ? NAV_COLLAPSED : NAV_EXPANDED }}
       transition={{ type: 'spring', stiffness: 320, damping: 32 }}
-      style={{ backgroundColor: '#181D23', borderRight: '1px solid rgba(0,88,230,0.10)' }}
+      style={{ backgroundColor: '#FAF7F2', borderRight: '1px solid #EBE5FF' }}
     >
       {/* Brand */}
       <div
         className="flex items-center h-[64px] flex-shrink-0 px-[18px]"
-        style={{ borderBottom: '1px solid rgba(0,88,230,0.08)' }}
+        style={{ borderBottom: '1px solid #EBE5FF' }}
       >
         <motion.div
           className="w-2 h-2 rounded-full flex-shrink-0"
-          style={{ backgroundColor: c, boxShadow: `0 0 8px ${c}80` }}
+          style={{ backgroundColor: c, boxShadow: `0 0 8px ${c}60` }}
           animate={{ opacity: [0.5, 1, 0.5], scale: [0.85, 1.15, 0.85] }}
           transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
         />
@@ -150,8 +150,8 @@ export function StaffNav({
               exit={{ opacity: 0, width: 0 }}
               transition={{ duration: 0.2 }}
             >
-              <p className="text-[14px] font-semibold leading-tight whitespace-nowrap" style={{ color: '#EBF0FF' }}>EWC</p>
-              <p className="text-[10px] leading-tight whitespace-nowrap" style={{ color: 'rgba(235,240,255,0.30)' }}>Operational Intelligence</p>
+              <p className="text-[14px] font-semibold leading-tight whitespace-nowrap" style={{ color: '#1A1035' }}>EWC</p>
+              <p className="text-[10px] leading-tight whitespace-nowrap" style={{ color: '#8B84A0' }}>Operational Intelligence</p>
             </motion.div>
           )}
         </AnimatePresence>
@@ -165,7 +165,7 @@ export function StaffNav({
               {!collapsed && (
                 <motion.p
                   className="mb-1.5 text-[10px] font-medium uppercase tracking-[0.16em] whitespace-nowrap overflow-hidden px-3"
-                  style={{ color: 'rgba(235,240,255,0.22)' }}
+                  style={{ color: '#8B84A0' }}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
@@ -190,7 +190,7 @@ export function StaffNav({
       </nav>
 
       {/* Bottom */}
-      <div style={{ padding: collapsed ? '0 8px 12px' : '0 12px 12px', borderTop: '1px solid rgba(0,88,230,0.08)' }}>
+      <div style={{ padding: collapsed ? '0 8px 12px' : '0 12px 12px', borderTop: '1px solid #EBE5FF' }}>
         <div className="pt-3">
           {bottomItems.map((item) => (
             <NavButton
@@ -208,7 +208,8 @@ export function StaffNav({
         <div
           className="mt-2 flex items-center rounded-xl overflow-hidden"
           style={{
-            backgroundColor: 'rgba(0,88,230,0.06)',
+            backgroundColor: `${c}0c`,
+            border: '1px solid #EBE5FF',
             padding: collapsed ? '10px 0' : '10px 12px',
             justifyContent: collapsed ? 'center' : 'flex-start',
             gap: collapsed ? 0 : 12,
@@ -216,7 +217,7 @@ export function StaffNav({
         >
           <div
             className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-semibold flex-shrink-0"
-            style={{ backgroundColor: `${c}22`, color: c }}
+            style={{ backgroundColor: `${c}18`, color: c }}
           >
             {profile.firstName.charAt(0)}{profile.lastName.charAt(0)}
           </div>
@@ -230,19 +231,19 @@ export function StaffNav({
                 transition={{ duration: 0.15 }}
               >
                 <div className="flex-1 min-w-0">
-                  <p className="text-[12px] font-medium truncate whitespace-nowrap" style={{ color: 'rgba(235,240,255,0.80)' }}>
+                  <p className="text-[12px] font-medium truncate whitespace-nowrap" style={{ color: '#1A1035' }}>
                     {profile.firstName} {profile.lastName}
                   </p>
-                  <p className="text-[10px] truncate whitespace-nowrap" style={{ color: 'rgba(235,240,255,0.30)' }}>
+                  <p className="text-[10px] truncate whitespace-nowrap" style={{ color: '#8B84A0' }}>
                     {profile.jobTitle || 'Staff'}
                   </p>
                 </div>
                 <button
                   onClick={() => router.push('/login')}
                   className="flex-shrink-0 p-1 rounded-lg transition-colors"
-                  style={{ color: 'rgba(235,240,255,0.25)' }}
-                  onMouseEnter={e => (e.currentTarget.style.color = 'rgba(235,240,255,0.55)')}
-                  onMouseLeave={e => (e.currentTarget.style.color = 'rgba(235,240,255,0.25)')}
+                  style={{ color: '#8B84A0' }}
+                  onMouseEnter={e => (e.currentTarget.style.color = '#524D66')}
+                  onMouseLeave={e => (e.currentTarget.style.color = '#8B84A0')}
                   title="Sign out"
                 >
                   <LogOut size={13} />
@@ -256,13 +257,13 @@ export function StaffNav({
         <button
           onClick={toggle}
           className="w-full mt-2 flex items-center justify-center py-2 rounded-xl transition-all"
-          style={{ color: 'rgba(235,240,255,0.18)' }}
+          style={{ color: '#8B84A0' }}
           onMouseEnter={e => {
-            (e.currentTarget as HTMLButtonElement).style.color = 'rgba(235,240,255,0.50)';
-            (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(0,88,230,0.06)';
+            (e.currentTarget as HTMLButtonElement).style.color = '#524D66';
+            (e.currentTarget as HTMLButtonElement).style.backgroundColor = `${c}08`;
           }}
           onMouseLeave={e => {
-            (e.currentTarget as HTMLButtonElement).style.color = 'rgba(235,240,255,0.18)';
+            (e.currentTarget as HTMLButtonElement).style.color = '#8B84A0';
             (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent';
           }}
           title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
@@ -301,8 +302,8 @@ function NavButton({
         onClick={onClick}
         className="w-full flex items-center rounded-xl transition-all text-left"
         style={{
-          color: isActive ? '#80B1FF' : 'rgba(235,240,255,0.38)',
-          backgroundColor: isActive ? 'rgba(0,88,230,0.10)' : 'transparent',
+          color: isActive ? brandColor : '#6E6688',
+          backgroundColor: isActive ? `${brandColor}0e` : 'transparent',
           fontWeight: isActive ? 500 : 400,
           justifyContent: collapsed ? 'center' : 'flex-start',
           padding: collapsed ? '9px 0' : '8px 10px',
@@ -312,14 +313,14 @@ function NavButton({
         }}
         onMouseEnter={e => {
           if (!isActive) {
-            (e.currentTarget as HTMLButtonElement).style.color = 'rgba(235,240,255,0.70)';
-            (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(0,88,230,0.05)';
+            (e.currentTarget as HTMLButtonElement).style.color = '#1A1035';
+            (e.currentTarget as HTMLButtonElement).style.backgroundColor = `${brandColor}08`;
           }
           if (collapsed) setTooltip(true);
         }}
         onMouseLeave={e => {
           if (!isActive) {
-            (e.currentTarget as HTMLButtonElement).style.color = 'rgba(235,240,255,0.38)';
+            (e.currentTarget as HTMLButtonElement).style.color = '#6E6688';
             (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent';
           }
           setTooltip(false);
@@ -347,10 +348,10 @@ function NavButton({
           <motion.div
             className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-3 py-1.5 rounded-lg text-[12px] whitespace-nowrap z-[60] pointer-events-none"
             style={{
-              backgroundColor: '#181D23',
-              color: '#EBF0FF',
-              border: '1px solid rgba(0,88,230,0.20)',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+              backgroundColor: '#1A1035',
+              color: '#FAF7F2',
+              border: '1px solid #EBE5FF',
+              boxShadow: '0 4px 16px rgba(26,16,53,0.18)',
             }}
             initial={{ opacity: 0, x: -6 }}
             animate={{ opacity: 1, x: 0 }}
