@@ -17,6 +17,7 @@ import {
   Activity, Award, type LucideIcon,
 } from 'lucide-react';
 import { StaffNav } from '@/components/staff-nav';
+import OrbLoader from '@/components/orb-loader';
 import {
   getStaffProfile, getCurrentUser, type StaffProfile,
 } from '@/lib/actions/staff-onboarding';
@@ -636,11 +637,7 @@ export default function KpisPage() {
   });
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: BG }}>
-        <div className="w-5 h-5 border-2 rounded-full animate-spin" style={{ borderColor: BLUE, borderTopColor: 'transparent' }} />
-      </div>
-    );
+    return <OrbLoader />;
   }
 
   // ==========================================================================

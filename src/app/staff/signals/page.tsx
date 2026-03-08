@@ -13,6 +13,7 @@ import {
   type StaffProfile,
 } from '@/lib/actions/staff-onboarding';
 import { StaffNav } from '@/components/staff-nav';
+import OrbLoader from '@/components/orb-loader';
 import {
   getSignalStats, getSignalFeed, getPendingSignals,
   approveSignal, rejectSignal, createSignal,
@@ -755,11 +756,7 @@ export default function SignalsPage() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen nav-offset bg-[#FAF7F2] flex items-center justify-center">
-        <div className="w-5 h-5 border border-[#A8C4FF] border-t-[#0058E6] rounded-full animate-spin" />
-      </div>
-    );
+    return <OrbLoader />;
   }
 
   return (

@@ -24,6 +24,7 @@ import {
   Headphones, Star, Filter,
 } from 'lucide-react';
 import { StaffNav } from '@/components/staff-nav';
+import OrbLoader from '@/components/orb-loader';
 import { getStaffProfile, getCurrentUser, type StaffProfile } from '@/lib/actions/staff-onboarding';
 import {
   getAllAssistantStatuses,
@@ -678,12 +679,7 @@ export default function ReceptionPage() {
 
   // ---------- loading ----------
   if (!profile) {
-    return (
-      <div className="min-h-screen nav-offset flex items-center justify-center" style={{ backgroundColor: '#FAF7F2' }}>
-        <motion.div animate={{ opacity: [0.2, 0.5, 0.2] }} transition={{ duration: 1.8, repeat: Infinity }}
-          className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: ACCENT }} />
-      </div>
-    );
+    return <OrbLoader />;
   }
 
   // ==========================================================================

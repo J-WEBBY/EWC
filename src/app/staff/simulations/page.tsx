@@ -21,6 +21,7 @@ import {
   getStaffProfile, getCurrentUser, type StaffProfile,
 } from '@/lib/actions/staff-onboarding';
 import { StaffNav } from '@/components/staff-nav';
+import OrbLoader from '@/components/orb-loader';
 
 // =============================================================================
 // CONSTANTS
@@ -720,16 +721,7 @@ export default function SimulationsPage() {
 
   // ── Loading state ──────────────────────────────────────────────────────
   if (loading) {
-    return (
-      <div className="min-h-screen nav-offset bg-[#FAF7F2] flex items-center justify-center">
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-        >
-          <Loader2 className="w-8 h-8 text-[#5A6475]" />
-        </motion.div>
-      </div>
-    );
+    return <OrbLoader />;
   }
 
   return (

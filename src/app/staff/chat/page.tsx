@@ -45,6 +45,7 @@ import {
   getStaffProfile, getCurrentUser, type StaffProfile, type AgentCard,
 } from '@/lib/actions/staff-onboarding';
 import { StaffNav } from '@/components/staff-nav';
+import OrbLoader from '@/components/orb-loader';
 import ReactMarkdown from 'react-markdown';
 
 // =============================================================================
@@ -853,16 +854,7 @@ export default function ChatPage() {
 
   // ── Loading ───────────────────────────────────────────────────────────
   if (loading) {
-    return (
-      <div className="min-h-screen nav-offset bg-[#FAF7F2] flex items-center justify-center">
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-        >
-          <Loader2 className="w-8 h-8 text-[#5A6475]" />
-        </motion.div>
-      </div>
-    );
+    return <OrbLoader />;
   }
 
   const dateGroups = groupConversationsByDate(conversations);

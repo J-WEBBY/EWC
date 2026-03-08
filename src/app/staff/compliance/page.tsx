@@ -15,6 +15,7 @@ import {
   CalendarDays, FileText, Building2, TrendingUp,
 } from 'lucide-react';
 import { StaffNav } from '@/components/staff-nav';
+import OrbLoader from '@/components/orb-loader';
 import { getStaffProfile, getCurrentUser, type StaffProfile } from '@/lib/actions/staff-onboarding';
 import {
   getComplianceDashboard, getHRRecords, upsertHRRecord,
@@ -1574,17 +1575,9 @@ export default function CompliancePage() {
 
   const handleRefresh = useCallback(() => { loadAll(); }, [loadAll]);
 
-  if (loading) return (
-    <div className="min-h-screen bg-[#FAF7F2] flex items-center justify-center">
-      <div className="text-[12px] text-[#9CA3AF] uppercase tracking-[0.2em]">Loading compliance data…</div>
-    </div>
-  );
+  if (loading) return <OrbLoader />;
 
-  if (!profile) return (
-    <div className="min-h-screen bg-[#FAF7F2] flex items-center justify-center">
-      <div className="text-[12px] text-[#6B7280]">Unable to load profile.</div>
-    </div>
-  );
+  if (!profile) return <OrbLoader />;
 
   const totalIssues = dashboard
     ? dashboard.dbs_issues + dashboard.rtw_issues + dashboard.appraisals_overdue

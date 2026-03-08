@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { StaffNav } from '@/components/staff-nav';
+import OrbLoader from '@/components/orb-loader';
 import { getCurrentUser, getStaffProfile, type StaffProfile } from '@/lib/actions/staff-onboarding';
 import {
   getMonthAppointments, getPractitioners, getPendingBookings,
@@ -224,11 +225,7 @@ export default function CalendarPage() {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: BG }}>
-        <div className="w-5 h-5 border-2 border-[#0058E6] border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+    return <OrbLoader />;
   }
 
   return (

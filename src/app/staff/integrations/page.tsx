@@ -15,6 +15,7 @@ import {
   Phone, MessageSquare, CreditCard, Zap, Mail,
   ArrowUpRight, type LucideIcon,
 } from 'lucide-react';
+import OrbLoader from '@/components/orb-loader';
 import {
   getClinikoStatus, saveClinikoConfig, triggerFullSync, clearAndResync,
   getSyncLogs, disconnectCliniko, getClinikoStats,
@@ -580,12 +581,7 @@ export default function IntegrationsPage() {
 
   // ── Loading ──
   if (loading || !profile) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#FAF7F2', paddingLeft: 'var(--nav-w, 240px)' }}>
-        <motion.div animate={{ opacity: [0.2, 0.5, 0.2] }} transition={{ duration: 1.8, repeat: Infinity }}
-          className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#96989B' }} />
-      </div>
-    );
+    return <OrbLoader />;
   }
 
   const brandColor = profile.brandColor ?? '#0058E6';

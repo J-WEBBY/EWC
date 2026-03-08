@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { getStaffProfile, getCurrentUser, type StaffProfile } from '@/lib/actions/staff-onboarding';
 import { StaffNav } from '@/components/staff-nav';
+import OrbLoader from '@/components/orb-loader';
 import {
   getEHRStats, getFlaggedPatients, getPendingConsentsList, getPendingSignOffList,
   type EHRStats, type FlaggedPatient, type PendingConsentItem, type PendingSignOffItem,
@@ -633,11 +634,7 @@ export default function EHRPage() {
   }, [router, userId]);
 
   if (!profile) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#FAF7F2' }}>
-        <Loader2 size={20} className="animate-spin text-[#96989B]" />
-      </div>
-    );
+    return <OrbLoader />;
   }
 
   return (

@@ -11,6 +11,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { getAgentsForTenant, type DBAgent } from '@/lib/actions/agent-service';
+import OrbLoader from '@/components/orb-loader';
 import {
   getStaffProfile, getCurrentUser, type StaffProfile,
 } from '@/lib/actions/staff-onboarding';
@@ -419,15 +420,7 @@ export default function AgentsPage() {
   }, [automations]);
 
   if (loading || !profile) {
-    return (
-      <div className="min-h-screen nav-offset bg-[#FAF7F2] flex items-center justify-center">
-        <motion.div
-          animate={{ opacity: [0.2, 0.5, 0.2] }}
-          transition={{ duration: 1.8, repeat: Infinity }}
-          className="w-1.5 h-1.5 rounded-full bg-[#A8C4FF]"
-        />
-      </div>
-    );
+    return <OrbLoader />;
   }
 
   const activeAgents = agents.filter(a => a.is_active);

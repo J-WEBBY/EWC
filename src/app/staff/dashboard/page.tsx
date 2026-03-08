@@ -15,6 +15,7 @@ import {
   type StaffProfile,
 } from '@/lib/actions/staff-onboarding';
 import { StaffNav } from '@/components/staff-nav';
+import OrbLoader from '@/components/orb-loader';
 import {
   getSignalStats, getPendingSignals, getSignalFeed,
   approveSignal, rejectSignal,
@@ -650,15 +651,7 @@ export default function DashboardPage() {
   }, []);
 
   if (loading || !profile) {
-    return (
-      <div className="min-h-screen nav-offset bg-[#FAF7F2] flex items-center justify-center">
-        <motion.div
-          animate={{ scale: [0.8, 1.2, 0.8], opacity: [0.2, 0.6, 0.2] }}
-          transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
-          className="w-[5px] h-[5px] rounded-full bg-[#D4E2FF]"
-        />
-      </div>
-    );
+    return <OrbLoader />;
   }
 
   // ── Tasks due today (from loaded goals) ──────────────────────────────────
