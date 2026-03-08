@@ -462,93 +462,330 @@ function SignalCard({
 }
 
 // =============================================================================
+// SIGNAL TYPE DEFINITIONS — per category
+// =============================================================================
+
+interface SignalTypeOption {
+  type: string;
+  label: string;
+  desc: string;
+  suggestedTitle: string;
+  defaultPriority: SignalPriority;
+  defaultMode: ResponseMode;
+}
+
+const SIGNAL_TYPES: Record<SignalCategory, SignalTypeOption[]> = {
+  reception: [
+    { type: 'booking_request', label: 'Booking Request',  desc: 'New appointment request from a patient',        suggestedTitle: 'Booking request — ',       defaultPriority: 'medium',   defaultMode: 'supervised'  },
+    { type: 'missed_call',     label: 'Missed Call',      desc: 'Unanswered inbound call, needs callback',       suggestedTitle: 'Missed call — ',            defaultPriority: 'high',     defaultMode: 'human_only'  },
+    { type: 'enquiry',         label: 'Patient Enquiry',  desc: 'Treatment, pricing or general question',        suggestedTitle: 'Patient enquiry — ',        defaultPriority: 'medium',   defaultMode: 'supervised'  },
+    { type: 'dna',             label: 'Did Not Attend',   desc: 'Patient missed their scheduled appointment',    suggestedTitle: 'DNA — ',                    defaultPriority: 'high',     defaultMode: 'agentic'     },
+    { type: 'complaint',       label: 'Complaint',        desc: 'Patient concern or formal complaint raised',    suggestedTitle: 'Patient complaint — ',      defaultPriority: 'high',     defaultMode: 'human_only'  },
+    { type: 'follow_up',       label: 'Follow-up Needed', desc: 'Post-treatment check-in or rebooking needed',   suggestedTitle: 'Follow-up required — ',     defaultPriority: 'medium',   defaultMode: 'agentic'     },
+  ],
+  compliance: [
+    { type: 'cqc_flag',        label: 'CQC Flag',         desc: 'Regulatory or inspection concern to log',       suggestedTitle: 'CQC flag — ',               defaultPriority: 'critical', defaultMode: 'human_only'  },
+    { type: 'cert_expiry',     label: 'Cert Expiry',      desc: 'Staff certification or licence expiring soon',  suggestedTitle: 'Certification expiry — ',   defaultPriority: 'high',     defaultMode: 'supervised'  },
+    { type: 'incident',        label: 'Incident Report',  desc: 'Clinical or operational incident occurred',     suggestedTitle: 'Incident report — ',        defaultPriority: 'critical', defaultMode: 'human_only'  },
+    { type: 'equipment_check', label: 'Equipment Issue',  desc: 'Device fault, maintenance or calibration due',  suggestedTitle: 'Equipment issue — ',        defaultPriority: 'high',     defaultMode: 'supervised'  },
+    { type: 'consent_missing', label: 'Consent Missing',  desc: 'Patient consent form not captured',             suggestedTitle: 'Consent missing — ',        defaultPriority: 'high',     defaultMode: 'human_only'  },
+    { type: 'policy_review',   label: 'Policy Review',    desc: 'SOP or clinic policy requires updating',        suggestedTitle: 'Policy review needed — ',   defaultPriority: 'medium',   defaultMode: 'supervised'  },
+  ],
+  general: [
+    { type: 'team_note',        label: 'Team Note',        desc: 'Message or general update for the team',       suggestedTitle: 'Team note — ',              defaultPriority: 'low',      defaultMode: 'human_only'  },
+    { type: 'meeting',          label: 'Meeting Update',   desc: 'Agenda item, outcome or action point',         suggestedTitle: 'Meeting update — ',         defaultPriority: 'low',      defaultMode: 'human_only'  },
+    { type: 'internal_flag',    label: 'Internal Flag',    desc: 'Escalate something to management attention',   suggestedTitle: 'Internal flag — ',          defaultPriority: 'medium',   defaultMode: 'supervised'  },
+    { type: 'resource_request', label: 'Resource Request', desc: 'Supplies, equipment or staffing request',      suggestedTitle: 'Resource request — ',       defaultPriority: 'medium',   defaultMode: 'supervised'  },
+    { type: 'clinical_concern', label: 'Clinical Concern', desc: 'Non-urgent clinical observation to log',       suggestedTitle: 'Clinical concern — ',       defaultPriority: 'medium',   defaultMode: 'human_only'  },
+  ],
+  agentic: [
+    { type: 'decision_review',  label: 'Decision Review',  desc: 'Request human review of an agent action',      suggestedTitle: 'Agent decision review — ',  defaultPriority: 'medium',   defaultMode: 'human_only'  },
+    { type: 'escalation',       label: 'Escalation',       desc: 'Agent escalating a situation to human',        suggestedTitle: 'Escalation required — ',    defaultPriority: 'high',     defaultMode: 'human_only'  },
+    { type: 'approval_needed',  label: 'Approval Needed',  desc: 'Agent is awaiting explicit human sign-off',    suggestedTitle: 'Approval needed — ',        defaultPriority: 'high',     defaultMode: 'human_only'  },
+    { type: 'anomaly',          label: 'Anomaly Detected', desc: 'Unusual pattern or unexpected behaviour seen',  suggestedTitle: 'Anomaly — ',                defaultPriority: 'high',     defaultMode: 'supervised'  },
+  ],
+  automation: [
+    { type: 'workflow_event',    label: 'Workflow Event',   desc: 'Automation was triggered or completed',        suggestedTitle: 'Workflow event — ',         defaultPriority: 'low',      defaultMode: 'auto'        },
+    { type: 'automation_error',  label: 'Error / Failure',  desc: 'Workflow failed, errored or timed out',        suggestedTitle: 'Automation error — ',       defaultPriority: 'high',     defaultMode: 'human_only'  },
+    { type: 'manual_trigger',    label: 'Manual Trigger',   desc: 'Request to immediately run an automation',     suggestedTitle: 'Manual trigger request — ', defaultPriority: 'medium',   defaultMode: 'supervised'  },
+    { type: 'integration_issue', label: 'Integration Issue',desc: 'External system connection or sync problem',   suggestedTitle: 'Integration issue — ',      defaultPriority: 'high',     defaultMode: 'human_only'  },
+  ],
+};
+
+const PRIORITY_CFG: { value: SignalPriority; label: string; color: string }[] = [
+  { value: 'low',      label: 'Low',      color: MUTED   },
+  { value: 'medium',   label: 'Medium',   color: ORANGE  },
+  { value: 'high',     label: 'High',     color: RED     },
+  { value: 'critical', label: 'Critical', color: RED     },
+];
+
+const MODE_CFG: { value: ResponseMode; label: string; desc: string }[] = [
+  { value: 'auto',       label: 'Auto',       desc: 'Agent handles end-to-end automatically' },
+  { value: 'agentic',    label: 'Agentic',    desc: 'Agent acts, keeps you informed' },
+  { value: 'supervised', label: 'Supervised', desc: 'Agent proposes actions, you approve' },
+  { value: 'human_only', label: 'Human Only', desc: 'No agent involvement — staff only' },
+];
+
+// =============================================================================
 // CREATE SIGNAL DRAWER
 // =============================================================================
 
 function CreateDrawer({ onClose, onCreated, tenantId }: {
   onClose: () => void; onCreated: () => void; tenantId: string;
 }) {
-  const [title,    setTitle]    = useState('');
-  const [desc,     setDesc]     = useState('');
-  const [priority, setPriority] = useState<SignalPriority>('medium');
-  const [mode,     setMode]     = useState<ResponseMode>('supervised');
-  const [category, setCategory] = useState<SignalCategory>('general');
-  const [busy,     setBusy]     = useState(false);
+  const [category,   setCategory]   = useState<SignalCategory | null>(null);
+  const [signalType, setSignalType] = useState<SignalTypeOption | null>(null);
+  const [title,      setTitle]      = useState('');
+  const [desc,       setDesc]       = useState('');
+  const [priority,   setPriority]   = useState<SignalPriority>('medium');
+  const [mode,       setMode]       = useState<ResponseMode>('supervised');
+  const [busy,       setBusy]       = useState(false);
+
+  const catColor = category ? CAT[category].color : BLUE;
+  const types    = category ? SIGNAL_TYPES[category] : [];
+
+  function pickCategory(cat: SignalCategory) {
+    setCategory(cat);
+    setSignalType(null);
+    setTitle('');
+  }
+
+  function pickType(t: SignalTypeOption) {
+    setSignalType(t);
+    setTitle(t.suggestedTitle);
+    setPriority(t.defaultPriority);
+    setMode(t.defaultMode);
+  }
 
   const submit = async () => {
-    if (!title.trim()) return;
+    if (!title.trim() || !category) return;
     setBusy(true);
     await createSignal(tenantId, {
-      signalType: 'alert', title: title.trim(), description: desc.trim(),
-      priority, responseMode: mode, sourceType: 'manual', category, status: 'new',
+      signalType: signalType?.type ?? 'alert',
+      title: title.trim(),
+      description: desc.trim(),
+      priority,
+      responseMode: mode,
+      sourceType: 'manual',
+      category,
+      status: 'new',
     });
     onCreated(); onClose();
   };
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex justify-end" style={{ background: 'rgba(24,29,35,0.35)' }}
+      className="fixed inset-0 z-50 flex justify-end"
+      style={{ background: 'rgba(24,29,35,0.40)' }}
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <motion.div initial={{ x: 60 }} animate={{ x: 0 }} exit={{ x: 60 }}
-        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-        className="h-full w-96 flex flex-col"
-        style={{ background: BG, borderLeft: `1px solid ${BORDER}` }}>
-        <div className="px-5 py-5 flex items-center justify-between" style={{ borderBottom: `1px solid ${BORDER}` }}>
-          <p className="text-[14px] font-bold" style={{ color: NAVY }}>New Signal</p>
-          <button onClick={onClose} className="w-7 h-7 rounded-lg flex items-center justify-center"
+
+      <motion.div initial={{ x: 80 }} animate={{ x: 0 }} exit={{ x: 80 }}
+        transition={{ type: 'spring', stiffness: 340, damping: 32 }}
+        className="h-full flex flex-col"
+        style={{ width: 440, background: BG, borderLeft: `1px solid ${BORDER}`, boxShadow: '-8px 0 32px rgba(0,0,0,0.10)' }}>
+
+        {/* Header */}
+        <div className="px-6 py-5 flex items-center justify-between flex-shrink-0"
+          style={{ borderBottom: `1px solid ${BORDER}` }}>
+          <div>
+            <p className="text-[9px] uppercase tracking-[0.28em] font-semibold mb-0.5" style={{ color: MUTED }}>New</p>
+            <h3 className="text-[17px] font-black tracking-[-0.02em]" style={{ color: NAVY }}>Create Signal</h3>
+          </div>
+          <button onClick={onClose}
+            className="w-8 h-8 rounded-xl flex items-center justify-center transition-all"
             style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${BORDER}` }}>
             <X size={13} style={{ color: TER }} />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-4">
-          {[
-            { label: 'Title *', el: <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Signal title…"
-                className="w-full text-[13px] px-3 py-2.5 rounded-xl outline-none"
-                style={{ border: `1px solid ${BORDER}`, background: 'rgba(0,0,0,0.02)', color: NAVY }} /> },
-            { label: 'Description', el: <textarea value={desc} onChange={e => setDesc(e.target.value)} rows={3}
-                placeholder="What needs attention…" className="w-full text-[12px] px-3 py-2.5 rounded-xl outline-none resize-none"
-                style={{ border: `1px solid ${BORDER}`, background: 'rgba(0,0,0,0.02)', color: NAVY }} /> },
-          ].map(f => (
-            <div key={f.label}>
-              <label className="text-[9px] uppercase tracking-[0.22em] font-semibold block mb-1.5" style={{ color: MUTED }}>{f.label}</label>
-              {f.el}
+
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto">
+
+          {/* ── STEP 1: Category ── */}
+          <div className="px-6 pt-5 pb-2">
+            <p className="text-[9px] uppercase tracking-[0.24em] font-semibold mb-3" style={{ color: MUTED }}>
+              1 · Signal Category
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {(Object.entries(CAT) as [SignalCategory, typeof CAT[SignalCategory]][]).map(([cat, cfg]) => {
+                const Icon = cfg.Icon;
+                const active = category === cat;
+                return (
+                  <button key={cat} onClick={() => pickCategory(cat)}
+                    className="text-left p-4 rounded-xl transition-all"
+                    style={{
+                      border: `1px solid ${active ? cfg.color + '55' : BORDER}`,
+                      background: active ? cfg.color + '0E' : 'rgba(0,0,0,0.01)',
+                      boxShadow: active ? `inset 0 0 0 1px ${cfg.color}30` : 'none',
+                    }}
+                    onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.border = `1px solid ${cfg.color}30`; }}
+                    onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.border = `1px solid ${BORDER}`; }}>
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-2.5"
+                      style={{ background: cfg.color + '15', border: `1px solid ${cfg.color}25` }}>
+                      <Icon size={14} style={{ color: cfg.color }} />
+                    </div>
+                    <p className="text-[12px] font-bold leading-none mb-1"
+                      style={{ color: active ? cfg.color : NAVY }}>{cfg.label}</p>
+                    <p className="text-[10px] leading-snug" style={{ color: MUTED }}>{cfg.desc}</p>
+                  </button>
+                );
+              })}
             </div>
-          ))}
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { label: 'Category', val: category, onChange: (v: string) => setCategory(v as SignalCategory),
-                opts: Object.entries(CAT).map(([k, v]) => ({ v: k, l: v.label })) },
-              { label: 'Priority', val: priority, onChange: (v: string) => setPriority(v as SignalPriority),
-                opts: [{ v: 'low', l: 'Low' }, { v: 'medium', l: 'Medium' }, { v: 'high', l: 'High' }, { v: 'critical', l: 'Critical' }] },
-            ].map(f => (
-              <div key={f.label}>
-                <label className="text-[9px] uppercase tracking-[0.22em] font-semibold block mb-1.5" style={{ color: MUTED }}>{f.label}</label>
-                <select value={f.val} onChange={e => f.onChange(e.target.value)}
-                  className="w-full text-[12px] px-3 py-2 rounded-xl outline-none"
-                  style={{ border: `1px solid ${BORDER}`, background: BG, color: NAVY }}>
-                  {f.opts.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
-                </select>
-              </div>
-            ))}
           </div>
-          <div>
-            <label className="text-[9px] uppercase tracking-[0.22em] font-semibold block mb-1.5" style={{ color: MUTED }}>Response mode</label>
-            <select value={mode} onChange={e => setMode(e.target.value as ResponseMode)}
-              className="w-full text-[12px] px-3 py-2 rounded-xl outline-none"
-              style={{ border: `1px solid ${BORDER}`, background: BG, color: NAVY }}>
-              <option value="auto">Auto</option>
-              <option value="agentic">Agentic</option>
-              <option value="supervised">Supervised</option>
-              <option value="human_only">Human Only</option>
-            </select>
-          </div>
+
+          {/* ── STEP 2: Signal Type ── */}
+          <AnimatePresence>
+            {category && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.22 }}
+                className="overflow-hidden">
+                <div className="px-6 pt-4 pb-2">
+                  <p className="text-[9px] uppercase tracking-[0.24em] font-semibold mb-3" style={{ color: MUTED }}>
+                    2 · Signal Type
+                  </p>
+                  <div className="flex flex-col gap-1.5">
+                    {types.map(t => {
+                      const active = signalType?.type === t.type;
+                      return (
+                        <button key={t.type} onClick={() => pickType(t)}
+                          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all"
+                          style={{
+                            border: `1px solid ${active ? catColor + '50' : BORDER}`,
+                            background: active ? catColor + '0C' : 'transparent',
+                          }}
+                          onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = catColor + '06'; }}
+                          onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+                          <div className="w-2 h-2 rounded-full flex-shrink-0 mt-0.5"
+                            style={{ background: active ? catColor : BORDER }} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[12px] font-semibold leading-none mb-0.5"
+                              style={{ color: active ? catColor : NAVY }}>{t.label}</p>
+                            <p className="text-[10px]" style={{ color: MUTED }}>{t.desc}</p>
+                          </div>
+                          {active && <CheckCircle2 size={14} style={{ color: catColor, flexShrink: 0 }} />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* ── STEP 3: Details ── */}
+          <AnimatePresence>
+            {signalType && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.22 }}
+                className="overflow-hidden">
+                <div className="px-6 pt-4 pb-6">
+                  <div className="pt-4" style={{ borderTop: `1px solid ${BORDER}` }}>
+                    <p className="text-[9px] uppercase tracking-[0.24em] font-semibold mb-4" style={{ color: MUTED }}>
+                      3 · Details
+                    </p>
+
+                    {/* Title */}
+                    <div className="mb-4">
+                      <label className="text-[9px] uppercase tracking-[0.20em] font-semibold block mb-1.5"
+                        style={{ color: MUTED }}>Title *</label>
+                      <input value={title} onChange={e => setTitle(e.target.value)}
+                        className="w-full text-[13px] px-3.5 py-2.5 rounded-xl outline-none"
+                        style={{ border: `1px solid ${BORDER}`, background: 'rgba(0,0,0,0.015)', color: NAVY }}
+                        placeholder="Signal title…" />
+                    </div>
+
+                    {/* Description */}
+                    <div className="mb-4">
+                      <label className="text-[9px] uppercase tracking-[0.20em] font-semibold block mb-1.5"
+                        style={{ color: MUTED }}>Details</label>
+                      <textarea value={desc} onChange={e => setDesc(e.target.value)} rows={3}
+                        placeholder="Context, relevant info, or actions required…"
+                        className="w-full text-[12px] px-3.5 py-2.5 rounded-xl outline-none resize-none leading-relaxed"
+                        style={{ border: `1px solid ${BORDER}`, background: 'rgba(0,0,0,0.015)', color: NAVY }} />
+                    </div>
+
+                    {/* Priority — visual buttons */}
+                    <div className="mb-4">
+                      <label className="text-[9px] uppercase tracking-[0.20em] font-semibold block mb-2"
+                        style={{ color: MUTED }}>Priority</label>
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {PRIORITY_CFG.map(p => (
+                          <button key={p.value} onClick={() => setPriority(p.value)}
+                            className="py-2 rounded-lg text-[10px] font-bold transition-all"
+                            style={{
+                              border: `1px solid ${priority === p.value ? p.color + '55' : BORDER}`,
+                              background: priority === p.value ? p.color + '12' : 'transparent',
+                              color: priority === p.value ? p.color : MUTED,
+                            }}>
+                            {p.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Response Mode — radio-style rows */}
+                    <div>
+                      <label className="text-[9px] uppercase tracking-[0.20em] font-semibold block mb-2"
+                        style={{ color: MUTED }}>Response Mode</label>
+                      <div className="flex flex-col gap-1.5">
+                        {MODE_CFG.map(m => (
+                          <button key={m.value} onClick={() => setMode(m.value)}
+                            className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-left transition-all"
+                            style={{
+                              border: `1px solid ${mode === m.value ? catColor + '50' : BORDER}`,
+                              background: mode === m.value ? catColor + '08' : 'transparent',
+                            }}>
+                            <div className="w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0"
+                              style={{ borderColor: mode === m.value ? catColor : BORDER }}>
+                              {mode === m.value && (
+                                <div className="w-2 h-2 rounded-full" style={{ background: catColor }} />
+                              )}
+                            </div>
+                            <div>
+                              <p className="text-[11px] font-semibold leading-none mb-0.5"
+                                style={{ color: mode === m.value ? NAVY : SEC }}>{m.label}</p>
+                              <p className="text-[10px]" style={{ color: MUTED }}>{m.desc}</p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
-        <div className="px-5 py-4" style={{ borderTop: `1px solid ${BORDER}` }}>
-          <button onClick={submit} disabled={busy || !title.trim()}
-            className="w-full py-3 rounded-xl text-[13px] font-semibold transition-all disabled:opacity-30"
-            style={{ background: BLUE + '14', border: `1px solid ${BLUE}30`, color: NAVY }}>
-            {busy ? 'Creating…' : 'Create Signal'}
-          </button>
+
+        {/* Footer */}
+        <div className="px-6 py-4 flex-shrink-0" style={{ borderTop: `1px solid ${BORDER}` }}>
+          {!category && (
+            <p className="text-[11px] text-center py-0.5" style={{ color: MUTED }}>
+              Select a category to begin
+            </p>
+          )}
+          {category && !signalType && (
+            <p className="text-[11px] text-center py-0.5" style={{ color: MUTED }}>
+              Choose a signal type to continue
+            </p>
+          )}
+          {signalType && (
+            <button onClick={submit} disabled={busy || !title.trim()}
+              className="w-full py-3 rounded-xl text-[13px] font-bold tracking-[-0.01em] transition-all disabled:opacity-30 flex items-center justify-center gap-2"
+              style={{ background: catColor + '14', border: `1px solid ${catColor}35`, color: NAVY }}>
+              {busy ? (
+                <motion.div className="w-4 h-4 rounded-full border-2 border-t-transparent"
+                  style={{ borderColor: catColor + '80', borderTopColor: catColor }}
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 0.75, repeat: Infinity, ease: 'linear' }} />
+              ) : (
+                <Plus size={14} style={{ color: catColor }} />
+              )}
+              {busy ? 'Creating…' : `Create ${signalType.label}`}
+            </button>
+          )}
         </div>
       </motion.div>
     </motion.div>

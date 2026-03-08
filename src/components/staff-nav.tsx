@@ -79,26 +79,25 @@ export function StaffNav({
     {
       title: 'Operations',
       items: [
-        { label: 'Dashboard',  href: `/staff/dashboard?userId=${userId}`,  icon: LayoutDashboard },
-        { label: 'KPIs',       href: `/staff/kpis?userId=${userId}`,       icon: BarChart2 },
-        { label: 'Signals',    href: `/staff/signals?userId=${userId}`,    icon: Activity },
-        { label: 'Patients',   href: `/staff/patients?userId=${userId}`,   icon: Users },
-        { label: 'Bridge',     href: `/staff/bridge?userId=${userId}`,     icon: Link2 },
-        { label: 'Calendar',      href: `/staff/calendar?userId=${userId}`,      icon: CalendarDays },
-        { label: 'Appointments',  href: `/staff/appointments?userId=${userId}`, icon: CalendarCheck },
-        { label: 'Team',       href: `/staff/team?userId=${userId}`,       icon: LayoutGrid },
-        { label: 'Inventory',  href: `/staff/inventory?userId=${userId}`,  icon: Package },
-        { label: 'Corporate',  href: `/staff/corporate?userId=${userId}`,  icon: Building2 },
+        { label: 'Dashboard',    href: `/staff/dashboard?userId=${userId}`,    icon: LayoutDashboard },
+        { label: 'KPIs',         href: `/staff/kpis?userId=${userId}`,         icon: BarChart2 },
+        { label: 'Signals',      href: `/staff/signals?userId=${userId}`,      icon: Activity },
+        { label: 'Patients',     href: `/staff/patients?userId=${userId}`,     icon: Users },
+        { label: 'Calendar',     href: `/staff/calendar?userId=${userId}`,     icon: CalendarDays },
+        { label: 'Appointments', href: `/staff/appointments?userId=${userId}`, icon: CalendarCheck },
+        { label: 'Team',         href: `/staff/team?userId=${userId}`,         icon: LayoutGrid },
+        { label: 'Inventory',    href: `/staff/inventory?userId=${userId}`,    icon: Package },
+        { label: 'Corporate',    href: `/staff/corporate?userId=${userId}`,    icon: Building2 },
       ],
     },
     {
       title: 'Intelligence',
       items: [
-        { label: 'Analytics',       href: `/staff/analytics?userId=${userId}`,   icon: Brain },
+        { label: 'Analytics',        href: `/staff/analytics?userId=${userId}`,  icon: Brain },
         { label: 'Judgement Engine', href: `/staff/judgement?userId=${userId}`,  icon: Scale },
-        { label: 'Agents',          href: `/staff/agents?userId=${userId}`,      icon: Bot },
-        { label: 'Receptionist',    href: `/staff/voice?userId=${userId}`,       icon: Mic },
-        { label: 'Automations',     href: `/staff/automations?userId=${userId}`, icon: Zap },
+        { label: 'Agents',           href: `/staff/agents?userId=${userId}`,     icon: Bot },
+        { label: 'Receptionist',     href: `/staff/voice?userId=${userId}`,      icon: Mic },
+        { label: 'Bridge',           href: `/staff/bridge?userId=${userId}`,     icon: Link2 },
       ],
     },
     {
@@ -180,7 +179,7 @@ export function StaffNav({
               <NavButton
                 key={item.label}
                 item={item}
-                isActive={currentPath === item.label}
+                isActive={currentPath === item.label || currentPath === item.href.split('?')[0]}
                 brandColor={c}
                 collapsed={collapsed}
                 onClick={() => router.push(item.href)}
