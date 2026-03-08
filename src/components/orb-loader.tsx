@@ -2,25 +2,16 @@
 
 import { motion } from 'framer-motion';
 
-/**
- * OrbLoader — EWC branded full-screen loading state.
- * Shown on every staff page while data/profile loads.
- * navOffset: add pl-[240px] when inside the staff nav layout.
- */
-export default function OrbLoader({ navOffset = true }: { navOffset?: boolean }) {
+export default function OrbLoader() {
   const BLUE = '#0058E6';
   const BG   = '#FAF7F2';
-  const NAVY = '#1A1035';
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center"
-      style={{
-        background: BG,
-        paddingLeft: navOffset ? '240px' : '0',
-      }}
+      className="fixed inset-0 flex items-center justify-center z-[9999]"
+      style={{ background: BG }}
     >
-      <div className="flex flex-col items-center gap-6 select-none">
+      <div className="flex flex-col items-center gap-5 select-none">
 
         {/* Orb + rings */}
         <div className="relative flex items-center justify-center" style={{ width: 120, height: 120 }}>
@@ -75,38 +66,22 @@ export default function OrbLoader({ navOffset = true }: { navOffset?: boolean })
           />
         </div>
 
-        {/* EWC label */}
-        <div className="flex flex-col items-center gap-2">
-          <span
-            style={{
-              fontFamily: 'sans-serif',
-              fontSize: 11,
-              fontWeight: 700,
-              letterSpacing: '0.22em',
-              color: NAVY,
-              opacity: 0.7,
-            }}
-          >
-            EWC
-          </span>
-
-          {/* Three dots */}
-          <div className="flex items-center gap-1.5">
-            {[0, 1, 2].map(i => (
-              <motion.div
-                key={i}
-                className="rounded-full"
-                style={{ width: 4, height: 4, background: BLUE }}
-                animate={{ opacity: [0.2, 0.9, 0.2], scale: [0.8, 1.2, 0.8] }}
-                transition={{
-                  duration: 1.2,
-                  repeat: Infinity,
-                  ease: 'easeInOut',
-                  delay: i * 0.2,
-                }}
-              />
-            ))}
-          </div>
+        {/* Three floating dots */}
+        <div className="flex items-center gap-1.5">
+          {[0, 1, 2].map(i => (
+            <motion.div
+              key={i}
+              className="rounded-full"
+              style={{ width: 4, height: 4, background: BLUE }}
+              animate={{ opacity: [0.2, 0.9, 0.2], scale: [0.8, 1.2, 0.8] }}
+              transition={{
+                duration: 1.2,
+                repeat: Infinity,
+                ease: 'easeInOut',
+                delay: i * 0.2,
+              }}
+            />
+          ))}
         </div>
 
       </div>
