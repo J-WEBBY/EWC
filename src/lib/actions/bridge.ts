@@ -44,6 +44,7 @@ export type TimelineItem = {
 
 export type SendChannel   = 'sms' | 'email' | 'whatsapp';
 export type DraftPurpose  =
+  | 'appointment_confirmation'
   | 'appointment_reminder'
   | 'post_treatment_checkin'
   | 'rebooking'
@@ -440,6 +441,7 @@ export async function draftMessageWithAI(
   purpose:       DraftPurpose,
 ): Promise<{ success: boolean; draft?: string; error?: string }> {
   const purposeLabel: Record<DraftPurpose, string> = {
+    appointment_confirmation: 'appointment booking confirmation',
     appointment_reminder:    'appointment reminder',
     post_treatment_checkin:  'post-treatment check-in',
     rebooking:               'rebooking invitation',
@@ -465,6 +467,11 @@ export async function draftMessageWithAI(
     return { success: true, draft: text };
   } catch {
     const fallback: Record<DraftPurpose, Record<SendChannel, string>> = {
+      appointment_confirmation: {
+        sms:      `Hi ${patientName}, your appointment at Edgbaston Wellness Clinic is confirmed! We look forward to seeing you. Any questions, please call 0121 456 7890. — EWC Team`,
+        email:    `Subject: Your Appointment is Confirmed — Edgbaston Wellness\n\nDear ${patientName},\n\nWe are delighted to confirm your upcoming appointment at Edgbaston Wellness Clinic. Please contact us if you need to rearrange.\n\nWarm regards,\nEdgbaston Wellness Clinic`,
+        whatsapp: `Hi ${patientName}! Great news — your appointment at Edgbaston Wellness Clinic is confirmed. We look forward to seeing you! — EWC Team`,
+      },
       appointment_reminder: {
         sms:      `Hi ${patientName}, a reminder of your upcoming appointment at Edgbaston Wellness Clinic. See you soon! — EWC Team`,
         email:    `Subject: Your Appointment Reminder — Edgbaston Wellness\n\nDear ${patientName},\n\nThis is a friendly reminder of your upcoming appointment at Edgbaston Wellness Clinic. Please contact us if you need to rearrange.\n\nWarm regards,\nEdgbaston Wellness Clinic`,

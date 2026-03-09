@@ -27,7 +27,7 @@ import {
   getAppointmentStats,
   getPractitioners,
   getAppointmentTypes,
-  confirmPendingBooking,
+  confirmAndDraftBooking,
   dismissPendingBooking,
   deleteAppointment,
   updateAppointment,
@@ -39,6 +39,7 @@ import {
   type AppointmentRow,
   type AppointmentTypeRow,
 } from '@/lib/actions/appointments';
+import { sendPatientMessage } from '@/lib/actions/bridge';
 import OrbLoader from '@/components/orb-loader';
 
 // =============================================================================
@@ -733,6 +734,121 @@ function PendingDetail({ booking, onConfirm, onDismiss }: {
 }
 
 // =============================================================================
+// REVIEW DRAFT MODAL — shown after booking confirmed; staff reviews AI draft
+// before it is sent to the patient.
+// =============================================================================
+
+type DraftModalData = {
+  draft:        string;
+  patientName:  string;
+  patientPhone: string | null;
+  patientEmail: string | null;
+};
+
+function ReviewDraftModal({
+  data, staffName, onSend, onSkip, sending,
+}: {
+  data:      DraftModalData;
+  staffName: string;
+  onSend:    (body: string) => void;
+  onSkip:    () => void;
+  sending:   boolean;
+}) {
+  const [body, setBody] = useState(data.draft);
+  const charLimit = 160;
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-[200] flex items-center justify-center"
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+    >
+      <div className="absolute inset-0" style={{ backgroundColor: 'rgba(24,29,35,0.70)', backdropFilter: 'blur(6px)' }} onClick={onSkip} />
+      <motion.div
+        className="relative rounded-2xl overflow-hidden"
+        style={{ width: 480, backgroundColor: '#F8FAFF', border: `1px solid ${BORDER}`, boxShadow: '0 24px 64px rgba(0,0,0,0.18)' }}
+        initial={{ scale: 0.95, y: 16 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 16 }}
+        transition={{ type: 'spring', stiffness: 340, damping: 26 }}
+      >
+        {/* Header */}
+        <div className="px-6 pt-6 pb-4" style={{ borderBottom: `1px solid ${BORDER}` }}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ color: MUTED }}>EWC · Booking Confirmed</p>
+              <h3 className="text-[17px] font-bold mt-0.5" style={{ color: NAVY }}>Review confirmation message</h3>
+            </div>
+            <button onClick={onSkip} className="p-1.5 rounded-lg transition-colors hover:bg-black/5">
+              <X size={14} style={{ color: MUTED }} />
+            </button>
+          </div>
+          <p className="text-[12px] mt-2" style={{ color: TER }}>
+            To: <span style={{ color: SEC }}>{data.patientName}</span>
+            {data.patientPhone && <span style={{ color: MUTED }}> · {data.patientPhone}</span>}
+          </p>
+        </div>
+
+        {/* Draft editor */}
+        <div className="px-6 py-4">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] mb-2" style={{ color: MUTED }}>SMS Draft (tap to edit)</p>
+          <textarea
+            value={body}
+            onChange={e => setBody(e.target.value)}
+            rows={4}
+            maxLength={320}
+            className="w-full resize-none rounded-xl text-[13px] outline-none transition-all"
+            style={{
+              padding: '12px 14px',
+              border: `1px solid ${BORDER}`,
+              backgroundColor: '#fff',
+              color: NAVY,
+              lineHeight: 1.55,
+            }}
+            onFocus={e  => (e.currentTarget.style.borderColor = ACCENT)}
+            onBlur={e   => (e.currentTarget.style.borderColor = BORDER)}
+          />
+          <div className="flex justify-between items-center mt-1.5">
+            <p className="text-[10px]" style={{ color: MUTED }}>AI-drafted by Aria · edit freely before sending</p>
+            <p className="text-[10px]" style={{ color: body.length > charLimit ? RED : MUTED }}>
+              {body.length}/{charLimit}
+            </p>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="px-6 pb-6 flex gap-3">
+          <button
+            onClick={() => onSend(body)}
+            disabled={sending || !body.trim()}
+            className="flex items-center gap-2 rounded-xl text-[12px] font-semibold transition-all"
+            style={{
+              padding: '9px 20px',
+              backgroundColor: sending || !body.trim() ? `${ACCENT}40` : `${ACCENT}12`,
+              border: `1px solid ${ACCENT}30`,
+              color: sending || !body.trim() ? MUTED : NAVY,
+            }}
+          >
+            {sending ? <RefreshCw size={12} className="animate-spin" /> : <Check size={12} />}
+            {sending ? 'Sending…' : 'Approve & Send'}
+          </button>
+          <button
+            onClick={onSkip}
+            disabled={sending}
+            className="flex-1 rounded-xl text-[12px] transition-all"
+            style={{
+              padding: '9px 16px',
+              backgroundColor: 'transparent',
+              border: `1px solid ${BORDER}`,
+              color: SEC,
+            }}
+          >
+            Skip for now
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// =============================================================================
 // CONFIRM DIALOG (for pending booking confirmation)
 // =============================================================================
 
@@ -1081,6 +1197,8 @@ export default function AppointmentsPage() {
   const [deleteTarget, setDeleteTarget] = useState<AppointmentRow | null>(null);
   const [deleting, setDeleting]         = useState(false);
   const [editTarget, setEditTarget]     = useState<AppointmentRow | null>(null);
+  const [draftModal, setDraftModal]     = useState<DraftModalData | null>(null);
+  const [sendingDraft, setSendingDraft] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const showToast = (msg: string, ok = true) => {
@@ -1190,13 +1308,46 @@ export default function AppointmentsPage() {
     setSaving(true);
     const booking = pendingBookings.find(b => b.id === confirmTarget);
     try {
-      const result = await confirmPendingBooking(
+      const result = await confirmAndDraftBooking(
         confirmTarget, booking?.booking_request_id ?? null,
         { confirmed_date: params.confirmedDate, confirmed_time: params.confirmedTime, practitioner_cliniko_id: params.practitionerClinikoId },
+        { name: booking?.patient_name ?? 'Patient', phone: booking?.patient_phone ?? null, email: booking?.patient_email ?? null },
       );
-      showToast(result.success ? 'Booking confirmed' : (result.error ?? 'Confirm failed'), result.success);
+      if (result.success) {
+        showToast('Booking confirmed');
+        // Show draft review modal if AI produced a draft
+        if (result.draft) {
+          setDraftModal({
+            draft:        result.draft,
+            patientName:  booking?.patient_name ?? 'Patient',
+            patientPhone: booking?.patient_phone ?? null,
+            patientEmail: booking?.patient_email ?? null,
+          });
+        }
+      } else {
+        showToast(result.error ?? 'Confirm failed', false);
+      }
     } catch (err) { showToast(String(err), false); }
     finally { setSaving(false); setConfirmTarget(null); setSelectedP(null); await loadData(); }
+  }
+
+  async function handleSendDraft(body: string) {
+    if (!draftModal) return;
+    setSendingDraft(true);
+    try {
+      await sendPatientMessage({
+        patient_id:    '',              // no DB patient_id for booking requests
+        patient_name:  draftModal.patientName,
+        patient_phone: draftModal.patientPhone,
+        patient_email: draftModal.patientEmail,
+        channel:       'sms',
+        body,
+        sent_by_name:  profile?.firstName ? `${profile.firstName} ${profile.lastName}` : 'Staff',
+        purpose:       'appointment_confirmation',
+      });
+      showToast('Message sent to patient');
+    } catch { showToast('Message logged — Twilio not yet connected'); }
+    finally { setSendingDraft(false); setDraftModal(null); }
   }
 
   async function handleDismiss(signalId: string, bookingRequestId: string | null) {
@@ -1328,6 +1479,19 @@ export default function AppointmentsPage() {
             apptTypes={apptTypes}
             onClose={() => setEditTarget(null)}
             onSaved={async () => { setEditTarget(null); showToast('Appointment updated'); await loadData(); }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Review Draft Modal — shown after booking confirmed */}
+      <AnimatePresence>
+        {draftModal && (
+          <ReviewDraftModal
+            data={draftModal}
+            staffName={profile ? `${profile.firstName} ${profile.lastName}` : 'Staff'}
+            onSend={handleSendDraft}
+            onSkip={() => setDraftModal(null)}
+            sending={sendingDraft}
           />
         )}
       </AnimatePresence>

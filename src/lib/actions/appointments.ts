@@ -8,6 +8,7 @@
 
 import { createSovereignClient } from '@/lib/supabase/service';
 import { getClinikoClient } from '@/lib/cliniko/client';
+import { draftMessageWithAI } from '@/lib/actions/bridge';
 
 // =============================================================================
 // TYPES
@@ -789,6 +790,88 @@ export async function confirmPendingBooking(
     }
     await db.from('signals').update({ status: 'resolved' }).eq('id', signalId);
     return { success: true };
+  } catch (err) {
+    return { success: false, error: String(err) };
+  }
+}
+
+// =============================================================================
+// getPendingBookingCount — lightweight count for nav notification polling
+// Returns count + latest patient name so the nav can show a badge + popup.
+// =============================================================================
+
+export async function getPendingBookingCount(): Promise<{
+  count: number;
+  latestName: string | null;
+}> {
+  try {
+    const db = createSovereignClient();
+    const { data: brData } = await db
+      .from('booking_requests')
+      .select('id, caller_name')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+
+    if (brData && brData.length > 0) {
+      return {
+        count:      brData.length,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        latestName: (brData[0] as any).caller_name ?? null,
+      };
+    }
+
+    // Fallback: signals table
+    const { data: sigs } = await db
+      .from('signals')
+      .select('id, data')
+      .in('category', ['Booking', 'Patient Acquisition'])
+      .not('status', 'in', '("resolved","dismissed","completed")');
+
+    const count = sigs?.length ?? 0;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const latestName = (sigs?.[0]?.data as Record<string, string> | undefined)?.patient_name ?? null;
+    return { count, latestName };
+  } catch {
+    return { count: 0, latestName: null };
+  }
+}
+
+// =============================================================================
+// confirmAndDraftBooking — confirms a pending booking then AI-drafts a
+// confirmation SMS to send to the patient for staff review before sending.
+// =============================================================================
+
+export async function confirmAndDraftBooking(
+  signalId: string,
+  bookingRequestId: string | null,
+  params: { confirmed_date: string; confirmed_time: string; practitioner_cliniko_id?: string },
+  patient: { name: string; phone: string | null; email: string | null; lastTreatment?: string | null },
+): Promise<{ success: boolean; draft?: string; error?: string }> {
+  try {
+    const db = createSovereignClient();
+
+    // Confirm the booking
+    if (bookingRequestId) {
+      await db.from('booking_requests').update({
+        status:         'confirmed',
+        preferred_date: params.confirmed_date,
+        preferred_time: params.confirmed_time,
+        ...(params.practitioner_cliniko_id
+          ? { preferred_practitioner: params.practitioner_cliniko_id }
+          : {}),
+      }).eq('id', bookingRequestId);
+    }
+    await db.from('signals').update({ status: 'resolved' }).eq('id', signalId);
+
+    // AI-draft confirmation SMS (best-effort — confirm already done even if draft fails)
+    const draftResult = await draftMessageWithAI(
+      patient.name,
+      patient.lastTreatment ?? null,
+      'sms',
+      'appointment_confirmation',
+    );
+
+    return { success: true, draft: draftResult.draft };
   } catch (err) {
     return { success: false, error: String(err) };
   }
