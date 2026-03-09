@@ -147,6 +147,23 @@ interface VapiWebhookPayload {
 // Helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Corrects common ASR / AI-summary errors in Vapi-generated text before storage.
+ * Vapi's post-call analysis model mishears or misspells clinic/doctor names —
+ * this ensures the stored record always uses the correct versions.
+ */
+function sanitiseClinicText(text: string): string {
+  return text
+    // Clinic name variants (ASR mishears "Edgbaston" as "Edge Boston" etc.)
+    .replace(/edge\s*boston/gi, 'Edgbaston')
+    .replace(/edgebaston/gi, 'Edgbaston')
+    .replace(/edgbaston\s+wellness\s+clinic/gi, 'Edgbaston Wellness Clinic')
+    // Doctor's name corrections
+    .replace(/dr\.?\s*suresh\s+ganata/gi, 'Dr Suresh Ganta')
+    .replace(/dr\.?\s*ganata/gi, 'Dr Ganta')
+    .replace(/ganata/gi, 'Ganta');
+}
+
 function callDirection(call: VapiCall): 'inbound' | 'outbound' | 'web' {
   if (call.type === 'inboundPhoneCall') return 'inbound';
   if (call.type === 'outboundPhoneCall') return 'outbound';
@@ -274,8 +291,8 @@ export async function POST(req: NextRequest) {
 
     const call       = message.call;
     const analysis   = message.analysis;
-    const summary    = analysis?.summary ?? '';
-    const transcript = message.artifact?.transcript ?? message.transcript ?? '';
+    const summary    = sanitiseClinicText(analysis?.summary ?? '');
+    const transcript = sanitiseClinicText(message.artifact?.transcript ?? message.transcript ?? '');
     const direction  = callDirection(call);
     const duration   = computeDuration(call);  // computed from timestamps if durationSeconds is 0
     const isMissed   = ['no-answer', 'voicemail', 'failed', 'busy'].includes(call.endedReason ?? '');
