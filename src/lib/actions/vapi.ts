@@ -398,6 +398,44 @@ export async function getVapiCalls(limit = 20): Promise<{
 }
 
 // ---------------------------------------------------------------------------
+// LIVE CALLS — returns in-progress calls from Vapi (polls every ~15s in UI)
+// ---------------------------------------------------------------------------
+
+export interface LiveCall {
+  id:          string;
+  type:        'inboundPhoneCall' | 'outboundPhoneCall' | 'webCall';
+  startedAt:   string | null;
+  callerNumber: string | null;
+  callerName:  string | null;
+  durationSecs: number;
+}
+
+export async function getLiveVapiCalls(): Promise<{ calls: LiveCall[] }> {
+  if (!PRIVATE_KEY) return { calls: [] };
+  try {
+    // Fetch recent calls and filter in-progress client-side (Vapi doesn't always support status filter)
+    const data = await vapiRequest('/call?limit=20&sortOrder=DESC') as VapiCall[];
+    const list  = Array.isArray(data) ? data : [];
+    const now   = Date.now();
+    const live  = list
+      .filter(c => c.status === 'in-progress' || c.status === 'ringing')
+      .map(c => ({
+        id:           c.id,
+        type:         c.type,
+        startedAt:    c.startedAt,
+        callerNumber: c.customer?.number ?? null,
+        callerName:   c.customer?.name   ?? null,
+        durationSecs: c.startedAt
+          ? Math.floor((now - new Date(c.startedAt).getTime()) / 1000)
+          : 0,
+      }));
+    return { calls: live };
+  } catch {
+    return { calls: [] };
+  }
+}
+
+// ---------------------------------------------------------------------------
 // RECEPTIONIST IDENTITY — surface customisation stored in clinic_config.settings
 // ---------------------------------------------------------------------------
 
@@ -410,7 +448,7 @@ export interface ReceptionistIdentity {
 
 const DEFAULT_RECEPTIONIST_IDENTITY: ReceptionistIdentity = {
   displayName:    'Komal',
-  voiceId:        'XB0fDUnXU5powFXDhCwa',
+  voiceId:        'GDzHdQOi6jjf8zaXhCYD',
   firstMessage:   'Hello, thank you for calling Edgbaston Wellness Clinic. This call may be recorded for quality and training purposes. My name is Komal — how can I help you today?',
   endCallMessage: 'Thank you for calling Edgbaston Wellness Clinic. Have a wonderful day. Goodbye!',
 };

@@ -1199,6 +1199,7 @@ export default function AppointmentsPage() {
   const [editTarget, setEditTarget]     = useState<AppointmentRow | null>(null);
   const [draftModal, setDraftModal]     = useState<DraftModalData | null>(null);
   const [sendingDraft, setSendingDraft] = useState(false);
+  const [statsOpen, setStatsOpen]       = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const showToast = (msg: string, ok = true) => {
@@ -1499,61 +1500,96 @@ export default function AppointmentsPage() {
       <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
 
         {/* ── HEADER ── */}
-        <div style={{ padding: '28px 32px 0', borderBottom: `1px solid ${BORDER}`, flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 16 }}>
-            <div>
-              <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.28em', fontWeight: 600, color: MUTED, marginBottom: 6 }}>Edgbaston Wellness Clinic</div>
-              <h1 style={{ fontSize: 34, fontWeight: 900, letterSpacing: '-0.035em', color: NAVY, margin: 0, lineHeight: 1 }}>Appointments</h1>
-              <p style={{ fontSize: 13, color: TER, marginTop: 5, marginBottom: 0 }}>
-                {stats.total.toLocaleString()} appointments synced
-                {clinikoStatus?.lastSync && ` · last sync ${relTime(clinikoStatus.lastSync)}`}
-              </p>
+        <div style={{ padding: '14px 28px', borderBottom: `1px solid ${BORDER}`, flexShrink: 0 }}>
+          {/* Title row + actions */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+              <div>
+                <h1 style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.03em', color: NAVY, margin: 0, lineHeight: 1.1 }}>Appointments</h1>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 3 }}>
+                  <span style={{ fontSize: 11, color: TER }}>
+                    {stats.total.toLocaleString()} synced{clinikoStatus?.lastSync ? ` · ${relTime(clinikoStatus.lastSync)}` : ''}
+                  </span>
+                  {/* Inline key stats (always visible) */}
+                  <span style={{ fontSize: 11, color: MUTED }}>·</span>
+                  <span style={{ fontSize: 11, color: stats.today > 0 ? ACCENT : MUTED, fontWeight: stats.today > 0 ? 600 : 400 }}>
+                    {stats.today} today
+                  </span>
+                  <span style={{ fontSize: 11, color: MUTED }}>·</span>
+                  <span style={{ fontSize: 11, color: MUTED }}>{stats.upcoming} upcoming</span>
+                  <span style={{ fontSize: 11, color: MUTED }}>·</span>
+                  <span style={{ fontSize: 11, color: dnaRate > 15 ? RED : dnaRate > 8 ? ORANGE : MUTED, fontWeight: dnaRate > 8 ? 600 : 400 }}>
+                    {dnaRate}% DNA
+                  </span>
+                  {/* Stats toggle */}
+                  <button
+                    onClick={() => setStatsOpen(v => !v)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '1px 8px', borderRadius: 20, fontSize: 10, fontWeight: 600, cursor: 'pointer', border: `1px solid ${statsOpen ? ACCENT : BORDER}`, background: statsOpen ? `${ACCENT}10` : 'transparent', color: statsOpen ? ACCENT : MUTED }}
+                  >
+                    <TrendingUp size={9} />
+                    {statsOpen ? 'Hide' : 'Stats'}
+                    <ChevronDown size={9} style={{ transform: statsOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+                  </button>
+                </div>
+              </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
               {clinikoStatus && !clinikoStatus.connected && (
-                <Link href="/staff/integrations" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 20, background: `${RED}08`, border: `1px solid ${RED}25`, color: RED, fontSize: 11, fontWeight: 600, textDecoration: 'none' }}>
-                  <AlertCircle size={11} />Cliniko not connected
+                <Link href="/staff/integrations" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 20, background: `${RED}08`, border: `1px solid ${RED}25`, color: RED, fontSize: 11, fontWeight: 600, textDecoration: 'none' }}>
+                  <AlertCircle size={10} />Not connected
                 </Link>
               )}
               {pendingCount > 0 && (
-                <button onClick={() => setTab('requests')} style={{ padding: '6px 14px', borderRadius: 20, background: `${GOLD}12`, border: `1px solid ${GOLD}30`, color: GOLD, fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-                  <AlertCircle size={12} />{pendingCount} pending from Komal
+                <button onClick={() => setTab('requests')} style={{ padding: '5px 12px', borderRadius: 20, background: `${GOLD}12`, border: `1px solid ${GOLD}30`, color: GOLD, fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}>
+                  <AlertCircle size={10} />{pendingCount} from Komal
                 </button>
               )}
-              <button onClick={loadData} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, fontSize: 12, border: `1px solid ${BORDER}`, background: 'transparent', color: SEC, cursor: 'pointer', fontWeight: 600 }}>
-                <RefreshCw size={12} />Refresh
+              <button onClick={loadData} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 8, fontSize: 11, border: `1px solid ${BORDER}`, background: 'transparent', color: SEC, cursor: 'pointer', fontWeight: 600 }}>
+                <RefreshCw size={11} />Refresh
               </button>
               <Link href={`/staff/calendar?userId=${userId}`}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, fontSize: 12, border: `1px solid ${BORDER}`, background: 'transparent', color: SEC, textDecoration: 'none', fontWeight: 600 }}>
-                <Calendar size={12} />Calendar<ExternalLink size={10} />
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 8, fontSize: 11, border: `1px solid ${BORDER}`, background: 'transparent', color: SEC, textDecoration: 'none', fontWeight: 600 }}>
+                <Calendar size={11} />Calendar
               </Link>
               <button onClick={() => setShowNewAppt(true)}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', borderRadius: 9, fontSize: 13, border: `1px solid ${ACCENT}40`, background: `${ACCENT}16`, color: NAVY, cursor: 'pointer', fontWeight: 700 }}>
-                <Plus size={14} />New Appointment
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 16px', borderRadius: 8, fontSize: 12, border: `1px solid ${ACCENT}40`, background: `${ACCENT}16`, color: NAVY, cursor: 'pointer', fontWeight: 700 }}>
+                <Plus size={13} />New Appointment
               </button>
             </div>
           </div>
 
-          {/* Compact stats row */}
-          <div style={{ display: 'flex', gap: 0, borderTop: `1px solid ${BORDER}` }}>
-            {[
-              { label: 'Total', value: stats.total.toLocaleString(), icon: <TrendingUp size={11} />, color: NAVY },
-              { label: 'Today', value: stats.today, icon: <Calendar size={11} />, color: stats.today > 0 ? ACCENT : NAVY },
-              { label: 'This Week', value: stats.thisWeek, icon: <Activity size={11} />, color: NAVY },
-              { label: 'This Month', value: stats.thisMonth, icon: <Clock size={11} />, color: NAVY },
-              { label: 'Upcoming', value: stats.upcoming, icon: <ChevronDown size={11} />, color: NAVY },
-              { label: 'DNA Rate 30d', value: `${dnaRate}%`, icon: <UserX size={11} />, color: dnaRate > 15 ? RED : dnaRate > 8 ? ORANGE : GREEN },
-            ].map((s, i) => (
-              <div key={s.label} style={{ flex: 1, padding: '10px 16px', borderLeft: i > 0 ? `1px solid ${BORDER}` : 'none' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2 }}>
-                  <span style={{ color: s.color, opacity: 0.6 }}>{s.icon}</span>
-                  <span style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.24em', fontWeight: 600, color: MUTED }}>{s.label}</span>
+          {/* Collapsible stats panel */}
+          <AnimatePresence>
+            {statsOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                style={{ overflow: 'hidden' }}
+              >
+                <div style={{ display: 'flex', gap: 0, borderTop: `1px solid ${BORDER}`, marginTop: 10 }}>
+                  {[
+                    { label: 'Total',        value: stats.total.toLocaleString(), icon: <TrendingUp size={11} />, color: NAVY },
+                    { label: 'Today',        value: stats.today,                  icon: <Calendar size={11} />,   color: stats.today > 0 ? ACCENT : NAVY },
+                    { label: 'This Week',    value: stats.thisWeek,               icon: <Activity size={11} />,   color: NAVY },
+                    { label: 'This Month',   value: stats.thisMonth,              icon: <Clock size={11} />,      color: NAVY },
+                    { label: 'Upcoming',     value: stats.upcoming,               icon: <ChevronDown size={11} />,color: NAVY },
+                    { label: 'DNA Rate 30d', value: `${dnaRate}%`,               icon: <UserX size={11} />,      color: dnaRate > 15 ? RED : dnaRate > 8 ? ORANGE : GREEN },
+                  ].map((s, i) => (
+                    <div key={s.label} style={{ flex: 1, padding: '8px 14px', borderLeft: i > 0 ? `1px solid ${BORDER}` : 'none' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+                        <span style={{ color: s.color, opacity: 0.6 }}>{s.icon}</span>
+                        <span style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.22em', fontWeight: 600, color: MUTED }}>{s.label}</span>
+                      </div>
+                      <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: '-0.04em', color: s.color }}>{s.value}</div>
+                    </div>
+                  ))}
                 </div>
-                <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.04em', color: s.color }}>{s.value}</div>
-              </div>
-            ))}
-          </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Intelligence alerts */}
