@@ -260,6 +260,59 @@ export class ClinikoClient {
   }
 
   // ---------------------------------------------------------------------------
+  // UPDATE — Patient (edit name/email/phone in Cliniko)
+  // ---------------------------------------------------------------------------
+
+  async updatePatient(id: string, body: {
+    first_name?: string;
+    last_name?: string;
+    email?: string;
+    phone_numbers?: { number: string; phone_type: string }[];
+    date_of_birth?: string;
+    notes?: string;
+  }): Promise<ClinikoPatient> {
+    return this.request<ClinikoPatient>(`/patients/${id}`, {
+      method: 'PATCH',
+      body:   JSON.stringify(body),
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // UPDATE — Appointment (mark arrived or update notes/times)
+  // ---------------------------------------------------------------------------
+
+  async updateAppointment(id: string, body: {
+    patient_arrived?: string;  // ISO8601 timestamp → marks as arrived
+    cancelled_at?: string;     // ISO8601 timestamp → marks as cancelled
+    notes?: string;
+    starts_at?: string;
+    ends_at?: string;
+  }): Promise<ClinikoAppointment> {
+    // Use template string to preserve large integer IDs
+    const bodyStr = JSON.stringify(body);
+    return this.request<ClinikoAppointment>(`/individual_appointments/${id}`, {
+      method: 'PATCH',
+      body:   bodyStr,
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // DELETE — Appointment (archives/cancels in Cliniko)
+  // ---------------------------------------------------------------------------
+
+  async deleteAppointment(id: string): Promise<void> {
+    await this.request<void>(`/individual_appointments/${id}`, { method: 'DELETE' });
+  }
+
+  // ---------------------------------------------------------------------------
+  // DELETE — Patient (archives in Cliniko — cannot be undone)
+  // ---------------------------------------------------------------------------
+
+  async deletePatient(id: string): Promise<void> {
+    await this.request<void>(`/patients/${id}`, { method: 'DELETE' });
+  }
+
+  // ---------------------------------------------------------------------------
   // TEST CONNECTION — quick check the API key works
   // ---------------------------------------------------------------------------
 

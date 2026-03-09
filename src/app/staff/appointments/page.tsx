@@ -7,13 +7,14 @@
 //      wider list panel, practitioner filter, intelligence alerts
 // =============================================================================
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Phone, Mail, User, Calendar, Clock, Check, X,
   RefreshCw, AlertCircle, Search, CheckCircle2,
   ExternalLink, UserX, Activity, MessageSquare,
   Plus, ChevronDown, Zap, ArrowUpRight, TrendingUp,
+  Pencil, Trash2,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -28,6 +29,8 @@ import {
   getAppointmentTypes,
   confirmPendingBooking,
   dismissPendingBooking,
+  deleteAppointment,
+  updateAppointment,
   getClinikoConnectionStatus,
   updateAppointmentStatus,
   createManualAppointment,
@@ -223,7 +226,7 @@ function ApptRow({
 // =============================================================================
 
 function ApptDetail({
-  appt, dnaCount, visitCount, onClose, onStatusChange, statusChangingId,
+  appt, dnaCount, visitCount, onClose, onStatusChange, statusChangingId, onEdit, onDelete,
 }: {
   appt: AppointmentRow | null;
   dnaCount: number;
@@ -231,6 +234,8 @@ function ApptDetail({
   onClose: () => void;
   onStatusChange: (id: string, s: 'arrived' | 'cancelled') => void;
   statusChangingId: string | null;
+  onEdit: (appt: AppointmentRow) => void;
+  onDelete: (appt: AppointmentRow) => void;
 }) {
   if (!appt) return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, color: MUTED }}>
@@ -384,14 +389,207 @@ function ApptDetail({
         </div>
       )}
 
-      {/* View patient */}
-      {appt.patient_db_id && (
-        <Link href={`/staff/patients/${appt.patient_db_id}`}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px', borderRadius: 8, fontSize: 13, border: `1px solid ${ACCENT}35`, background: `${ACCENT}0c`, color: NAVY, textDecoration: 'none', fontWeight: 600, justifyContent: 'center', marginTop: 4 }}>
-          <User size={13} />View Patient Record<ArrowUpRight size={12} />
-        </Link>
-      )}
+      {/* View patient + Edit/Delete actions */}
+      <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+        {appt.patient_db_id && (
+          <Link href={`/staff/patients/${appt.patient_db_id}`}
+            style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, padding: '10px 0', borderRadius: 8, fontSize: 13, border: `1px solid ${ACCENT}35`, background: `${ACCENT}0c`, color: NAVY, textDecoration: 'none', fontWeight: 600, justifyContent: 'center' }}>
+            <User size={13} />Patient Record<ArrowUpRight size={12} />
+          </Link>
+        )}
+        <button onClick={() => onEdit(appt)}
+          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '10px 14px', borderRadius: 8, fontSize: 12, border: `1px solid ${BORDER}`, background: 'transparent', color: SEC, cursor: 'pointer', fontWeight: 600 }}>
+          <Pencil size={12} />Edit
+        </button>
+        <button onClick={() => onDelete(appt)}
+          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '10px 14px', borderRadius: 8, fontSize: 12, border: `1px solid ${RED}30`, background: `${RED}08`, color: RED, cursor: 'pointer', fontWeight: 600 }}>
+          <Trash2 size={12} />Delete
+        </button>
+      </div>
     </motion.div>
+  );
+}
+
+// =============================================================================
+// DELETE CONFIRM MODAL
+// =============================================================================
+
+function DeleteConfirmModal({ appt, onConfirm, onClose, deleting }: {
+  appt: AppointmentRow;
+  onConfirm: () => void;
+  onClose: () => void;
+  deleting: boolean;
+}) {
+  const [input, setInput] = useState('');
+  const confirmName = appt.patient_name.trim();
+  const matches = input.trim().toLowerCase() === confirmName.toLowerCase();
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 70, background: 'rgba(24,29,35,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.97 }}
+        style={{ background: BG, borderRadius: 16, padding: 32, width: 440, maxWidth: '90vw', border: `1px solid ${RED}30`, boxShadow: '0 24px 64px rgba(24,29,35,0.16)' }}>
+        <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', marginBottom: 20 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 20, background: `${RED}10`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Trash2 size={18} style={{ color: RED }} />
+          </div>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: NAVY, marginBottom: 4 }}>Delete Appointment</div>
+            <div style={{ fontSize: 13, color: TER, lineHeight: 1.5 }}>
+              This will remove the appointment from EWC and archive it in Cliniko. This cannot be undone.
+            </div>
+          </div>
+        </div>
+
+        <div style={{ padding: '12px 14px', borderRadius: 10, background: `${RED}06`, border: `1px solid ${RED}18`, marginBottom: 20 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>{appt.patient_name}</div>
+          <div style={{ fontSize: 11, color: TER, marginTop: 2 }}>{appt.appointment_type} · {new Date(appt.starts_at).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })} at {fmtTime(appt.starts_at)}</div>
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 11, color: MUTED, fontWeight: 600, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.18em' }}>
+            Type <strong style={{ color: NAVY }}>{confirmName}</strong> to confirm
+          </div>
+          <input
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            placeholder={confirmName}
+            autoFocus
+            style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: `1px solid ${matches && input ? RED : BORDER}`, background: BG, fontSize: 13, color: NAVY, outline: 'none', boxSizing: 'border-box' }}
+          />
+        </div>
+
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onClose} disabled={deleting}
+            style={{ flex: 1, padding: '10px 0', borderRadius: 8, fontSize: 13, border: `1px solid ${BORDER}`, background: 'transparent', color: SEC, cursor: 'pointer', fontWeight: 600 }}>
+            Cancel
+          </button>
+          <button onClick={onConfirm} disabled={!matches || deleting}
+            style={{ flex: 2, padding: '10px 0', borderRadius: 8, fontSize: 13, border: `1px solid ${RED}40`, background: `${RED}12`, color: RED, cursor: !matches || deleting ? 'not-allowed' : 'pointer', fontWeight: 700, opacity: !matches || deleting ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            {deleting ? <RefreshCw size={13} className="animate-spin" /> : <Trash2 size={13} />}
+            {deleting ? 'Deleting…' : 'Delete Appointment'}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// =============================================================================
+// EDIT APPOINTMENT MODAL
+// =============================================================================
+
+function EditApptModal({ appt, practitioners, apptTypes, onClose, onSaved }: {
+  appt: AppointmentRow;
+  practitioners: PractitionerRow[];
+  apptTypes: AppointmentTypeRow[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [typeName, setTypeName]   = useState(appt.appointment_type);
+  const [typeId, setTypeId]       = useState('');
+  const [date, setDate]           = useState(appt.starts_at.split('T')[0]);
+  const [time, setTime]           = useState(new Date(appt.starts_at).toTimeString().slice(0, 5));
+  const [duration, setDuration]   = useState(appt.duration_minutes);
+  const [practId, setPractId]     = useState('');
+  const [notes, setNotes]         = useState(appt.notes ?? '');
+  const [saving, setSaving]       = useState(false);
+  const [error, setError]         = useState('');
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%', padding: '9px 12px', borderRadius: 8,
+    border: `1px solid ${BORDER}`, background: BG, fontSize: 13,
+    color: NAVY, outline: 'none', boxSizing: 'border-box',
+  };
+  const labelStyle: React.CSSProperties = {
+    fontSize: 10, color: MUTED, fontWeight: 600, marginBottom: 6,
+    textTransform: 'uppercase', letterSpacing: '0.2em', display: 'block',
+  };
+
+  async function handleSave() {
+    setSaving(true); setError('');
+    const startsAt = new Date(`${date}T${time}:00`).toISOString();
+    const endsAt   = new Date(new Date(startsAt).getTime() + duration * 60000).toISOString();
+    const res = await updateAppointment(appt.id, {
+      appointmentTypeName: typeName || undefined,
+      startsAt, endsAt, durationMinutes: duration,
+      notes: notes || undefined,
+      practitionerClinikoId: practId || undefined,
+    });
+    setSaving(false);
+    if (res.success) onSaved();
+    else setError(res.error ?? 'Update failed');
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 70, background: 'rgba(24,29,35,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.97 }}
+        style={{ background: BG, borderRadius: 20, padding: 32, width: 520, maxWidth: '90vw', border: `1px solid ${BORDER}`, boxShadow: '0 24px 64px rgba(24,29,35,0.14)' }}>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+          <div>
+            <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.28em', fontWeight: 600, color: MUTED, marginBottom: 4 }}>Edit Appointment</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: NAVY }}>{appt.patient_name}</div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED }}><X size={17} /></button>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <span style={labelStyle}>Treatment Type</span>
+            <div style={{ position: 'relative' }}>
+              <select value={typeId} onChange={e => { setTypeId(e.target.value); const t = apptTypes.find(a => (a.cliniko_id ?? a.id) === e.target.value); if (t) { setTypeName(t.name); setDuration(t.duration_minutes); } }}
+                style={{ ...inputStyle, appearance: 'none', paddingRight: 32 }}>
+                <option value="">{typeName} (current)</option>
+                {apptTypes.map(t => <option key={t.cliniko_id ?? t.id} value={t.cliniko_id ?? t.id}>{t.name}</option>)}
+              </select>
+              <ChevronDown size={13} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: MUTED, pointerEvents: 'none' }} />
+            </div>
+          </div>
+          <div>
+            <span style={labelStyle}>Date</span>
+            <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
+          </div>
+          <div>
+            <span style={labelStyle}>Time</span>
+            <input type="time" value={time} onChange={e => setTime(e.target.value)} step={900} style={inputStyle} />
+          </div>
+          <div>
+            <span style={labelStyle}>Duration (min)</span>
+            <input type="number" value={duration} onChange={e => setDuration(Number(e.target.value))} min={5} max={480} step={5} style={inputStyle} />
+          </div>
+          <div>
+            <span style={labelStyle}>Practitioner</span>
+            <div style={{ position: 'relative' }}>
+              <select value={practId} onChange={e => setPractId(e.target.value)} style={{ ...inputStyle, appearance: 'none', paddingRight: 32 }}>
+                <option value="">{appt.practitioner_name} (current)</option>
+                {practitioners.map(p => <option key={p.cliniko_id} value={p.cliniko_id}>{p.name}</option>)}
+              </select>
+              <ChevronDown size={13} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: MUTED, pointerEvents: 'none' }} />
+            </div>
+          </div>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <span style={labelStyle}>Notes</span>
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3}
+              style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.6 }} />
+          </div>
+        </div>
+
+        {error && (
+          <div style={{ marginBottom: 14, padding: '9px 12px', borderRadius: 8, background: `${RED}08`, border: `1px solid ${RED}25`, color: RED, fontSize: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <AlertCircle size={12} />{error}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onClose} style={{ flex: 1, padding: '10px 0', borderRadius: 8, fontSize: 13, border: `1px solid ${BORDER}`, background: 'transparent', color: SEC, cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+          <button onClick={handleSave} disabled={saving}
+            style={{ flex: 2, padding: '10px 0', borderRadius: 8, fontSize: 13, border: `1px solid ${ACCENT}40`, background: `${ACCENT}18`, color: NAVY, cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 700, opacity: saving ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            {saving ? <RefreshCw size={13} className="animate-spin" /> : <Check size={13} />}
+            {saving ? 'Saving…' : 'Save Changes'}
+          </button>
+        </div>
+      </motion.div>
+    </div>
   );
 }
 
@@ -880,6 +1078,9 @@ export default function AppointmentsPage() {
   const [toast, setToast]               = useState<{ msg: string; ok: boolean } | null>(null);
   const [clinikoStatus, setClinikoStatus] = useState<{ connected: boolean; lastSync: string | null; totalSynced: number } | null>(null);
   const [showNewAppt, setShowNewAppt]   = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<AppointmentRow | null>(null);
+  const [deleting, setDeleting]         = useState(false);
+  const [editTarget, setEditTarget]     = useState<AppointmentRow | null>(null);
 
   const showToast = (msg: string, ok = true) => {
     setToast({ msg, ok });
@@ -1004,6 +1205,30 @@ export default function AppointmentsPage() {
     await loadData();
   }
 
+  async function handleDeleteConfirm() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const res = await deleteAppointment(deleteTarget.id);
+      if (res.success) {
+        showToast('Appointment deleted');
+        setDeleteTarget(null);
+        setSelectedAppt(null);
+        await loadData();
+      } else {
+        showToast(res.error ?? 'Delete failed', false);
+      }
+    } catch (err) { showToast(String(err), false); }
+    finally { setDeleting(false); }
+  }
+
+  // Window focus → refresh data
+  useEffect(() => {
+    const onFocus = () => { loadData(); };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [loadData]);
+
   // ── Filters ───────────────────────────────────────────────────────────────
 
   const filterAppts = useCallback((list: AppointmentRow[]) => {
@@ -1071,6 +1296,31 @@ export default function AppointmentsPage() {
             apptTypes={apptTypes}
             onClose={() => setShowNewAppt(false)}
             onSaved={async () => { setShowNewAppt(false); showToast('Appointment booked'); await loadData(); }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Delete Confirm Modal */}
+      <AnimatePresence>
+        {deleteTarget && (
+          <DeleteConfirmModal
+            appt={deleteTarget}
+            onConfirm={handleDeleteConfirm}
+            onClose={() => setDeleteTarget(null)}
+            deleting={deleting}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Edit Appointment Modal */}
+      <AnimatePresence>
+        {editTarget && (
+          <EditApptModal
+            appt={editTarget}
+            practitioners={practitioners}
+            apptTypes={apptTypes}
+            onClose={() => setEditTarget(null)}
+            onSaved={async () => { setEditTarget(null); showToast('Appointment updated'); await loadData(); }}
           />
         )}
       </AnimatePresence>
@@ -1278,6 +1528,8 @@ export default function AppointmentsPage() {
                   onClose={() => setSelectedAppt(null)}
                   onStatusChange={handleStatusChange}
                   statusChangingId={statusChangingId}
+                  onEdit={a => setEditTarget(a)}
+                  onDelete={a => setDeleteTarget(a)}
                 />
               )}
             </AnimatePresence>

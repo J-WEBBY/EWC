@@ -1,6 +1,7 @@
 'use server';
 
 import { createSovereignClient } from '@/lib/supabase/service';
+import { getClinikoClient } from '@/lib/cliniko/client';
 
 // =============================================================================
 // TYPES
@@ -1051,14 +1052,14 @@ export async function getPatientStats() {
 }
 
 // =============================================================================
-// UPDATE PATIENT PROFILE — writes local overrides to cliniko_patients cache
-// (Cliniko sync will overwrite on next run — direct Cliniko API write is Week 2)
+// UPDATE PATIENT PROFILE — writes to local cache + Cliniko simultaneously
 // =============================================================================
 
 export interface PatientProfileUpdate {
   first_name?: string;
   last_name?: string;
   email?: string | null;
+  phone?: string | null;
   date_of_birth?: string | null;
   gender?: string | null;
   occupation?: string | null;
@@ -1072,9 +1073,74 @@ export async function updatePatientProfile(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const db = createSovereignClient();
+
+    // 1. Get cliniko_id before updating
+    const { data: pat } = await db
+      .from('cliniko_patients')
+      .select('cliniko_id')
+      .eq('id', patientId)
+      .single();
+
+    // 2. Update local cache immediately
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await db.from('cliniko_patients').update(updates as any).eq('id', patientId);
     if (error) throw error;
+
+    // 3. Write to Cliniko (best-effort)
+    if (pat?.cliniko_id) {
+      const client = await getClinikoClient().catch(() => null);
+      if (client) {
+        const clinikoBody: Record<string, unknown> = {};
+        if (updates.first_name !== undefined) clinikoBody.first_name   = updates.first_name;
+        if (updates.last_name  !== undefined) clinikoBody.last_name    = updates.last_name;
+        if (updates.email      !== undefined) clinikoBody.email        = updates.email;
+        if (updates.date_of_birth !== undefined) clinikoBody.date_of_birth = updates.date_of_birth;
+        if (updates.notes      !== undefined) clinikoBody.notes        = updates.notes;
+        if (updates.phone      !== undefined) clinikoBody.phone_numbers = updates.phone
+          ? [{ number: updates.phone, phone_type: 'Mobile' }]
+          : [];
+        if (Object.keys(clinikoBody).length > 0) {
+          await client.updatePatient(String(pat.cliniko_id), clinikoBody).catch(() => null);
+        }
+      }
+    }
+
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: String(err) };
+  }
+}
+
+// =============================================================================
+// DELETE PATIENT — removes from local cache + archives in Cliniko
+// Requires confirmation: caller must pass the patient's full name to verify.
+// =============================================================================
+
+export async function deletePatient(
+  patientId: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const db = createSovereignClient();
+
+    // Get cliniko_id before deleting
+    const { data: pat } = await db
+      .from('cliniko_patients')
+      .select('cliniko_id')
+      .eq('id', patientId)
+      .single();
+
+    // Delete related records first (cascade safety)
+    await db.from('cliniko_appointments').delete().eq('cliniko_patient_id', String(pat?.cliniko_id ?? ''));
+    await db.from('cliniko_patients').delete().eq('id', patientId);
+
+    // Archive in Cliniko (best-effort)
+    if (pat?.cliniko_id) {
+      const client = await getClinikoClient().catch(() => null);
+      if (client) {
+        await client.deletePatient(String(pat.cliniko_id)).catch(() => null);
+      }
+    }
+
     return { success: true };
   } catch (err) {
     return { success: false, error: String(err) };

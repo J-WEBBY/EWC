@@ -15,8 +15,8 @@ import { syncAll, syncPatients, syncAppointments, syncInvoices } from '@/lib/cli
 
 export const maxDuration = 300;
 
-const SYNC_SECRET = process.env.SYNC_SECRET ?? 'ewc-sync-secret-change-me';
-const CRON_SECRET = process.env.CRON_SECRET ?? '';
+const SYNC_SECRET  = process.env.SYNC_SECRET ?? 'ewc-sync-secret-change-me';
+const CRON_SECRET  = process.env.CRON_SECRET; // undefined = no secret set → allow cron unrestricted
 
 // ---------------------------------------------------------------------------
 // Shared: load config and build client
@@ -43,10 +43,11 @@ async function loadClientAndConfig() {
 // ---------------------------------------------------------------------------
 
 export async function GET(req: NextRequest) {
-  const auth = req.headers.get('authorization') ?? '';
-  const isCron = CRON_SECRET && auth === `Bearer ${CRON_SECRET}`;
+  const auth    = req.headers.get('authorization') ?? '';
+  // If CRON_SECRET is set, require it. If not set, allow all GET requests to trigger sync.
+  const isCron  = !CRON_SECRET || auth === `Bearer ${CRON_SECRET}`;
 
-  // Unauthenticated → health check only
+  // No secret configured + no auth header → still run sync (Vercel cron without secret)
   if (!isCron) {
     const supabase = createSovereignClient();
     const { data } = await supabase

@@ -954,8 +954,31 @@ export async function updateAppointmentStatus(
   status: 'arrived' | 'cancelled',
 ): Promise<{ success: boolean }> {
   try {
-    const db = createSovereignClient();
+    const db  = createSovereignClient();
+    const now = new Date().toISOString();
+
+    // 1. Update local cache immediately
     await db.from('cliniko_appointments').update({ status }).eq('id', appointmentId);
+
+    // 2. Write back to Cliniko (best-effort — don't block on failure)
+    const { data: appt } = await db
+      .from('cliniko_appointments')
+      .select('cliniko_id')
+      .eq('id', appointmentId)
+      .single();
+
+    if (appt?.cliniko_id) {
+      const client = await getClinikoClient().catch(() => null);
+      if (client) {
+        if (status === 'arrived') {
+          await client.updateAppointment(String(appt.cliniko_id), { patient_arrived: now }).catch(() => null);
+        } else if (status === 'cancelled') {
+          // Cliniko cancels via DELETE on the appointment
+          await client.deleteAppointment(String(appt.cliniko_id)).catch(() => null);
+        }
+      }
+    }
+
     return { success: true };
   } catch {
     return { success: false };
@@ -1060,9 +1083,10 @@ export async function createManualAppointment(params: ManualApptParams): Promise
       }
     }
 
-    // Fallback: store locally with source = manual
+    // Fallback: store locally (no Cliniko connection). cliniko_id = null (manual record).
+    // These will sync to Cliniko when connection is established via force_full sync.
     const { data, error } = await db.from('cliniko_appointments').insert({
-      cliniko_id:              `manual-${Date.now()}`,
+      cliniko_id:              null,  // null = manual/local-only; avoids fake ID conflicts
       cliniko_patient_id:      params.existingClinikoId ?? null,
       cliniko_practitioner_id: params.practitionerClinikoId ?? null,
       appointment_type:        params.appointmentTypeName,
@@ -1076,6 +1100,98 @@ export async function createManualAppointment(params: ManualApptParams): Promise
 
     if (error) return { success: false, error: error.message };
     return { success: true, appointmentId: data?.id };
+  } catch (err) {
+    return { success: false, error: String(err) };
+  }
+}
+
+// =============================================================================
+// deleteAppointment — removes from local cache + archives in Cliniko
+// =============================================================================
+
+export async function deleteAppointment(
+  appointmentId: string,
+): Promise<{ success: boolean; error?: string }> {
+  'use server';
+  try {
+    const db = createSovereignClient();
+
+    // Get cliniko_id before deleting
+    const { data: appt } = await db
+      .from('cliniko_appointments')
+      .select('cliniko_id')
+      .eq('id', appointmentId)
+      .single();
+
+    // Delete from local cache
+    await db.from('cliniko_appointments').delete().eq('id', appointmentId);
+
+    // Archive in Cliniko (best-effort)
+    if (appt?.cliniko_id) {
+      const client = await getClinikoClient().catch(() => null);
+      if (client) {
+        await client.deleteAppointment(String(appt.cliniko_id)).catch(() => null);
+      }
+    }
+
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: String(err) };
+  }
+}
+
+// =============================================================================
+// updateAppointment — edit appointment details + writes to Cliniko
+// =============================================================================
+
+export interface UpdateApptParams {
+  appointmentTypeName?: string;
+  startsAt?: string;
+  endsAt?: string;
+  durationMinutes?: number;
+  notes?: string;
+  practitionerClinikoId?: string;
+}
+
+export async function updateAppointment(
+  appointmentId: string,
+  params: UpdateApptParams,
+): Promise<{ success: boolean; error?: string }> {
+  'use server';
+  try {
+    const db = createSovereignClient();
+
+    const localUpdate: Record<string, unknown> = {};
+    if (params.appointmentTypeName) localUpdate.appointment_type = params.appointmentTypeName;
+    if (params.startsAt)            localUpdate.starts_at         = params.startsAt;
+    if (params.endsAt)              localUpdate.ends_at           = params.endsAt;
+    if (params.durationMinutes)     localUpdate.duration_minutes  = params.durationMinutes;
+    if (params.notes !== undefined) localUpdate.notes             = params.notes;
+
+    // 1. Update local cache
+    await db.from('cliniko_appointments').update(localUpdate).eq('id', appointmentId);
+
+    // 2. Write to Cliniko (best-effort)
+    const { data: appt } = await db
+      .from('cliniko_appointments')
+      .select('cliniko_id')
+      .eq('id', appointmentId)
+      .single();
+
+    if (appt?.cliniko_id) {
+      const client = await getClinikoClient().catch(() => null);
+      if (client) {
+        const clinikoUpdate: Record<string, unknown> = {};
+        if (params.startsAt) clinikoUpdate.starts_at = params.startsAt;
+        if (params.endsAt)   clinikoUpdate.ends_at   = params.endsAt;
+        if (params.notes !== undefined) clinikoUpdate.notes = params.notes;
+        if (Object.keys(clinikoUpdate).length > 0) {
+          await client.updateAppointment(String(appt.cliniko_id), clinikoUpdate).catch(() => null);
+        }
+      }
+    }
+
+    return { success: true };
   } catch (err) {
     return { success: false, error: String(err) };
   }

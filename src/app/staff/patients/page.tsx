@@ -572,6 +572,14 @@ export default function PatientsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.lifecycle]);
 
+  // Window focus → reload current page
+  useEffect(() => {
+    const onFocus = () => loadPage(search || undefined, page, filters.lifecycle as LifecycleStage | 'all');
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadPage, search, page, filters.lifecycle]);
+
   const goToPage = useCallback((p: number) => {
     setPage(p);
     loadPage(search || undefined, p, filters.lifecycle as LifecycleStage | 'all');
