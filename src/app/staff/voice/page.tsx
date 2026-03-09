@@ -16,7 +16,8 @@ import {
   Headphones, Star, Shield, BookOpen,
   Save, Loader2, FileText, Mail,
   Activity, ChevronDown, Radio, RefreshCw,
-  Zap,
+  Zap, ArrowLeft, ExternalLink, Cpu, Hash,
+  PhoneIncoming, PhoneOutgoing, Volume2,
 } from 'lucide-react';
 import { StaffNav } from '@/components/staff-nav';
 import OrbLoader from '@/components/orb-loader';
@@ -161,228 +162,492 @@ function KomalOrb({ active }: { active: boolean }) {
 }
 
 // ----------------------------------------------------------------------------
-// CallRow — expandable call detail card
+// CallListItem — compact row in the left list when hub is open
 // ----------------------------------------------------------------------------
 
-function CallRow({ call }: { call: CallLog }) {
-  const [expanded, setExpanded]       = useState(false);
-  const [showTranscript, setShowTx]   = useState(false);
-  const outcome = call.outcome ?? 'unknown';
-  const cfg     = OUTCOME_CONFIG[outcome] ?? OUTCOME_CONFIG.unknown;
+function CallListItem({
+  call,
+  selected,
+  onClick,
+}: {
+  call: CallLog;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  const outcome  = call.outcome ?? 'unknown';
+  const cfg      = OUTCOME_CONFIG[outcome] ?? OUTCOME_CONFIG.unknown;
   const isMissed = outcome === 'missed';
 
-  // Parse summary into a brief paragraph + bullet points (if summary contains ". " it splits nicely)
+  return (
+    <motion.button
+      layout
+      onClick={onClick}
+      className="w-full flex items-center gap-3 p-3.5 rounded-xl text-left transition-all"
+      style={{
+        backgroundColor: selected ? `${BLUE}08` : 'transparent',
+        border: `1px solid ${selected ? BLUE + '30' : BORDER}`,
+        marginBottom: 6,
+      }}
+    >
+      <div
+        className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+        style={{ backgroundColor: isMissed ? `${RED}10` : `${BLUE}0a` }}
+      >
+        {isMissed
+          ? <PhoneMissed size={13} style={{ color: RED }} />
+          : call.direction === 'outbound'
+            ? <PhoneOutgoing size={13} style={{ color: TEAL }} />
+            : <PhoneIncoming size={13} style={{ color: BLUE }} />
+        }
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-[12px] font-semibold truncate" style={{ color: NAVY }}>
+          {call.caller_name ?? call.caller_phone ?? 'Unknown caller'}
+        </p>
+        <div className="flex items-center gap-2 mt-0.5">
+          <span className="text-[10px]" style={{ color: MUT }}>{fmtDate(call.created_at)}</span>
+          {call.duration_seconds > 0 && (
+            <span className="text-[10px] flex items-center gap-0.5" style={{ color: MUT }}>
+              <Clock size={9} />{fmtDuration(call.duration_seconds)}
+            </span>
+          )}
+        </div>
+      </div>
+      <span
+        className="text-[9px] font-semibold uppercase tracking-[0.06em] px-1.5 py-0.5 rounded-full flex-shrink-0"
+        style={{ backgroundColor: `${cfg.color}12`, color: cfg.color }}
+      >
+        {cfg.label}
+      </span>
+    </motion.button>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// CallHubPanel — full call audit hub
+// ----------------------------------------------------------------------------
+
+function CallHubPanel({ call, onClose }: { call: CallLog; onClose: () => void }) {
+  const [showTranscript, setShowTx] = useState(false);
+
+  const outcome    = call.outcome ?? 'unknown';
+  const cfg        = OUTCOME_CONFIG[outcome] ?? OUTCOME_CONFIG.unknown;
+  const isMissed   = outcome === 'missed';
   const summaryLines = call.call_summary
     ? call.call_summary.split(/\. /).filter(Boolean).map(s => s.replace(/\.$/, '').trim())
     : [];
 
+  const callerInitials = call.caller_name
+    ? call.caller_name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
+    : '?';
+
+  // Tool timeline — map tool names to icon + label + color steps
+  const toolSteps = (call.tools_used ?? []).map(t => ({
+    key: t, label: toolLabel(t),
+    color: t.includes('booking') || t.includes('capture_lead') ? GREEN
+         : t.includes('concern') || t.includes('escalate')     ? RED
+         : t.includes('ask_agent')                              ? GOLD
+         : t.includes('knowledge')                              ? TEAL
+         : BLUE,
+  }));
+
+  // Parse transcript into attributed turns
+  const transcriptLines = call.transcript
+    ? call.transcript.split('\n').filter(l => l.trim()).map(l => {
+        const komalMatch = l.match(/^(AI|Komal|Assistant)[:\s]+(.+)$/i);
+        const userMatch  = l.match(/^(User|Caller|Human|Customer)[:\s]+(.+)$/i);
+        if (komalMatch) return { speaker: 'komal',  text: komalMatch[2] };
+        if (userMatch)  return { speaker: 'caller', text: userMatch[2] };
+        return { speaker: 'unknown', text: l };
+      })
+    : [];
+
   return (
-    <div
-      className="border rounded-xl overflow-hidden transition-all"
-      style={{ backgroundColor: BG, borderColor: BORDER }}
-    >
-      {/* Row header — always visible */}
-      <button className="w-full flex items-center gap-3 p-4 text-left" onClick={() => setExpanded(v => !v)}>
-        <div
-          className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
-          style={{ backgroundColor: isMissed ? `${RED}10` : `${BLUE}0a` }}
-        >
-          {isMissed
-            ? <PhoneMissed size={14} style={{ color: RED }} />
-            : call.direction === 'outbound'
-              ? <PhoneCall size={14} style={{ color: TEAL }} />
-              : <Phone size={14} style={{ color: BLUE }} />
-          }
+    <div className="flex flex-col h-full" style={{ backgroundColor: BG }}>
+
+      {/* ── DARK HEADER ── */}
+      <div
+        className="flex-shrink-0 px-6 py-5"
+        style={{ background: `linear-gradient(135deg, #0D1420 0%, #1A1F35 100%)` }}
+      >
+        {/* Back + meta row */}
+        <div className="flex items-center gap-3 mb-4">
+          <button
+            onClick={onClose}
+            className="flex items-center gap-1.5 text-[11px] font-medium transition-opacity hover:opacity-80"
+            style={{ color: 'rgba(255,255,255,0.5)' }}
+          >
+            <ArrowLeft size={13} />
+            All calls
+          </button>
+          <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
+          <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
+            {fmtDate(call.created_at)}
+          </span>
+          {call.vapi_call_id && (
+            <>
+              <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
+              <span className="flex items-center gap-1 text-[10px] font-mono" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                <Hash size={9} />{call.vapi_call_id.slice(0, 12)}…
+              </span>
+            </>
+          )}
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-0.5">
-            <p className="text-[13px] font-semibold truncate" style={{ color: NAVY }}>
+
+        {/* Caller identity row */}
+        <div className="flex items-center gap-4">
+          {/* Avatar */}
+          <div
+            className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 text-[15px] font-bold"
+            style={{
+              background: isMissed
+                ? `linear-gradient(135deg, ${RED}50, ${RED}30)`
+                : `linear-gradient(135deg, ${cfg.color}60, ${cfg.color}30)`,
+              color: '#fff',
+              letterSpacing: '-0.01em',
+            }}
+          >
+            {isMissed ? <PhoneMissed size={18} /> : callerInitials}
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <h2 className="text-[20px] font-semibold tracking-tight" style={{ color: '#fff' }}>
               {call.caller_name ?? call.caller_phone ?? 'Unknown caller'}
-            </p>
+            </h2>
+            {call.caller_phone && call.caller_name && (
+              <p className="text-[12px] mt-0.5" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                {call.caller_phone}
+              </p>
+            )}
+          </div>
+
+          {/* Status + meta chips */}
+          <div className="flex items-center gap-2 flex-shrink-0">
             <span
-              className="text-[9px] font-semibold uppercase tracking-[0.08em] px-1.5 py-0.5 rounded-full flex-shrink-0"
-              style={{ backgroundColor: `${cfg.color}12`, color: cfg.color }}
+              className="text-[10px] font-bold uppercase tracking-[0.1em] px-2.5 py-1 rounded-full"
+              style={{ backgroundColor: `${cfg.color}25`, color: cfg.color, border: `1px solid ${cfg.color}40` }}
             >
               {cfg.label}
             </span>
-          </div>
-          <div className="flex items-center gap-3 text-[11px]" style={{ color: MUT }}>
-            <span>{fmtDate(call.created_at)}</span>
+            <span
+              className="text-[10px] font-medium px-2.5 py-1 rounded-full flex items-center gap-1"
+              style={{ backgroundColor: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.1)' }}
+            >
+              {call.direction === 'outbound'
+                ? <><PhoneOutgoing size={10} />Outbound</>
+                : <><PhoneIncoming size={10} />Inbound</>
+              }
+            </span>
             {call.duration_seconds > 0 && (
-              <span className="flex items-center gap-1">
+              <span
+                className="text-[10px] font-medium px-2.5 py-1 rounded-full flex items-center gap-1"
+                style={{ backgroundColor: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.1)' }}
+              >
                 <Clock size={10} />{fmtDuration(call.duration_seconds)}
               </span>
             )}
-            {call.service_requested && (
-              <span className="truncate max-w-[140px]">{call.service_requested}</span>
-            )}
           </div>
         </div>
-        <motion.div animate={{ rotate: expanded ? 90 : 0 }} transition={{ duration: 0.18 }}>
-          <ChevronRight size={14} style={{ color: MUT, flexShrink: 0 }} />
-        </motion.div>
-      </button>
+      </div>
 
-      {/* Expanded detail */}
-      <AnimatePresence>
-        {expanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="overflow-hidden"
-          >
-            <div style={{ borderTop: `1px solid ${BORDER}` }}>
+      {/* ── BODY ── */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="flex gap-5 p-6" style={{ minHeight: '100%' }}>
 
-              {/* Caller info strip */}
-              <div className="px-4 pt-4 pb-3 flex flex-wrap gap-4" style={{ borderBottom: `1px solid ${BORDER}` }}>
+          {/* ─── LEFT COLUMN ─── */}
+          <div className="flex flex-col gap-4" style={{ width: 220, flexShrink: 0 }}>
+
+            {/* Caller identity card */}
+            <div className="rounded-2xl border p-4" style={{ borderColor: BORDER }}>
+              <p className="text-[9px] uppercase tracking-[0.22em] font-semibold mb-3" style={{ color: MUT }}>Caller</p>
+              <div className="space-y-2.5">
                 {call.caller_name && (
-                  <div className="flex items-center gap-1.5 text-[12px]" style={{ color: SEC }}>
-                    <User size={11} style={{ color: MUT }} />
-                    {call.caller_name}
+                  <div className="flex items-start gap-2">
+                    <User size={11} style={{ color: MUT, flexShrink: 0, marginTop: 2 }} />
+                    <p className="text-[12px] font-medium" style={{ color: NAVY }}>{call.caller_name}</p>
                   </div>
                 )}
                 {call.caller_phone && (
-                  <div className="flex items-center gap-1.5 text-[12px]" style={{ color: SEC }}>
-                    <Phone size={11} style={{ color: MUT }} />
-                    {call.caller_phone}
+                  <div className="flex items-start gap-2">
+                    <Phone size={11} style={{ color: MUT, flexShrink: 0, marginTop: 2 }} />
+                    <p className="text-[11px]" style={{ color: SEC }}>{call.caller_phone}</p>
                   </div>
                 )}
                 {call.caller_email && (
-                  <div className="flex items-center gap-1.5 text-[12px]" style={{ color: SEC }}>
-                    <Mail size={11} style={{ color: MUT }} />
-                    {call.caller_email}
+                  <div className="flex items-start gap-2">
+                    <Mail size={11} style={{ color: MUT, flexShrink: 0, marginTop: 2 }} />
+                    <p className="text-[11px] break-all" style={{ color: SEC }}>{call.caller_email}</p>
                   </div>
                 )}
                 {call.service_requested && (
-                  <div className="flex items-center gap-1.5 text-[12px]" style={{ color: SEC }}>
-                    <Star size={11} style={{ color: MUT }} />
-                    {call.service_requested}
+                  <div className="flex items-start gap-2">
+                    <Star size={11} style={{ color: GOLD, flexShrink: 0, marginTop: 2 }} />
+                    <p className="text-[11px]" style={{ color: SEC }}>{call.service_requested}</p>
                   </div>
                 )}
                 {call.referral_source && (
-                  <div className="flex items-center gap-1.5 text-[12px]" style={{ color: MUT }}>
-                    <Activity size={11} style={{ color: MUT }} />
-                    {call.referral_source.replace(/_/g, ' ')}
-                    {call.referral_name && ` · ${call.referral_name}`}
+                  <div className="flex items-start gap-2">
+                    <Activity size={11} style={{ color: MUT, flexShrink: 0, marginTop: 2 }} />
+                    <p className="text-[11px]" style={{ color: TER }}>
+                      {call.referral_source.replace(/_/g, ' ')}
+                      {call.referral_name && <><br /><span style={{ color: MUT }}>via {call.referral_name}</span></>}
+                    </p>
                   </div>
                 )}
               </div>
-
-              {/* AI summary + key pointers */}
-              {(call.call_summary || call.call_notes) && (
-                <div className="px-4 pt-3 pb-3" style={{ borderBottom: `1px solid ${BORDER}` }}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <FileText size={11} style={{ color: TEAL }} />
-                    <p className="text-[10px] uppercase tracking-[0.14em] font-semibold" style={{ color: MUT }}>
-                      AI Summary
-                    </p>
-                  </div>
-                  {/* Summary as bullet pointers */}
-                  {summaryLines.length > 1 ? (
-                    <ul className="space-y-1">
-                      {summaryLines.map((line, i) => (
-                        <li key={i} className="flex items-start gap-2 text-[12px]" style={{ color: SEC }}>
-                          <span className="mt-1.5 flex-shrink-0 w-1 h-1 rounded-full" style={{ backgroundColor: TEAL }} />
-                          {line}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-[12px] leading-relaxed" style={{ color: SEC }}>
-                      {call.call_summary ?? call.call_notes}
-                    </p>
-                  )}
-                  {call.call_notes && call.call_summary && (
-                    <p className="text-[11px] mt-2 leading-relaxed" style={{ color: TER }}>{call.call_notes}</p>
-                  )}
-                </div>
-              )}
-
-              {/* Tools used + agent consulted */}
-              {((call.tools_used && call.tools_used.length > 0) || call.agent_consulted) && (
-                <div className="px-4 pt-3 pb-3 flex flex-wrap gap-1.5" style={{ borderBottom: `1px solid ${BORDER}` }}>
-                  {(call.tools_used ?? []).map(t => (
-                    <span key={t} className="text-[10px] px-2 py-0.5 rounded-full"
-                      style={{ backgroundColor: `${BLUE}0a`, color: BLUE, border: `1px solid ${BLUE}20` }}>
-                      {toolLabel(t)}
-                    </span>
-                  ))}
-                  {call.agent_consulted && (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full"
-                      style={{ backgroundColor: `${GOLD}10`, color: GOLD, border: `1px solid ${GOLD}25` }}>
-                      {call.agent_consulted === 'orion' ? 'Orion (sales)' : call.agent_consulted === 'aria' ? 'Aria (CRM)' : call.agent_consulted}
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {/* Recording player */}
-              {call.recording_url && (
-                <div className="px-4 pt-3 pb-3" style={{ borderBottom: `1px solid ${BORDER}` }}>
-                  <p className="text-[10px] uppercase tracking-[0.14em] font-semibold mb-2" style={{ color: MUT }}>
-                    Recording
-                  </p>
-                  <audio
-                    controls
-                    src={call.recording_url}
-                    className="w-full"
-                    style={{ height: 32, borderRadius: 8, outline: 'none' }}
-                  />
-                </div>
-              )}
-
-              {/* Transcript (sub-toggle) */}
-              {call.transcript && (
-                <div className="px-4 pt-3 pb-4">
-                  <button
-                    onClick={e => { e.stopPropagation(); setShowTx(v => !v); }}
-                    className="flex items-center gap-2 text-[11px] font-medium"
-                    style={{ color: MUT }}
-                  >
-                    <MessageSquare size={11} />
-                    {showTranscript ? 'Hide transcript' : 'View full transcript'}
-                    <motion.div animate={{ rotate: showTranscript ? 180 : 0 }} transition={{ duration: 0.15 }}>
-                      <ChevronDown size={11} />
-                    </motion.div>
-                  </button>
-                  <AnimatePresence>
-                    {showTranscript && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.18 }}
-                        className="overflow-hidden"
-                      >
-                        <div
-                          className="mt-3 rounded-xl p-3 text-[11px] leading-relaxed overflow-y-auto"
-                          style={{
-                            backgroundColor: `${NAVY}05`,
-                            border: `1px solid ${BORDER}`,
-                            color: SEC,
-                            maxHeight: 240,
-                            whiteSpace: 'pre-wrap',
-                            fontFamily: 'monospace',
-                          }}
-                        >
-                          {call.transcript}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              )}
-
-              {/* Empty state */}
-              {!call.call_summary && !call.call_notes && !call.transcript && !call.recording_url && (
-                <p className="px-4 py-4 text-[12px]" style={{ color: MUT }}>No additional details recorded for this call.</p>
-              )}
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+
+            {/* Call metrics */}
+            <div className="rounded-2xl border p-4" style={{ borderColor: BORDER }}>
+              <p className="text-[9px] uppercase tracking-[0.22em] font-semibold mb-3" style={{ color: MUT }}>Call details</p>
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px]" style={{ color: TER }}>Duration</span>
+                  <span className="text-[12px] font-semibold" style={{ color: NAVY }}>{fmtDuration(call.duration_seconds)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px]" style={{ color: TER }}>Direction</span>
+                  <span className="text-[11px] font-medium capitalize" style={{ color: SEC }}>{call.direction}</span>
+                </div>
+                {call.ended_reason && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px]" style={{ color: TER }}>Ended by</span>
+                    <span className="text-[11px] font-medium" style={{ color: SEC }}>
+                      {call.ended_reason.replace(/-/g, ' ')}
+                    </span>
+                  </div>
+                )}
+                {call.agent_consulted && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px]" style={{ color: TER }}>Agent</span>
+                    <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-md"
+                      style={{
+                        backgroundColor: call.agent_consulted === 'orion' ? `${GOLD}15` : `${TEAL}12`,
+                        color: call.agent_consulted === 'orion' ? GOLD : TEAL,
+                      }}>
+                      {call.agent_consulted === 'orion' ? 'Orion' : call.agent_consulted === 'aria' ? 'Aria' : call.agent_consulted}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Booking status card */}
+            {call.booking_request_status && (
+              <div
+                className="rounded-2xl border p-4"
+                style={{
+                  borderColor: call.booking_request_status === 'pending' ? `${GOLD}35` : `${GREEN}30`,
+                  backgroundColor: call.booking_request_status === 'pending' ? `${GOLD}06` : `${GREEN}05`,
+                }}
+              >
+                <p className="text-[9px] uppercase tracking-[0.22em] font-semibold mb-2" style={{ color: MUT }}>Booking</p>
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
+                    style={{
+                      backgroundColor: call.booking_request_status === 'pending' ? `${GOLD}20` : `${GREEN}18`,
+                    }}>
+                    {call.booking_request_status === 'pending'
+                      ? <Clock size={10} style={{ color: GOLD }} />
+                      : <Check size={10} style={{ color: GREEN }} />
+                    }
+                  </div>
+                  <p className="text-[12px] font-medium capitalize" style={{
+                    color: call.booking_request_status === 'pending' ? GOLD : GREEN,
+                  }}>
+                    {call.booking_request_status.replace(/_/g, ' ')}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Vapi reference */}
+            {call.vapi_call_id && (
+              <div className="rounded-xl border p-3" style={{ borderColor: BORDER }}>
+                <p className="text-[9px] uppercase tracking-[0.22em] font-semibold mb-1.5" style={{ color: MUT }}>Vapi reference</p>
+                <p className="text-[10px] font-mono break-all" style={{ color: TER }}>{call.vapi_call_id}</p>
+              </div>
+            )}
+          </div>
+
+          {/* ─── RIGHT COLUMN ─── */}
+          <div className="flex-1 min-w-0 flex flex-col gap-5">
+
+            {/* AI Intelligence */}
+            <div className="rounded-2xl border overflow-hidden" style={{ borderColor: BORDER }}>
+              <div className="px-5 py-3 flex items-center gap-2.5" style={{ backgroundColor: `${TEAL}08`, borderBottom: `1px solid ${TEAL}18` }}>
+                <div className="w-5 h-5 rounded-md flex items-center justify-center" style={{ backgroundColor: `${TEAL}20` }}>
+                  <Cpu size={11} style={{ color: TEAL }} />
+                </div>
+                <p className="text-[11px] font-semibold" style={{ color: NAVY }}>Komal&apos;s Intelligence</p>
+              </div>
+              <div className="px-5 py-4">
+                {(summaryLines.length > 0 || call.call_summary) ? (
+                  <div className="mb-3">
+                    <p className="text-[9px] uppercase tracking-[0.18em] font-semibold mb-2" style={{ color: MUT }}>AI Summary</p>
+                    {summaryLines.length > 1 ? (
+                      <ul className="space-y-1.5">
+                        {summaryLines.map((line, i) => (
+                          <li key={i} className="flex items-start gap-2.5 text-[12px] leading-relaxed" style={{ color: SEC }}>
+                            <span className="mt-2 flex-shrink-0 w-1.5 h-1.5 rounded-full" style={{ backgroundColor: TEAL }} />
+                            {line}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-[12px] leading-relaxed" style={{ color: SEC }}>{call.call_summary}</p>
+                    )}
+                  </div>
+                ) : null}
+                {call.call_notes && (
+                  <div className="mt-3 pt-3" style={{ borderTop: `1px solid ${BORDER}` }}>
+                    <p className="text-[9px] uppercase tracking-[0.18em] font-semibold mb-1.5" style={{ color: MUT }}>Detailed notes</p>
+                    <p className="text-[12px] leading-relaxed" style={{ color: TER }}>{call.call_notes}</p>
+                  </div>
+                )}
+                {!call.call_summary && !call.call_notes && (
+                  <p className="text-[12px]" style={{ color: MUT }}>No AI summary recorded for this call.</p>
+                )}
+              </div>
+            </div>
+
+            {/* Komal's Journey — tool timeline */}
+            {toolSteps.length > 0 && (
+              <div className="rounded-2xl border overflow-hidden" style={{ borderColor: BORDER }}>
+                <div className="px-5 py-3 flex items-center gap-2.5" style={{ borderBottom: `1px solid ${BORDER}` }}>
+                  <div className="w-5 h-5 rounded-md flex items-center justify-center" style={{ backgroundColor: `${BLUE}12` }}>
+                    <Activity size={11} style={{ color: BLUE }} />
+                  </div>
+                  <p className="text-[11px] font-semibold" style={{ color: NAVY }}>Komal&apos;s Journey</p>
+                  <span className="text-[10px]" style={{ color: MUT }}>{toolSteps.length} step{toolSteps.length !== 1 ? 's' : ''}</span>
+                </div>
+                <div className="px-5 py-5">
+                  <div className="flex items-center gap-0 flex-wrap">
+                    {toolSteps.map((step, i) => (
+                      <div key={step.key} className="flex items-center">
+                        <div className="flex flex-col items-center gap-1.5">
+                          <div
+                            className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold"
+                            style={{
+                              backgroundColor: `${step.color}15`,
+                              border: `1.5px solid ${step.color}40`,
+                              color: step.color,
+                            }}
+                          >
+                            {i + 1}
+                          </div>
+                          <span className="text-[9px] font-medium text-center max-w-[72px] leading-tight" style={{ color: TER }}>
+                            {step.label}
+                          </span>
+                        </div>
+                        {i < toolSteps.length - 1 && (
+                          <div className="w-6 h-px mb-4 flex-shrink-0" style={{ backgroundColor: BORDER, margin: '0 4px 16px 4px' }} />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Recording */}
+            {call.recording_url && (
+              <div className="rounded-2xl border overflow-hidden" style={{ borderColor: BORDER }}>
+                <div className="px-5 py-3 flex items-center gap-2.5" style={{ borderBottom: `1px solid ${BORDER}` }}>
+                  <div className="w-5 h-5 rounded-md flex items-center justify-center" style={{ backgroundColor: `${BLUE}10` }}>
+                    <Volume2 size={11} style={{ color: BLUE }} />
+                  </div>
+                  <p className="text-[11px] font-semibold" style={{ color: NAVY }}>Call Recording</p>
+                </div>
+                <div className="px-5 py-4">
+                  <audio controls src={call.recording_url} className="w-full"
+                    style={{ height: 36, borderRadius: 10, outline: 'none' }} />
+                </div>
+              </div>
+            )}
+
+            {/* Transcript */}
+            {call.transcript && (
+              <div className="rounded-2xl border overflow-hidden" style={{ borderColor: BORDER }}>
+                <button
+                  className="w-full px-5 py-3 flex items-center gap-2.5 transition-colors hover:bg-black/[0.02]"
+                  style={{ borderBottom: showTranscript ? `1px solid ${BORDER}` : 'none' }}
+                  onClick={() => setShowTx(v => !v)}
+                >
+                  <div className="w-5 h-5 rounded-md flex items-center justify-center" style={{ backgroundColor: `${NAVY}0a` }}>
+                    <MessageSquare size={11} style={{ color: SEC }} />
+                  </div>
+                  <p className="text-[11px] font-semibold flex-1 text-left" style={{ color: NAVY }}>
+                    Full transcript
+                  </p>
+                  <span className="text-[10px]" style={{ color: MUT }}>
+                    {transcriptLines.length > 0 ? `${transcriptLines.length} turns` : 'View'}
+                  </span>
+                  <motion.div animate={{ rotate: showTranscript ? 180 : 0 }} transition={{ duration: 0.18 }}>
+                    <ChevronDown size={13} style={{ color: MUT }} />
+                  </motion.div>
+                </button>
+                <AnimatePresence>
+                  {showTranscript && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.22 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="px-5 py-4 space-y-3 max-h-[420px] overflow-y-auto">
+                        {transcriptLines.length > 0 ? (
+                          transcriptLines.map((line, i) => (
+                            <div key={i}
+                              className={`flex gap-3 ${line.speaker === 'komal' ? '' : 'flex-row-reverse'}`}
+                            >
+                              <div
+                                className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-[9px] font-bold mt-0.5"
+                                style={{
+                                  backgroundColor: line.speaker === 'komal' ? `${TEAL}18` : `${BLUE}12`,
+                                  color: line.speaker === 'komal' ? TEAL : BLUE,
+                                }}
+                              >
+                                {line.speaker === 'komal' ? 'K' : 'C'}
+                              </div>
+                              <div
+                                className="flex-1 rounded-xl px-3.5 py-2.5 text-[12px] leading-relaxed max-w-[85%]"
+                                style={{
+                                  backgroundColor: line.speaker === 'komal' ? `${TEAL}08` : `${BLUE}06`,
+                                  color: SEC,
+                                  border: `1px solid ${line.speaker === 'komal' ? TEAL + '18' : BLUE + '15'}`,
+                                }}
+                              >
+                                {line.text}
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <pre
+                            className="text-[11px] leading-relaxed whitespace-pre-wrap"
+                            style={{ color: TER, fontFamily: 'monospace' }}
+                          >
+                            {call.transcript}
+                          </pre>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
+
+            {/* Empty state */}
+            {!call.call_summary && !call.call_notes && !call.transcript && !call.recording_url && toolSteps.length === 0 && (
+              <div className="rounded-2xl border p-8 flex flex-col items-center gap-3" style={{ borderColor: BORDER }}>
+                <FileText size={24} style={{ color: MUT }} />
+                <p className="text-[12px]" style={{ color: MUT }}>No additional details recorded for this call.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -536,15 +801,16 @@ export default function ReceptionistPage() {
   const [loading,      setLoading]      = useState(true);
   const [activeTab,    setActiveTab]    = useState<Tab>('overview');
 
-  const [isOnline,     setIsOnline]     = useState(false);
-  const [callLogs,     setCallLogs]     = useState<CallLog[]>([]);
-  const [stats,        setStats]        = useState<CallStats | null>(null);
-  const [bookings,     setBookings]     = useState<BookingRequest[]>([]);
-  const [identity,     setIdentity]     = useState<ReceptionistIdentity | null>(null);
-  const [editIdentity, setEditIdentity] = useState<ReceptionistIdentity | null>(null);
-  const [saving,       setSaving]       = useState(false);
-  const [provisioning, setProvisioning] = useState(false);
-  const [provResult,   setProvResult]   = useState<{ ok: boolean; msg: string } | null>(null);
+  const [isOnline,      setIsOnline]      = useState(false);
+  const [callLogs,      setCallLogs]      = useState<CallLog[]>([]);
+  const [stats,         setStats]         = useState<CallStats | null>(null);
+  const [bookings,      setBookings]      = useState<BookingRequest[]>([]);
+  const [identity,      setIdentity]      = useState<ReceptionistIdentity | null>(null);
+  const [editIdentity,  setEditIdentity]  = useState<ReceptionistIdentity | null>(null);
+  const [saving,        setSaving]        = useState(false);
+  const [provisioning,  setProvisioning]  = useState(false);
+  const [provResult,    setProvResult]    = useState<{ ok: boolean; msg: string } | null>(null);
+  const [selectedCall,  setSelectedCall]  = useState<CallLog | null>(null);
 
   // Live calls
   const [liveCalls,   setLiveCalls]    = useState<LiveCall[]>([]);
@@ -806,12 +1072,17 @@ export default function ReceptionistPage() {
                       View all <ChevronRight size={12} />
                     </button>
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     {callLogs.slice(0, 5).map(call => {
                       const cfg2 = OUTCOME_CONFIG[call.outcome ?? 'unknown'] ?? OUTCOME_CONFIG.unknown;
                       const isMissed2 = call.outcome === 'missed';
                       return (
-                        <div key={call.id} className="flex items-center gap-3 py-2" style={{ borderBottom: `1px solid ${BORDER}` }}>
+                        <button
+                          key={call.id}
+                          className="w-full flex items-center gap-3 py-2 px-1 rounded-lg text-left transition-colors hover:bg-black/[0.025]"
+                          style={{ borderBottom: `1px solid ${BORDER}` }}
+                          onClick={() => { setSelectedCall(call); setActiveTab('calls'); }}
+                        >
                           <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
                             style={{ backgroundColor: isMissed2 ? `${RED}0a` : `${BLUE}0a` }}>
                             {isMissed2 ? <PhoneMissed size={12} style={{ color: RED }} /> : <Phone size={12} style={{ color: BLUE }} />}
@@ -822,8 +1093,11 @@ export default function ReceptionistPage() {
                             </p>
                             <p className="text-[10px]" style={{ color: MUT }}>{fmtDate(call.created_at)}</p>
                           </div>
-                          <span className="text-[10px] font-medium" style={{ color: cfg2.color }}>{cfg2.label}</span>
-                        </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] font-medium" style={{ color: cfg2.color }}>{cfg2.label}</span>
+                            <ExternalLink size={10} style={{ color: MUT }} />
+                          </div>
+                        </button>
                       );
                     })}
                     {callLogs.length === 0 && (
@@ -862,31 +1136,74 @@ export default function ReceptionistPage() {
           {/* ── TAB: CALLS ── */}
           {activeTab === 'calls' && (
             <motion.div key="calls" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-[13px]" style={{ color: TER }}>
-                  {callLogs.length} call{callLogs.length !== 1 ? 's' : ''} recorded
-                </p>
-                {stats && stats.missed > 0 && (
-                  <span className="text-[11px] px-2.5 py-1 rounded-full"
-                    style={{ backgroundColor: `${RED}08`, color: RED }}>
-                    {stats.missed} missed — follow up required
-                  </span>
-                )}
-              </div>
-              {/* Live calls at top of calls tab */}
-              {liveCalls.length > 0 && (
-                <div className="mb-4 space-y-2">
-                  {liveCalls.map(lc => <LiveCallCard key={lc.id} call={lc} />)}
-                </div>
-              )}
-              <div className="space-y-2">
-                {callLogs.map(call => <CallRow key={call.id} call={call} />)}
-                {callLogs.length === 0 && (
-                  <div className="text-center py-12 rounded-2xl border" style={{ borderColor: BORDER }}>
-                    <Phone size={24} style={{ color: MUT, margin: '0 auto 8px' }} />
-                    <p className="text-[13px]" style={{ color: MUT }}>No calls recorded yet.</p>
+
+              {/* Split layout: list left, hub right */}
+              <div className="flex gap-5 items-stretch" style={{ minHeight: 560 }}>
+
+                {/* Left — call list */}
+                <motion.div
+                  animate={{ width: selectedCall ? 280 : '100%', flexShrink: 0 }}
+                  transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+                  style={{ overflow: 'hidden' }}
+                >
+                  {/* List header */}
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-[12px]" style={{ color: TER }}>
+                      {callLogs.length} call{callLogs.length !== 1 ? 's' : ''}
+                    </p>
+                    {stats && stats.missed > 0 && !selectedCall && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full"
+                        style={{ backgroundColor: `${RED}08`, color: RED }}>
+                        {stats.missed} missed
+                      </span>
+                    )}
                   </div>
-                )}
+
+                  {/* Live calls */}
+                  {liveCalls.length > 0 && (
+                    <div className="mb-3 space-y-2">
+                      {liveCalls.map(lc => <LiveCallCard key={lc.id} call={lc} />)}
+                    </div>
+                  )}
+
+                  {callLogs.length === 0 ? (
+                    <div className="text-center py-12 rounded-2xl border" style={{ borderColor: BORDER }}>
+                      <Phone size={24} style={{ color: MUT, margin: '0 auto 8px' }} />
+                      <p className="text-[13px]" style={{ color: MUT }}>No calls recorded yet.</p>
+                    </div>
+                  ) : (
+                    <div>
+                      {callLogs.map(call => (
+                        <CallListItem
+                          key={call.id}
+                          call={call}
+                          selected={selectedCall?.id === call.id}
+                          onClick={() => setSelectedCall(prev => prev?.id === call.id ? null : call)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </motion.div>
+
+                {/* Right — Call Hub panel */}
+                <AnimatePresence>
+                  {selectedCall && (
+                    <motion.div
+                      key={selectedCall.id}
+                      initial={{ opacity: 0, x: 24 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 24 }}
+                      transition={{ duration: 0.28, ease: [0.4, 0, 0.2, 1] }}
+                      className="flex-1 rounded-2xl overflow-hidden border"
+                      style={{ borderColor: BORDER, minWidth: 0 }}
+                    >
+                      <CallHubPanel
+                        call={selectedCall}
+                        onClose={() => setSelectedCall(null)}
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </motion.div>
           )}
