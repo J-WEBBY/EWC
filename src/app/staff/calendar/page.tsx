@@ -6,7 +6,7 @@
 // Sources: Cliniko appointments, custom events, compliance tasks, signals
 // =============================================================================
 
-import { useState, useEffect, useCallback, type Dispatch, type SetStateAction } from 'react';
+import { useState, useEffect, useCallback, useRef, type Dispatch, type SetStateAction } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronLeft, ChevronRight, Plus, X, Clock, User, ArrowUpRight,
@@ -133,6 +133,67 @@ function fmtDMed(d:Date){ return d.toLocaleDateString('en-GB',{weekday:'short',d
 function isoMins(iso:string|null|undefined){ if(!iso) return 0; const d=new Date(iso); return d.getHours()*60+d.getMinutes(); }
 function tMins(t:string|null|undefined){ if(!t) return 0; const[h,m]=t.split(':').map(Number); return (h??0)*60+(m??0); }
 
+// ─── Delete Event Confirmation Modal ─────────────────────────────────────────
+function DeleteEventModal({ event, deleting, onConfirm, onClose }: {
+  event: CalendarEvent;
+  deleting: boolean;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  const [input, setInput] = useState('');
+  const confirmTitle = event.title.trim();
+  const matches = input.trim().toLowerCase() === confirmTitle.toLowerCase();
+  const cfg = EVENT_CFG[event.event_type as UIEventType] ?? EVENT_CFG.meeting;
+
+  return (
+    <div style={{position:'fixed',inset:0,zIndex:400,background:'rgba(26,16,53,0.5)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <motion.div initial={{opacity:0,scale:0.97}} animate={{opacity:1,scale:1}} exit={{opacity:0,scale:0.97}}
+        style={{background:BG,borderRadius:16,padding:32,width:440,maxWidth:'90vw',border:`1px solid ${RED}30`,boxShadow:'0 24px 64px rgba(26,16,53,0.18)'}}>
+
+        <div style={{display:'flex',gap:14,alignItems:'flex-start',marginBottom:20}}>
+          <div style={{width:40,height:40,borderRadius:20,background:`${RED}10`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+            <Trash2 size={18} style={{color:RED}}/>
+          </div>
+          <div>
+            <div style={{fontSize:16,fontWeight:800,color:NAVY,marginBottom:4}}>Delete Event</div>
+            <div style={{fontSize:13,color:TER,lineHeight:1.5}}>This will permanently remove the event from the calendar. This cannot be undone.</div>
+          </div>
+        </div>
+
+        <div style={{padding:'12px 14px',borderRadius:10,background:`${RED}06`,border:`1px solid ${RED}18`,marginBottom:20}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:3}}>
+            <span style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.16em',color:cfg.color,background:cfg.bg,padding:'2px 7px',borderRadius:20}}>{cfg.label}</span>
+          </div>
+          <div style={{fontSize:13,fontWeight:700,color:NAVY}}>{event.title}</div>
+          {event.start_date && <div style={{fontSize:11,color:TER,marginTop:2}}>{new Date(event.start_date).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}</div>}
+        </div>
+
+        <div style={{marginBottom:20}}>
+          <div style={{fontSize:11,color:MUTED,fontWeight:600,marginBottom:8,textTransform:'uppercase',letterSpacing:'0.18em'}}>
+            Type <strong style={{color:NAVY}}>{confirmTitle}</strong> to confirm
+          </div>
+          <input
+            value={input} onChange={e=>setInput(e.target.value)}
+            placeholder={confirmTitle} autoFocus
+            style={{width:'100%',padding:'9px 12px',borderRadius:8,border:`1px solid ${matches&&input?RED:BORDER}`,background:BG,fontSize:13,color:NAVY,outline:'none',boxSizing:'border-box'}}
+          />
+        </div>
+
+        <div style={{display:'flex',gap:10}}>
+          <button onClick={onClose} disabled={deleting}
+            style={{flex:1,padding:'10px 0',borderRadius:8,fontSize:13,border:`1px solid ${BORDER}`,background:'transparent',color:SEC,cursor:'pointer',fontWeight:600}}>
+            Cancel
+          </button>
+          <button onClick={onConfirm} disabled={!matches||deleting}
+            style={{flex:2,padding:'10px 0',borderRadius:8,fontSize:13,border:`1px solid ${RED}40`,background:`${RED}12`,color:RED,cursor:(!matches||deleting)?'not-allowed':'pointer',fontWeight:700,opacity:(!matches||deleting)?0.5:1,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+            <Trash2 size={13}/>{deleting?'Deleting…':'Delete Event'}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function CalendarPage() {
   const router = useRouter();
@@ -169,6 +230,8 @@ const [showAdd,    setShowAdd]    = useState(false);
   const [toast,      setToast]      = useState<{ok:boolean;msg:string}|null>(null);
   const [apptUpd,    setApptUpd]    = useState<string|null>(null);
   const [delId,      setDelId]      = useState<string|null>(null);
+  const [delTarget,  setDelTarget]  = useState<CalendarEvent|null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval>|null>(null);
 
   // ── Data loaders ─────────────────────────────────────────────────────────────
   const loadRange = useCallback(async (y:number, m:number) => {
@@ -208,7 +271,12 @@ const [showAdd,    setShowAdd]    = useState(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[]);
 
-  useEffect(()=>{ loadRange(year,month); },[year,month,loadRange]);
+  useEffect(()=>{
+    loadRange(year,month);
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = setInterval(()=>loadRange(year,month), 30_000);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  },[year,month,loadRange]);
 
   // ── Maps ─────────────────────────────────────────────────────────────────────
   const apptMap: Record<string,AppointmentRow[]> = {};
@@ -331,6 +399,18 @@ async function handleApptStatus(id:string, status:'arrived'|'cancelled') {
             style={{backgroundColor:toast.ok?GREEN:RED,color:BG,minWidth:200}}>
             {toast.msg}
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Event Confirm Modal */}
+      <AnimatePresence>
+        {delTarget && (
+          <DeleteEventModal
+            event={delTarget}
+            deleting={delId===delTarget.id}
+            onConfirm={async()=>{ await handleDelEvt(delTarget.id); setDelTarget(null); }}
+            onClose={()=>setDelTarget(null)}
+          />
         )}
       </AnimatePresence>
 
@@ -609,8 +689,8 @@ async function handleApptStatus(id:string, status:'arrived'|'cancelled') {
                                             <Check size={12}/>
                                           </button>
                                         )}
-                                        <button onClick={()=>handleDelEvt(e.id)} disabled={delId===e.id}
-                                          className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-[#EBE5FF] transition-all disabled:opacity-50" style={{color:RED}}>
+                                        <button onClick={()=>setDelTarget(e)}
+                                          className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-[#EBE5FF] transition-all" style={{color:RED}}>
                                           <Trash2 size={12}/>
                                         </button>
                                       </div>

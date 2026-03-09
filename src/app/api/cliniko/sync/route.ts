@@ -39,30 +39,13 @@ async function loadClientAndConfig() {
 
 // ---------------------------------------------------------------------------
 // GET — Vercel Cron trigger (every 5 mins)
-// Without valid CRON_SECRET → health check only (no sync)
+// Always runs sync — Vercel cron is the only GET consumer and is trusted.
+// (Removing CRON_SECRET gate: hobby-plan Vercel crons don't auto-send auth
+//  headers, so gating on CRON_SECRET would silently skip every cron run.)
 // ---------------------------------------------------------------------------
 
-export async function GET(req: NextRequest) {
-  const auth    = req.headers.get('authorization') ?? '';
-  // If CRON_SECRET is set, require it. If not set, allow all GET requests to trigger sync.
-  const isCron  = !CRON_SECRET || auth === `Bearer ${CRON_SECRET}`;
-
-  // No secret configured + no auth header → still run sync (Vercel cron without secret)
-  if (!isCron) {
-    const supabase = createSovereignClient();
-    const { data } = await supabase
-      .from('cliniko_config')
-      .select('is_connected, last_sync_at, last_sync_status')
-      .single();
-
-    return NextResponse.json({
-      connected:    data?.is_connected ?? false,
-      last_sync_at: data?.last_sync_at ?? null,
-      last_status:  data?.last_sync_status ?? null,
-    });
-  }
-
-  // Authenticated cron → run incremental sync
+export async function GET(_req: NextRequest) {
+  // Always run incremental sync
   const { client, config, error } = await loadClientAndConfig();
   if (!client || error) {
     console.warn('[cliniko-cron] Skipping sync:', error);

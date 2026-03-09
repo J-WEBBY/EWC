@@ -1081,6 +1081,7 @@ export default function AppointmentsPage() {
   const [deleteTarget, setDeleteTarget] = useState<AppointmentRow | null>(null);
   const [deleting, setDeleting]         = useState(false);
   const [editTarget, setEditTarget]     = useState<AppointmentRow | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const showToast = (msg: string, ok = true) => {
     setToast({ msg, ok });
@@ -1227,6 +1228,12 @@ export default function AppointmentsPage() {
     const onFocus = () => { loadData(); };
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
+  }, [loadData]);
+
+  // 30-second background poll (quiet — no loading spinner)
+  useEffect(() => {
+    intervalRef.current = setInterval(() => loadData(), 30_000);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [loadData]);
 
   // ── Filters ───────────────────────────────────────────────────────────────

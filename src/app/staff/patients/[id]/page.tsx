@@ -13,12 +13,12 @@ import {
   CreditCard, Package, BarChart2, Users, ChevronDown,
   ClipboardList, CheckSquare, Circle, MapPin, Heart,
   BookOpen, AlertTriangle, Paperclip, Camera, Pen, Save,
-  DollarSign, CalendarPlus,
+  DollarSign, CalendarPlus, Trash2,
 } from 'lucide-react';
 import { getStaffProfile, getCurrentUser, type StaffProfile } from '@/lib/actions/staff-onboarding';
 import { StaffNav } from '@/components/staff-nav';
 import {
-  getPatientHub, addPatientNote, getPatientNotes, getPatientSignalList, setPatientLifecycle, updatePatientProfile,
+  getPatientHub, addPatientNote, getPatientNotes, getPatientSignalList, setPatientLifecycle, updatePatientProfile, deletePatient,
   type PatientHubData, type PatientIntelligenceRow, type TimelineEvent,
   type PatientAppointment, type LifecycleStage, type PatientNote, type PatientSignal,
   type PatientProfileUpdate,
@@ -5570,6 +5570,9 @@ export default function PatientHubPage() {
   const [activeTab,    setActiveTab]   = useState<Tab>('overview');
   const [statusMenu,   setStatusMenu]  = useState(false);
   const [statusSaving, setStatusSaving]= useState(false);
+  const [showDelete,   setShowDelete]  = useState(false);
+  const [deleting,     setDeleting]    = useState(false);
+  const [deleteInput,  setDeleteInput] = useState('');
 
   useEffect(() => {
     getCurrentUser().then(r => {
@@ -5625,12 +5628,78 @@ export default function PatientHubPage() {
     return () => document.removeEventListener('click', close, { capture: true });
   }, [statusMenu]);
 
+  async function handleDeletePatient() {
+    if (!patient || isDemo) return;
+    setDeleting(true);
+    try {
+      const res = await deletePatient(patient.id);
+      if (res.success) {
+        router.push('/staff/patients');
+      }
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   // Unused imports suppressor
   void [Activity, BarChart2, CreditCard, Package, Users, Flag, UserIcon, Target, Shield, FileText];
+
+  const patientFullName = patient ? `${patient.first_name} ${patient.last_name}`.trim() : '';
 
   return (
     <div className="min-h-screen nav-offset" style={{ backgroundColor: '#FAF7F2' }}>
       {profile && <StaffNav profile={profile} userId={userId} brandColor={brandColor} currentPath="Patients" />}
+
+      {/* Delete Patient Confirm Modal */}
+      <AnimatePresence>
+        {showDelete && hub && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={e => { if (e.target === e.currentTarget) setShowDelete(false); }}
+            className="fixed inset-0 z-[200] flex items-center justify-center"
+            style={{ background: 'rgba(26,16,53,0.5)', backdropFilter: 'blur(3px)' }}>
+            <motion.div initial={{ scale: 0.97, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.97, opacity: 0 }}
+              style={{ background: '#FAF7F2', borderRadius: 16, padding: 32, width: 460, maxWidth: '90vw', border: '1px solid #DC262630', boxShadow: '0 24px 64px rgba(26,16,53,0.18)' }}>
+              <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', marginBottom: 20 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 20, background: '#DC262610', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Trash2 size={18} style={{ color: '#DC2626' }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: '#181D23', marginBottom: 4 }}>Delete Patient Record</div>
+                  <div style={{ fontSize: 13, color: '#5A6475', lineHeight: 1.5 }}>
+                    This will permanently remove the patient record from EWC and archive it in Cliniko. All appointments and data will also be removed. This cannot be undone.
+                  </div>
+                </div>
+              </div>
+              <div style={{ padding: '12px 14px', borderRadius: 10, background: '#DC262606', border: '1px solid #DC262618', marginBottom: 20 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#181D23' }}>{patientFullName}</div>
+                {hub.patient.email && <div style={{ fontSize: 11, color: '#5A6475', marginTop: 2 }}>{hub.patient.email}</div>}
+              </div>
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 11, color: '#96989B', fontWeight: 600, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.18em' }}>
+                  Type <strong style={{ color: '#181D23' }}>{patientFullName}</strong> to confirm
+                </div>
+                <input
+                  value={deleteInput} onChange={e => setDeleteInput(e.target.value)}
+                  placeholder={patientFullName} autoFocus
+                  style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: `1px solid ${deleteInput.trim().toLowerCase() === patientFullName.toLowerCase() && deleteInput ? '#DC2626' : '#EBE5FF'}`, background: '#FAF7F2', fontSize: 13, color: '#181D23', outline: 'none', boxSizing: 'border-box' }}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={() => setShowDelete(false)} disabled={deleting}
+                  style={{ flex: 1, padding: '10px 0', borderRadius: 8, fontSize: 13, border: '1px solid #EBE5FF', background: 'transparent', color: '#3D4451', cursor: 'pointer', fontWeight: 600 }}>
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeletePatient}
+                  disabled={deleteInput.trim().toLowerCase() !== patientFullName.toLowerCase() || deleting}
+                  style={{ flex: 2, padding: '10px 0', borderRadius: 8, fontSize: 13, border: '1px solid #DC262640', background: '#DC262612', color: '#DC2626', cursor: (deleteInput.trim().toLowerCase() !== patientFullName.toLowerCase() || deleting) ? 'not-allowed' : 'pointer', fontWeight: 700, opacity: (deleteInput.trim().toLowerCase() !== patientFullName.toLowerCase() || deleting) ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  <Trash2 size={13} />{deleting ? 'Deleting…' : 'Delete Patient'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {loading ? (
         <div className="flex items-center justify-center h-screen">
@@ -5683,6 +5752,15 @@ export default function PatientHubPage() {
                 <button onClick={load} className="w-7 h-7 rounded-lg flex items-center justify-center transition-all" style={{ background: 'rgba(0,0,0,0.02)', border: '1px solid #EBE5FF' }}>
                   <RefreshCw size={11} className="text-[#96989B]" />
                 </button>
+                {!isDemo && (
+                  <button onClick={() => { setDeleteInput(''); setShowDelete(true); }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all"
+                    style={{ backgroundColor: '#DC262608', border: '1px solid #DC262630', color: '#DC2626' }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#DC262614'; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#DC262608'; }}>
+                    <Trash2 size={11} /> Delete
+                  </button>
+                )}
               </div>
             </div>
 

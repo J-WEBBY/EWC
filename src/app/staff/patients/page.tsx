@@ -527,7 +527,8 @@ export default function PatientsPage() {
   const [serverTotal, setServerTotal] = useState(0);
   const [serverTotalPages, setServerTotalPages] = useState(0);
   const [globalStats, setGlobalStats] = useState({ total: 0, active_this_month: 0, no_show_count: 0, upcoming_today: 0 });
-  const searchRef = useRef<HTMLInputElement>(null);
+  const searchRef  = useRef<HTMLInputElement>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     getCurrentUser().then(r => {
@@ -577,6 +578,13 @@ export default function PatientsPage() {
     const onFocus = () => loadPage(search || undefined, page, filters.lifecycle as LifecycleStage | 'all');
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadPage, search, page, filters.lifecycle]);
+
+  // 30-second background poll
+  useEffect(() => {
+    intervalRef.current = setInterval(() => loadPage(search || undefined, page, filters.lifecycle as LifecycleStage | 'all'), 30_000);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadPage, search, page, filters.lifecycle]);
 
