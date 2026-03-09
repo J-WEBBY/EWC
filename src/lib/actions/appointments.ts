@@ -961,3 +961,122 @@ export async function updateAppointmentStatus(
     return { success: false };
   }
 }
+
+// =============================================================================
+// createManualAppointment — staff logs a new appointment directly
+// =============================================================================
+
+export interface ManualApptParams {
+  patientType: 'existing' | 'new';
+  existingPatientName?: string;
+  existingClinikoId?: string;
+  existingPatientDbId?: string;
+  newFirstName?: string;
+  newLastName?: string;
+  newPhone?: string;
+  newEmail?: string;
+  appointmentTypeName: string;
+  appointmentTypeClinikoId?: string;
+  durationMinutes: number;
+  date: string;   // YYYY-MM-DD
+  time: string;   // HH:MM
+  practitionerName: string;
+  practitionerClinikoId?: string;
+  notes?: string;
+  source: 'walk_in' | 'phone' | 'online' | 'referral' | 'manual';
+  referralDetail?: string;
+}
+
+export async function createManualAppointment(params: ManualApptParams): Promise<{
+  success: boolean;
+  appointmentId?: string;
+  error?: string;
+}> {
+  'use server';
+  const db = createSovereignClient();
+
+  try {
+    const startsAt = new Date(`${params.date}T${params.time}:00`).toISOString();
+    const endsAt   = addMinutes(startsAt, params.durationMinutes);
+    const patName  = params.patientType === 'existing'
+      ? (params.existingPatientName ?? 'Patient')
+      : `${params.newFirstName ?? ''} ${params.newLastName ?? ''}`.trim();
+
+    // Try Cliniko if connected and patient known
+    const client = await getClinikoClient().catch(() => null);
+    if (client && (params.existingClinikoId || params.patientType === 'new')) {
+      let patientClinikoId = params.existingClinikoId;
+
+      if (!patientClinikoId && params.patientType === 'new' && params.newFirstName && params.newLastName) {
+        const created = await client.createPatient({
+          first_name:      params.newFirstName,
+          last_name:       params.newLastName,
+          email:           params.newEmail,
+          phone_numbers:   params.newPhone ? [{ number: params.newPhone, phone_type: 'Mobile' }] : [],
+          referral_source: params.referralDetail ?? 'Walk-in / Staff',
+          notes:           `Created from manual appointment log. Treatment: ${params.appointmentTypeName}.`,
+          country:         'United Kingdom',
+        });
+        patientClinikoId = created.links?.self?.split('/').pop() ?? String(created.id);
+        await db.from('cliniko_patients').upsert({
+          cliniko_id:      patientClinikoId,
+          first_name:      params.newFirstName,
+          last_name:       params.newLastName,
+          email:           params.newEmail ?? null,
+          phone:           params.newPhone ?? null,
+          referral_source: params.referralDetail ?? 'Walk-in / Staff',
+          lifecycle_stage: 'new',
+          last_synced_at:  new Date().toISOString(),
+        }, { onConflict: 'cliniko_id' });
+      }
+
+      if (patientClinikoId) {
+        const businessId = await client.getBusinessId();
+        if (businessId) {
+          const appt = await client.createAppointment({
+            patient_id:          patientClinikoId,
+            practitioner_id:     params.practitionerClinikoId ?? '',
+            appointment_type_id: params.appointmentTypeClinikoId ?? '',
+            business_id:         businessId,
+            starts_at:           startsAt.replace('Z', '+00:00'),
+            ends_at:             endsAt.replace('Z', '+00:00'),
+            notes:               params.notes,
+          });
+          const apptId = appt.links?.self?.split('/').pop() ?? String(appt.id);
+          await db.from('cliniko_appointments').upsert({
+            cliniko_id:              apptId,
+            cliniko_patient_id:      patientClinikoId,
+            cliniko_practitioner_id: params.practitionerClinikoId ?? null,
+            appointment_type:        params.appointmentTypeName,
+            starts_at:               startsAt,
+            ends_at:                 endsAt,
+            duration_minutes:        params.durationMinutes,
+            status:                  'booked',
+            notes:                   params.notes ?? null,
+            last_synced_at:          new Date().toISOString(),
+          }, { onConflict: 'cliniko_id' });
+          return { success: true, appointmentId: apptId };
+        }
+      }
+    }
+
+    // Fallback: store locally with source = manual
+    const { data, error } = await db.from('cliniko_appointments').insert({
+      cliniko_id:              `manual-${Date.now()}`,
+      cliniko_patient_id:      params.existingClinikoId ?? null,
+      cliniko_practitioner_id: params.practitionerClinikoId ?? null,
+      appointment_type:        params.appointmentTypeName,
+      starts_at:               startsAt,
+      ends_at:                 endsAt,
+      duration_minutes:        params.durationMinutes,
+      status:                  'booked',
+      notes:                   [params.notes, params.referralDetail ? `Referral: ${params.referralDetail}` : null].filter(Boolean).join('\n') || null,
+      last_synced_at:          new Date().toISOString(),
+    }).select('id').single();
+
+    if (error) return { success: false, error: error.message };
+    return { success: true, appointmentId: data?.id };
+  } catch (err) {
+    return { success: false, error: String(err) };
+  }
+}
