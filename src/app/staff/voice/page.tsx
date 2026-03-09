@@ -578,8 +578,24 @@ function CallHubPanel({ call, onClose }: { call: CallLog; onClose: () => void })
           {call.recording_url && (
             <div style={{ marginBottom: 28 }}>
               <div style={{ ...SL, marginBottom: 14 }}>Call recording</div>
-              <div style={{ padding: '16px 20px', borderRadius: 12, background: `${BLUE}05`, border: `1px solid ${BORDER}` }}>
-                <audio controls src={call.recording_url} style={{ width: '100%', height: 36, borderRadius: 8, outline: 'none' }} />
+              <div style={{ borderRadius: 14, border: `1px solid ${BORDER}`, overflow: 'hidden' }}>
+                {/* Player header */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: `${BLUE}05`, borderBottom: `1px solid ${BORDER}` }}>
+                  <div style={{ width: 34, height: 34, borderRadius: 17, flexShrink: 0, background: `${BLUE}14`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Volume2 size={15} style={{ color: BLUE }} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: NAVY }}>Komal voice recording</div>
+                    <div style={{ fontSize: 10, color: MUT, marginTop: 1 }}>
+                      {call.duration_seconds > 0 ? `${fmtDuration(call.duration_seconds)} · ` : ''}
+                      {call.direction === 'inbound' ? 'Inbound call' : call.direction === 'outbound' ? 'Outbound call' : 'Web call'}
+                    </div>
+                  </div>
+                </div>
+                {/* Audio element */}
+                <div style={{ padding: '14px 16px', background: BG }}>
+                  <audio controls src={call.recording_url} style={{ width: '100%', height: 36, outline: 'none', borderRadius: 8 }} />
+                </div>
               </div>
             </div>
           )}
@@ -787,9 +803,9 @@ function BookingCard({
           <button
             onClick={() => onConfirm(req.id)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium border transition-colors"
-            style={{ backgroundColor: `${GREEN}08`, borderColor: `${GREEN}25`, color: GREEN }}
+            style={{ backgroundColor: `${BLUE}08`, borderColor: `${BLUE}25`, color: BLUE }}
           >
-            <Check size={11} /> Confirm booking
+            <ExternalLink size={11} /> Confirm on Appointments
           </button>
           <button
             onClick={() => onDismiss(req.id)}
@@ -878,12 +894,9 @@ export default function ReceptionistPage() {
     return () => { if (liveIntervalRef.current) clearInterval(liveIntervalRef.current); };
   }, []);
 
-  const handleConfirmBooking = useCallback(async (id: string) => {
-    const res = await confirmBookingRequest(id);
-    if (res.success) {
-      setBookings(prev => prev.map(b => (b.id === id ? { ...b, status: 'confirmed' } : b)));
-    }
-  }, []);
+  const handleConfirmBooking = useCallback(async (_id: string) => {
+    router.push('/staff/appointments');
+  }, [router]);
 
   const handleDismissBooking = useCallback(async (id: string) => {
     const res = await dismissBookingRequest(id);
@@ -1133,17 +1146,17 @@ export default function ReceptionistPage() {
                     <AlertCircle size={16} style={{ color: GOLD }} />
                     <div>
                       <p className="text-[13px] font-medium" style={{ color: NAVY }}>
-                        {pendingBookings.length} booking{pendingBookings.length !== 1 ? 's' : ''} waiting for confirmation
+                        {pendingBookings.length} booking{pendingBookings.length !== 1 ? 's' : ''} captured by Komal
                       </p>
                       <p className="text-[11px] mt-0.5" style={{ color: TER }}>
-                        Komal has captured these requests — confirm them to add to Cliniko.
+                        Confirm and schedule on the Appointments page.
                       </p>
                     </div>
                   </div>
-                  <button onClick={() => setActiveTab('bookings')}
+                  <button onClick={() => router.push('/staff/appointments')}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[12px] font-medium border transition-colors"
                     style={{ backgroundColor: `${GOLD}12`, borderColor: `${GOLD}30`, color: GOLD }}>
-                    Review now <ChevronRight size={12} />
+                    Go to Appointments <ChevronRight size={12} />
                   </button>
                 </motion.div>
               )}

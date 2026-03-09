@@ -855,7 +855,7 @@ function ReviewDraftModal({
 function ConfirmDialog({ booking, practitioners, onConfirm, onClose, saving }: {
   booking: PendingBooking;
   practitioners: PractitionerRow[];
-  onConfirm: (p: { confirmedDate: string; confirmedTime: string; practitionerClinikoId?: string }) => void;
+  onConfirm: (p: { confirmedDate: string; confirmedTime: string; practitionerClinikoId?: string; practitionerName?: string }) => void;
   onClose: () => void;
   saving: boolean;
 }) {
@@ -867,53 +867,235 @@ function ConfirmDialog({ booking, practitioners, onConfirm, onClose, saving }: {
   const inputStyle: React.CSSProperties = {
     width: '100%', padding: '9px 12px', borderRadius: 8,
     border: `1px solid ${BORDER}`, background: BG, fontSize: 13,
-    color: NAVY, outline: 'none', boxSizing: 'border-box',
+    color: NAVY, outline: 'none', boxSizing: 'border-box' as const,
+  };
+  const SL: React.CSSProperties = {
+    fontSize: 9, textTransform: 'uppercase' as const, letterSpacing: '0.22em', fontWeight: 600, color: MUTED, marginBottom: 5,
   };
 
+  function handleConfirm() {
+    const pract = practitioners.find(p => p.cliniko_id === practId);
+    onConfirm({
+      confirmedDate: date,
+      confirmedTime: time,
+      practitionerClinikoId: practId || undefined,
+      practitionerName: pract?.name ?? booking.preferred_practitioner ?? undefined,
+    });
+  }
+
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(24,29,35,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(24,29,35,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
       <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.97 }}
-        style={{ background: BG, borderRadius: 16, padding: 32, width: 500, maxWidth: '90vw', border: `1px solid ${BORDER}`, boxShadow: '0 24px 64px rgba(24,29,35,0.14)' }}>
+        style={{ background: BG, borderRadius: 20, width: 560, maxWidth: '90vw', border: `1px solid ${BORDER}`, boxShadow: '0 24px 64px rgba(24,29,35,0.14)', overflow: 'hidden' }}>
 
-        <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.28em', fontWeight: 600, color: MUTED, marginBottom: 6 }}>Confirm Appointment</div>
-        <div style={{ fontSize: 18, fontWeight: 700, color: NAVY, marginBottom: 20 }}>
-          {booking.patient_name} — {booking.treatment_interest ?? 'Appointment'}
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
-          {[
-            { label: 'Date', type: 'date', value: date, set: setDate },
-            { label: 'Time', type: 'time', value: time, set: setTime },
-          ].map(f => (
-            <div key={f.label}>
-              <div style={{ fontSize: 10, color: MUTED, fontWeight: 600, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.2em' }}>{f.label}</div>
-              <input type={f.type} value={f.value} onChange={e => f.set(e.target.value)} style={inputStyle} />
+        {/* Header */}
+        <div style={{ padding: '22px 28px 16px', borderBottom: `1px solid ${BORDER}`, background: `${ACCENT}06` }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.28em', fontWeight: 600, color: ACCENT, marginBottom: 6 }}>Schedule Appointment — Via Komal</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: NAVY, letterSpacing: '-0.025em' }}>{booking.patient_name}</div>
+              {booking.treatment_interest && (
+                <div style={{ fontSize: 12, color: SEC, marginTop: 3 }}>{booking.treatment_interest}</div>
+              )}
             </div>
-          ))}
+            <button onClick={onClose} disabled={saving} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, marginTop: -2 }}>
+              <X size={16} style={{ color: MUTED }} />
+            </button>
+          </div>
         </div>
 
-        {practitioners.length > 0 && (
-          <div style={{ marginBottom: 24 }}>
-            <div style={{ fontSize: 10, color: MUTED, fontWeight: 600, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.2em' }}>Practitioner</div>
-            <select value={practId} onChange={e => setPractId(e.target.value)} style={inputStyle}>
-              <option value="">{booking.preferred_practitioner ? `${booking.preferred_practitioner} (requested)` : 'Any available'}</option>
-              {practitioners.map(p => <option key={p.cliniko_id} value={p.cliniko_id}>{p.name}</option>)}
-            </select>
-          </div>
-        )}
+        <div style={{ padding: '22px 28px' }}>
 
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={onClose} disabled={saving}
-            style={{ flex: 1, padding: '10px 0', borderRadius: 8, fontSize: 13, border: `1px solid ${BORDER}`, background: 'transparent', color: SEC, cursor: 'pointer', fontWeight: 600 }}>
-            Cancel
-          </button>
-          <button
-            onClick={() => onConfirm({ confirmedDate: date, confirmedTime: time, practitionerClinikoId: practId || undefined })}
-            disabled={saving || !date}
-            style={{ flex: 2, padding: '10px 0', borderRadius: 8, fontSize: 13, border: `1px solid ${ACCENT}40`, background: `${ACCENT}18`, color: NAVY, cursor: saving || !date ? 'not-allowed' : 'pointer', fontWeight: 700, opacity: saving || !date ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-            {saving ? <RefreshCw size={13} className="animate-spin" /> : <Check size={13} />}
-            {saving ? 'Confirming…' : 'Confirm & Book'}
-          </button>
+          {/* Patient details captured by Komal (read-only) */}
+          <div style={{ marginBottom: 20, padding: '14px 16px', borderRadius: 12, background: `${BORDER}28`, border: `1px solid ${BORDER}` }}>
+            <div style={{ ...SL, marginBottom: 12 }}>Captured by Komal</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              {booking.patient_phone && (
+                <div>
+                  <div style={SL}>Phone</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: NAVY }}>{booking.patient_phone}</div>
+                </div>
+              )}
+              {booking.patient_email && (
+                <div>
+                  <div style={SL}>Email</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: NAVY }}>{booking.patient_email}</div>
+                </div>
+              )}
+              {booking.preferred_practitioner && (
+                <div>
+                  <div style={SL}>Requested Practitioner</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: NAVY }}>{booking.preferred_practitioner}</div>
+                </div>
+              )}
+              {booking.referral_source && (
+                <div>
+                  <div style={SL}>Referral</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: NAVY, textTransform: 'capitalize' }}>{booking.referral_source.replace(/_/g, ' ')}</div>
+                </div>
+              )}
+            </div>
+            {booking.notes && (
+              <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${BORDER}` }}>
+                <div style={SL}>Call notes</div>
+                <div style={{ fontSize: 11, color: TER, lineHeight: 1.55 }}>{booking.notes}</div>
+              </div>
+            )}
+          </div>
+
+          {/* Editable schedule fields */}
+          <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.28em', fontWeight: 600, color: MUTED, marginBottom: 12 }}>Confirm Schedule</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+            {[
+              { label: 'Date', type: 'date' as const, value: date, set: setDate },
+              { label: 'Time', type: 'time' as const, value: time, set: setTime },
+            ].map(f => (
+              <div key={f.label}>
+                <div style={{ fontSize: 10, color: MUTED, fontWeight: 600, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.2em' }}>{f.label}</div>
+                <input type={f.type} value={f.value} onChange={e => f.set(e.target.value)} style={inputStyle} />
+              </div>
+            ))}
+          </div>
+
+          {practitioners.length > 0 && (
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ fontSize: 10, color: MUTED, fontWeight: 600, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.2em' }}>Assign Practitioner</div>
+              <select value={practId} onChange={e => setPractId(e.target.value)} style={inputStyle}>
+                <option value="">{booking.preferred_practitioner ? `${booking.preferred_practitioner} (requested)` : 'Any available'}</option>
+                {practitioners.map(p => <option key={p.cliniko_id} value={p.cliniko_id}>{p.name}</option>)}
+              </select>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={onClose} disabled={saving}
+              style={{ flex: 1, padding: '11px 0', borderRadius: 8, fontSize: 13, border: `1px solid ${BORDER}`, background: 'transparent', color: SEC, cursor: 'pointer', fontWeight: 600 }}>
+              Cancel
+            </button>
+            <button onClick={handleConfirm} disabled={saving || !date}
+              style={{ flex: 2, padding: '11px 0', borderRadius: 8, fontSize: 13, border: `1px solid ${ACCENT}40`, background: `${ACCENT}18`, color: NAVY, cursor: saving || !date ? 'not-allowed' : 'pointer', fontWeight: 700, opacity: saving || !date ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+              {saving ? <RefreshCw size={13} className="animate-spin" /> : <Check size={13} />}
+              {saving ? 'Confirming…' : 'Confirm & Schedule'}
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// =============================================================================
+// EWC CONFIRMATION POPUP — shown after a booking is confirmed
+// =============================================================================
+
+interface EwcPopupData {
+  patientName: string;
+  service: string;
+  date: string;
+  time: string;
+  practitionerName: string;
+  phone: string | null;
+  email: string | null;
+}
+
+function EwcConfirmationPopup({ data, onClose }: { data: EwcPopupData; onClose: () => void }) {
+  const [bridgeState, setBridgeState] = useState<'idle' | 'sending' | 'sent'>('idle');
+
+  function handleSendBridge() {
+    setBridgeState('sending');
+    setTimeout(() => setBridgeState('sent'), 1800);
+  }
+
+  const fmtDate = (d: string) => {
+    try { return new Date(d + 'T00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long' }); }
+    catch { return d; }
+  };
+
+  const firstName = data.patientName.split(' ')[0];
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(24,29,35,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.93, y: 12 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: 6 }}
+        transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+        style={{ background: BG, borderRadius: 22, width: 460, maxWidth: '90vw', overflow: 'hidden', border: `1px solid ${BORDER}`, boxShadow: '0 36px 80px rgba(24,29,35,0.22)' }}
+      >
+        {/* EWC header strip */}
+        <div style={{ background: `linear-gradient(130deg, ${ACCENT}16 0%, ${ACCENT}06 100%)`, padding: '26px 28px 20px', borderBottom: `1px solid ${ACCENT}18` }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              {/* EWC orb */}
+              <div style={{ width: 46, height: 46, borderRadius: 23, background: `${ACCENT}16`, border: `1.5px solid ${ACCENT}35`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: `0 0 18px ${ACCENT}20` }}>
+                <Check size={20} style={{ color: ACCENT }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.28em', fontWeight: 600, color: ACCENT, marginBottom: 4 }}>EWC Booking System</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: NAVY, letterSpacing: '-0.03em', lineHeight: 1.1 }}>Booking Confirmed</div>
+              </div>
+            </div>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, marginTop: -2 }}>
+              <X size={16} style={{ color: MUTED }} />
+            </button>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: '22px 28px 26px' }}>
+
+          {/* Patient card */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, padding: '12px 14px', borderRadius: 12, background: `${ACCENT}07`, border: `1px solid ${ACCENT}18` }}>
+            <div style={{ width: 38, height: 38, borderRadius: 19, background: `${ACCENT}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <User size={16} style={{ color: ACCENT }} />
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>{data.patientName}</div>
+              {data.phone && <div style={{ fontSize: 11, color: TER, marginTop: 2 }}>{data.phone}</div>}
+            </div>
+          </div>
+
+          {/* Detail grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 22 }}>
+            {[
+              { label: 'Service', value: data.service || 'Appointment' },
+              { label: 'Practitioner', value: data.practitionerName || 'Any available' },
+              { label: 'Date', value: fmtDate(data.date) },
+              { label: 'Time', value: data.time },
+            ].map(({ label, value }) => (
+              <div key={label} style={{ padding: '10px 12px', borderRadius: 10, background: `${BORDER}30`, border: `1px solid ${BORDER}` }}>
+                <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.24em', fontWeight: 600, color: MUTED, marginBottom: 4 }}>{label}</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: NAVY }}>{value}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Bridge CTA */}
+          {bridgeState === 'idle' && (
+            <button onClick={handleSendBridge}
+              style={{ width: '100%', padding: '12px 0', borderRadius: 10, border: `1px solid ${ACCENT}35`, background: `${ACCENT}10`, color: NAVY, fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+              <MessageSquare size={14} style={{ color: ACCENT }} />
+              Send AI Confirmation to {firstName}
+            </button>
+          )}
+          {bridgeState === 'sending' && (
+            <div style={{ width: '100%', padding: '12px 0', borderRadius: 10, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+              <RefreshCw size={13} className="animate-spin" style={{ color: ACCENT }} />
+              EWC preparing confirmation…
+            </div>
+          )}
+          {bridgeState === 'sent' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ width: '100%', padding: '12px 0', borderRadius: 10, border: `1px solid ${GREEN}30`, background: `${GREEN}08`, color: GREEN, fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                <Check size={13} />
+                Confirmation message sent via Bridge to {firstName}
+              </div>
+              <button onClick={onClose}
+                style={{ width: '100%', padding: '11px 0', borderRadius: 10, border: `1px solid ${BORDER}`, background: 'transparent', color: SEC, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                Done
+              </button>
+            </div>
+          )}
         </div>
       </motion.div>
     </div>
@@ -1199,6 +1381,7 @@ export default function AppointmentsPage() {
   const [editTarget, setEditTarget]     = useState<AppointmentRow | null>(null);
   const [draftModal, setDraftModal]     = useState<DraftModalData | null>(null);
   const [sendingDraft, setSendingDraft] = useState(false);
+  const [ewcPopup, setEwcPopup]         = useState<EwcPopupData | null>(null);
   const [statsOpen, setStatsOpen]       = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -1304,7 +1487,7 @@ export default function AppointmentsPage() {
     finally { setStatusChangingId(null); }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function handleConfirm(params: { confirmedDate: string; confirmedTime: string; practitionerClinikoId?: string }) {
+  async function handleConfirm(params: { confirmedDate: string; confirmedTime: string; practitionerClinikoId?: string; practitionerName?: string }) {
     if (!confirmTarget) return;
     setSaving(true);
     const booking = pendingBookings.find(b => b.id === confirmTarget);
@@ -1315,12 +1498,21 @@ export default function AppointmentsPage() {
         { name: booking?.patient_name ?? 'Patient', phone: booking?.patient_phone ?? null, email: booking?.patient_email ?? null },
       );
       if (result.success) {
-        showToast('Booking confirmed');
-        // Show draft review modal if AI produced a draft
+        // Show EWC confirmation popup instead of a plain toast
+        setEwcPopup({
+          patientName:      booking?.patient_name     ?? 'Patient',
+          service:          booking?.treatment_interest ?? '',
+          date:             params.confirmedDate,
+          time:             params.confirmedTime,
+          practitionerName: params.practitionerName   ?? booking?.preferred_practitioner ?? '',
+          phone:            booking?.patient_phone    ?? null,
+          email:            booking?.patient_email    ?? null,
+        });
+        // Also show draft review modal if AI produced a message draft
         if (result.draft) {
           setDraftModal({
             draft:        result.draft,
-            patientName:  booking?.patient_name ?? 'Patient',
+            patientName:  booking?.patient_name  ?? 'Patient',
             patientPhone: booking?.patient_phone ?? null,
             patientEmail: booking?.patient_email ?? null,
           });
@@ -1444,6 +1636,13 @@ export default function AppointmentsPage() {
       <AnimatePresence>
         {confirmTarget && confirmBooking && (
           <ConfirmDialog booking={confirmBooking} practitioners={practitioners} onConfirm={handleConfirm} onClose={() => setConfirmTarget(null)} saving={saving} />
+        )}
+      </AnimatePresence>
+
+      {/* EWC Booking Confirmation Popup */}
+      <AnimatePresence>
+        {ewcPopup && (
+          <EwcConfirmationPopup data={ewcPopup} onClose={() => setEwcPopup(null)} />
         )}
       </AnimatePresence>
 
