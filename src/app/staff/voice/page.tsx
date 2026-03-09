@@ -224,26 +224,26 @@ function CallListItem({
 }
 
 // ----------------------------------------------------------------------------
-// CallHubPanel — full call audit hub
+// CallHubPanel — full-width call audit hub (matches appointments detail style)
 // ----------------------------------------------------------------------------
 
 function CallHubPanel({ call, onClose }: { call: CallLog; onClose: () => void }) {
   const [showTranscript, setShowTx] = useState(false);
 
-  const outcome    = call.outcome ?? 'unknown';
-  const cfg        = OUTCOME_CONFIG[outcome] ?? OUTCOME_CONFIG.unknown;
-  const isMissed   = outcome === 'missed';
+  const outcome      = call.outcome ?? 'unknown';
+  const cfg          = OUTCOME_CONFIG[outcome] ?? OUTCOME_CONFIG.unknown;
+  const isMissed     = outcome === 'missed';
+  const callerInits  = call.caller_name
+    ? call.caller_name.split(' ').filter(Boolean).map(w => w[0]).join('').toUpperCase().slice(0, 2)
+    : '?';
+
   const summaryLines = call.call_summary
     ? call.call_summary.split(/\. /).filter(Boolean).map(s => s.replace(/\.$/, '').trim())
     : [];
 
-  const callerInitials = call.caller_name
-    ? call.caller_name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
-    : '?';
-
-  // Tool timeline — map tool names to icon + label + color steps
   const toolSteps = (call.tools_used ?? []).map(t => ({
-    key: t, label: toolLabel(t),
+    key: t,
+    label: toolLabel(t),
     color: t.includes('booking') || t.includes('capture_lead') ? GREEN
          : t.includes('concern') || t.includes('escalate')     ? RED
          : t.includes('ask_agent')                              ? GOLD
@@ -251,7 +251,6 @@ function CallHubPanel({ call, onClose }: { call: CallLog; onClose: () => void })
          : BLUE,
   }));
 
-  // Parse transcript into attributed turns
   const transcriptLines = call.transcript
     ? call.transcript.split('\n').filter(l => l.trim()).map(l => {
         const komalMatch = l.match(/^(AI|Komal|Assistant)[:\s]+(.+)$/i);
@@ -262,327 +261,351 @@ function CallHubPanel({ call, onClose }: { call: CallLog; onClose: () => void })
       })
     : [];
 
-  return (
-    <div className="flex flex-col h-full" style={{ backgroundColor: BG }}>
+  const durDisplay = call.duration_seconds > 0
+    ? fmtDuration(call.duration_seconds)
+    : 'Not recorded';
 
-      {/* ── DARK HEADER ── */}
-      <div
-        className="flex-shrink-0 px-6 py-5"
-        style={{ background: `linear-gradient(135deg, #0D1420 0%, #1A1F35 100%)` }}
-      >
-        {/* Back + meta row */}
-        <div className="flex items-center gap-3 mb-4">
-          <button
-            onClick={onClose}
-            className="flex items-center gap-1.5 text-[11px] font-medium transition-opacity hover:opacity-80"
-            style={{ color: 'rgba(255,255,255,0.5)' }}
-          >
-            <ArrowLeft size={13} />
-            All calls
-          </button>
-          <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
-          <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
-            {fmtDate(call.created_at)}
-          </span>
-          {call.vapi_call_id && (
-            <>
-              <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
-              <span className="flex items-center gap-1 text-[10px] font-mono" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                <Hash size={9} />{call.vapi_call_id.slice(0, 12)}…
-              </span>
-            </>
-          )}
-        </div>
+  const SL: React.CSSProperties = {
+    fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.28em',
+    fontWeight: 600, color: MUT, marginBottom: 8,
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: 12 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 12 }}
+      transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
+      style={{ backgroundColor: BG, height: '100%', overflowY: 'auto' }}
+    >
+      {/* ── HEADER ── */}
+      <div style={{ padding: '24px 32px 20px', borderBottom: `1px solid ${BORDER}` }}>
+        {/* Back breadcrumb */}
+        <button
+          onClick={onClose}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 5,
+            fontSize: 11, fontWeight: 500, color: MUT,
+            background: 'none', border: 'none', cursor: 'pointer',
+            padding: 0, marginBottom: 16,
+          }}
+        >
+          <ArrowLeft size={13} />
+          All calls
+        </button>
 
         {/* Caller identity row */}
-        <div className="flex items-center gap-4">
-          {/* Avatar */}
-          <div
-            className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 text-[15px] font-bold"
-            style={{
-              background: isMissed
-                ? `linear-gradient(135deg, ${RED}50, ${RED}30)`
-                : `linear-gradient(135deg, ${cfg.color}60, ${cfg.color}30)`,
-              color: '#fff',
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            {/* Avatar */}
+            <div style={{
+              width: 48, height: 48, borderRadius: 24, flexShrink: 0,
+              background: `${cfg.color}18`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 15, fontWeight: 800, color: cfg.color,
               letterSpacing: '-0.01em',
-            }}
-          >
-            {isMissed ? <PhoneMissed size={18} /> : callerInitials}
+            }}>
+              {isMissed ? <PhoneMissed size={18} style={{ color: cfg.color }} /> : callerInits}
+            </div>
+            <div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: NAVY, letterSpacing: '-0.02em' }}>
+                {call.caller_name ?? call.caller_phone ?? 'Unknown caller'}
+              </div>
+              <div style={{ fontSize: 12, color: TER, marginTop: 3, display: 'flex', alignItems: 'center', gap: 8 }}>
+                {call.service_requested && <span>{call.service_requested}</span>}
+                {call.service_requested && <span style={{ color: BORDER }}>·</span>}
+                <span>{fmtDate(call.created_at)}</span>
+              </div>
+            </div>
           </div>
 
-          <div className="flex-1 min-w-0">
-            <h2 className="text-[20px] font-semibold tracking-tight" style={{ color: '#fff' }}>
-              {call.caller_name ?? call.caller_phone ?? 'Unknown caller'}
-            </h2>
-            {call.caller_phone && call.caller_name && (
-              <p className="text-[12px] mt-0.5" style={{ color: 'rgba(255,255,255,0.45)' }}>
-                {call.caller_phone}
-              </p>
-            )}
-          </div>
-
-          {/* Status + meta chips */}
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <span
-              className="text-[10px] font-bold uppercase tracking-[0.1em] px-2.5 py-1 rounded-full"
-              style={{ backgroundColor: `${cfg.color}25`, color: cfg.color, border: `1px solid ${cfg.color}40` }}
-            >
+          {/* Right: badges + close */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            <span style={{
+              fontSize: 11, fontWeight: 600,
+              color: cfg.color, background: `${cfg.color}14`,
+              padding: '4px 12px', borderRadius: 20,
+              border: `1px solid ${cfg.color}28`,
+            }}>
               {cfg.label}
             </span>
-            <span
-              className="text-[10px] font-medium px-2.5 py-1 rounded-full flex items-center gap-1"
-              style={{ backgroundColor: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.1)' }}
-            >
+            <span style={{
+              fontSize: 11, fontWeight: 500,
+              color: SEC, background: `${BLUE}08`,
+              padding: '4px 10px', borderRadius: 20,
+              border: `1px solid ${BORDER}`,
+              display: 'flex', alignItems: 'center', gap: 4,
+            }}>
               {call.direction === 'outbound'
-                ? <><PhoneOutgoing size={10} />Outbound</>
-                : <><PhoneIncoming size={10} />Inbound</>
+                ? <><PhoneOutgoing size={10} />{' '}Outbound</>
+                : <><PhoneIncoming size={10} />{' '}Inbound</>
               }
             </span>
             {call.duration_seconds > 0 && (
-              <span
-                className="text-[10px] font-medium px-2.5 py-1 rounded-full flex items-center gap-1"
-                style={{ backgroundColor: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.1)' }}
-              >
-                <Clock size={10} />{fmtDuration(call.duration_seconds)}
+              <span style={{
+                fontSize: 11, fontWeight: 500,
+                color: SEC, background: `${BLUE}08`,
+                padding: '4px 10px', borderRadius: 20,
+                border: `1px solid ${BORDER}`,
+                display: 'flex', alignItems: 'center', gap: 4,
+              }}>
+                <Clock size={10} />{' '}{durDisplay}
               </span>
             )}
+            <button onClick={onClose} style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: MUT, padding: 4, marginLeft: 4,
+              display: 'flex', alignItems: 'center',
+            }}>
+              <X size={15} />
+            </button>
           </div>
         </div>
       </div>
 
       {/* ── BODY ── */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="flex gap-5 p-6" style={{ minHeight: '100%' }}>
+      <div style={{ padding: '28px 32px', display: 'flex', gap: 28, alignItems: 'flex-start' }}>
 
-          {/* ─── LEFT COLUMN ─── */}
-          <div className="flex flex-col gap-4" style={{ width: 220, flexShrink: 0 }}>
+        {/* ─── LEFT COLUMN (260px) ─── */}
+        <div style={{ width: 260, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 0 }}>
 
-            {/* Caller identity card */}
-            <div className="rounded-2xl border p-4" style={{ borderColor: BORDER }}>
-              <p className="text-[9px] uppercase tracking-[0.22em] font-semibold mb-3" style={{ color: MUT }}>Caller</p>
-              <div className="space-y-2.5">
-                {call.caller_name && (
-                  <div className="flex items-start gap-2">
-                    <User size={11} style={{ color: MUT, flexShrink: 0, marginTop: 2 }} />
-                    <p className="text-[12px] font-medium" style={{ color: NAVY }}>{call.caller_name}</p>
-                  </div>
-                )}
+          {/* Call stats 2×2 grid */}
+          <div style={{
+            display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12,
+            padding: 16, borderRadius: 12, marginBottom: 20,
+            background: `${BLUE}05`, border: `1px solid ${BORDER}`,
+          }}>
+            {[
+              { label: 'Date',      value: new Date(call.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) },
+              { label: 'Time',      value: new Date(call.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) },
+              { label: 'Duration',  value: durDisplay },
+              { label: 'Direction', value: call.direction.charAt(0).toUpperCase() + call.direction.slice(1) },
+            ].map(s => (
+              <div key={s.label}>
+                <div style={SL}>{s.label}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>{s.value}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Caller section */}
+          {(call.caller_phone || call.caller_email || call.referral_source) && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={SL}>Caller</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {call.caller_phone && (
-                  <div className="flex items-start gap-2">
-                    <Phone size={11} style={{ color: MUT, flexShrink: 0, marginTop: 2 }} />
-                    <p className="text-[11px]" style={{ color: SEC }}>{call.caller_phone}</p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Phone size={12} style={{ color: MUT, flexShrink: 0 }} />
+                    <span style={{ fontSize: 12, color: SEC }}>{call.caller_phone}</span>
                   </div>
                 )}
                 {call.caller_email && (
-                  <div className="flex items-start gap-2">
-                    <Mail size={11} style={{ color: MUT, flexShrink: 0, marginTop: 2 }} />
-                    <p className="text-[11px] break-all" style={{ color: SEC }}>{call.caller_email}</p>
-                  </div>
-                )}
-                {call.service_requested && (
-                  <div className="flex items-start gap-2">
-                    <Star size={11} style={{ color: GOLD, flexShrink: 0, marginTop: 2 }} />
-                    <p className="text-[11px]" style={{ color: SEC }}>{call.service_requested}</p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Mail size={12} style={{ color: MUT, flexShrink: 0 }} />
+                    <span style={{ fontSize: 12, color: SEC, wordBreak: 'break-all' }}>{call.caller_email}</span>
                   </div>
                 )}
                 {call.referral_source && (
-                  <div className="flex items-start gap-2">
-                    <Activity size={11} style={{ color: MUT, flexShrink: 0, marginTop: 2 }} />
-                    <p className="text-[11px]" style={{ color: TER }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Activity size={12} style={{ color: MUT, flexShrink: 0 }} />
+                    <span style={{ fontSize: 12, color: TER }}>
                       {call.referral_source.replace(/_/g, ' ')}
-                      {call.referral_name && <><br /><span style={{ color: MUT }}>via {call.referral_name}</span></>}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Call metrics */}
-            <div className="rounded-2xl border p-4" style={{ borderColor: BORDER }}>
-              <p className="text-[9px] uppercase tracking-[0.22em] font-semibold mb-3" style={{ color: MUT }}>Call details</p>
-              <div className="space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px]" style={{ color: TER }}>Duration</span>
-                  <span className="text-[12px] font-semibold" style={{ color: NAVY }}>{fmtDuration(call.duration_seconds)}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px]" style={{ color: TER }}>Direction</span>
-                  <span className="text-[11px] font-medium capitalize" style={{ color: SEC }}>{call.direction}</span>
-                </div>
-                {call.ended_reason && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px]" style={{ color: TER }}>Ended by</span>
-                    <span className="text-[11px] font-medium" style={{ color: SEC }}>
-                      {call.ended_reason.replace(/-/g, ' ')}
-                    </span>
-                  </div>
-                )}
-                {call.agent_consulted && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px]" style={{ color: TER }}>Agent</span>
-                    <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-md"
-                      style={{
-                        backgroundColor: call.agent_consulted === 'orion' ? `${GOLD}15` : `${TEAL}12`,
-                        color: call.agent_consulted === 'orion' ? GOLD : TEAL,
-                      }}>
-                      {call.agent_consulted === 'orion' ? 'Orion' : call.agent_consulted === 'aria' ? 'Aria' : call.agent_consulted}
+                      {call.referral_name && ` · ${call.referral_name}`}
                     </span>
                   </div>
                 )}
               </div>
+              <div style={{ height: 1, background: BORDER, margin: '18px 0' }} />
             </div>
+          )}
 
-            {/* Booking status card */}
-            {call.booking_request_status && (
-              <div
-                className="rounded-2xl border p-4"
-                style={{
-                  borderColor: call.booking_request_status === 'pending' ? `${GOLD}35` : `${GREEN}30`,
-                  backgroundColor: call.booking_request_status === 'pending' ? `${GOLD}06` : `${GREEN}05`,
-                }}
-              >
-                <p className="text-[9px] uppercase tracking-[0.22em] font-semibold mb-2" style={{ color: MUT }}>Booking</p>
-                <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
-                    style={{
-                      backgroundColor: call.booking_request_status === 'pending' ? `${GOLD}20` : `${GREEN}18`,
-                    }}>
-                    {call.booking_request_status === 'pending'
-                      ? <Clock size={10} style={{ color: GOLD }} />
-                      : <Check size={10} style={{ color: GREEN }} />
-                    }
+          {/* Agent consulted */}
+          {call.agent_consulted && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={SL}>Agent consulted</div>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '10px 12px', borderRadius: 10,
+                background: call.agent_consulted === 'orion' ? `${GOLD}08` : `${TEAL}08`,
+                border: `1px solid ${call.agent_consulted === 'orion' ? GOLD : TEAL}20`,
+              }}>
+                <div style={{
+                  width: 28, height: 28, borderRadius: 14,
+                  background: call.agent_consulted === 'orion' ? `${GOLD}20` : `${TEAL}20`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 10, fontWeight: 800,
+                  color: call.agent_consulted === 'orion' ? GOLD : TEAL,
+                }}>
+                  {call.agent_consulted === 'orion' ? 'OR' : 'AR'}
+                </div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: NAVY }}>
+                    {call.agent_consulted === 'orion' ? 'Orion' : call.agent_consulted === 'aria' ? 'Aria' : call.agent_consulted}
                   </div>
-                  <p className="text-[12px] font-medium capitalize" style={{
-                    color: call.booking_request_status === 'pending' ? GOLD : GREEN,
-                  }}>
-                    {call.booking_request_status.replace(/_/g, ' ')}
-                  </p>
+                  <div style={{ fontSize: 10, color: TER }}>
+                    {call.agent_consulted === 'orion' ? 'Acquisition specialist' : 'Retention specialist'}
+                  </div>
                 </div>
               </div>
-            )}
+              <div style={{ height: 1, background: BORDER, margin: '18px 0' }} />
+            </div>
+          )}
 
-            {/* Vapi reference */}
-            {call.vapi_call_id && (
-              <div className="rounded-xl border p-3" style={{ borderColor: BORDER }}>
-                <p className="text-[9px] uppercase tracking-[0.22em] font-semibold mb-1.5" style={{ color: MUT }}>Vapi reference</p>
-                <p className="text-[10px] font-mono break-all" style={{ color: TER }}>{call.vapi_call_id}</p>
+          {/* Booking status */}
+          {call.booking_request_status && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={SL}>Booking</div>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '10px 12px', borderRadius: 10,
+                background: call.booking_request_status === 'pending' ? `${GOLD}0e` : `${GREEN}0e`,
+                border: `1px solid ${call.booking_request_status === 'pending' ? GOLD : GREEN}30`,
+              }}>
+                <div style={{
+                  width: 28, height: 28, borderRadius: 14, flexShrink: 0,
+                  background: call.booking_request_status === 'pending' ? `${GOLD}25` : `${GREEN}20`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  {call.booking_request_status === 'pending'
+                    ? <Clock size={13} style={{ color: GOLD }} />
+                    : <Check size={13} style={{ color: GREEN }} />
+                  }
+                </div>
+                <span style={{
+                  fontSize: 13, fontWeight: 600,
+                  color: call.booking_request_status === 'pending' ? GOLD : GREEN,
+                  textTransform: 'capitalize',
+                }}>
+                  {call.booking_request_status.replace(/_/g, ' ')}
+                </span>
               </div>
-            )}
+              <div style={{ height: 1, background: BORDER, margin: '18px 0' }} />
+            </div>
+          )}
+
+          {/* Ended reason */}
+          {call.ended_reason && (
+            <div>
+              <div style={SL}>Call ended</div>
+              <span style={{ fontSize: 12, color: TER, textTransform: 'capitalize' }}>
+                {call.ended_reason.replace(/-/g, ' ')}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* ─── RIGHT COLUMN (flex-1) ─── */}
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0 }}>
+
+          {/* AI Intelligence */}
+          <div style={{ marginBottom: 28 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+              <div style={SL as React.CSSProperties}>AI Intelligence</div>
+            </div>
+            <div style={{
+              padding: '16px 20px', borderRadius: 12,
+              background: `${TEAL}06`, border: `1px solid ${BORDER}`,
+            }}>
+              {summaryLines.length > 0 ? (
+                <>
+                  <div style={{ ...SL, marginBottom: 10 }}>Summary</div>
+                  {summaryLines.length > 1 ? (
+                    <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {summaryLines.map((line, i) => (
+                        <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontSize: 12, color: SEC, lineHeight: 1.6 }}>
+                          <span style={{ width: 6, height: 6, borderRadius: 3, background: TEAL, flexShrink: 0, marginTop: 6 }} />
+                          {line}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p style={{ fontSize: 12, color: SEC, lineHeight: 1.6, margin: 0 }}>{call.call_summary}</p>
+                  )}
+                  {call.call_notes && (
+                    <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${BORDER}` }}>
+                      <div style={SL}>Detailed notes</div>
+                      <p style={{ fontSize: 12, color: TER, lineHeight: 1.6, margin: 0 }}>{call.call_notes}</p>
+                    </div>
+                  )}
+                </>
+              ) : call.call_notes ? (
+                <>
+                  <div style={SL}>Notes</div>
+                  <p style={{ fontSize: 12, color: TER, lineHeight: 1.6, margin: 0 }}>{call.call_notes}</p>
+                </>
+              ) : (
+                <p style={{ fontSize: 12, color: MUT, margin: 0 }}>No AI summary recorded for this call.</p>
+              )}
+            </div>
           </div>
 
-          {/* ─── RIGHT COLUMN ─── */}
-          <div className="flex-1 min-w-0 flex flex-col gap-5">
-
-            {/* AI Intelligence */}
-            <div className="rounded-2xl border overflow-hidden" style={{ borderColor: BORDER }}>
-              <div className="px-5 py-3 flex items-center gap-2.5" style={{ backgroundColor: `${TEAL}08`, borderBottom: `1px solid ${TEAL}18` }}>
-                <div className="w-5 h-5 rounded-md flex items-center justify-center" style={{ backgroundColor: `${TEAL}20` }}>
-                  <Cpu size={11} style={{ color: TEAL }} />
+          {/* Komal's Journey */}
+          {toolSteps.length > 0 && (
+            <div style={{ marginBottom: 28 }}>
+              <div style={{ ...SL, marginBottom: 14 }}>Komal&apos;s journey — {toolSteps.length} step{toolSteps.length !== 1 ? 's' : ''}</div>
+              <div style={{
+                padding: '16px 20px', borderRadius: 12,
+                background: `${BLUE}05`, border: `1px solid ${BORDER}`,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 0, flexWrap: 'wrap' }}>
+                  {toolSteps.map((step, i) => (
+                    <div key={step.key} style={{ display: 'flex', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                        <div style={{
+                          width: 30, height: 30, borderRadius: 15,
+                          background: `${step.color}12`,
+                          border: `1.5px solid ${step.color}35`,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 11, fontWeight: 700, color: step.color,
+                        }}>
+                          {i + 1}
+                        </div>
+                        <span style={{ fontSize: 9, fontWeight: 500, color: TER, textAlign: 'center', maxWidth: 72, lineHeight: 1.3 }}>
+                          {step.label}
+                        </span>
+                      </div>
+                      {i < toolSteps.length - 1 && (
+                        <div style={{ width: 24, height: 1, background: BORDER, flexShrink: 0, marginBottom: 14, margin: '0 6px 14px 6px' }} />
+                      )}
+                    </div>
+                  ))}
                 </div>
-                <p className="text-[11px] font-semibold" style={{ color: NAVY }}>Komal&apos;s Intelligence</p>
-              </div>
-              <div className="px-5 py-4">
-                {(summaryLines.length > 0 || call.call_summary) ? (
-                  <div className="mb-3">
-                    <p className="text-[9px] uppercase tracking-[0.18em] font-semibold mb-2" style={{ color: MUT }}>AI Summary</p>
-                    {summaryLines.length > 1 ? (
-                      <ul className="space-y-1.5">
-                        {summaryLines.map((line, i) => (
-                          <li key={i} className="flex items-start gap-2.5 text-[12px] leading-relaxed" style={{ color: SEC }}>
-                            <span className="mt-2 flex-shrink-0 w-1.5 h-1.5 rounded-full" style={{ backgroundColor: TEAL }} />
-                            {line}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-[12px] leading-relaxed" style={{ color: SEC }}>{call.call_summary}</p>
-                    )}
-                  </div>
-                ) : null}
-                {call.call_notes && (
-                  <div className="mt-3 pt-3" style={{ borderTop: `1px solid ${BORDER}` }}>
-                    <p className="text-[9px] uppercase tracking-[0.18em] font-semibold mb-1.5" style={{ color: MUT }}>Detailed notes</p>
-                    <p className="text-[12px] leading-relaxed" style={{ color: TER }}>{call.call_notes}</p>
-                  </div>
-                )}
-                {!call.call_summary && !call.call_notes && (
-                  <p className="text-[12px]" style={{ color: MUT }}>No AI summary recorded for this call.</p>
-                )}
               </div>
             </div>
+          )}
 
-            {/* Komal's Journey — tool timeline */}
-            {toolSteps.length > 0 && (
-              <div className="rounded-2xl border overflow-hidden" style={{ borderColor: BORDER }}>
-                <div className="px-5 py-3 flex items-center gap-2.5" style={{ borderBottom: `1px solid ${BORDER}` }}>
-                  <div className="w-5 h-5 rounded-md flex items-center justify-center" style={{ backgroundColor: `${BLUE}12` }}>
-                    <Activity size={11} style={{ color: BLUE }} />
-                  </div>
-                  <p className="text-[11px] font-semibold" style={{ color: NAVY }}>Komal&apos;s Journey</p>
-                  <span className="text-[10px]" style={{ color: MUT }}>{toolSteps.length} step{toolSteps.length !== 1 ? 's' : ''}</span>
-                </div>
-                <div className="px-5 py-5">
-                  <div className="flex items-center gap-0 flex-wrap">
-                    {toolSteps.map((step, i) => (
-                      <div key={step.key} className="flex items-center">
-                        <div className="flex flex-col items-center gap-1.5">
-                          <div
-                            className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold"
-                            style={{
-                              backgroundColor: `${step.color}15`,
-                              border: `1.5px solid ${step.color}40`,
-                              color: step.color,
-                            }}
-                          >
-                            {i + 1}
-                          </div>
-                          <span className="text-[9px] font-medium text-center max-w-[72px] leading-tight" style={{ color: TER }}>
-                            {step.label}
-                          </span>
-                        </div>
-                        {i < toolSteps.length - 1 && (
-                          <div className="w-6 h-px mb-4 flex-shrink-0" style={{ backgroundColor: BORDER, margin: '0 4px 16px 4px' }} />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
+          {/* Recording */}
+          {call.recording_url && (
+            <div style={{ marginBottom: 28 }}>
+              <div style={{ ...SL, marginBottom: 14 }}>Call recording</div>
+              <div style={{ padding: '16px 20px', borderRadius: 12, background: `${BLUE}05`, border: `1px solid ${BORDER}` }}>
+                <audio controls src={call.recording_url} style={{ width: '100%', height: 36, borderRadius: 8, outline: 'none' }} />
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Recording */}
-            {call.recording_url && (
-              <div className="rounded-2xl border overflow-hidden" style={{ borderColor: BORDER }}>
-                <div className="px-5 py-3 flex items-center gap-2.5" style={{ borderBottom: `1px solid ${BORDER}` }}>
-                  <div className="w-5 h-5 rounded-md flex items-center justify-center" style={{ backgroundColor: `${BLUE}10` }}>
-                    <Volume2 size={11} style={{ color: BLUE }} />
-                  </div>
-                  <p className="text-[11px] font-semibold" style={{ color: NAVY }}>Call Recording</p>
-                </div>
-                <div className="px-5 py-4">
-                  <audio controls src={call.recording_url} className="w-full"
-                    style={{ height: 36, borderRadius: 10, outline: 'none' }} />
-                </div>
+          {/* Transcript */}
+          {call.transcript && (
+            <div style={{ marginBottom: 28 }}>
+              <div style={{ ...SL, marginBottom: 14 }}>
+                Full transcript{transcriptLines.length > 0 ? ` — ${transcriptLines.length} turns` : ''}
               </div>
-            )}
-
-            {/* Transcript */}
-            {call.transcript && (
-              <div className="rounded-2xl border overflow-hidden" style={{ borderColor: BORDER }}>
+              <div style={{ borderRadius: 12, border: `1px solid ${BORDER}`, overflow: 'hidden' }}>
                 <button
-                  className="w-full px-5 py-3 flex items-center gap-2.5 transition-colors hover:bg-black/[0.02]"
-                  style={{ borderBottom: showTranscript ? `1px solid ${BORDER}` : 'none' }}
                   onClick={() => setShowTx(v => !v)}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '12px 16px', background: `${BLUE}05`,
+                    borderBottom: showTranscript ? `1px solid ${BORDER}` : 'none',
+                    border: 'none', cursor: 'pointer',
+                  }}
                 >
-                  <div className="w-5 h-5 rounded-md flex items-center justify-center" style={{ backgroundColor: `${NAVY}0a` }}>
-                    <MessageSquare size={11} style={{ color: SEC }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <MessageSquare size={13} style={{ color: SEC }} />
+                    <span style={{ fontSize: 12, fontWeight: 600, color: NAVY }}>
+                      {showTranscript ? 'Collapse transcript' : 'View full transcript'}
+                    </span>
                   </div>
-                  <p className="text-[11px] font-semibold flex-1 text-left" style={{ color: NAVY }}>
-                    Full transcript
-                  </p>
-                  <span className="text-[10px]" style={{ color: MUT }}>
-                    {transcriptLines.length > 0 ? `${transcriptLines.length} turns` : 'View'}
-                  </span>
                   <motion.div animate={{ rotate: showTranscript ? 180 : 0 }} transition={{ duration: 0.18 }}>
                     <ChevronDown size={13} style={{ color: MUT }} />
                   </motion.div>
@@ -594,40 +617,31 @@ function CallHubPanel({ call, onClose }: { call: CallLog; onClose: () => void })
                       animate={{ height: 'auto', opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
                       transition={{ duration: 0.22 }}
-                      className="overflow-hidden"
+                      style={{ overflow: 'hidden' }}
                     >
-                      <div className="px-5 py-4 space-y-3 max-h-[420px] overflow-y-auto">
-                        {transcriptLines.length > 0 ? (
-                          transcriptLines.map((line, i) => (
-                            <div key={i}
-                              className={`flex gap-3 ${line.speaker === 'komal' ? '' : 'flex-row-reverse'}`}
-                            >
-                              <div
-                                className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-[9px] font-bold mt-0.5"
-                                style={{
-                                  backgroundColor: line.speaker === 'komal' ? `${TEAL}18` : `${BLUE}12`,
-                                  color: line.speaker === 'komal' ? TEAL : BLUE,
-                                }}
-                              >
-                                {line.speaker === 'komal' ? 'K' : 'C'}
-                              </div>
-                              <div
-                                className="flex-1 rounded-xl px-3.5 py-2.5 text-[12px] leading-relaxed max-w-[85%]"
-                                style={{
-                                  backgroundColor: line.speaker === 'komal' ? `${TEAL}08` : `${BLUE}06`,
-                                  color: SEC,
-                                  border: `1px solid ${line.speaker === 'komal' ? TEAL + '18' : BLUE + '15'}`,
-                                }}
-                              >
-                                {line.text}
-                              </div>
+                      <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 440, overflowY: 'auto' }}>
+                        {transcriptLines.length > 0 ? transcriptLines.map((line, i) => (
+                          <div key={i} style={{ display: 'flex', gap: 10, flexDirection: line.speaker === 'komal' ? 'row' : 'row-reverse' }}>
+                            <div style={{
+                              width: 26, height: 26, borderRadius: 13, flexShrink: 0,
+                              background: line.speaker === 'komal' ? `${TEAL}18` : `${BLUE}12`,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: 9, fontWeight: 800, marginTop: 2,
+                              color: line.speaker === 'komal' ? TEAL : BLUE,
+                            }}>
+                              {line.speaker === 'komal' ? 'K' : 'C'}
                             </div>
-                          ))
-                        ) : (
-                          <pre
-                            className="text-[11px] leading-relaxed whitespace-pre-wrap"
-                            style={{ color: TER, fontFamily: 'monospace' }}
-                          >
+                            <div style={{
+                              flex: 1, maxWidth: '82%', padding: '9px 13px',
+                              borderRadius: 10, fontSize: 12, lineHeight: 1.55, color: SEC,
+                              background: line.speaker === 'komal' ? `${TEAL}07` : `${BLUE}06`,
+                              border: `1px solid ${line.speaker === 'komal' ? TEAL + '18' : BLUE + '14'}`,
+                            }}>
+                              {line.text}
+                            </div>
+                          </div>
+                        )) : (
+                          <pre style={{ fontSize: 11, color: TER, fontFamily: 'monospace', lineHeight: 1.6, margin: 0, whiteSpace: 'pre-wrap' }}>
                             {call.transcript}
                           </pre>
                         )}
@@ -636,19 +650,22 @@ function CallHubPanel({ call, onClose }: { call: CallLog; onClose: () => void })
                   )}
                 </AnimatePresence>
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Empty state */}
-            {!call.call_summary && !call.call_notes && !call.transcript && !call.recording_url && toolSteps.length === 0 && (
-              <div className="rounded-2xl border p-8 flex flex-col items-center gap-3" style={{ borderColor: BORDER }}>
-                <FileText size={24} style={{ color: MUT }} />
-                <p className="text-[12px]" style={{ color: MUT }}>No additional details recorded for this call.</p>
-              </div>
-            )}
-          </div>
+          {/* Empty state */}
+          {!call.call_summary && !call.call_notes && !call.transcript && !call.recording_url && toolSteps.length === 0 && (
+            <div style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
+              padding: '48px 0', borderRadius: 12, border: `1px solid ${BORDER}`,
+            }}>
+              <FileText size={22} style={{ color: MUT }} />
+              <p style={{ fontSize: 12, color: MUT, margin: 0 }}>No additional detail recorded for this call.</p>
+            </div>
+          )}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -1136,75 +1153,65 @@ export default function ReceptionistPage() {
           {/* ── TAB: CALLS ── */}
           {activeTab === 'calls' && (
             <motion.div key="calls" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+              <AnimatePresence mode="wait">
+                {selectedCall ? (
+                  /* ── CALL HUB (fullscreen) ── */
+                  <motion.div
+                    key={`hub-${selectedCall.id}`}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.18 }}
+                    style={{ borderRadius: 16, border: `1px solid ${BORDER}`, overflow: 'hidden' }}
+                  >
+                    <CallHubPanel call={selectedCall} onClose={() => setSelectedCall(null)} />
+                  </motion.div>
+                ) : (
+                  /* ── CALL LIST ── */
+                  <motion.div
+                    key="call-list"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.18 }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                      <p style={{ fontSize: 12, color: TER }}>
+                        {callLogs.length} call{callLogs.length !== 1 ? 's' : ''} recorded
+                      </p>
+                      {stats && stats.missed > 0 && (
+                        <span style={{ fontSize: 11, padding: '2px 10px', borderRadius: 20, background: `${RED}08`, color: RED }}>
+                          {stats.missed} missed — follow up required
+                        </span>
+                      )}
+                    </div>
 
-              {/* Split layout: list left, hub right */}
-              <div className="flex gap-5 items-stretch" style={{ minHeight: 560 }}>
-
-                {/* Left — call list */}
-                <motion.div
-                  animate={{ width: selectedCall ? 280 : '100%', flexShrink: 0 }}
-                  transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-                  style={{ overflow: 'hidden' }}
-                >
-                  {/* List header */}
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-[12px]" style={{ color: TER }}>
-                      {callLogs.length} call{callLogs.length !== 1 ? 's' : ''}
-                    </p>
-                    {stats && stats.missed > 0 && !selectedCall && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full"
-                        style={{ backgroundColor: `${RED}08`, color: RED }}>
-                        {stats.missed} missed
-                      </span>
+                    {liveCalls.length > 0 && (
+                      <div style={{ marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {liveCalls.map(lc => <LiveCallCard key={lc.id} call={lc} />)}
+                      </div>
                     )}
-                  </div>
 
-                  {/* Live calls */}
-                  {liveCalls.length > 0 && (
-                    <div className="mb-3 space-y-2">
-                      {liveCalls.map(lc => <LiveCallCard key={lc.id} call={lc} />)}
-                    </div>
-                  )}
-
-                  {callLogs.length === 0 ? (
-                    <div className="text-center py-12 rounded-2xl border" style={{ borderColor: BORDER }}>
-                      <Phone size={24} style={{ color: MUT, margin: '0 auto 8px' }} />
-                      <p className="text-[13px]" style={{ color: MUT }}>No calls recorded yet.</p>
-                    </div>
-                  ) : (
-                    <div>
-                      {callLogs.map(call => (
-                        <CallListItem
-                          key={call.id}
-                          call={call}
-                          selected={selectedCall?.id === call.id}
-                          onClick={() => setSelectedCall(prev => prev?.id === call.id ? null : call)}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </motion.div>
-
-                {/* Right — Call Hub panel */}
-                <AnimatePresence>
-                  {selectedCall && (
-                    <motion.div
-                      key={selectedCall.id}
-                      initial={{ opacity: 0, x: 24 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 24 }}
-                      transition={{ duration: 0.28, ease: [0.4, 0, 0.2, 1] }}
-                      className="flex-1 rounded-2xl overflow-hidden border"
-                      style={{ borderColor: BORDER, minWidth: 0 }}
-                    >
-                      <CallHubPanel
-                        call={selectedCall}
-                        onClose={() => setSelectedCall(null)}
-                      />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+                    {callLogs.length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '48px 0', borderRadius: 16, border: `1px solid ${BORDER}` }}>
+                        <Phone size={24} style={{ color: MUT, margin: '0 auto 8px' }} />
+                        <p style={{ fontSize: 13, color: MUT }}>No calls recorded yet.</p>
+                      </div>
+                    ) : (
+                      <div>
+                        {callLogs.map(call => (
+                          <CallListItem
+                            key={call.id}
+                            call={call}
+                            selected={false}
+                            onClick={() => setSelectedCall(call)}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           )}
 
