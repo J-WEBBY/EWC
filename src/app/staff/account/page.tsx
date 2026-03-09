@@ -57,15 +57,15 @@ function SectionCard({
       whileHover={isAvailable ? { y: -2 } : undefined}
       whileTap={isAvailable ? { scale: 0.99 } : undefined}
       onClick={isAvailable ? () => router.push(`${section.href}?userId=${userId}`) : undefined}
-      className={`bg-[#FAF7F2] border border-[#EBE5FF] rounded-2xl p-6 flex flex-col gap-4 transition-all ${
+      className={`bg-[#F8FAFF] border border-[#D4E2FF] rounded-2xl p-6 flex flex-col gap-4 transition-all ${
         isAvailable
-          ? 'cursor-pointer hover:bg-[#F5F2FD] hover:border-[#D5CCFF]'
+          ? 'cursor-pointer hover:bg-[#EEF4FF] hover:border-[#A8C4FF]'
           : 'opacity-50 cursor-default'
       }`}
     >
       {/* Icon + status */}
       <div className="flex items-start justify-between">
-        <div className="w-11 h-11 rounded-xl bg-[#FAF9F5] flex items-center justify-center flex-shrink-0">
+        <div className="w-11 h-11 rounded-xl bg-[#F0F4FF] flex items-center justify-center flex-shrink-0">
           <Icon size={20} className="text-[#3D4451]" />
         </div>
         <div className="flex items-center gap-1.5">
@@ -191,9 +191,9 @@ export default function AccountPage() {
       badge: 'Week 1',
     },
     {
-      title: 'Settings',
-      description: 'Clinic configuration, user accounts, branding, notification preferences, and API keys',
-      href: '/staff/settings',
+      title: 'Team Access',
+      description: 'Manage staff accounts, roles, permissions, temporary passwords, and suspend or reactivate users',
+      href: '/staff/settings/team',
       icon: Settings,
       status: 'active',
     },
@@ -225,14 +225,14 @@ export default function AccountPage() {
 
           {/* Summary strip */}
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-            className="flex items-center gap-6 mb-8 px-5 py-3 bg-[#F0ECFF] border border-[#D4E2FF] rounded-xl">
+            className="flex items-center gap-6 mb-8 px-5 py-3 bg-[#EEF4FF] border border-[#D4E2FF] rounded-xl">
             <div className="flex items-center gap-2">
               <CheckCircle2 size={13} className="text-[#4ade80]" />
               <span className="text-[12px] text-[#5A6475]">
                 {clinikoConnected ? 'Cliniko connected' : 'Cliniko not connected'}
               </span>
             </div>
-            <div className="w-px h-4 bg-[#FAF9F5]" />
+            <div className="w-px h-4 bg-[#D4E2FF]" />
             <div className="flex items-center gap-2">
               <Clock size={13} className="text-[#5A6475]" />
               <span className="text-[12px] text-[#5A6475]">Week 2: Vapi, Twilio, Stripe, n8n</span>

@@ -119,7 +119,7 @@ export function StaffNav({
 
   const bottomItems: NavItem[] = [
     { label: 'Account',  href: `/staff/account?userId=${userId}`,       icon: UserCircle },
-    { label: 'Settings', href: `/staff/settings/team?userId=${userId}`, icon: Settings },
+    { label: 'Team',     href: `/staff/settings/team?userId=${userId}`, icon: Settings },
   ];
 
   return (

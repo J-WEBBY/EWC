@@ -66,108 +66,6 @@ interface TrainingEvent {
 }
 
 // =============================================================================
-// DEMO DATA
-// =============================================================================
-
-const DEMO_DECISIONS: AIDecision[] = [
-  {
-    id: 'd1',
-    agent: 'Orion',
-    agentColor: GOLD,
-    action: 'Send re-engagement message to 14 patients who last visited 90+ days ago',
-    rationale: 'These patients are at risk of churning. A personalised message referencing their last treatment has a 68% re-engagement rate based on historical data.',
-    confidence: 87,
-    category: 'recommendation',
-    outcome: 'pending',
-    timestamp: new Date(Date.now() - 25 * 60 * 1000).toISOString(),
-    impact: 'high',
-  },
-  {
-    id: 'd2',
-    agent: 'EWC',
-    agentColor: BLUE,
-    action: 'Escalate 3 outstanding invoice signals to priority status',
-    rationale: 'Invoices unpaid for 14+ days. Previous automated reminders have been sent. Escalation to human review is the appropriate next step.',
-    confidence: 94,
-    category: 'signal',
-    outcome: 'approved',
-    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    impact: 'medium',
-  },
-  {
-    id: 'd3',
-    agent: 'Aria',
-    agentColor: '#00A693',
-    action: 'Schedule Botox follow-up calls for 7 patients at 4-month mark',
-    rationale: 'Standard retention protocol. Patients who receive a personal follow-up call are 2.3x more likely to rebook within 30 days.',
-    confidence: 92,
-    category: 'automation',
-    outcome: 'approved',
-    timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-    impact: 'medium',
-  },
-  {
-    id: 'd4',
-    agent: 'Orion',
-    agentColor: GOLD,
-    action: 'Offer a 10% discount to new enquiry from Facebook ad',
-    rationale: 'Lead quality score is high (87/100). A limited-time offer may increase booking probability.',
-    confidence: 71,
-    category: 'recommendation',
-    outcome: 'rejected',
-    timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
-    impact: 'low',
-  },
-  {
-    id: 'd5',
-    agent: 'EWC',
-    agentColor: BLUE,
-    action: 'Recommend scheduling a CQC compliance review for next week',
-    rationale: 'Three compliance items are approaching their review date. Proactive scheduling reduces risk of oversight.',
-    confidence: 89,
-    category: 'recommendation',
-    outcome: 'modified',
-    timestamp: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
-    impact: 'high',
-  },
-];
-
-const DEMO_TRAINING: TrainingEvent[] = [
-  {
-    id: 't1',
-    type: 'rejection',
-    agent: 'Orion',
-    summary: 'Discount offer rejected — Dr Ganata does not authorise discounts without approval',
-    reinforcement: 'Orion will no longer suggest discounts without first checking with a manager. This preference has been added to Orion\'s operating guidelines.',
-    timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 't2',
-    type: 'modification',
-    agent: 'EWC',
-    summary: 'CQC review recommendation modified — moved to 2 weeks instead of 1',
-    reinforcement: 'EWC learned that compliance reviews require 2 weeks lead time for Dr Ganata\'s schedule. Future recommendations will account for this preference.',
-    timestamp: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 't3',
-    type: 'approval',
-    agent: 'Aria',
-    summary: 'Botox follow-up cadence approved — Aria confirmed on 4-month schedule',
-    reinforcement: 'Aria will continue using the 4-month follow-up window for Botox patients as the preferred schedule for this clinic.',
-    timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 't4',
-    type: 'redline',
-    agent: 'EWC',
-    summary: 'Redline RL-001 triggered — appointment without signed consent flagged',
-    reinforcement: 'All agents have been reminded that consent must be confirmed before any appointment proceeds. This is a hard compliance boundary.',
-    timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-];
-
-// =============================================================================
 // HELPERS
 // =============================================================================
 
@@ -453,7 +351,7 @@ export default function JudgementPage() {
   const [loading,   setLoading]   = useState(true);
   const [data,      setData]      = useState<JudgementData | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('overview');
-  const [decisions, setDecisions] = useState<AIDecision[]>(DEMO_DECISIONS);
+  const [decisions, setDecisions] = useState<AIDecision[]>([]);
   const [running,   setRunning]   = useState(false);
 
   useEffect(() => {
@@ -811,57 +709,55 @@ export default function JudgementPage() {
               <p className="text-[13px] mb-6" style={{ color: TER }}>
                 Every decision you make trains the AI on your clinic&apos;s unique culture, preferences, and values. This record shows what the system has learned.
               </p>
-              <div className="space-y-3">
-                {DEMO_TRAINING.map((event, i) => {
-                  const typeConfig = {
-                    approval:     { icon: Check,         color: '#059669', label: 'Approved' },
-                    rejection:    { icon: X,             color: '#DC2626', label: 'Rejected' },
-                    modification: { icon: Edit3,         color: GOLD,      label: 'Modified' },
-                    redline:      { icon: AlertTriangle, color: '#DC2626', label: 'Redline' },
-                  }[event.type];
-                  const EventIcon = typeConfig.icon;
-
-                  return (
-                    <motion.div
-                      key={event.id}
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.05 }}
-                      className="flex gap-4 p-4 rounded-xl border"
-                      style={{ backgroundColor: BG, borderColor: BORDER }}
-                    >
-                      <div
-                        className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                        style={{ backgroundColor: `${typeConfig.color}12` }}
-                      >
-                        <EventIcon size={14} style={{ color: typeConfig.color }} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-[11px] font-semibold" style={{ color: typeConfig.color }}>
-                            {typeConfig.label}
-                          </span>
-                          <span className="text-[11px]" style={{ color: MUT }}>· {event.agent}</span>
-                          <span className="text-[10px] ml-auto" style={{ color: MUT }}>{relativeTime(event.timestamp)}</span>
+              {/* Training log — populated as staff approve/reject/modify decisions */}
+              {decisions.filter(d => d.outcome !== 'pending').length === 0 ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="p-8 rounded-xl border text-center"
+                  style={{ backgroundColor: `${PURPLE}06`, borderColor: `${PURPLE}20` }}
+                >
+                  <Brain size={24} style={{ color: PURPLE, margin: '0 auto 10px' }} />
+                  <p className="text-[13px] font-semibold mb-1" style={{ color: NAVY }}>No training events yet</p>
+                  <p className="text-[11px] leading-relaxed max-w-xs mx-auto" style={{ color: TER }}>
+                    Every decision you approve, reject or modify in the Decisions tab trains the AI on your clinic values. Training events will appear here.
+                  </p>
+                </motion.div>
+              ) : (
+                <div className="space-y-3">
+                  {decisions.filter(d => d.outcome !== 'pending').map((d, i) => {
+                    const typeConfig = {
+                      approved: { icon: Check,    color: '#059669', label: 'Approved' },
+                      rejected: { icon: X,        color: '#DC2626', label: 'Rejected' },
+                      modified: { icon: Edit3,    color: GOLD,      label: 'Modified' },
+                      pending:  { icon: Activity, color: BLUE,      label: 'Pending'  },
+                    }[d.outcome] ?? { icon: Activity, color: BLUE, label: d.outcome };
+                    const EventIcon = typeConfig.icon;
+                    return (
+                      <motion.div key={d.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
+                        className="flex gap-4 p-4 rounded-xl border" style={{ backgroundColor: BG, borderColor: BORDER }}>
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                          style={{ backgroundColor: `${typeConfig.color}12` }}>
+                          <EventIcon size={14} style={{ color: typeConfig.color }} />
                         </div>
-                        <p className="text-[12px] font-medium mb-1" style={{ color: NAVY }}>{event.summary}</p>
-                        <p className="text-[11px] leading-relaxed" style={{ color: TER }}>
-                          <span className="font-medium" style={{ color: BLUE }}>System learned: </span>
-                          {event.reinforcement}
-                        </p>
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-[11px] font-semibold" style={{ color: typeConfig.color }}>{typeConfig.label}</span>
+                            <span className="text-[11px]" style={{ color: MUT }}>· {d.agent}</span>
+                            <span className="text-[10px] ml-auto" style={{ color: MUT }}>{relativeTime(d.timestamp)}</span>
+                          </div>
+                          <p className="text-[12px] font-medium" style={{ color: NAVY }}>{d.action}</p>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              )}
 
-              <div
-                className="mt-6 p-4 rounded-xl border text-center"
-                style={{ backgroundColor: `${PURPLE}06`, borderColor: `${PURPLE}20` }}
-              >
+              <div className="mt-6 p-4 rounded-xl border text-center" style={{ backgroundColor: `${PURPLE}06`, borderColor: `${PURPLE}20` }}>
                 <Brain size={20} style={{ color: PURPLE, margin: '0 auto 8px' }} />
                 <p className="text-[13px] font-medium mb-1" style={{ color: NAVY }}>
-                  {DEMO_TRAINING.length} training events recorded
+                  {decisions.filter(d => d.outcome !== 'pending').length} training events recorded
                 </p>
                 <p className="text-[11px]" style={{ color: TER }}>
                   The more decisions you review, the more personalised and accurate the AI becomes for your clinic.

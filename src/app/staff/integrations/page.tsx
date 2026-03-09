@@ -2,7 +2,7 @@
 
 // =============================================================================
 // Integrations Page — Data connection control centre
-// Light design system — #FAF7F2 base.
+// Light design system — #F8FAFF base.
 // =============================================================================
 
 import { useState, useEffect, useCallback } from 'react';
@@ -290,7 +290,7 @@ function ClinikoConnectForm({ onConnected }: { onConnected: () => void }) {
       </p>
       <div className="space-y-2">
         <label className="text-[8px] uppercase tracking-[0.28em] font-semibold" style={{ color: '#96989B' }}>Cliniko API Key</label>
-        <div className="flex items-center gap-2 px-3 py-3 rounded-xl transition-colors" style={{ border: '1px solid #EBE5FF', backgroundColor: '#FAF7F2' }}>
+        <div className="flex items-center gap-2 px-3 py-3 rounded-xl transition-colors" style={{ border: '1px solid #EBE5FF', backgroundColor: '#F8FAFF' }}>
           <input
             type={showKey ? 'text' : 'password'}
             value={apiKey}
@@ -316,7 +316,7 @@ function ClinikoConnectForm({ onConnected }: { onConnected: () => void }) {
       </AnimatePresence>
       <button onClick={handleConnect} disabled={connecting || !apiKey.trim()}
         className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-[13px] font-semibold transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-        style={{ backgroundColor: '#1A1035', color: '#FAF7F2' }}>
+        style={{ backgroundColor: 'rgba(0,88,230,0.08)', border: '1px solid rgba(0,88,230,0.25)', color: '#181D23' }}>
         {connecting ? <><Loader2 size={14} className="animate-spin" /> Connecting…</> : <><Link2 size={14} /> Connect Cliniko</>}
       </button>
     </div>
@@ -388,7 +388,7 @@ function ClinikoConnectedPanel({
           </div>
           <button onClick={onSync} disabled={syncing}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-[12px] font-semibold transition-all disabled:opacity-40 flex-shrink-0"
-            style={{ backgroundColor: '#1A1035', color: '#FAF7F2' }}>
+            style={{ backgroundColor: 'rgba(0,88,230,0.08)', border: '1px solid rgba(0,88,230,0.25)', color: '#181D23' }}>
             {syncing ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
             {syncing ? 'Syncing…' : 'Run First Sync'}
           </button>
@@ -425,7 +425,7 @@ function ClinikoConnectedPanel({
             </button>
             <button onClick={onClearResync} disabled={syncing || clearing}
               className="flex items-center gap-2 px-4 py-2 rounded-lg text-[12px] font-semibold transition-all disabled:opacity-30"
-              style={{ backgroundColor: '#1A1035', color: '#FAF7F2' }}>
+              style={{ backgroundColor: 'rgba(0,88,230,0.08)', border: '1px solid rgba(0,88,230,0.25)', color: '#181D23' }}>
               {clearing ? <Loader2 size={12} className="animate-spin" /> : <Database size={12} />}
               {clearing ? 'Clearing & syncing…' : 'Clear & Full Sync'}
             </button>
@@ -587,7 +587,7 @@ export default function IntegrationsPage() {
   const brandColor = profile.brandColor ?? '#0058E6';
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#FAF7F2', paddingLeft: 'var(--nav-w, 240px)' }}>
+    <div className="min-h-screen" style={{ backgroundColor: '#F8FAFF', paddingLeft: 'var(--nav-w, 240px)' }}>
       <StaffNav profile={profile} userId={userId!} brandColor={brandColor} currentPath="Integrations" />
 
       <main className="px-8 py-10">
