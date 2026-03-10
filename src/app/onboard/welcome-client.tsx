@@ -10,76 +10,58 @@ import {
 import { JweblyIcon } from '@/components/jwebly-logo';
 import { BRAND } from '@/lib/config/brand';
 
-// ─── Typewriter hook ──────────────────────────────────────────────────────────
+// ─── Design tokens — matches activate page exactly ───────────────────────────
+const BG   = '#F7F6F3';
+const INK  = '#18181B';
+const MUT  = '#A1A1AA';
+const BDR  = '#E4E4E7';
+const CYAN = '#0891B2';
+const CLT  = '#22D3EE';
+const GRN  = '#059669';
+
+// ─── Typewriter ───────────────────────────────────────────────────────────────
 function useTypewriter(
   text: string,
   { speed = 42, startDelay = 0, enabled = true }: { speed?: number; startDelay?: number; enabled?: boolean } = {},
 ) {
   const [idx, setIdx] = useState(0);
-
   useEffect(() => {
     if (!enabled) { setIdx(0); return; }
     setIdx(0);
     const start = setTimeout(() => {
       if (!text.length) return;
       const iv = setInterval(() => {
-        setIdx(i => {
-          if (i >= text.length) { clearInterval(iv); return i; }
-          return i + 1;
-        });
+        setIdx(i => { if (i >= text.length) { clearInterval(iv); return i; } return i + 1; });
       }, speed);
       return () => clearInterval(iv);
     }, startDelay);
     return () => clearTimeout(start);
   }, [text, speed, startDelay, enabled]);
-
   return { chars: text.slice(0, idx), done: idx >= text.length };
 }
 
-// ─── Phase definitions ────────────────────────────────────────────────────────
-const PHASES = [
-  {
-    n: 1, label: 'Clinic profile', Icon: Building2, time: '3 min',
-    desc: 'Identity, location, contact details and medical director.',
-    items: ['Name & clinic type', 'Address & contact', 'Medical director', 'CQC registration'],
-  },
-  {
-    n: 2, label: 'Brand', Icon: Palette, time: '2 min',
-    desc: 'Upload your logo and define your visual identity.',
-    items: ['Logo upload', 'Brand colour', 'Agent name', 'Receptionist persona'],
-  },
-  {
-    n: 3, label: 'Your team', Icon: Users, time: '5 min',
-    desc: 'Staff accounts, roles and admin access.',
-    items: ['Staff accounts', 'Roles & permissions', 'Admin credentials'],
-  },
-  {
-    n: 4, label: 'Credentials', Icon: Key, time: '2 min',
-    desc: 'Securely store API keys for connected services.',
-    items: ['Cliniko API key', 'Stripe / GoCardless', 'Twilio SMS'],
-  },
-  {
-    n: 5, label: 'Integrations', Icon: Link2, time: '5 min',
-    desc: 'Connect, sync and test your live data sources.',
-    items: ['First Cliniko sync', 'Komal voice setup', 'n8n automations'],
-  },
-  {
-    n: 6, label: 'Go live', Icon: Rocket, time: '2 min',
-    desc: 'Final health checks and full platform activation.',
-    items: ['System health check', 'Phone number', 'Staff notifications', 'Launch'],
-  },
-] as const;
-
-// ─── Cursor ────────────────────────────────────────────────────────────────────
-function Cursor({ color = BRAND.accent }: { color?: string }) {
+function Cursor() {
   return (
     <motion.span
       animate={{ opacity: [1, 0, 1] }}
       transition={{ duration: 0.85, repeat: Infinity }}
-      style={{ display: 'inline-block', width: 2, height: '1em', background: color, marginLeft: 3, verticalAlign: 'middle', borderRadius: 1 }}
+      style={{
+        display: 'inline-block', width: 2, height: '0.85em',
+        background: CYAN, marginLeft: 2, verticalAlign: 'middle', borderRadius: 1,
+      }}
     />
   );
 }
+
+// ─── Phase definitions ────────────────────────────────────────────────────────
+const PHASES = [
+  { n: 1, label: 'Clinic profile', Icon: Building2, time: '3 min', desc: 'Identity, location, contact and medical director.', items: ['Name & clinic type', 'Address & contact', 'Medical director', 'CQC registration'] },
+  { n: 2, label: 'Brand',          Icon: Palette,   time: '2 min', desc: 'Upload logo and define your visual identity.',    items: ['Logo upload', 'Brand colour', 'Agent name', 'Receptionist persona'] },
+  { n: 3, label: 'Your team',      Icon: Users,     time: '5 min', desc: 'Staff accounts, roles and admin access.',          items: ['Staff accounts', 'Roles & permissions', 'Admin credentials'] },
+  { n: 4, label: 'Credentials',    Icon: Key,       time: '2 min', desc: 'Securely store API keys for connected services.',  items: ['Cliniko API key', 'Stripe / GoCardless', 'Twilio SMS'] },
+  { n: 5, label: 'Integrations',   Icon: Link2,     time: '5 min', desc: 'Connect, sync and test your live data sources.',   items: ['First Cliniko sync', 'Komal voice setup', 'n8n automations'] },
+  { n: 6, label: 'Go live',        Icon: Rocket,    time: '2 min', desc: 'Final health checks and full platform activation.', items: ['System health check', 'Phone number', 'Staff notifications', 'Launch'] },
+] as const;
 
 // ─── Welcome client ───────────────────────────────────────────────────────────
 export default function WelcomeClient({
@@ -92,23 +74,21 @@ export default function WelcomeClient({
   onboardingPhase: number;
 }) {
   const router = useRouter();
-  const [stage, setStage]                   = useState<'welcome' | 'overview'>('welcome');
-  const [tenantTypingEnabled, setTTE]       = useState(false);
-  const [ctaVisible, setCtaVisible]         = useState(false);
-  const [hoveredPhase, setHoveredPhase]     = useState<number | null>(null);
+  const [stage, setStage]             = useState<'welcome' | 'overview'>('welcome');
+  const [tenantTypingEnabled, setTTE] = useState(false);
+  const [ctaVisible, setCtaVisible]   = useState(false);
+  const [hoveredPhase, setHovered]    = useState<number | null>(null);
   const autoRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const platform = useTypewriter(BRAND.platform, { speed: 58, startDelay: 700 });
-  const tenant   = useTypewriter(tenantName,     { speed: 36, startDelay: 0, enabled: tenantTypingEnabled });
+  const platform = useTypewriter(BRAND.platform, { speed: 58, startDelay: 600 });
+  const tenant   = useTypewriter(tenantName,     { speed: 38, startDelay: 0, enabled: tenantTypingEnabled });
 
-  // Platform done → enable tenant after pause
   useEffect(() => {
     if (!platform.done) return;
-    const t = setTimeout(() => setTTE(true), 950);
+    const t = setTimeout(() => setTTE(true), 900);
     return () => clearTimeout(t);
   }, [platform.done]);
 
-  // Tenant done → show CTA + auto-advance
   useEffect(() => {
     if (!tenant.done || !tenantTypingEnabled) return;
     const t = setTimeout(() => {
@@ -127,39 +107,48 @@ export default function WelcomeClient({
 
   return (
     <div style={{
-      minHeight: '100vh', background: BRAND.darkBg,
-      display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden',
+      minHeight: '100vh', background: BG,
+      display: 'flex', flexDirection: 'column',
+      position: 'relative', overflow: 'hidden',
     }}>
-      {/* Grid texture */}
+
+      {/* Dot grid — same as activate page */}
       <svg style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 0 }}>
         <defs>
-          <pattern id="wg" x="0" y="0" width="48" height="48" patternUnits="userSpaceOnUse">
-            <path d="M 48 0 L 0 0 0 48" fill="none" stroke={BRAND.darkBorder} strokeWidth="0.5" />
+          <pattern id="wdot" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
+            <circle cx="1" cy="1" r="1" fill="rgba(120,113,108,0.18)" />
           </pattern>
         </defs>
-        <rect width="100%" height="100%" fill="url(#wg)" opacity="0.5" />
+        <rect width="100%" height="100%" fill="url(#wdot)" />
       </svg>
 
-      {/* Ambient top glow */}
+      {/* Ambient bloom — top-left */}
       <div style={{
-        position: 'fixed', top: '-25%', left: '50%', transform: 'translateX(-50%)',
-        width: '65vw', height: '65vw', borderRadius: '50%', zIndex: 0,
-        background: `radial-gradient(circle, ${BRAND.accent}16 0%, transparent 65%)`,
-        filter: 'blur(70px)', pointerEvents: 'none',
+        position: 'fixed', top: '-15%', left: '-10%',
+        width: '60vw', height: '60vw', borderRadius: '50%', zIndex: 0,
+        background: 'radial-gradient(circle, rgba(8,145,178,0.10) 0%, transparent 68%)',
+        filter: 'blur(50px)', pointerEvents: 'none',
+      }} />
+      {/* Ambient bloom — bottom-right */}
+      <div style={{
+        position: 'fixed', bottom: '-18%', right: '-12%',
+        width: '50vw', height: '50vw', borderRadius: '50%', zIndex: 0,
+        background: 'radial-gradient(circle, rgba(34,211,238,0.06) 0%, transparent 65%)',
+        filter: 'blur(55px)', pointerEvents: 'none',
       }} />
 
-      {/* Top bar — always present */}
+      {/* ── Top bar ── */}
       <div style={{
         position: 'fixed', top: 0, left: 0, right: 0, height: 52, zIndex: 10,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '0 32px',
-        borderBottom: `1px solid ${BRAND.darkBorder}`,
-        background: `${BRAND.darkBg}E0`,
-        backdropFilter: 'blur(12px)',
+        borderBottom: `1px solid ${BDR}`,
+        background: `${BG}F0`,
+        backdropFilter: 'blur(10px)',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <JweblyIcon size={22} uid="topbar" />
-          <span style={{ fontSize: 12, fontWeight: 700, color: '#C8D8F0', letterSpacing: '-0.01em' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+          <JweblyIcon size={22} uid="wb-top" />
+          <span style={{ fontSize: 13, fontWeight: 700, color: INK, letterSpacing: '-0.02em' }}>
             {BRAND.platform}
           </span>
         </div>
@@ -167,7 +156,7 @@ export default function WelcomeClient({
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            style={{ fontSize: 10, color: BRAND.muted, letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 600 }}
+            style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.18em', textTransform: 'uppercase', color: MUT }}
           >
             Setup roadmap
           </motion.div>
@@ -188,30 +177,30 @@ export default function WelcomeClient({
               key="welcome"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0, y: -32, transition: { duration: 0.55, ease: [0.4, 0, 1, 1] } }}
-              style={{ textAlign: 'center', width: '100%', maxWidth: 540, padding: '0 40px' }}
+              exit={{ opacity: 0, y: -24, transition: { duration: 0.45 } }}
+              style={{ textAlign: 'center', width: '100%', maxWidth: 400, padding: '0 32px' }}
             >
               {/* Logo */}
               <motion.div
-                initial={{ scale: 0.55, opacity: 0 }}
+                initial={{ scale: 0.6, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                transition={{ duration: 0.75, ease: [0.22, 1, 0.36, 1] }}
-                style={{ marginBottom: 40, display: 'flex', justifyContent: 'center' }}
+                transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
+                style={{ marginBottom: 32, display: 'flex', justifyContent: 'center' }}
               >
                 <motion.div
-                  animate={{ opacity: [0.7, 1, 0.7] }}
+                  animate={{ opacity: [0.72, 1, 0.72] }}
                   transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
                 >
-                  <JweblyIcon size={76} uid="welcome" />
+                  <JweblyIcon size={72} uid="welcome" />
                 </motion.div>
               </motion.div>
 
-              {/* Platform name — typewriter */}
+              {/* Platform name — typewriter in CYAN */}
               <div style={{
-                fontSize: 10, fontWeight: 700, letterSpacing: '0.36em',
-                textTransform: 'uppercase', color: BRAND.accent,
+                fontSize: 10, fontWeight: 700, letterSpacing: '0.32em',
+                textTransform: 'uppercase', color: CYAN,
                 marginBottom: 10, minHeight: 14,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
                 {platform.chars}
                 {!platform.done && <Cursor />}
@@ -221,52 +210,42 @@ export default function WelcomeClient({
               <motion.h1
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: platform.done ? 1 : 0, y: platform.done ? 0 : 8 }}
-                transition={{ duration: 0.55 }}
-                style={{
-                  fontSize: 36, fontWeight: 800, letterSpacing: '-0.04em',
-                  color: '#E4EEFF', margin: '0 0 8px', lineHeight: 1.12,
-                }}
+                transition={{ duration: 0.5 }}
+                style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.04em', color: INK, margin: '0 0 6px', lineHeight: 1.15 }}
               >
                 {BRAND.tagline}
               </motion.h1>
 
               {/* Expanding divider */}
               <motion.div
-                initial={{ scaleX: 0, opacity: 0 }}
-                animate={{ scaleX: platform.done ? 1 : 0, opacity: platform.done ? 1 : 0 }}
-                transition={{ duration: 0.8, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                initial={{ scaleX: 0 }}
+                animate={{ scaleX: platform.done ? 1 : 0 }}
+                transition={{ duration: 0.75, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
                 style={{
-                  height: 1, maxWidth: 300, margin: '22px auto',
+                  height: 1, maxWidth: 260, margin: '20px auto',
                   transformOrigin: 'center',
-                  background: `linear-gradient(90deg, transparent 0%, ${BRAND.accent}70 50%, transparent 100%)`,
+                  background: `linear-gradient(90deg, transparent 0%, ${CYAN}55 50%, transparent 100%)`,
                 }}
               />
 
-              {/* "Workspace for" label */}
+              {/* "Workspace for" */}
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: platform.done ? 1 : 0 }}
-                transition={{ duration: 0.4, delay: 0.45 }}
-                style={{
-                  fontSize: 10, fontWeight: 600, letterSpacing: '0.22em',
-                  textTransform: 'uppercase', color: BRAND.muted,
-                  marginBottom: 10,
-                }}
+                transition={{ duration: 0.4, delay: 0.4 }}
+                style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.2em', textTransform: 'uppercase', color: MUT, marginBottom: 8 }}
               >
                 Workspace initialised for
               </motion.div>
 
-              {/* Tenant name — typewriter */}
+              {/* Tenant name — typewriter in INK */}
               <div style={{
-                fontSize: 24, fontWeight: 800, letterSpacing: '-0.03em',
-                color: '#FFFFFF', minHeight: 34, lineHeight: 1.2,
+                fontSize: 22, fontWeight: 800, letterSpacing: '-0.03em',
+                color: INK, minHeight: 30, lineHeight: 1.2,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
                 {tenantTypingEnabled ? (
-                  <>
-                    {tenant.chars}
-                    {!tenant.done && <Cursor color={BRAND.accentLight} />}
-                  </>
+                  <>{tenant.chars}{!tenant.done && <Cursor />}</>
                 ) : (
                   <span style={{ opacity: 0 }}>_</span>
                 )}
@@ -276,27 +255,28 @@ export default function WelcomeClient({
               <AnimatePresence>
                 {ctaVisible && (
                   <motion.div
-                    initial={{ opacity: 0, y: 16 }}
+                    initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-                    style={{ marginTop: 40 }}
+                    transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                    style={{ marginTop: 36 }}
                   >
-                    <p style={{ fontSize: 12, color: BRAND.muted, marginBottom: 22, lineHeight: 1.7 }}>
+                    <p style={{ fontSize: 12, color: MUT, marginBottom: 20 }}>
                       6 phases &middot; ~19 minutes to full activation
                     </p>
                     <motion.button
                       onClick={goToOverview}
-                      whileHover={{ scale: 1.04, y: -2 }}
-                      whileTap={{ scale: 0.97 }}
+                      whileHover={{ y: -1 }}
+                      whileTap={{ scale: 0.987 }}
                       style={{
-                        height: 54, padding: '0 34px', borderRadius: 14, border: 'none',
-                        background: `linear-gradient(135deg, ${BRAND.accentLight} 0%, ${BRAND.accent} 100%)`,
-                        color: '#fff', fontSize: 14, fontWeight: 700, letterSpacing: '-0.01em',
-                        cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 9,
-                        boxShadow: `0 4px 28px ${BRAND.accent}55`,
+                        height: 52, padding: '0 28px', borderRadius: 10, border: 'none',
+                        background: INK, color: '#FFFFFF',
+                        fontSize: 13, fontWeight: 700, letterSpacing: '-0.01em',
+                        cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8,
+                        boxShadow: '0 2px 12px rgba(24,24,27,0.20)',
+                        transition: 'all 0.2s',
                       }}
                     >
-                      View setup roadmap <ArrowRight size={15} strokeWidth={2.5} />
+                      View setup roadmap <ArrowRight size={14} strokeWidth={2.5} />
                     </motion.button>
                   </motion.div>
                 )}
@@ -308,42 +288,34 @@ export default function WelcomeClient({
           {stage === 'overview' && (
             <motion.div
               key="overview"
-              initial={{ opacity: 0, y: 48 }}
+              initial={{ opacity: 0, y: 32 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
+              transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
               style={{ width: '100%', maxWidth: 820, padding: '40px 32px 80px' }}
             >
               {/* Header */}
               <motion.div
-                initial={{ opacity: 0, y: 12 }}
+                initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4 }}
-                style={{ marginBottom: 40 }}
+                transition={{ duration: 0.38 }}
+                style={{ marginBottom: 36 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                  <JweblyIcon size={18} uid="ov-hdr" />
-                  <span style={{
-                    fontSize: 9, fontWeight: 700, letterSpacing: '0.26em',
-                    textTransform: 'uppercase', color: BRAND.accent,
-                  }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
+                  <JweblyIcon size={16} uid="ov-h" />
+                  <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.24em', textTransform: 'uppercase', color: CYAN }}>
                     {tenantName}
                   </span>
                 </div>
-                <h1 style={{
-                  fontSize: 38, fontWeight: 800, letterSpacing: '-0.04em',
-                  color: '#E4EEFF', margin: '0 0 8px', lineHeight: 1.1,
-                }}>
+                <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.04em', color: INK, margin: '0 0 6px' }}>
                   Setup roadmap
                 </h1>
-                <p style={{ fontSize: 13, color: BRAND.muted, margin: 0, lineHeight: 1.7 }}>
+                <p style={{ fontSize: 13, color: MUT, margin: 0, lineHeight: 1.7 }}>
                   Complete all 6 phases to fully activate your operational intelligence system.
                 </p>
               </motion.div>
 
               {/* Phase grid */}
-              <div style={{
-                display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 44,
-              }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 36 }}>
                 {PHASES.map((ph, i) => {
                   const done    = completedPhases.includes(ph.n);
                   const active  = ph.n === currentPhase;
@@ -354,100 +326,76 @@ export default function WelcomeClient({
                   return (
                     <motion.div
                       key={ph.n}
-                      initial={{ opacity: 0, y: 18 }}
+                      initial={{ opacity: 0, y: 14 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.065, duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
-                      onMouseEnter={() => setHoveredPhase(ph.n)}
-                      onMouseLeave={() => setHoveredPhase(null)}
+                      transition={{ delay: i * 0.06, duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
+                      onMouseEnter={() => setHovered(ph.n)}
+                      onMouseLeave={() => setHovered(null)}
+                      onClick={() => { if (done || active) router.push(`/onboard/${ph.n}`); }}
                       style={{
                         borderRadius: 14, overflow: 'hidden',
-                        border: `1px solid ${
-                          done    ? BRAND.green + '45' :
-                          active  ? BRAND.accent + '55' :
-                          hovered ? BRAND.darkBorder.replace('0.15', '0.35') :
-                                    BRAND.darkBorder
-                        }`,
-                        background: done
-                          ? 'rgba(5,150,105,0.08)'
-                          : active
-                          ? `${BRAND.accent}0d`
-                          : hovered
-                          ? `${BRAND.darkSurface}CC`
-                          : `${BRAND.darkSurface}88`,
-                        opacity: locked && !hovered ? 0.52 : 1,
-                        transition: 'all 0.2s',
+                        border: `1.5px solid ${done ? GRN + '40' : active ? CYAN + '45' : hovered ? BDR : BDR}`,
+                        background: done ? `${GRN}06` : active ? `${CYAN}07` : '#FFFFFF',
+                        opacity: locked && !hovered ? 0.55 : 1,
                         cursor: (done || active) ? 'pointer' : 'default',
-                        position: 'relative',
+                        transition: 'all 0.18s',
+                        boxShadow: hovered && (done || active) ? '0 4px 18px rgba(0,0,0,0.07)' : 'none',
                       }}
-                      onClick={() => { if (done || active) router.push(`/onboard/${ph.n}`); }}
                     >
                       {/* Top accent line */}
                       <div style={{
                         height: 2,
                         background: done
-                          ? BRAND.green
+                          ? GRN
                           : active
-                          ? `linear-gradient(90deg, ${BRAND.accentLight}, ${BRAND.accent})`
+                          ? `linear-gradient(90deg, ${CLT}, ${CYAN})`
                           : 'transparent',
                       }} />
 
-                      <div style={{ padding: '16px 18px' }}>
-                        {/* Top row */}
-                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
+                      <div style={{ padding: '16px 17px' }}>
+                        {/* Icon row */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                           <div style={{
-                            width: 34, height: 34, borderRadius: 9, flexShrink: 0,
+                            width: 32, height: 32, borderRadius: 8, flexShrink: 0,
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            background: done
-                              ? `${BRAND.green}20`
-                              : active
-                              ? `${BRAND.accent}20`
-                              : 'rgba(255,255,255,0.04)',
+                            background: done ? `${GRN}14` : active ? `${CYAN}12` : `rgba(0,0,0,0.04)`,
                           }}>
                             {done
-                              ? <Check size={15} strokeWidth={2.5} style={{ color: BRAND.green }} />
-                              : <Icon size={15} style={{ color: active ? BRAND.accentLight : BRAND.muted }} />
+                              ? <Check size={14} strokeWidth={2.5} style={{ color: GRN }} />
+                              : <Icon size={14} style={{ color: active ? CYAN : MUT }} />
                             }
                           </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginTop: 2 }}>
-                            <Clock size={9} style={{ color: BRAND.muted }} />
-                            <span style={{ fontSize: 10, color: BRAND.muted }}>{ph.time}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                            <Clock size={9} style={{ color: MUT }} />
+                            <span style={{ fontSize: 10, color: MUT }}>{ph.time}</span>
                           </div>
                         </div>
 
-                        {/* Phase number */}
-                        <div style={{
-                          fontSize: 9, fontWeight: 700, letterSpacing: '0.2em',
-                          textTransform: 'uppercase', marginBottom: 3,
-                          color: done ? BRAND.green : active ? BRAND.accent : BRAND.muted,
-                        }}>
+                        {/* Phase n */}
+                        <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 2, color: done ? GRN : active ? CYAN : MUT }}>
                           Phase {ph.n}
                         </div>
 
-                        {/* Phase name */}
-                        <div style={{
-                          fontSize: 15, fontWeight: 700, letterSpacing: '-0.025em', marginBottom: 7,
-                          color: done ? '#6EE7B7' : active ? '#E4EEFF' : '#94A3B8',
-                        }}>
+                        {/* Name */}
+                        <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 5, color: INK }}>
                           {ph.label}
                         </div>
 
-                        {/* Description */}
-                        <p style={{ fontSize: 11, color: BRAND.muted, lineHeight: 1.55, margin: '0 0 12px' }}>
+                        {/* Desc */}
+                        <p style={{ fontSize: 11, color: MUT, lineHeight: 1.55, margin: '0 0 10px' }}>
                           {ph.desc}
                         </p>
 
                         {/* Items */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                           {ph.items.map(item => (
-                            <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                            <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                               <div style={{
                                 width: 3, height: 3, borderRadius: '50%', flexShrink: 0,
-                                background: done ? BRAND.green : active ? BRAND.accent : BRAND.muted,
-                                opacity: locked ? 0.4 : 0.8,
+                                background: done ? GRN : active ? CYAN : MUT,
+                                opacity: locked ? 0.4 : 0.7,
                               }} />
-                              <span style={{ fontSize: 10, color: done ? '#6EE7B7' : BRAND.muted }}>
-                                {item}
-                              </span>
+                              <span style={{ fontSize: 10, color: MUT }}>{item}</span>
                             </div>
                           ))}
                         </div>
@@ -455,21 +403,21 @@ export default function WelcomeClient({
                         {/* Active badge */}
                         {active && (
                           <motion.div
-                            initial={{ opacity: 0, scale: 0.8 }}
+                            initial={{ opacity: 0, scale: 0.85 }}
                             animate={{ opacity: 1, scale: 1 }}
-                            transition={{ delay: i * 0.065 + 0.3 }}
+                            transition={{ delay: i * 0.06 + 0.28 }}
                             style={{
-                              marginTop: 14, display: 'inline-flex', alignItems: 'center', gap: 5,
-                              background: `${BRAND.accent}18`, border: `1px solid ${BRAND.accent}35`,
+                              marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 5,
+                              background: `${CYAN}0c`, border: `1px solid ${CYAN}28`,
                               borderRadius: 20, padding: '3px 9px',
                             }}
                           >
                             <motion.div
                               animate={{ opacity: [0.5, 1, 0.5] }}
                               transition={{ duration: 1.8, repeat: Infinity }}
-                              style={{ width: 5, height: 5, borderRadius: '50%', background: BRAND.accentLight }}
+                              style={{ width: 5, height: 5, borderRadius: '50%', background: CYAN }}
                             />
-                            <span style={{ fontSize: 9, fontWeight: 700, color: BRAND.accentLight, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                            <span style={{ fontSize: 9, fontWeight: 700, color: CYAN, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
                               Up next
                             </span>
                           </motion.div>
@@ -482,38 +430,36 @@ export default function WelcomeClient({
 
               {/* CTA bar */}
               <motion.div
-                initial={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.55, duration: 0.4 }}
+                transition={{ delay: 0.48 }}
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '18px 24px',
-                  borderRadius: 14,
-                  border: `1px solid ${BRAND.darkBorder}`,
-                  background: `${BRAND.darkSurface}80`,
+                  padding: '16px 22px', borderRadius: 12,
+                  border: `1px solid ${BDR}`, background: '#FFFFFF',
                 }}
               >
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#C8D8F0', marginBottom: 2 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: INK, marginBottom: 2 }}>
                     {completedPhases.length > 0
                       ? `${completedPhases.length} of 6 phases complete`
                       : 'Ready to begin'}
                   </div>
-                  <div style={{ fontSize: 11, color: BRAND.muted }}>
+                  <div style={{ fontSize: 11, color: MUT }}>
                     Starting with Phase {currentPhase} — {PHASES[currentPhase - 1]?.label}
                   </div>
                 </div>
                 <motion.button
                   onClick={() => router.push(`/onboard/${currentPhase}`)}
-                  whileHover={{ scale: 1.04, y: -1 }}
-                  whileTap={{ scale: 0.97 }}
+                  whileHover={{ y: -1 }}
+                  whileTap={{ scale: 0.987 }}
                   style={{
-                    height: 50, padding: '0 28px', borderRadius: 12, border: 'none',
-                    background: `linear-gradient(135deg, ${BRAND.accentLight} 0%, ${BRAND.accent} 100%)`,
-                    color: '#fff', fontSize: 13, fontWeight: 700, letterSpacing: '-0.01em',
-                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
-                    boxShadow: `0 4px 22px ${BRAND.accent}50`,
-                    flexShrink: 0,
+                    height: 48, padding: '0 24px', borderRadius: 10, border: 'none',
+                    background: INK, color: '#FFFFFF',
+                    fontSize: 13, fontWeight: 700, letterSpacing: '-0.01em',
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7,
+                    boxShadow: '0 2px 12px rgba(24,24,27,0.20)',
+                    flexShrink: 0, transition: 'all 0.2s',
                   }}
                 >
                   Begin Phase {currentPhase} <ChevronRight size={14} strokeWidth={2.5} />
@@ -525,19 +471,16 @@ export default function WelcomeClient({
         </AnimatePresence>
       </div>
 
-      {/* Footer */}
+      {/* Footer — same as activate page */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 1.2 }}
-        style={{
-          position: 'fixed', bottom: 22, left: 0, right: 0,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, zIndex: 1,
-        }}
+        transition={{ delay: 0.9 }}
+        style={{ position: 'fixed', bottom: 26, display: 'flex', alignItems: 'center', gap: 18, zIndex: 1 }}
       >
         {['GDPR compliant', 'UK data residency', `© 2026 ${BRAND.platform}`].map((t, i) => (
-          <span key={i} style={{ fontSize: 10, color: BRAND.muted, letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: 6 }}>
-            {i > 0 && <span style={{ width: 2, height: 2, borderRadius: '50%', background: BRAND.darkBorder, display: 'inline-block' }} />}
+          <span key={i} style={{ fontSize: 10, color: MUT, letterSpacing: '0.03em', display: 'flex', alignItems: 'center', gap: 7 }}>
+            {i > 0 && <span style={{ width: 2, height: 2, borderRadius: '50%', background: BDR, display: 'inline-block' }} />}
             {t}
           </span>
         ))}

@@ -351,13 +351,28 @@ export default function Phase1Client({
     SECTIONS.find(s => s.n === n)?.summary(form) ?? '';
 
   return (
-    <div style={{ minHeight: '100vh', background: BG, display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight: '100vh', background: BG, display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
+
+      {/* Dot grid */}
+      <svg style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 0 }}>
+        <defs>
+          <pattern id="p1dot" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
+            <circle cx="1" cy="1" r="1" fill="rgba(120,113,108,0.18)" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#p1dot)" />
+      </svg>
+      {/* Ambient bloom — top-left */}
+      <div style={{ position: 'fixed', top: '-15%', left: '-10%', width: '55vw', height: '55vw', borderRadius: '50%', zIndex: 0, background: 'radial-gradient(circle, rgba(8,145,178,0.08) 0%, transparent 68%)', filter: 'blur(50px)', pointerEvents: 'none' }} />
+      {/* Ambient bloom — bottom-right */}
+      <div style={{ position: 'fixed', bottom: '-18%', right: '-12%', width: '45vw', height: '45vw', borderRadius: '50%', zIndex: 0, background: 'radial-gradient(circle, rgba(34,211,238,0.05) 0%, transparent 65%)', filter: 'blur(55px)', pointerEvents: 'none' }} />
 
       {/* ── Top bar ── */}
       <div style={{
         height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 32px', borderBottom: `1px solid ${BDR}`, background: BG,
-        position: 'sticky', top: 0, zIndex: 20, backdropFilter: 'blur(8px)',
+        padding: '0 32px', borderBottom: `1px solid ${BDR}`,
+        position: 'sticky', top: 0, zIndex: 20, backdropFilter: 'blur(10px)',
+        background: `${BG}F0`,
       }}>
         {/* Logo + name */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
@@ -406,7 +421,7 @@ export default function Phase1Client({
       </div>
 
       {/* ── Body ── */}
-      <div style={{ flex: 1, display: 'flex', justifyContent: 'center', padding: '48px 24px 100px' }}>
+      <div style={{ flex: 1, display: 'flex', justifyContent: 'center', padding: '48px 24px 100px', position: 'relative', zIndex: 1 }}>
         <div style={{ width: '100%', maxWidth: 600 }}>
 
           {/* Phase header */}
