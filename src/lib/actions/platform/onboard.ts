@@ -157,6 +157,7 @@ export interface TeamMember {
   role: string;
   username: string;
   login_method: 'email_otp' | 'username';
+  department?: string;
 }
 
 export interface Phase3Data {
