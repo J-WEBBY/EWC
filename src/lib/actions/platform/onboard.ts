@@ -211,3 +211,38 @@ export async function savePhase3(data: Phase3Data): Promise<{ success: boolean; 
     return { success: false, error: 'Failed to save. Please try again.' };
   }
 }
+
+// ── Phase 5: Complete onboarding + go live ────────────────────────────────────
+export async function completeOnboarding(): Promise<{ success: boolean; error?: string }> {
+  try {
+    const tenantId  = await getTenantId();
+    const sessionId = await getSessionId();
+    if (!tenantId) return { success: false, error: 'Session expired. Please re-activate.' };
+
+    // Dev bypass
+    if (!process.env.PLATFORM_SUPABASE_URL) {
+      console.log('[completeOnboarding] dev bypass — marking tenant live');
+      return { success: true };
+    }
+
+    const db = createPlatformClient();
+
+    // Mark tenant as active
+    await db.from('tenants').update({ status: 'active', activated_at: new Date().toISOString() }).eq('id', tenantId);
+
+    // Close onboarding session
+    if (sessionId) {
+      const completed = [1, 2, 3, 4, 5];
+      await db.from('onboarding_sessions').update({
+        current_phase:    5,
+        completed_phases: completed,
+        completed_at:     new Date().toISOString(),
+      }).eq('id', sessionId);
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error('[completeOnboarding]', err);
+    return { success: false, error: 'Failed to activate. Please try again.' };
+  }
+}
