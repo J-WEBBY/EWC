@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import type { StaffProfile } from '@/lib/actions/staff-onboarding';
 import { getPendingBookingCount } from '@/lib/actions/appointments';
+import { JweblyIcon } from '@/components/jwebly-logo';
 
 const NAV_EXPANDED = 240;
 const NAV_COLLAPSED = 60;
@@ -166,22 +167,23 @@ export function StaffNav({
         style={{ borderBottom: '1px solid rgba(0,88,230,0.08)' }}
       >
         <motion.div
-          className="w-2 h-2 rounded-full flex-shrink-0"
-          style={{ backgroundColor: c, boxShadow: `0 0 8px ${c}60` }}
-          animate={{ opacity: [0.5, 1, 0.5], scale: [0.85, 1.15, 0.85] }}
-          transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
-        />
+          className="flex-shrink-0"
+          animate={{ opacity: [0.82, 1, 0.82] }}
+          transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
+        >
+          <JweblyIcon size={collapsed ? 28 : 30} uid="nav" />
+        </motion.div>
         <AnimatePresence>
           {!collapsed && (
             <motion.div
-              className="ml-3 overflow-hidden"
+              className="ml-2.5 overflow-hidden"
               initial={{ opacity: 0, width: 0 }}
               animate={{ opacity: 1, width: 'auto' }}
               exit={{ opacity: 0, width: 0 }}
               transition={{ duration: 0.2 }}
             >
-              <p className="text-[14px] font-semibold leading-tight whitespace-nowrap" style={{ color: '#EBF0FF' }}>EWC</p>
-              <p className="text-[10px] leading-tight whitespace-nowrap" style={{ color: 'rgba(235,240,255,0.30)' }}>Operational Intelligence</p>
+              <p className="text-[13px] font-semibold leading-tight whitespace-nowrap" style={{ color: '#EBF0FF' }}>EWC</p>
+              <p className="text-[9px] leading-tight whitespace-nowrap" style={{ color: 'rgba(235,240,255,0.30)' }}>Operational Intelligence</p>
             </motion.div>
           )}
         </AnimatePresence>

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, Loader2, Check } from 'lucide-react';
 import { validateActivationKey } from '@/lib/actions/platform/activate';
+import { JweblyIcon } from '@/components/jwebly-logo';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const BG   = '#F7F6F3';          // near-white, barely warm
@@ -38,140 +39,104 @@ function isKeyComplete(key: string): boolean {
   return /^JWBLY-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(key);
 }
 
-// ─── Orb — cyan jelly blob, alive and wobbly ─────────────────────────────────
-function AgentOrb({ state }: { state: Step }) {
+// ─── Logo brand mark — Jwebly icon with state-based glow ─────────────────────
+function LogoBrand({ state }: { state: Step }) {
   const isValidating = state === 'validating';
   const isSuccess    = state === 'success';
-  const isIdle       = state === 'enter' || state === 'error';
 
-  const c1 = isSuccess ? '#6EE7B7' : CLT;
-  const c2 = isSuccess ? '#34D399' : CYAN;
-  const c3 = isSuccess ? GRN       : '#065F78';
-
-  // Jelly blob border-radius keyframes — organic morphing shape
-  const BLOB_A = '50% 50% 50% 50% / 50% 50% 50% 50%';
-  const BLOB_B = '54% 46% 48% 52% / 47% 53% 50% 53%';
-  const BLOB_C = '46% 54% 53% 47% / 52% 48% 54% 46%';
-  const BLOB_D = '52% 48% 46% 54% / 50% 54% 46% 50%';
+  // Outer glow color driven by state
+  const glowColor = isSuccess ? '#059669' : CYAN;
+  const glowAlpha = isSuccess ? '55'      : '45';
 
   return (
-    <div style={{ position: 'relative', width: 88, height: 88, margin: '0 auto' }}>
+    <div style={{ position: 'relative', width: 96, height: 96, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
 
-      {/* Far bloom — slow breathe */}
-      <motion.div
-        animate={isIdle
-          ? { scale: [1, 1.3, 1], opacity: [0.14, 0.28, 0.14] }
-          : isValidating
-          ? { scale: [1, 1.65, 1], opacity: [0.2, 0.04, 0.2] }
-          : { opacity: 0.35, scale: 1.35 }
-        }
-        transition={{ duration: isValidating ? 0.7 : 4, repeat: Infinity, ease: 'easeInOut' }}
-        style={{
-          position: 'absolute', inset: -50, borderRadius: '50%',
-          background: `radial-gradient(circle, ${c2}38 0%, ${c2}14 42%, transparent 70%)`,
-          filter: 'blur(16px)', pointerEvents: 'none',
-        }}
-      />
-
-      {/* Mid halo */}
-      <motion.div
-        animate={isIdle
-          ? { scale: [1, 1.18, 1], opacity: [0.25, 0.5, 0.25] }
-          : isValidating
-          ? { scale: [1, 1.38, 1], opacity: [0.35, 0.04, 0.35] }
-          : { opacity: 0.55, scale: 1.16 }
-        }
-        transition={{ duration: isValidating ? 0.7 : 4, repeat: Infinity, ease: 'easeInOut', delay: 0.55 }}
-        style={{
-          position: 'absolute', inset: -22, borderRadius: '50%',
-          background: `radial-gradient(circle, ${c2}50 0%, ${c2}20 50%, transparent 72%)`,
-          filter: 'blur(7px)', pointerEvents: 'none',
-        }}
-      />
-
-      {/* Orb body — jelly blob with wobbly shape morphing */}
+      {/* Far bloom — slow breathe / fast pulse on validating */}
       <motion.div
         animate={
-          isSuccess ? {
-            borderRadius: [BLOB_A, BLOB_A],
-            scale: [0.78, 1.14, 1],
-          } :
-          isValidating ? {
-            borderRadius: [BLOB_A, BLOB_B, BLOB_C, BLOB_D, BLOB_A],
-            scale: [1, 1.04, 0.97, 1.02, 1],
-          } : {
-            // Idle: gentle jelly wobble
-            borderRadius: [BLOB_A, BLOB_B, BLOB_C, BLOB_D, BLOB_B, BLOB_A],
-            scale:        [1, 1.025, 0.98, 1.02, 0.99, 1],
-          }
+          isSuccess    ? { scale: 1.4,  opacity: 0.42 } :
+          isValidating ? { scale: [1, 1.55, 1], opacity: [0.18, 0.05, 0.18] } :
+                         { scale: [1, 1.28, 1], opacity: [0.12, 0.26, 0.12] }
+        }
+        transition={{ duration: isValidating ? 0.65 : 4.2, repeat: Infinity, ease: 'easeInOut' }}
+        style={{
+          position: 'absolute', inset: -44, borderRadius: '50%', pointerEvents: 'none',
+          background: `radial-gradient(circle, ${glowColor}35 0%, ${glowColor}12 45%, transparent 70%)`,
+          filter: 'blur(18px)',
+        }}
+      />
+
+      {/* Near halo */}
+      <motion.div
+        animate={
+          isSuccess    ? { scale: 1.18, opacity: 0.55 } :
+          isValidating ? { scale: [1, 1.32, 1], opacity: [0.28, 0.04, 0.28] } :
+                         { scale: [1, 1.14, 1], opacity: [0.22, 0.44, 0.22] }
+        }
+        transition={{ duration: isValidating ? 0.65 : 4.2, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
+        style={{
+          position: 'absolute', inset: -14, borderRadius: '50%', pointerEvents: 'none',
+          background: `radial-gradient(circle, ${glowColor}${glowAlpha} 0%, ${glowColor}18 55%, transparent 75%)`,
+          filter: 'blur(8px)',
+        }}
+      />
+
+      {/* Logo mark — slow spin on validating, pop on success */}
+      <motion.div
+        animate={
+          isSuccess    ? { scale: [0.82, 1.10, 1],  rotate: 0 } :
+          isValidating ? { rotate: 360 } :
+                         { scale: [1, 1.04, 1] }
         }
         transition={
-          isSuccess    ? { type: 'spring', stiffness: 240, damping: 12 } :
-          isValidating ? { duration: 0.6, repeat: Infinity, ease: 'easeInOut' } :
-          { duration: 4.2, repeat: Infinity, ease: 'easeInOut' }
+          isSuccess    ? { type: 'spring', stiffness: 260, damping: 14 } :
+          isValidating ? { duration: 2.4, repeat: Infinity, ease: 'linear' } :
+                         { duration: 5.5, repeat: Infinity, ease: 'easeInOut' }
         }
-        style={{
-          width: 88, height: 88,
-          background: `
-            radial-gradient(circle at 30% 24%,
-              rgba(255,255,255,0.50) 0%,
-              ${c1}BB 14%,
-              ${c2}DD 42%,
-              ${c3}CC 74%,
-              rgba(0,50,65,0.95) 100%
-            )
-          `,
-          boxShadow: `
-            0 0 0 1px ${c2}30,
-            0 0 14px ${c2}60,
-            0 0 38px ${c2}35,
-            0 0 72px ${c2}18,
-            inset 0 2px 0 rgba(255,255,255,0.42),
-            inset 0 -2px 4px rgba(0,40,50,0.20)
-          `,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          position: 'relative', zIndex: 1, overflow: 'hidden',
-        }}
+        style={{ position: 'relative', zIndex: 1 }}
       >
-        {/* Specular */}
-        <div style={{
-          position: 'absolute', top: 10, left: 14,
-          width: 24, height: 12, borderRadius: '50%',
-          background: 'rgba(255,255,255,0.50)',
-          filter: 'blur(3px)', transform: 'rotate(-20deg)',
-        }} />
-
-        <AnimatePresence mode="wait">
-          {isValidating && (
-            <motion.div key="spin" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <motion.div animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: 'linear' }}>
-                <Loader2 size={28} strokeWidth={1.8} style={{ color: 'rgba(255,255,255,0.95)' }} />
-              </motion.div>
-            </motion.div>
-          )}
-          {isSuccess && (
-            <motion.div key="check"
-              initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 16, delay: 0.1 }}
-            >
-              <Check size={30} strokeWidth={2.5} style={{ color: '#FFFFFF' }} />
-            </motion.div>
-          )}
-          {isIdle && (
-            <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <motion.div
-                animate={{ opacity: [0.5, 1, 0.5], scale: [0.82, 1.08, 0.82] }}
-                transition={{ duration: 2.6, repeat: Infinity, ease: 'easeInOut' }}
-                style={{
-                  width: 11, height: 11, borderRadius: '50%',
-                  background: 'rgba(255,255,255,0.90)',
-                  boxShadow: '0 0 8px rgba(255,255,255,0.80), 0 0 20px rgba(255,255,255,0.35)',
-                }}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <JweblyIcon size={88} uid="activate" />
       </motion.div>
+
+      {/* Validating overlay — spinner ring */}
+      <AnimatePresence>
+        {isValidating && (
+          <motion.div
+            key="spinner"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2, pointerEvents: 'none' }}
+          >
+            <motion.div
+              animate={{ rotate: -360 }}
+              transition={{ duration: 1.1, repeat: Infinity, ease: 'linear' }}
+              style={{
+                width: 96, height: 96, borderRadius: '50%',
+                border: `1.5px solid transparent`,
+                borderTopColor: `${CLT}BB`,
+                borderRightColor: `${CYAN}55`,
+              }}
+            />
+          </motion.div>
+        )}
+        {isSuccess && (
+          <motion.div
+            key="check"
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 420, damping: 18, delay: 0.15 }}
+            style={{
+              position: 'absolute', bottom: -2, right: -2, zIndex: 3,
+              width: 24, height: 24, borderRadius: '50%',
+              background: GRN, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: `0 0 12px ${GRN}80`,
+            }}
+          >
+            <Check size={13} strokeWidth={2.8} style={{ color: '#fff' }} />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -262,7 +227,7 @@ export default function ActivatePage() {
             transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
             style={{ marginBottom: 24 }}
           >
-            <AgentOrb state={step} />
+            <LogoBrand state={step} />
           </motion.div>
           <motion.div
             initial={{ opacity: 0, y: 5 }}
