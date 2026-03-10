@@ -1,191 +1,401 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, ChevronRight, Loader2, Building2, MapPin, Phone, Mail, Globe, User, Stethoscope, AlertCircle } from 'lucide-react';
+import {
+  Check, ChevronRight, Loader2,
+  Building2, MapPin, Phone, User, Stethoscope, AlertCircle, Edit2,
+} from 'lucide-react';
 import type { ClinicProfile } from '@/lib/actions/platform/activate';
 import { savePhase1, type Phase1Data } from '@/lib/actions/platform/onboard';
+import { JweblyIcon } from '@/components/jwebly-logo';
+import { BRAND } from '@/lib/config/brand';
 
-// ─── Design Tokens ────────────────────────────────────────────────────────────
-const BG    = '#FAF8F5';
-const NAVY  = '#1A1F2E';
-const CYAN  = '#0891B2';
-const SEC   = '#4A5568';
-const MUT   = '#94A3B8';
-const BDR   = '#E2E8F0';
-const GREEN = '#059669';
-const RED   = '#DC2626';
+// ─── Design tokens (light theme for phase pages) ───────────────────────────
+const BG   = '#F7F6F3';
+const INK  = '#18181B';
+const SEC  = '#4A5568';
+const MUT  = '#A1A1AA';
+const BDR  = '#E4E4E7';
+const C    = BRAND.accent;
+const CL   = BRAND.accentLight;
+const GRN  = BRAND.green;
+const RED  = BRAND.red;
 
-// ─── Phase stepper ────────────────────────────────────────────────────────────
-const PHASES = [
-  { n: 1, label: 'Clinic overview' },
-  { n: 2, label: 'Your brand'      },
-  { n: 3, label: 'Your team'       },
-  { n: 4, label: 'Credentials'     },
-  { n: 5, label: 'Integrations'    },
-  { n: 6, label: 'Launch'          },
+// ─── Phases strip (top stepper) ────────────────────────────────────────────
+const PHASE_STEPS = [
+  { n: 1, label: 'Clinic profile' },
+  { n: 2, label: 'Brand'          },
+  { n: 3, label: 'Team'           },
+  { n: 4, label: 'Credentials'    },
+  { n: 5, label: 'Integrations'   },
+  { n: 6, label: 'Go live'        },
 ];
 
-const CLINIC_TYPES = [
-  { value: 'aesthetics', label: 'Aesthetics' },
-  { value: 'wellness',   label: 'Wellness'   },
-  { value: 'medical',    label: 'Medical'    },
-  { value: 'dental',     label: 'Dental'     },
-];
+// ─── Section definitions ───────────────────────────────────────────────────
+const SECTIONS = [
+  { n: 1, label: 'Clinic identity', Icon: Building2,   summary: (d: FormData) => d.clinicName || 'Not set' },
+  { n: 2, label: 'Location',        Icon: MapPin,       summary: (d: FormData) => [d.city, d.postcode].filter(Boolean).join(', ') || 'Not set' },
+  { n: 3, label: 'Contact',         Icon: Phone,        summary: (d: FormData) => d.phone || d.email || 'Not set' },
+  { n: 4, label: 'Medical director',Icon: User,         summary: (d: FormData) => d.directorName || 'Not set' },
+  { n: 5, label: 'Regulatory',      Icon: Stethoscope,  summary: (d: FormData) => d.cqcNumber ? `CQC: ${d.cqcNumber}` : d.foundedYear ? `Est. ${d.foundedYear}` : 'Optional fields' },
+] as const;
 
-// ─── Shared input ─────────────────────────────────────────────────────────────
+// ─── Shared field types ────────────────────────────────────────────────────
+interface FormData {
+  clinicName:    string;
+  clinicType:    string[];
+  tagline:       string;
+  addr1:         string;
+  addr2:         string;
+  city:          string;
+  postcode:      string;
+  phone:         string;
+  email:         string;
+  website:       string;
+  cqcNumber:     string;
+  foundedYear:   string;
+  directorName:  string;
+  directorTitle: string;
+}
+
+// ─── Input ──────────────────────────────────────────────────────────────────
 function Field({
-  label, value, onChange, placeholder, type = 'text', hint,
+  label, value, onChange, placeholder, type = 'text', hint, span,
 }: {
   label: string; value: string; onChange: (v: string) => void;
-  placeholder?: string; type?: string; hint?: string;
+  placeholder?: string; type?: string; hint?: string; span?: boolean;
 }) {
   const [focused, setFocused] = useState(false);
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-      <label style={{ fontSize: 11, fontWeight: 600, color: MUT, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 5, gridColumn: span ? '1 / -1' : undefined }}>
+      <label style={{ fontSize: 10, fontWeight: 700, color: MUT, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
         {label}
       </label>
-      <input
-        type={type}
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        placeholder={placeholder}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        style={{
-          height: 44, borderRadius: 10,
-          border: `1.5px solid ${focused ? CYAN : BDR}`,
-          padding: '0 14px', fontSize: 13, color: NAVY,
-          background: '#FAFAF9', outline: 'none',
-          boxShadow: focused ? `0 0 0 3px ${CYAN}14` : 'none',
-          transition: 'all 0.18s',
-        }}
-      />
+      <div style={{ position: 'relative' }}>
+        <input
+          type={type}
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          placeholder={placeholder}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          style={{
+            display: 'block', width: '100%', height: 46, borderRadius: 10,
+            border: `1.5px solid ${focused ? C : BDR}`,
+            padding: '0 14px', fontSize: 13, color: INK,
+            background: focused ? '#FEFEFE' : '#FAFAF9',
+            outline: 'none', boxSizing: 'border-box',
+            boxShadow: focused ? `0 0 0 3px ${C}12` : 'none',
+            transition: 'all 0.18s',
+          }}
+        />
+      </div>
       {hint && <p style={{ fontSize: 10, color: MUT, margin: 0 }}>{hint}</p>}
     </div>
   );
 }
 
-// ─── Main client component ────────────────────────────────────────────────────
+// ─── Type pill ─────────────────────────────────────────────────────────────
+function TypePill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <motion.button
+      type="button"
+      onClick={onClick}
+      whileHover={{ y: -1 }}
+      whileTap={{ scale: 0.96 }}
+      style={{
+        height: 36, padding: '0 16px', borderRadius: 8,
+        border: `1.5px solid ${active ? C : BDR}`,
+        background: active ? `${C}0e` : 'transparent',
+        color: active ? C : SEC, cursor: 'pointer',
+        fontSize: 12, fontWeight: active ? 700 : 400,
+        display: 'flex', alignItems: 'center', gap: 6,
+        transition: 'all 0.15s',
+      }}
+    >
+      <AnimatePresence>
+        {active && (
+          <motion.span
+            key="check"
+            initial={{ scale: 0, width: 0 }}
+            animate={{ scale: 1, width: 'auto' }}
+            exit={{ scale: 0, width: 0 }}
+          >
+            <Check size={11} strokeWidth={3} />
+          </motion.span>
+        )}
+      </AnimatePresence>
+      {label}
+    </motion.button>
+  );
+}
+
+// ─── Section shell: completed strip ───────────────────────────────────────
+function CompletedStrip({
+  n, label, Icon, summary, onEdit,
+}: {
+  n: number; label: string; Icon: React.ElementType; summary: string; onEdit: () => void;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: 'auto' }}
+      style={{
+        borderRadius: 12, border: `1px solid ${GRN}30`,
+        background: `${GRN}06`, overflow: 'hidden',
+      }}
+    >
+      <div style={{
+        padding: '12px 18px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{
+            width: 26, height: 26, borderRadius: '50%',
+            background: `${GRN}18`, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Check size={13} strokeWidth={2.5} style={{ color: GRN }} />
+          </div>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: INK, lineHeight: 1.2 }}>{label}</div>
+            <div style={{ fontSize: 10, color: MUT, marginTop: 1 }}>{summary}</div>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onEdit}
+          style={{
+            height: 28, padding: '0 10px', borderRadius: 7, border: `1px solid ${BDR}`,
+            background: 'transparent', color: MUT, fontSize: 11, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 5, transition: 'all 0.15s',
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = C; (e.currentTarget as HTMLButtonElement).style.color = C; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = BDR; (e.currentTarget as HTMLButtonElement).style.color = MUT; }}
+        >
+          <Edit2 size={10} /> Edit
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── Active section card ───────────────────────────────────────────────────
+function ActiveSection({
+  n, label, Icon, children, onNext, onNextLabel, loading, isLast,
+}: {
+  n: number; label: string; Icon: React.ElementType;
+  children: React.ReactNode;
+  onNext: () => void; onNextLabel?: string;
+  loading?: boolean; isLast?: boolean;
+}) {
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Scroll this section into view after a brief delay
+    const t = setTimeout(() => {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 120);
+    return () => clearTimeout(t);
+  }, []);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+      style={{ borderRadius: 16, border: `1.5px solid ${C}40`, background: '#FFFFFF', overflow: 'hidden' }}
+    >
+      {/* Top accent */}
+      <div style={{ height: 2, background: `linear-gradient(90deg, ${CL}, ${C})` }} />
+
+      {/* Header */}
+      <div style={{
+        padding: '14px 20px', borderBottom: `1px solid ${BDR}`,
+        display: 'flex', alignItems: 'center', gap: 10,
+        background: `${C}04`,
+      }}>
+        <div style={{
+          width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+          background: `${C}14`, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Icon size={14} style={{ color: C }} />
+        </div>
+        <div>
+          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: C, lineHeight: 1 }}>
+            Section {n} of {SECTIONS.length}
+          </div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: INK, letterSpacing: '-0.02em' }}>{label}</div>
+        </div>
+      </div>
+
+      {/* Body */}
+      <div style={{ padding: '22px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {children}
+      </div>
+
+      {/* Footer */}
+      <div style={{
+        padding: '14px 20px', borderTop: `1px solid ${BDR}`,
+        display: 'flex', justifyContent: 'flex-end', gap: 10, background: BG,
+      }}>
+        <motion.button
+          type="button"
+          onClick={onNext}
+          disabled={loading}
+          whileHover={!loading ? { y: -1 } : {}}
+          whileTap={!loading ? { scale: 0.985 } : {}}
+          style={{
+            height: 44, padding: '0 22px', borderRadius: 10, border: 'none',
+            background: isLast ? `linear-gradient(135deg, ${CL} 0%, ${C} 100%)` : INK,
+            color: '#fff', fontSize: 13, fontWeight: 700, letterSpacing: '-0.01em',
+            cursor: loading ? 'default' : 'pointer',
+            display: 'flex', alignItems: 'center', gap: 7,
+            boxShadow: isLast ? `0 4px 18px ${C}40` : '0 2px 12px rgba(0,0,0,0.14)',
+            transition: 'all 0.2s',
+          }}
+        >
+          {loading
+            ? <><Loader2 size={14} className="animate-spin" /> Saving&hellip;</>
+            : isLast
+            ? <><Check size={14} strokeWidth={2.5} /> {onNextLabel ?? 'Confirm & continue'}</>
+            : <>{onNextLabel ?? 'Next'} <ChevronRight size={14} /></>
+          }
+        </motion.button>
+      </div>
+      <div ref={bottomRef} />
+    </motion.div>
+  );
+}
+
+// ─── Main component ────────────────────────────────────────────────────────
 export default function Phase1Client({
   sessionId, tenantName, profile, completedPhases,
 }: {
-  sessionId: string;
-  tenantName: string;
-  profile: ClinicProfile;
-  completedPhases: number[];
+  sessionId: string; tenantName: string;
+  profile: ClinicProfile; completedPhases: number[];
 }) {
   const router = useRouter();
-  const [saving, setSaving]   = useState(false);
-  const [error, setError]     = useState('');
-  const [saved, setSaved]     = useState(false);
 
-  // ── Form state — pre-filled from DB ──────────────────────────────────────
-  const [clinicName,   setClinicName]   = useState(profile.clinic_name  ?? '');
-  const [clinicType,   setClinicType]   = useState<string[]>(profile.clinic_type ?? []);
-  const [tagline,      setTagline]      = useState(profile.tagline       ?? '');
-  const [addr1,        setAddr1]        = useState(profile.address_line1 ?? '');
-  const [addr2,        setAddr2]        = useState(profile.address_line2 ?? '');
-  const [city,         setCity]         = useState(profile.city          ?? '');
-  const [postcode,     setPostcode]     = useState(profile.postcode      ?? '');
-  const [phone,        setPhone]        = useState(profile.phone         ?? '');
-  const [email,        setEmail]        = useState(profile.email         ?? '');
-  const [website,      setWebsite]      = useState(profile.website       ?? '');
-  const [cqcNumber,    setCqcNumber]    = useState(profile.cqc_number    ?? '');
-  const [foundedYear,  setFoundedYear]  = useState(profile.founded_year ? String(profile.founded_year) : '');
-  const [directorName, setDirectorName] = useState(profile.director_name  ?? '');
-  const [directorTitle,setDirectorTitle]= useState(profile.director_title ?? '');
-
+  // ── Form state — pre-filled from DB ───────────────────────────────────
+  const [form, setForm] = useState<FormData>({
+    clinicName:    profile.clinic_name  ?? '',
+    clinicType:    profile.clinic_type  ?? [],
+    tagline:       profile.tagline      ?? '',
+    addr1:         profile.address_line1 ?? '',
+    addr2:         profile.address_line2 ?? '',
+    city:          profile.city          ?? '',
+    postcode:      profile.postcode      ?? '',
+    phone:         profile.phone         ?? '',
+    email:         profile.email         ?? '',
+    website:       profile.website       ?? '',
+    cqcNumber:     profile.cqc_number    ?? '',
+    foundedYear:   profile.founded_year ? String(profile.founded_year) : '',
+    directorName:  profile.director_name  ?? '',
+    directorTitle: profile.director_title ?? '',
+  });
+  const set = useCallback((key: keyof FormData) => (v: string) => setForm(f => ({ ...f, [key]: v })), []);
   const toggleType = useCallback((v: string) => {
-    setClinicType(prev =>
-      prev.includes(v) ? prev.filter(t => t !== v) : [...prev, v]
-    );
+    setForm(f => ({
+      ...f,
+      clinicType: f.clinicType.includes(v) ? f.clinicType.filter(t => t !== v) : [...f.clinicType, v],
+    }));
   }, []);
 
-  const handleSave = useCallback(async () => {
-    if (!clinicName.trim()) { setError('Clinic name is required.'); return; }
-    if (clinicType.length === 0) { setError('Select at least one clinic type.'); return; }
+  // ── Section navigation ─────────────────────────────────────────────────
+  const [activeSection, setActiveSection] = useState(1);
+  const [confirmed, setConfirmed]         = useState<Set<number>>(new Set());
+  const [saving, setSaving]               = useState(false);
+  const [error, setError]                 = useState('');
+
+  function confirmSection(n: number) {
+    setConfirmed(prev => { const s = new Set(prev); s.add(n); return s; });
+    setActiveSection(n + 1);
+    setError('');
+  }
+
+  function editSection(n: number) {
+    setActiveSection(n);
+  }
+
+  async function handleSubmit() {
+    if (!form.clinicName.trim()) { setError('Clinic name is required.'); return; }
+    if (!form.clinicType.length)  { setError('Select at least one clinic type.'); return; }
     setError(''); setSaving(true);
 
     const data: Phase1Data = {
-      clinic_name:   clinicName.trim(),
-      clinic_type:   clinicType,
-      tagline:       tagline.trim(),
-      address_line1: addr1.trim(),
-      address_line2: addr2.trim(),
-      city:          city.trim(),
-      postcode:      postcode.trim(),
-      phone:         phone.trim(),
-      email:         email.trim(),
-      website:       website.trim(),
-      cqc_number:    cqcNumber.trim(),
-      founded_year:  foundedYear ? parseInt(foundedYear) : null,
-      director_name:  directorName.trim(),
-      director_title: directorTitle.trim(),
+      clinic_name:    form.clinicName.trim(),
+      clinic_type:    form.clinicType,
+      tagline:        form.tagline.trim(),
+      address_line1:  form.addr1.trim(),
+      address_line2:  form.addr2.trim(),
+      city:           form.city.trim(),
+      postcode:       form.postcode.trim(),
+      phone:          form.phone.trim(),
+      email:          form.email.trim(),
+      website:        form.website.trim(),
+      cqc_number:     form.cqcNumber.trim(),
+      founded_year:   form.foundedYear ? parseInt(form.foundedYear) : null,
+      director_name:  form.directorName.trim(),
+      director_title: form.directorTitle.trim(),
     };
 
     const result = await savePhase1(data);
     setSaving(false);
-
     if (!result.success) { setError(result.error ?? 'Failed to save.'); return; }
+    router.push('/onboard/2');
+  }
 
-    setSaved(true);
-    setTimeout(() => router.push('/onboard/2'), 900);
-  }, [clinicName, clinicType, tagline, addr1, addr2, city, postcode, phone, email, website, cqcNumber, foundedYear, directorName, directorTitle, router]);
+  const sectionSummary = (n: number) =>
+    SECTIONS.find(s => s.n === n)?.summary(form) ?? '';
 
   return (
     <div style={{ minHeight: '100vh', background: BG, display: 'flex', flexDirection: 'column' }}>
 
-      {/* ── Top nav ── */}
+      {/* ── Top bar ── */}
       <div style={{
         height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 40px', borderBottom: `1px solid ${BDR}`, background: BG,
-        position: 'sticky', top: 0, zIndex: 10,
+        padding: '0 32px', borderBottom: `1px solid ${BDR}`, background: BG,
+        position: 'sticky', top: 0, zIndex: 20, backdropFilter: 'blur(8px)',
       }}>
-        {/* Wordmark */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 28, height: 28, borderRadius: 8,
-            background: `radial-gradient(circle at 33% 30%, #22D3EE, ${CYAN})`,
-            boxShadow: `0 2px 8px ${CYAN}40`,
-          }} />
-          <span style={{ fontSize: 13, fontWeight: 700, color: NAVY, letterSpacing: '-0.02em' }}>
-            Jwebly Health
+        {/* Logo + name */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+          <JweblyIcon size={24} uid="p1-nav" />
+          <span style={{ fontSize: 13, fontWeight: 700, color: INK, letterSpacing: '-0.02em' }}>
+            {BRAND.platform}
           </span>
         </div>
 
-        {/* Stepper */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          {PHASES.map((p, i) => {
+        {/* Phase stepper */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          {PHASE_STEPS.map((p, i) => {
             const done    = completedPhases.includes(p.n);
             const current = p.n === 1;
             return (
-              <div key={p.n} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div key={p.n} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                   <div style={{
-                    width: 20, height: 20, borderRadius: '50%',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: done ? GREEN : current ? NAVY : 'transparent',
-                    border: `1.5px solid ${done ? GREEN : current ? NAVY : BDR}`,
-                    flexShrink: 0,
+                    width: 22, height: 22, borderRadius: '50%',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                    background: done ? GRN : current ? INK : 'transparent',
+                    border: `1.5px solid ${done ? GRN : current ? INK : BDR}`,
                   }}>
                     {done
-                      ? <Check size={10} strokeWidth={3} style={{ color: '#fff' }} />
+                      ? <Check size={11} strokeWidth={3} style={{ color: '#fff' }} />
                       : <span style={{ fontSize: 9, fontWeight: 700, color: current ? '#fff' : MUT }}>{p.n}</span>
                     }
                   </div>
                   <span style={{
                     fontSize: 11, fontWeight: current ? 600 : 400,
-                    color: current ? NAVY : done ? SEC : MUT,
-                    display: window?.innerWidth > 900 ? 'block' : 'none',
+                    color: current ? INK : done ? SEC : MUT,
+                    display: window.innerWidth > 900 ? 'inline' : 'none',
                   }}>
                     {p.label}
                   </span>
                 </div>
-                {i < PHASES.length - 1 && (
-                  <ChevronRight size={12} style={{ color: BDR, flexShrink: 0 }} />
+                {i < PHASE_STEPS.length - 1 && (
+                  <ChevronRight size={11} style={{ color: BDR, flexShrink: 0 }} />
                 )}
               </div>
             );
@@ -196,119 +406,204 @@ export default function Phase1Client({
       </div>
 
       {/* ── Body ── */}
-      <div style={{
-        flex: 1, display: 'flex', justifyContent: 'center',
-        padding: '48px 24px 80px',
-      }}>
-        <div style={{ width: '100%', maxWidth: 640 }}>
+      <div style={{ flex: 1, display: 'flex', justifyContent: 'center', padding: '48px 24px 100px' }}>
+        <div style={{ width: '100%', maxWidth: 600 }}>
 
-          {/* Header */}
+          {/* Phase header */}
           <motion.div
-            initial={{ opacity: 0, y: 12 }}
+            initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-            style={{ marginBottom: 36 }}
+            transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
+            style={{ marginBottom: 32 }}
           >
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
-              background: `${CYAN}0c`, border: `1px solid ${CYAN}22`,
-              borderRadius: 20, padding: '4px 10px', marginBottom: 12,
+              background: `${C}0c`, border: `1px solid ${C}22`,
+              borderRadius: 20, padding: '4px 12px', marginBottom: 12,
             }}>
-              <Building2 size={11} style={{ color: CYAN }} />
-              <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase', color: CYAN }}>
+              <Building2 size={11} style={{ color: C }} />
+              <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: C }}>
                 Phase 1 of 6
               </span>
             </div>
-            <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.035em', color: NAVY, margin: '0 0 8px' }}>
-              Clinic overview
+            <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.04em', color: INK, margin: '0 0 8px' }}>
+              Clinic profile
             </h1>
-            <p style={{ fontSize: 13, color: SEC, margin: 0, lineHeight: 1.7 }}>
-              We&apos;ve pre-filled this from your onboarding brief. Review everything carefully — this is how your system will identify your clinic.
+            <p style={{ fontSize: 13, color: SEC, margin: '0 0 20px', lineHeight: 1.7 }}>
+              Review and confirm your clinic&apos;s details across 5 sections. Pre-filled from your onboarding brief.
             </p>
+
+            {/* Section progress bar */}
+            <div style={{ display: 'flex', gap: 4 }}>
+              {SECTIONS.map(s => (
+                <div
+                  key={s.n}
+                  style={{
+                    flex: 1, height: 3, borderRadius: 2,
+                    background: confirmed.has(s.n) ? GRN : s.n === activeSection ? C : BDR,
+                    transition: 'background 0.3s',
+                  }}
+                />
+              ))}
+            </div>
+            <div style={{ fontSize: 10, color: MUT, marginTop: 6 }}>
+              {confirmed.size} of {SECTIONS.length} sections confirmed
+            </div>
           </motion.div>
 
           {/* ── Sections ── */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 
-            {/* Clinic identity */}
-            <Section icon={<Building2 size={14} style={{ color: CYAN }} />} title="Clinic identity">
-              <Field label="Clinic name" value={clinicName} onChange={setClinicName} placeholder="Edgbaston Wellness Clinic" />
-              <div>
-                <label style={{ fontSize: 11, fontWeight: 600, color: MUT, letterSpacing: '0.08em', textTransform: 'uppercase', display: 'block', marginBottom: 8 }}>
-                  Clinic type
-                </label>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {CLINIC_TYPES.map(t => {
-                    const active = clinicType.includes(t.value);
-                    return (
-                      <button
-                        key={t.value}
-                        type="button"
-                        onClick={() => toggleType(t.value)}
-                        style={{
-                          height: 34, padding: '0 14px', borderRadius: 8,
-                          border: `1.5px solid ${active ? CYAN : BDR}`,
-                          background: active ? `${CYAN}0e` : 'transparent',
-                          color: active ? CYAN : SEC,
-                          fontSize: 12, fontWeight: active ? 600 : 400,
-                          cursor: 'pointer', transition: 'all 0.15s',
-                          display: 'flex', alignItems: 'center', gap: 5,
-                        }}
-                      >
-                        {active && <Check size={11} strokeWidth={3} />}
-                        {t.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <Field label="Tagline" value={tagline} onChange={setTagline} placeholder="Premium aesthetics & wellness in Birmingham" hint="Optional — shown in system header" />
-            </Section>
+            {/* ── Render each section ── */}
+            {SECTIONS.map(({ n, label, Icon }) => {
+              const isConfirmed = confirmed.has(n);
+              const isActive    = activeSection === n;
+              const isLocked    = !isConfirmed && !isActive;
 
-            {/* Address */}
-            <Section icon={<MapPin size={14} style={{ color: CYAN }} />} title="Address">
-              <Field label="Address line 1" value={addr1} onChange={setAddr1} placeholder="11 Greenfield Crescent" />
-              <Field label="Address line 2" value={addr2} onChange={setAddr2} placeholder="Suite / Floor (optional)" />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <Field label="City" value={city} onChange={setCity} placeholder="Birmingham" />
-                <Field label="Postcode" value={postcode} onChange={setPostcode} placeholder="B15 3AU" />
-              </div>
-            </Section>
+              if (isConfirmed && activeSection !== n) {
+                return (
+                  <CompletedStrip
+                    key={n}
+                    n={n} label={label} Icon={Icon}
+                    summary={sectionSummary(n)}
+                    onEdit={() => editSection(n)}
+                  />
+                );
+              }
 
-            {/* Contact */}
-            <Section icon={<Phone size={14} style={{ color: CYAN }} />} title="Contact">
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <Field label="Phone" value={phone} onChange={setPhone} type="tel" placeholder="0121 454 8633" />
-                <Field label="Email" value={email} onChange={setEmail} type="email" placeholder="info@edgbastonwellness.co.uk" />
-              </div>
-              <Field label="Website" value={website} onChange={setWebsite} placeholder="https://edgbastonwellness.co.uk" hint="Optional" />
-            </Section>
+              if (isActive) {
+                return (
+                  <ActiveSection
+                    key={n}
+                    n={n} label={label} Icon={Icon}
+                    onNext={n === SECTIONS.length ? handleSubmit : () => confirmSection(n)}
+                    onNextLabel={n === SECTIONS.length ? 'Save & continue' : undefined}
+                    loading={n === SECTIONS.length ? saving : false}
+                    isLast={n === SECTIONS.length}
+                  >
 
-            {/* Director */}
-            <Section icon={<User size={14} style={{ color: CYAN }} />} title="Medical director">
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <Field label="Full name" value={directorName} onChange={setDirectorName} placeholder="Dr Suresh Ganta" />
-                <Field label="Title / Role" value={directorTitle} onChange={setDirectorTitle} placeholder="Medical Director" />
-              </div>
-            </Section>
+                    {/* ── Section 1: Clinic identity ── */}
+                    {n === 1 && (
+                      <>
+                        <Field label="Clinic name *" value={form.clinicName} onChange={set('clinicName')} placeholder="Edgbaston Wellness Clinic" />
+                        <div>
+                          <label style={{ fontSize: 10, fontWeight: 700, color: MUT, letterSpacing: '0.14em', textTransform: 'uppercase', display: 'block', marginBottom: 8 }}>
+                            Clinic type *
+                          </label>
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            {['Aesthetics', 'Wellness', 'Medical', 'Dental'].map(t => (
+                              <TypePill
+                                key={t}
+                                label={t}
+                                active={form.clinicType.includes(t.toLowerCase())}
+                                onClick={() => toggleType(t.toLowerCase())}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                        <Field
+                          label="Tagline"
+                          value={form.tagline}
+                          onChange={set('tagline')}
+                          placeholder="Premium aesthetics & wellness in Birmingham"
+                          hint="Optional — shown in platform header"
+                        />
+                      </>
+                    )}
 
-            {/* Regulatory */}
-            <Section icon={<Stethoscope size={14} style={{ color: CYAN }} />} title="Regulatory">
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <Field label="CQC registration number" value={cqcNumber} onChange={setCqcNumber} placeholder="Optional" />
-                <Field label="Year founded" value={foundedYear} onChange={setFoundedYear} type="number" placeholder="e.g. 2019" />
-              </div>
-            </Section>
+                    {/* ── Section 2: Location ── */}
+                    {n === 2 && (
+                      <>
+                        <Field label="Address line 1" value={form.addr1} onChange={set('addr1')} placeholder="11 Greenfield Crescent" />
+                        <Field label="Address line 2" value={form.addr2} onChange={set('addr2')} placeholder="Suite / Floor (optional)" />
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                          <Field label="City" value={form.city} onChange={set('city')} placeholder="Birmingham" />
+                          <Field label="Postcode" value={form.postcode} onChange={set('postcode')} placeholder="B15 3AU" />
+                        </div>
+                      </>
+                    )}
+
+                    {/* ── Section 3: Contact ── */}
+                    {n === 3 && (
+                      <>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                          <Field label="Phone" value={form.phone} onChange={set('phone')} type="tel" placeholder="0121 454 8633" />
+                          <Field label="Email" value={form.email} onChange={set('email')} type="email" placeholder="info@clinic.co.uk" />
+                        </div>
+                        <Field label="Website" value={form.website} onChange={set('website')} placeholder="https://edgbastonwellness.co.uk" hint="Optional" />
+                      </>
+                    )}
+
+                    {/* ── Section 4: Medical director ── */}
+                    {n === 4 && (
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                        <Field label="Full name" value={form.directorName} onChange={set('directorName')} placeholder="Dr Suresh Ganta" />
+                        <Field label="Title / Role" value={form.directorTitle} onChange={set('directorTitle')} placeholder="Medical Director" />
+                      </div>
+                    )}
+
+                    {/* ── Section 5: Regulatory ── */}
+                    {n === 5 && (
+                      <>
+                        <div style={{
+                          padding: '12px 14px', borderRadius: 10,
+                          background: `${C}08`, border: `1px solid ${C}20`,
+                          fontSize: 12, color: SEC, lineHeight: 1.6,
+                        }}>
+                          Both fields are optional. You can add them later via Settings.
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                          <Field label="CQC registration number" value={form.cqcNumber} onChange={set('cqcNumber')} placeholder="Optional" />
+                          <Field label="Year founded" value={form.foundedYear} onChange={set('foundedYear')} type="number" placeholder="e.g. 2019" />
+                        </div>
+                      </>
+                    )}
+
+                  </ActiveSection>
+                );
+              }
+
+              // Locked — not yet reached
+              if (isLocked) {
+                return (
+                  <motion.div
+                    key={n}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    style={{
+                      borderRadius: 12, border: `1px solid ${BDR}`,
+                      padding: '12px 18px', opacity: 0.38,
+                      display: 'flex', alignItems: 'center', gap: 10,
+                    }}
+                  >
+                    <div style={{
+                      width: 24, height: 24, borderRadius: '50%',
+                      border: `1.5px solid ${BDR}`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      flexShrink: 0,
+                    }}>
+                      <span style={{ fontSize: 9, fontWeight: 700, color: MUT }}>{n}</span>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: SEC }}>{label}</div>
+                      <div style={{ fontSize: 10, color: MUT }}>Complete section {n - 1} first</div>
+                    </div>
+                  </motion.div>
+                );
+              }
+
+              return null;
+            })}
 
           </div>
 
-          {/* ── Error ── */}
+          {/* Error */}
           <AnimatePresence>
             {error && (
               <motion.div
                 initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                 style={{
-                  marginTop: 20, padding: '10px 14px', borderRadius: 10,
+                  marginTop: 16, padding: '10px 14px', borderRadius: 10,
                   background: `${RED}08`, border: `1px solid ${RED}25`,
                   display: 'flex', alignItems: 'center', gap: 8,
                 }}
@@ -319,73 +614,8 @@ export default function Phase1Client({
             )}
           </AnimatePresence>
 
-          {/* ── CTA ── */}
-          <div style={{ marginTop: 32, display: 'flex', justifyContent: 'flex-end' }}>
-            <motion.button
-              type="button"
-              onClick={handleSave}
-              disabled={saving || saved}
-              whileHover={!saving && !saved ? { y: -1 } : {}}
-              whileTap={!saving && !saved ? { scale: 0.985 } : {}}
-              style={{
-                height: 48, padding: '0 28px', borderRadius: 12, border: 'none',
-                cursor: saving || saved ? 'default' : 'pointer',
-                display: 'flex', alignItems: 'center', gap: 8,
-                fontSize: 13, fontWeight: 700, letterSpacing: '-0.01em',
-                color: '#FAF8F5',
-                background: saved ? GREEN : NAVY,
-                boxShadow: saved
-                  ? `0 4px 16px ${GREEN}35`
-                  : '0 4px 16px rgba(26,31,46,0.22)',
-                transition: 'background 0.25s, box-shadow 0.25s',
-              }}
-            >
-              {saving
-                ? <><Loader2 size={14} className="animate-spin" /> Saving&hellip;</>
-                : saved
-                ? <><Check size={14} strokeWidth={3} /> Confirmed</>
-                : <>Confirm &amp; continue <ChevronRight size={14} /></>
-              }
-            </motion.button>
-          </div>
-
         </div>
       </div>
     </div>
-  );
-}
-
-// ─── Section wrapper ──────────────────────────────────────────────────────────
-function Section({
-  icon, title, children,
-}: {
-  icon: React.ReactNode; title: string; children: React.ReactNode;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35 }}
-      style={{
-        borderRadius: 16, border: `1px solid ${BDR}`,
-        overflow: 'hidden', background: '#FFFFFF',
-      }}
-    >
-      {/* Section header */}
-      <div style={{
-        padding: '14px 20px', borderBottom: `1px solid ${BDR}`,
-        display: 'flex', alignItems: 'center', gap: 8,
-        background: `${BG}`,
-      }}>
-        {icon}
-        <span style={{ fontSize: 12, fontWeight: 700, color: NAVY, letterSpacing: '-0.01em' }}>
-          {title}
-        </span>
-      </div>
-      {/* Section body */}
-      <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {children}
-      </div>
-    </motion.div>
   );
 }

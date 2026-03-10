@@ -175,7 +175,7 @@ export default function ActivatePage() {
     const res = await validateActivationKey(displayKey);
     if (!res.success) { setStep('error'); setError(res.error); return; }
     setStep('success');
-    setTimeout(() => router.push('/onboard/1'), 1800);
+    setTimeout(() => router.push('/onboard'), 1800);
   }, [complete, displayKey, router]);
 
   return (

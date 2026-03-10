@@ -5,10 +5,7 @@ export const metadata: Metadata = {
   description: 'Set up your Jwebly Health workspace.',
 };
 
+// Each child page controls its own background
 export default function OnboardLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <section style={{ minHeight: '100vh', background: '#FAF8F5' }}>
-      {children}
-    </section>
-  );
+  return <section style={{ minHeight: '100vh' }}>{children}</section>;
 }
