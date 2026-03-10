@@ -9,11 +9,10 @@ import { validateActivationKey } from '@/lib/actions/platform/activate';
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const BG   = '#F7F6F3';          // near-white, barely warm
 const INK  = '#18181B';          // dark charcoal — crisp, high contrast
-const SUB  = '#52525B';          // secondary text
 const MUT  = '#A1A1AA';          // muted
 const BDR  = '#E4E4E7';          // clean neutral border
-const CYAN = '#0891B2';          // system cyan
-const CLT  = '#22D3EE';          // cyan light
+const BLUE = '#0058E6';          // EWC healthcare blue
+const BLT  = '#3B82F6';          // blue light
 const GRN  = '#059669';
 const RED  = '#DC2626';
 
@@ -39,108 +38,106 @@ function isKeyComplete(key: string): boolean {
   return /^JWBLY-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(key);
 }
 
-// ─── Orb — ethereal, glass-like, luminous ─────────────────────────────────────
+// ─── Orb — EWC healthcare blue, alive with radiating glow ────────────────────
 function AgentOrb({ state }: { state: Step }) {
   const isValidating = state === 'validating';
   const isSuccess    = state === 'success';
   const isIdle       = state === 'enter' || state === 'error';
 
-  const c1 = isSuccess ? '#6EE7B7' : CLT;
-  const c2 = isSuccess ? '#34D399' : CYAN;
-  const c3 = isSuccess ? GRN       : '#065F78';
+  const c1 = isSuccess ? '#34D399' : BLT;
+  const c2 = isSuccess ? GRN       : BLUE;
+  const c3 = isSuccess ? '#065F46' : '#003899';
 
   return (
-    <div style={{ position: 'relative', width: 80, height: 80, margin: '0 auto' }}>
+    <div style={{ position: 'relative', width: 88, height: 88, margin: '0 auto' }}>
 
-      {/* Far bloom — very diffuse */}
+      {/* Outermost diffuse bloom — wide, slow breathe */}
       <motion.div
         animate={isIdle
-          ? { scale: [1, 1.22, 1], opacity: [0.12, 0.22, 0.12] }
+          ? { scale: [1, 1.35, 1], opacity: [0.18, 0.38, 0.18] }
           : isValidating
-          ? { scale: [1, 1.6, 1],  opacity: [0.18, 0, 0.18] }
-          : { opacity: 0.25, scale: 1.3 }
+          ? { scale: [1, 1.7, 1],  opacity: [0.28, 0.05, 0.28] }
+          : { opacity: 0.45, scale: 1.4 }
         }
-        transition={{ duration: isValidating ? 0.9 : 4, repeat: Infinity, ease: 'easeInOut' }}
+        transition={{ duration: isValidating ? 0.75 : 3.6, repeat: Infinity, ease: 'easeInOut' }}
         style={{
-          position: 'absolute', inset: -44, borderRadius: '50%',
-          background: `radial-gradient(circle, ${c2}28 0%, transparent 68%)`,
-          filter: 'blur(12px)', pointerEvents: 'none',
+          position: 'absolute', inset: -52, borderRadius: '50%',
+          background: `radial-gradient(circle, ${c2}40 0%, ${c2}18 40%, transparent 70%)`,
+          filter: 'blur(18px)', pointerEvents: 'none',
         }}
       />
 
-      {/* Mid halo */}
+      {/* Mid halo — tighter ring, slightly offset phase */}
       <motion.div
         animate={isIdle
-          ? { scale: [1, 1.14, 1], opacity: [0.2, 0.36, 0.2] }
+          ? { scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }
           : isValidating
-          ? { scale: [1, 1.35, 1], opacity: [0.28, 0, 0.28] }
-          : { opacity: 0.4, scale: 1.15 }
+          ? { scale: [1, 1.4, 1], opacity: [0.4, 0.05, 0.4] }
+          : { opacity: 0.65, scale: 1.18 }
         }
-        transition={{ duration: isValidating ? 0.9 : 4, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
+        transition={{ duration: isValidating ? 0.75 : 3.6, repeat: Infinity, ease: 'easeInOut', delay: 0.6 }}
         style={{
-          position: 'absolute', inset: -22, borderRadius: '50%',
-          background: `radial-gradient(circle, ${c2}38 0%, transparent 65%)`,
-          filter: 'blur(6px)', pointerEvents: 'none',
+          position: 'absolute', inset: -24, borderRadius: '50%',
+          background: `radial-gradient(circle, ${c2}55 0%, ${c2}22 50%, transparent 72%)`,
+          filter: 'blur(8px)', pointerEvents: 'none',
         }}
       />
 
-      {/* Glass orb — translucent, light-forward */}
+      {/* Orb body — solid blue sphere with glassy highlight */}
       <motion.div
         animate={
-          isSuccess   ? { scale: [0.8, 1.1, 1] } :
-          isValidating? { scale: 1 } :
-          { scale: [1, 1.025, 1] }
+          isSuccess    ? { scale: [0.78, 1.12, 1] } :
+          isValidating ? { scale: 1 } :
+          { scale: [1, 1.028, 1] }
         }
         transition={
-          isSuccess    ? { type: 'spring', stiffness: 280, damping: 14 } :
+          isSuccess    ? { type: 'spring', stiffness: 260, damping: 14 } :
           isValidating ? { duration: 0.3 } :
-          { duration: 4, repeat: Infinity, ease: 'easeInOut' }
+          { duration: 3.6, repeat: Infinity, ease: 'easeInOut' }
         }
         style={{
-          width: 80, height: 80, borderRadius: '50%',
-          // Mostly transparent glass sphere — defined by rim and glow, not fill
+          width: 88, height: 88, borderRadius: '50%',
           background: `
-            radial-gradient(circle at 28% 22%,
-              rgba(255,255,255,0.55) 0%,
-              ${c1}55 18%,
-              ${c2}30 45%,
-              ${c3}15 75%,
-              transparent 100%
+            radial-gradient(circle at 32% 26%,
+              rgba(255,255,255,0.42) 0%,
+              ${c1}CC 12%,
+              ${c2}FF 38%,
+              ${c3}EE 72%,
+              #001A5E 100%
             )
           `,
           boxShadow: `
-            0 0 0 1px ${c2}22,
-            0 2px 12px ${c2}30,
-            0 8px 32px ${c2}22,
-            inset 0 1px 0 rgba(255,255,255,0.5),
-            inset 0 -1px 0 rgba(0,0,0,0.06)
+            0 0 0 1.5px ${c2}60,
+            0 0 18px ${c2}70,
+            0 0 48px ${c2}45,
+            0 0 90px ${c2}22,
+            inset 0 2px 0 rgba(255,255,255,0.38),
+            inset 0 -2px 4px rgba(0,0,30,0.22)
           `,
-          backdropFilter: 'blur(2px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          position: 'relative', zIndex: 1,
-          overflow: 'hidden',
+          position: 'relative', zIndex: 1, overflow: 'hidden',
         }}
       >
-        {/* Specular */}
+        {/* Primary specular highlight */}
         <div style={{
-          position: 'absolute', top: 9, left: 13,
-          width: 22, height: 11, borderRadius: '50%',
-          background: 'rgba(255,255,255,0.45)',
-          filter: 'blur(3px)', transform: 'rotate(-22deg)',
+          position: 'absolute', top: 10, left: 15,
+          width: 26, height: 13, borderRadius: '50%',
+          background: 'rgba(255,255,255,0.52)',
+          filter: 'blur(4px)', transform: 'rotate(-20deg)',
         }} />
-        {/* Rim light bottom */}
+        {/* Secondary rim catch — bottom right */}
         <div style={{
-          position: 'absolute', bottom: 8, right: 10,
-          width: 16, height: 8, borderRadius: '50%',
-          background: `rgba(255,255,255,0.12)`,
-          filter: 'blur(2px)', transform: 'rotate(15deg)',
+          position: 'absolute', bottom: 10, right: 11,
+          width: 14, height: 7, borderRadius: '50%',
+          background: 'rgba(255,255,255,0.18)',
+          filter: 'blur(2px)', transform: 'rotate(12deg)',
         }} />
 
         <AnimatePresence mode="wait">
           {isValidating && (
             <motion.div key="spin" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <motion.div animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}>
-                <Loader2 size={26} strokeWidth={1.8} style={{ color: 'rgba(255,255,255,0.9)' }} />
+              <motion.div animate={{ rotate: 360 }} transition={{ duration: 0.75, repeat: Infinity, ease: 'linear' }}>
+                <Loader2 size={28} strokeWidth={1.8} style={{ color: 'rgba(255,255,255,0.95)' }} />
               </motion.div>
             </motion.div>
           )}
@@ -149,18 +146,19 @@ function AgentOrb({ state }: { state: Step }) {
               initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
               transition={{ type: 'spring', stiffness: 400, damping: 16, delay: 0.06 }}
             >
-              <Check size={28} strokeWidth={2.5} style={{ color: '#FFFFFF' }} />
+              <Check size={30} strokeWidth={2.5} style={{ color: '#FFFFFF' }} />
             </motion.div>
           )}
           {isIdle && (
             <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              {/* Inner pulse core */}
               <motion.div
-                animate={{ opacity: [0.5, 0.95, 0.5], scale: [0.85, 1.05, 0.85] }}
-                transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
+                animate={{ opacity: [0.55, 1, 0.55], scale: [0.8, 1.1, 0.8] }}
+                transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
                 style={{
-                  width: 10, height: 10, borderRadius: '50%',
-                  background: 'rgba(255,255,255,0.8)',
-                  boxShadow: '0 0 8px rgba(255,255,255,0.7)',
+                  width: 12, height: 12, borderRadius: '50%',
+                  background: 'rgba(255,255,255,0.92)',
+                  boxShadow: '0 0 10px rgba(255,255,255,0.85), 0 0 24px rgba(255,255,255,0.4)',
                 }}
               />
             </motion.div>
@@ -230,14 +228,14 @@ export default function ActivatePage() {
       <div style={{
         position: 'fixed', top: '-15%', left: '-10%',
         width: '60vw', height: '60vw', borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(8,145,178,0.09) 0%, transparent 68%)',
+        background: 'radial-gradient(circle, rgba(0,88,230,0.10) 0%, transparent 68%)',
         filter: 'blur(50px)', pointerEvents: 'none', zIndex: 0,
       }} />
       {/* ── Ambient bloom — bottom-right ── */}
       <div style={{
         position: 'fixed', bottom: '-18%', right: '-12%',
         width: '50vw', height: '50vw', borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(34,211,238,0.06) 0%, transparent 65%)',
+        background: 'radial-gradient(circle, rgba(0,88,230,0.06) 0%, transparent 65%)',
         filter: 'blur(55px)', pointerEvents: 'none', zIndex: 0,
       }} />
 
@@ -269,7 +267,7 @@ export default function ActivatePage() {
             </div>
             <div style={{
               fontSize: 9, fontWeight: 700, letterSpacing: '0.26em',
-              textTransform: 'uppercase', color: CYAN, marginTop: 6, opacity: 0.9,
+              textTransform: 'uppercase', color: BLUE, marginTop: 6, opacity: 0.9,
             }}>
               Operational Intelligence
             </div>
@@ -309,7 +307,7 @@ export default function ActivatePage() {
                   placeholder="JWBLY-XXXX-XXXX-XXXX-XXXX"
                   style={{
                     display: 'block', width: '100%', height: 52,
-                    border: `1.5px solid ${step === 'error' ? `${RED}55` : complete ? `${CYAN}65` : BDR}`,
+                    border: `1.5px solid ${step === 'error' ? `${RED}55` : complete ? `${BLUE}65` : BDR}`,
                     borderRadius: 10, padding: '0 16px',
                     fontSize: 14, fontFamily: 'ui-monospace, "SF Mono", monospace',
                     fontWeight: 600, letterSpacing: '0.1em',
@@ -317,13 +315,13 @@ export default function ActivatePage() {
                     outline: 'none', boxSizing: 'border-box',
                     transition: 'border-color 0.18s, box-shadow 0.18s',
                     boxShadow: complete
-                      ? `0 0 0 3px ${CYAN}14`
+                      ? `0 0 0 3px ${BLUE}14`
                       : step === 'error' ? `0 0 0 3px ${RED}10` : 'none',
                   }}
                   onFocus={e => {
                     if (step !== 'error') {
-                      e.target.style.borderColor = `${CYAN}65`;
-                      e.target.style.boxShadow = `0 0 0 3px ${CYAN}14`;
+                      e.target.style.borderColor = `${BLUE}65`;
+                      e.target.style.boxShadow = `0 0 0 3px ${BLUE}14`;
                     }
                   }}
                   onBlur={e => {
@@ -371,7 +369,7 @@ export default function ActivatePage() {
                   Don&apos;t have a key?{' '}
                   <a href="mailto:hello@jwebly.com"
                     style={{ color: INK, fontWeight: 600, textDecoration: 'none' }}
-                    onMouseEnter={e => (e.currentTarget.style.color = CYAN)}
+                    onMouseEnter={e => (e.currentTarget.style.color = BLUE)}
                     onMouseLeave={e => (e.currentTarget.style.color = INK)}
                   >
                     Contact your account manager
@@ -394,14 +392,14 @@ export default function ActivatePage() {
               <p style={{ fontSize: 12, color: MUT, margin: '0 0 24px', lineHeight: 1.7 }}>
                 Authenticating your credentials&hellip;
               </p>
-              <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', color: CYAN, opacity: 0.75, marginBottom: 24 }}>
+              <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', color: BLUE, opacity: 0.75, marginBottom: 24 }}>
                 {displayKey}
               </div>
               <div style={{ height: 1.5, background: BDR, borderRadius: 2, overflow: 'hidden' }}>
                 <motion.div
                   initial={{ scaleX: 0 }} animate={{ scaleX: 1 }}
                   transition={{ duration: 1.6, ease: [0.22, 1, 0.36, 1] }}
-                  style={{ height: '100%', originX: 0, background: `linear-gradient(90deg, ${CYAN} 0%, ${CLT} 100%)` }}
+                  style={{ height: '100%', originX: 0, background: `linear-gradient(90deg, ${BLUE} 0%, ${BLT} 100%)` }}
                 />
               </div>
             </motion.div>

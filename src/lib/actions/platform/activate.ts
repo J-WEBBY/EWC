@@ -181,7 +181,31 @@ export async function getTenantSession(): Promise<TenantSession | null> {
     const raw = cookieStore.get('jwh_tenant')?.value;
     if (!raw) return null;
 
-    const { tenantId, sessionId } = JSON.parse(raw);
+    const { tenantId, tenantSlug, sessionId } = JSON.parse(raw);
+
+    // Dev bypass: reconstruct session without hitting DB
+    if (!process.env.PLATFORM_SUPABASE_URL || !process.env.PLATFORM_SUPABASE_SERVICE_KEY) {
+      if (tenantId === 'dev-bypass') {
+        return {
+          tenantId: 'dev-bypass', tenantSlug: tenantSlug ?? 'dev', tenantName: 'Edgbaston Wellness Clinic',
+          profile: {
+            clinic_name: 'Edgbaston Wellness Clinic',
+            clinic_type: ['aesthetics', 'wellness', 'medical'],
+            tagline: 'Premium aesthetics, wellness & medical care in Birmingham',
+            address_line1: '11 Greenfield Crescent', address_line2: null,
+            city: 'Birmingham', postcode: 'B15 3AU',
+            phone: '0121 454 8633', email: 'info@edgbastonwellness.co.uk',
+            website: null, cqc_number: null, founded_year: null,
+            director_name: 'Dr Suresh Ganta', director_title: 'Medical Director',
+            primary_color: '#0058E6', logo_url: null,
+            agent_name: 'Aria', receptionist_name: 'Komal',
+          },
+          onboardingPhase: 1, completedPhases: [], sessionId: sessionId ?? 'dev-session',
+        };
+      }
+      return null;
+    }
+
     const db = createPlatformClient();
 
     const [{ data: tenant }, { data: session }] = await Promise.all([
