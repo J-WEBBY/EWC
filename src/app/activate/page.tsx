@@ -7,16 +7,16 @@ import { ArrowRight, Loader2, Check } from 'lucide-react';
 import { validateActivationKey } from '@/lib/actions/platform/activate';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
-const BG      = '#EDE8DC';           // warm parchment beige
-const NAVY    = '#1A1F2E';
-const CYAN    = '#0891B2';
-const CYAN_LT = '#22D3EE';
-const MUT     = '#9B8F80';           // warm muted
-const BDR     = '#D5CCBA';           // warm border
-const GREEN   = '#059669';
-const RED     = '#DC2626';
+const BG   = '#F7F6F3';          // near-white, barely warm
+const INK  = '#18181B';          // dark charcoal — crisp, high contrast
+const SUB  = '#52525B';          // secondary text
+const MUT  = '#A1A1AA';          // muted
+const BDR  = '#E4E4E7';          // clean neutral border
+const CYAN = '#0891B2';          // system cyan
+const CLT  = '#22D3EE';          // cyan light
+const GRN  = '#059669';
+const RED  = '#DC2626';
 
-// ─── Key format: JWBLY-XXXX-XXXX-XXXX-XXXX ───────────────────────────────────
 const KEY_PREFIX   = 'JWBLY';
 const GROUP_LEN    = 4;
 const NUM_GROUPS   = 4;
@@ -32,146 +32,135 @@ function formatKey(raw: string): string {
     const chunk = stripped.slice(i * GROUP_LEN, (i + 1) * GROUP_LEN);
     if (chunk) groups.push(chunk);
   }
-  const suffix = groups.join('-');
-  return suffix ? `${KEY_PREFIX}-${suffix}` : KEY_PREFIX;
+  return groups.length ? `${KEY_PREFIX}-${groups.join('-')}` : KEY_PREFIX;
 }
 
 function isKeyComplete(key: string): boolean {
   return /^JWBLY-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(key);
 }
 
-// ─── Agent Orb ────────────────────────────────────────────────────────────────
+// ─── Orb — ethereal, glass-like, luminous ─────────────────────────────────────
 function AgentOrb({ state }: { state: Step }) {
   const isValidating = state === 'validating';
   const isSuccess    = state === 'success';
   const isIdle       = state === 'enter' || state === 'error';
 
-  const orbColor  = isSuccess ? '#34D399' : CYAN;
-  const orbDeep   = isSuccess ? '#059669' : '#0C6E96';
-  const orbColor2 = isSuccess ? '#6EE7B7' : CYAN_LT;
+  const c1 = isSuccess ? '#6EE7B7' : CLT;
+  const c2 = isSuccess ? '#34D399' : CYAN;
+  const c3 = isSuccess ? GRN       : '#065F78';
 
   return (
-    <div style={{ position: 'relative', width: 72, height: 72, margin: '0 auto' }}>
+    <div style={{ position: 'relative', width: 80, height: 80, margin: '0 auto' }}>
 
-      {/* ── Glow layer 3 — outermost bloom ── */}
+      {/* Far bloom — very diffuse */}
       <motion.div
         animate={isIdle
-          ? { scale: [1, 1.18, 1], opacity: [0.22, 0.38, 0.22] }
+          ? { scale: [1, 1.22, 1], opacity: [0.12, 0.22, 0.12] }
           : isValidating
-          ? { scale: [1, 1.5, 1], opacity: [0.3, 0, 0.3] }
-          : { opacity: 0.4, scale: 1.2 }
+          ? { scale: [1, 1.6, 1],  opacity: [0.18, 0, 0.18] }
+          : { opacity: 0.25, scale: 1.3 }
         }
-        transition={{ duration: isValidating ? 1.1 : 3.6, repeat: Infinity, ease: 'easeInOut' }}
+        transition={{ duration: isValidating ? 0.9 : 4, repeat: Infinity, ease: 'easeInOut' }}
         style={{
-          position: 'absolute',
-          inset: -40,
-          borderRadius: '50%',
-          background: `radial-gradient(circle, ${orbColor}38 0%, ${orbColor}12 45%, transparent 72%)`,
-          filter: 'blur(8px)',
-          pointerEvents: 'none',
+          position: 'absolute', inset: -44, borderRadius: '50%',
+          background: `radial-gradient(circle, ${c2}28 0%, transparent 68%)`,
+          filter: 'blur(12px)', pointerEvents: 'none',
         }}
       />
 
-      {/* ── Glow layer 2 — mid halo ── */}
+      {/* Mid halo */}
       <motion.div
         animate={isIdle
-          ? { scale: [1, 1.12, 1], opacity: [0.35, 0.55, 0.35] }
+          ? { scale: [1, 1.14, 1], opacity: [0.2, 0.36, 0.2] }
           : isValidating
-          ? { scale: [1, 1.3, 1], opacity: [0.4, 0, 0.4] }
-          : { opacity: 0.55, scale: 1.1 }
+          ? { scale: [1, 1.35, 1], opacity: [0.28, 0, 0.28] }
+          : { opacity: 0.4, scale: 1.15 }
         }
-        transition={{ duration: isValidating ? 1.1 : 3.6, repeat: Infinity, ease: 'easeInOut', delay: 0.4 }}
+        transition={{ duration: isValidating ? 0.9 : 4, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
         style={{
-          position: 'absolute',
-          inset: -20,
-          borderRadius: '50%',
-          background: `radial-gradient(circle, ${orbColor}50 0%, ${orbColor}20 55%, transparent 75%)`,
-          filter: 'blur(4px)',
-          pointerEvents: 'none',
+          position: 'absolute', inset: -22, borderRadius: '50%',
+          background: `radial-gradient(circle, ${c2}38 0%, transparent 65%)`,
+          filter: 'blur(6px)', pointerEvents: 'none',
         }}
       />
 
-      {/* ── Glow layer 1 — tight ring ── */}
+      {/* Glass orb — translucent, light-forward */}
       <motion.div
-        animate={isIdle
-          ? { opacity: [0.5, 0.75, 0.5] }
-          : isValidating
-          ? { scale: [1, 1.15, 1], opacity: [0.6, 0, 0.6] }
-          : { opacity: 0.8 }
+        animate={
+          isSuccess   ? { scale: [0.8, 1.1, 1] } :
+          isValidating? { scale: 1 } :
+          { scale: [1, 1.025, 1] }
         }
-        transition={{ duration: isValidating ? 1.1 : 3.6, repeat: Infinity, ease: 'easeInOut', delay: 0.8 }}
-        style={{
-          position: 'absolute',
-          inset: -8,
-          borderRadius: '50%',
-          background: `radial-gradient(circle, ${orbColor}60 0%, transparent 65%)`,
-          pointerEvents: 'none',
-        }}
-      />
-
-      {/* ── Orb sphere ── */}
-      <motion.div
-        animate={isSuccess ? { scale: [0.82, 1.08, 1] } : isIdle ? { scale: [1, 1.03, 1] } : { scale: 1 }}
-        transition={isSuccess
-          ? { type: 'spring', stiffness: 300, damping: 14 }
-          : isIdle
-          ? { duration: 3.6, repeat: Infinity, ease: 'easeInOut' }
-          : { duration: 0.3 }
+        transition={
+          isSuccess    ? { type: 'spring', stiffness: 280, damping: 14 } :
+          isValidating ? { duration: 0.3 } :
+          { duration: 4, repeat: Infinity, ease: 'easeInOut' }
         }
         style={{
-          width: 72, height: 72, borderRadius: '50%',
-          background: `radial-gradient(circle at 30% 26%, ${orbColor2} 0%, ${orbColor} 42%, ${orbDeep} 100%)`,
-          boxShadow: `
-            0 0 0 1px ${orbColor}30,
-            0 4px 16px ${orbColor}50,
-            0 12px 40px ${orbColor}35,
-            inset 0 1px 0 rgba(255,255,255,0.30),
-            inset 0 -2px 6px rgba(0,0,0,0.12)
+          width: 80, height: 80, borderRadius: '50%',
+          // Mostly transparent glass sphere — defined by rim and glow, not fill
+          background: `
+            radial-gradient(circle at 28% 22%,
+              rgba(255,255,255,0.55) 0%,
+              ${c1}55 18%,
+              ${c2}30 45%,
+              ${c3}15 75%,
+              transparent 100%
+            )
           `,
+          boxShadow: `
+            0 0 0 1px ${c2}22,
+            0 2px 12px ${c2}30,
+            0 8px 32px ${c2}22,
+            inset 0 1px 0 rgba(255,255,255,0.5),
+            inset 0 -1px 0 rgba(0,0,0,0.06)
+          `,
+          backdropFilter: 'blur(2px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           position: 'relative', zIndex: 1,
+          overflow: 'hidden',
         }}
       >
-        {/* Specular glint */}
+        {/* Specular */}
         <div style={{
-          position: 'absolute', top: 10, left: 14,
-          width: 18, height: 10, borderRadius: '50%',
-          background: 'rgba(255,255,255,0.28)',
-          filter: 'blur(2px)',
-          transform: 'rotate(-20deg)',
+          position: 'absolute', top: 9, left: 13,
+          width: 22, height: 11, borderRadius: '50%',
+          background: 'rgba(255,255,255,0.45)',
+          filter: 'blur(3px)', transform: 'rotate(-22deg)',
+        }} />
+        {/* Rim light bottom */}
+        <div style={{
+          position: 'absolute', bottom: 8, right: 10,
+          width: 16, height: 8, borderRadius: '50%',
+          background: `rgba(255,255,255,0.12)`,
+          filter: 'blur(2px)', transform: 'rotate(15deg)',
         }} />
 
         <AnimatePresence mode="wait">
           {isValidating && (
-            <motion.div key="spin"
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            >
-              <motion.div animate={{ rotate: 360 }} transition={{ duration: 0.85, repeat: Infinity, ease: 'linear' }}>
-                <Loader2 size={26} strokeWidth={2} style={{ color: 'rgba(255,255,255,0.92)' }} />
+            <motion.div key="spin" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <motion.div animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}>
+                <Loader2 size={26} strokeWidth={1.8} style={{ color: 'rgba(255,255,255,0.9)' }} />
               </motion.div>
             </motion.div>
           )}
           {isSuccess && (
             <motion.div key="check"
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: 'spring', stiffness: 420, damping: 16, delay: 0.05 }}
+              initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 16, delay: 0.06 }}
             >
               <Check size={28} strokeWidth={2.5} style={{ color: '#FFFFFF' }} />
             </motion.div>
           )}
           {isIdle && (
-            <motion.div key="idle"
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            >
+            <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <motion.div
-                animate={{ opacity: [0.6, 1, 0.6], scale: [0.9, 1.1, 0.9] }}
-                transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
+                animate={{ opacity: [0.5, 0.95, 0.5], scale: [0.85, 1.05, 0.85] }}
+                transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
                 style={{
-                  width: 12, height: 12, borderRadius: '50%',
-                  background: 'rgba(255,255,255,0.7)',
-                  boxShadow: '0 0 10px rgba(255,255,255,0.6), 0 0 20px rgba(255,255,255,0.3)',
+                  width: 10, height: 10, borderRadius: '50%',
+                  background: 'rgba(255,255,255,0.8)',
+                  boxShadow: '0 0 8px rgba(255,255,255,0.7)',
                 }}
               />
             </motion.div>
@@ -182,12 +171,12 @@ function AgentOrb({ state }: { state: Step }) {
   );
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
+// ─── Page ─────────────────────────────────────────────────────────────────────
 export default function ActivatePage() {
   const router = useRouter();
-  const [step, setStep] = useState<Step>('enter');
-  const [rawKey, setRawKey] = useState(KEY_PREFIX);
-  const [error, setError]   = useState('');
+  const [step, setStep]   = useState<Step>('enter');
+  const [rawKey, setRaw]  = useState(KEY_PREFIX);
+  const [error, setError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
   const displayKey = formatKey(rawKey);
@@ -199,143 +188,105 @@ export default function ActivatePage() {
   }, []);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setRawKey(formatKey(e.target.value));
+    setRaw(formatKey(e.target.value));
     setError('');
   }, []);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Backspace' && (displayKey === KEY_PREFIX || displayKey === `${KEY_PREFIX}-`)) {
+    if (e.key === 'Backspace' && (displayKey === KEY_PREFIX || displayKey === `${KEY_PREFIX}-`))
       e.preventDefault();
-    }
-    if (e.key === 'Enter' && complete) void handleSubmit();
+    if (e.key === 'Enter' && complete) void submit();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [displayKey, complete]);
 
-  const handleSubmit = useCallback(async () => {
+  const submit = useCallback(async () => {
     if (!complete) return;
-    setError('');
-    setStep('validating');
-
-    const result = await validateActivationKey(displayKey);
-
-    if (!result.success) {
-      setStep('error');
-      setError(result.error);
-      return;
-    }
-
+    setError(''); setStep('validating');
+    const res = await validateActivationKey(displayKey);
+    if (!res.success) { setStep('error'); setError(res.error); return; }
     setStep('success');
-    // Always start at phase 1 — session tracks resume point
-    setTimeout(() => {
-      router.push('/onboard/1');
-    }, 1800);
+    setTimeout(() => router.push('/onboard/1'), 1800);
   }, [complete, displayKey, router]);
 
   return (
     <div style={{
-      minHeight: '100vh',
-      background: BG,
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '40px 24px',
-      position: 'relative',
-      overflow: 'hidden',
+      minHeight: '100vh', background: BG,
+      display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center',
+      padding: '40px 24px', position: 'relative', overflow: 'hidden',
     }}>
 
-      {/* ── Dot texture ── */}
-      <svg style={{
-        position: 'fixed', inset: 0, width: '100%', height: '100%',
-        pointerEvents: 'none', zIndex: 0,
-      }}>
+      {/* ── Dot grid ── */}
+      <svg style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 0 }}>
         <defs>
-          <pattern id="dots" x="0" y="0" width="22" height="22" patternUnits="userSpaceOnUse">
-            <circle cx="1.2" cy="1.2" r="1.2" fill="rgba(160,148,128,0.32)" />
+          <pattern id="grid" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
+            <circle cx="1" cy="1" r="1" fill="rgba(120,113,108,0.18)" />
           </pattern>
         </defs>
-        <rect width="100%" height="100%" fill="url(#dots)" />
+        <rect width="100%" height="100%" fill="url(#grid)" />
       </svg>
 
-      {/* ── Ambient glow — top-left cyan bloom ── */}
+      {/* ── Ambient bloom — top-left ── */}
       <div style={{
-        position: 'fixed', top: '-18%', left: '-12%',
-        width: '65vw', height: '65vw', borderRadius: '50%',
-        background: `radial-gradient(circle, rgba(8,145,178,0.13) 0%, rgba(8,145,178,0.04) 50%, transparent 70%)`,
-        filter: 'blur(48px)',
-        pointerEvents: 'none', zIndex: 0,
+        position: 'fixed', top: '-15%', left: '-10%',
+        width: '60vw', height: '60vw', borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(8,145,178,0.09) 0%, transparent 68%)',
+        filter: 'blur(50px)', pointerEvents: 'none', zIndex: 0,
       }} />
-      {/* ── Ambient glow — bottom-right warm bloom ── */}
+      {/* ── Ambient bloom — bottom-right ── */}
       <div style={{
-        position: 'fixed', bottom: '-22%', right: '-14%',
-        width: '55vw', height: '55vw', borderRadius: '50%',
-        background: `radial-gradient(circle, rgba(34,211,238,0.08) 0%, transparent 65%)`,
-        filter: 'blur(52px)',
-        pointerEvents: 'none', zIndex: 0,
-      }} />
-      {/* ── Centre vignette — darkens edges slightly for depth ── */}
-      <div style={{
-        position: 'fixed', inset: 0,
-        background: 'radial-gradient(ellipse at center, transparent 40%, rgba(30,24,16,0.06) 100%)',
-        pointerEvents: 'none', zIndex: 0,
+        position: 'fixed', bottom: '-18%', right: '-12%',
+        width: '50vw', height: '50vw', borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(34,211,238,0.06) 0%, transparent 65%)',
+        filter: 'blur(55px)', pointerEvents: 'none', zIndex: 0,
       }} />
 
       {/* ── Content ── */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
         style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 380 }}
       >
 
-        {/* ── Brand header ── */}
-        <div style={{ textAlign: 'center', marginBottom: 52 }}>
+        {/* Brand */}
+        <div style={{ textAlign: 'center', marginBottom: 56 }}>
           <motion.div
-            initial={{ scale: 0.7, opacity: 0 }}
+            initial={{ scale: 0.75, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-            style={{ marginBottom: 26 }}
+            style={{ marginBottom: 24 }}
           >
             <AgentOrb state={step} />
           </motion.div>
-
           <motion.div
-            initial={{ opacity: 0, y: 6 }}
+            initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15, duration: 0.4 }}
+            transition={{ delay: 0.14, duration: 0.4 }}
           >
-            <div style={{
-              fontSize: 28, fontWeight: 800, letterSpacing: '-0.04em',
-              color: NAVY, lineHeight: 1,
-            }}>
+            <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.04em', color: INK, lineHeight: 1 }}>
               Jwebly Health
             </div>
             <div style={{
-              fontSize: 9, fontWeight: 700, letterSpacing: '0.28em',
-              textTransform: 'uppercase', color: CYAN, marginTop: 7,
-              opacity: 0.85,
+              fontSize: 9, fontWeight: 700, letterSpacing: '0.26em',
+              textTransform: 'uppercase', color: CYAN, marginTop: 6, opacity: 0.9,
             }}>
               Operational Intelligence
             </div>
           </motion.div>
         </div>
 
-        {/* ── Form ── */}
+        {/* Form */}
         <AnimatePresence mode="wait">
 
           {/* ENTER / ERROR */}
           {(step === 'enter' || step === 'error') && (
             <motion.div key="enter"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.22 }}
+              initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}
             >
-              <div style={{ marginBottom: 32 }}>
-                <h2 style={{
-                  fontSize: 20, fontWeight: 700, letterSpacing: '-0.03em',
-                  color: NAVY, margin: '0 0 6px',
-                }}>
+              <div style={{ marginBottom: 28 }}>
+                <h2 style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.03em', color: INK, margin: '0 0 5px' }}>
                   Private client key
                 </h2>
                 <p style={{ fontSize: 12, color: MUT, margin: 0, lineHeight: 1.7 }}>
@@ -343,8 +294,7 @@ export default function ActivatePage() {
                 </p>
               </div>
 
-              {/* Input */}
-              <div style={{ marginBottom: 12 }}>
+              <div style={{ marginBottom: 10 }}>
                 <input
                   ref={inputRef}
                   type="text"
@@ -358,46 +308,36 @@ export default function ActivatePage() {
                   autoCapitalize="characters"
                   placeholder="JWBLY-XXXX-XXXX-XXXX-XXXX"
                   style={{
-                    display: 'block',
-                    width: '100%',
-                    height: 54,
-                    border: `1.5px solid ${step === 'error' ? `${RED}60` : complete ? `${CYAN}70` : BDR}`,
-                    borderRadius: 12,
-                    padding: '0 18px',
-                    fontSize: 14,
-                    fontFamily: 'ui-monospace, "SF Mono", "Fira Code", monospace',
-                    fontWeight: 600,
-                    letterSpacing: '0.12em',
-                    color: NAVY,
-                    background: step === 'error' ? `${RED}05` : '#F5F0E8',
-                    outline: 'none',
-                    boxSizing: 'border-box',
+                    display: 'block', width: '100%', height: 52,
+                    border: `1.5px solid ${step === 'error' ? `${RED}55` : complete ? `${CYAN}65` : BDR}`,
+                    borderRadius: 10, padding: '0 16px',
+                    fontSize: 14, fontFamily: 'ui-monospace, "SF Mono", monospace',
+                    fontWeight: 600, letterSpacing: '0.1em',
+                    color: INK, background: '#FFFFFF',
+                    outline: 'none', boxSizing: 'border-box',
                     transition: 'border-color 0.18s, box-shadow 0.18s',
                     boxShadow: complete
-                      ? `0 0 0 3px ${CYAN}18`
-                      : step === 'error'
-                      ? `0 0 0 3px ${RED}12`
-                      : 'none',
+                      ? `0 0 0 3px ${CYAN}14`
+                      : step === 'error' ? `0 0 0 3px ${RED}10` : 'none',
                   }}
                   onFocus={e => {
                     if (step !== 'error') {
-                      e.target.style.borderColor = `${CYAN}70`;
-                      e.target.style.boxShadow   = `0 0 0 3px ${CYAN}18`;
+                      e.target.style.borderColor = `${CYAN}65`;
+                      e.target.style.boxShadow = `0 0 0 3px ${CYAN}14`;
                     }
                   }}
                   onBlur={e => {
                     if (!complete && step !== 'error') {
                       e.target.style.borderColor = BDR;
-                      e.target.style.boxShadow   = 'none';
+                      e.target.style.boxShadow = 'none';
                     }
                   }}
                 />
                 <AnimatePresence>
                   {error && (
-                    <motion.p
-                      key="err"
+                    <motion.p key="err"
                       initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                      style={{ fontSize: 11, color: RED, margin: '8px 0 0 2px', lineHeight: 1.5 }}
+                      style={{ fontSize: 11, color: RED, margin: '7px 0 0 2px', lineHeight: 1.5 }}
                     >
                       {error}
                     </motion.p>
@@ -405,50 +345,34 @@ export default function ActivatePage() {
                 </AnimatePresence>
               </div>
 
-              {/* CTA */}
               <motion.button
                 type="button"
-                onClick={() => void handleSubmit()}
+                onClick={() => void submit()}
                 disabled={!complete}
-                whileHover={complete ? { y: -1, boxShadow: '0 6px 24px rgba(26,31,46,0.28)' } : {}}
-                whileTap={complete ? { scale: 0.985 } : {}}
+                whileHover={complete ? { y: -1 } : {}}
+                whileTap={complete ? { scale: 0.987 } : {}}
                 style={{
-                  width: '100%',
-                  height: 54,
-                  borderRadius: 12,
-                  border: 'none',
+                  width: '100%', height: 52, borderRadius: 10, border: 'none',
                   cursor: complete ? 'pointer' : 'not-allowed',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 9,
-                  fontSize: 14,
-                  fontWeight: 700,
-                  letterSpacing: '-0.01em',
-                  color: complete ? '#FAF8F5' : MUT,
-                  background: complete ? NAVY : BDR,
-                  boxShadow: complete ? '0 4px 16px rgba(26,31,46,0.22)' : 'none',
-                  transition: 'background 0.2s, box-shadow 0.2s, color 0.2s',
-                  marginBottom: 24,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  fontSize: 13, fontWeight: 700, letterSpacing: '-0.01em',
+                  color: complete ? '#FFFFFF' : MUT,
+                  background: complete ? INK : BDR,
+                  boxShadow: complete ? '0 2px 12px rgba(24,24,27,0.20)' : 'none',
+                  transition: 'all 0.2s',
+                  marginBottom: 22,
                 }}
               >
-                Continue
-                <ArrowRight size={15} strokeWidth={2.5} />
+                Continue <ArrowRight size={14} strokeWidth={2.5} />
               </motion.button>
 
-              {/* Divider + help */}
-              <div style={{
-                textAlign: 'center',
-                paddingTop: 24,
-                borderTop: `1px solid ${BDR}`,
-              }}>
+              <div style={{ textAlign: 'center', paddingTop: 22, borderTop: `1px solid ${BDR}` }}>
                 <p style={{ fontSize: 12, color: MUT, margin: 0 }}>
                   Don&apos;t have a key?{' '}
-                  <a
-                    href="mailto:hello@jwebly.com"
-                    style={{ color: NAVY, fontWeight: 600, textDecoration: 'none' }}
+                  <a href="mailto:hello@jwebly.com"
+                    style={{ color: INK, fontWeight: 600, textDecoration: 'none' }}
                     onMouseEnter={e => (e.currentTarget.style.color = CYAN)}
-                    onMouseLeave={e => (e.currentTarget.style.color = NAVY)}
+                    onMouseLeave={e => (e.currentTarget.style.color = INK)}
                   >
                     Contact your account manager
                   </a>
@@ -460,43 +384,24 @@ export default function ActivatePage() {
           {/* VALIDATING */}
           {step === 'validating' && (
             <motion.div key="validating"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.22 }}
-              style={{ textAlign: 'center', paddingTop: 8 }}
+              initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}
+              style={{ textAlign: 'center', paddingTop: 4 }}
             >
-              <div style={{ marginBottom: 28 }}>
-                <h2 style={{
-                  fontSize: 20, fontWeight: 700, letterSpacing: '-0.03em',
-                  color: NAVY, margin: '0 0 8px',
-                }}>
-                  Verifying key
-                </h2>
-                <p style={{ fontSize: 12, color: MUT, margin: 0, lineHeight: 1.7 }}>
-                  Authenticating your credentials&hellip;
-                </p>
-              </div>
-
-              {/* Key display */}
-              <div style={{
-                fontFamily: 'ui-monospace, "SF Mono", monospace',
-                fontSize: 12, fontWeight: 600, letterSpacing: '0.12em',
-                color: CYAN, marginBottom: 28, opacity: 0.8,
-              }}>
+              <h2 style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.03em', color: INK, margin: '0 0 6px' }}>
+                Verifying key
+              </h2>
+              <p style={{ fontSize: 12, color: MUT, margin: '0 0 24px', lineHeight: 1.7 }}>
+                Authenticating your credentials&hellip;
+              </p>
+              <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', color: CYAN, opacity: 0.75, marginBottom: 24 }}>
                 {displayKey}
               </div>
-
-              {/* Progress bar */}
-              <div style={{ height: 2, background: BDR, borderRadius: 2, overflow: 'hidden' }}>
+              <div style={{ height: 1.5, background: BDR, borderRadius: 2, overflow: 'hidden' }}>
                 <motion.div
-                  initial={{ scaleX: 0 }}
-                  animate={{ scaleX: 1 }}
+                  initial={{ scaleX: 0 }} animate={{ scaleX: 1 }}
                   transition={{ duration: 1.6, ease: [0.22, 1, 0.36, 1] }}
-                  style={{
-                    height: '100%', originX: 0, borderRadius: 2,
-                    background: `linear-gradient(90deg, ${CYAN} 0%, ${CYAN_LT} 100%)`,
-                  }}
+                  style={{ height: '100%', originX: 0, background: `linear-gradient(90deg, ${CYAN} 0%, ${CLT} 100%)` }}
                 />
               </div>
             </motion.div>
@@ -505,54 +410,37 @@ export default function ActivatePage() {
           {/* SUCCESS */}
           {step === 'success' && (
             <motion.div key="success"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.25 }}
-              style={{ textAlign: 'center', paddingTop: 8 }}
+              initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }} transition={{ duration: 0.22 }}
+              style={{ textAlign: 'center', paddingTop: 4 }}
             >
-              <motion.div
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                style={{ marginBottom: 8 }}
+              <motion.h2
+                initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+                style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.03em', color: INK, margin: '0 0 6px' }}
               >
-                <h2 style={{
-                  fontSize: 20, fontWeight: 700, letterSpacing: '-0.03em',
-                  color: NAVY, margin: '0 0 8px',
-                }}>
-                  Key verified
-                </h2>
-                <p style={{ fontSize: 12, color: MUT, margin: '0 0 20px', lineHeight: 1.7 }}>
-                  Preparing your workspace&hellip;
-                </p>
-                <div style={{
-                  fontFamily: 'ui-monospace, "SF Mono", monospace',
-                  fontSize: 11, fontWeight: 600, letterSpacing: '0.12em',
-                  color: GREEN, opacity: 0.85,
-                }}>
-                  {displayKey}
-                </div>
+                Key verified
+              </motion.h2>
+              <motion.p
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 }}
+                style={{ fontSize: 12, color: MUT, margin: '0 0 20px', lineHeight: 1.7 }}
+              >
+                Preparing your workspace&hellip;
+              </motion.p>
+              <motion.div
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}
+                style={{ fontFamily: 'ui-monospace, monospace', fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', color: GRN, opacity: 0.8, marginBottom: 22 }}
+              >
+                {displayKey}
               </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.35 }}
-                style={{ marginTop: 28 }}
-              >
-                <div style={{ height: 2, background: BDR, borderRadius: 2, overflow: 'hidden' }}>
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }}>
+                <div style={{ height: 1.5, background: BDR, borderRadius: 2, overflow: 'hidden' }}>
                   <motion.div
-                    initial={{ scaleX: 0 }}
-                    animate={{ scaleX: 1 }}
-                    transition={{ delay: 0.4, duration: 2, ease: [0.22, 1, 0.36, 1] }}
-                    style={{
-                      height: '100%', originX: 0, borderRadius: 2,
-                      background: `linear-gradient(90deg, ${GREEN} 0%, #34D399 100%)`,
-                    }}
+                    initial={{ scaleX: 0 }} animate={{ scaleX: 1 }}
+                    transition={{ delay: 0.4, duration: 1.8, ease: [0.22, 1, 0.36, 1] }}
+                    style={{ height: '100%', originX: 0, background: `linear-gradient(90deg, ${GRN} 0%, #34D399 100%)` }}
                   />
                 </div>
-                <p style={{ fontSize: 10, color: MUT, marginTop: 10, letterSpacing: '0.03em' }}>
+                <p style={{ fontSize: 10, color: MUT, marginTop: 9, letterSpacing: '0.03em' }}>
                   Redirecting to onboarding
                 </p>
               </motion.div>
@@ -562,22 +450,13 @@ export default function ActivatePage() {
         </AnimatePresence>
       </motion.div>
 
-      {/* ── Footer ── */}
+      {/* Footer */}
       <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.8 }}
-        style={{
-          position: 'fixed', bottom: 28,
-          display: 'flex', alignItems: 'center', gap: 20,
-          zIndex: 1,
-        }}
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.9 }}
+        style={{ position: 'fixed', bottom: 26, display: 'flex', alignItems: 'center', gap: 18, zIndex: 1 }}
       >
         {['GDPR compliant', 'UK data residency', '© 2026 Jwebly Ltd.'].map((t, i) => (
-          <span key={i} style={{
-            fontSize: 10, color: MUT, letterSpacing: '0.04em',
-            display: 'flex', alignItems: 'center', gap: 8,
-          }}>
+          <span key={i} style={{ fontSize: 10, color: MUT, letterSpacing: '0.03em', display: 'flex', alignItems: 'center', gap: 7 }}>
             {i > 0 && <span style={{ width: 2, height: 2, borderRadius: '50%', background: BDR, display: 'inline-block' }} />}
             {t}
           </span>
