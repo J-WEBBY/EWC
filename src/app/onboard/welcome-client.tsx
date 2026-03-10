@@ -260,7 +260,7 @@ export default function WelcomeClient({
                     style={{ marginTop: 36 }}
                   >
                     <p style={{ fontSize: 12, color: MUT, marginBottom: 20 }}>
-                      6 phases &middot; ~19 minutes to full activation
+                      5 phases &middot; ~17 minutes to full activation
                     </p>
                     <motion.button
                       onClick={goToOverview}
@@ -309,7 +309,7 @@ export default function WelcomeClient({
                   Setup roadmap
                 </h1>
                 <p style={{ fontSize: 13, color: MUT, margin: 0, lineHeight: 1.7 }}>
-                  Complete all 6 phases to fully activate your operational intelligence system.
+                  Complete all 5 phases to fully activate your operational intelligence system.
                 </p>
               </motion.div>
 
@@ -441,7 +441,7 @@ export default function WelcomeClient({
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: INK, marginBottom: 2 }}>
                     {completedPhases.length > 0
-                      ? `${completedPhases.length} of 6 phases complete`
+                      ? `${completedPhases.length} of 5 phases complete`
                       : 'Ready to begin'}
                   </div>
                   <div style={{ fontSize: 11, color: MUT }}>

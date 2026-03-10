@@ -26,11 +26,10 @@ const RED  = BRAND.red;
 // ─── Phases strip (top stepper) ────────────────────────────────────────────
 const PHASE_STEPS = [
   { n: 1, label: 'Clinic profile' },
-  { n: 2, label: 'Brand'          },
-  { n: 3, label: 'Team'           },
-  { n: 4, label: 'Credentials'    },
-  { n: 5, label: 'Integrations'   },
-  { n: 6, label: 'Go live'        },
+  { n: 2, label: 'Your agents'    },
+  { n: 3, label: 'Your team'      },
+  { n: 4, label: 'Integrations'   },
+  { n: 5, label: 'Go live'        },
 ];
 
 // ─── Section definitions ───────────────────────────────────────────────────
@@ -440,7 +439,7 @@ export default function Phase1Client({
             }}>
               <Building2 size={11} style={{ color: C }} />
               <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: C }}>
-                Phase 1 of 6
+                Phase 1 of 5
               </span>
             </div>
             <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.04em', color: INK, margin: '0 0 8px' }}>

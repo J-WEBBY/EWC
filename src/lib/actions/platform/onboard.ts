@@ -149,3 +149,64 @@ export async function savePhase2(data: Phase2Data): Promise<{ success: boolean; 
     return { success: false, error: 'Failed to save. Please try again.' };
   }
 }
+
+// ── Phase 3: Save team members ────────────────────────────────────────────────
+export interface TeamMember {
+  full_name: string;
+  email: string;
+  role: string;
+  username: string;
+  login_method: 'email_otp' | 'username';
+}
+
+export interface Phase3Data {
+  members: TeamMember[];
+}
+
+export async function savePhase3(data: Phase3Data): Promise<{ success: boolean; error?: string }> {
+  try {
+    const tenantId = await getTenantId();
+    const sessionId = await getSessionId();
+    if (!tenantId) return { success: false, error: 'Session expired. Please re-activate.' };
+
+    // Dev bypass — no platform DB
+    if (!process.env.PLATFORM_SUPABASE_URL) {
+      console.log('[savePhase3] dev bypass — team members:', data.members);
+      return { success: true };
+    }
+
+    const db = createPlatformClient();
+
+    // Store team member invites in clinic_profiles (stored as JSON)
+    await db
+      .from('clinic_profiles')
+      .update({ team_members: data.members, updated_at: new Date().toISOString() })
+      .eq('tenant_id', tenantId);
+
+    // Advance onboarding session to phase 4
+    if (sessionId) {
+      const { data: session } = await db
+        .from('onboarding_sessions')
+        .select('completed_phases, phase_data')
+        .eq('id', sessionId)
+        .single();
+
+      if (session) {
+        const completed = Array.from(new Set([...(session.completed_phases ?? []), 3]));
+        await db
+          .from('onboarding_sessions')
+          .update({
+            current_phase:    4,
+            completed_phases: completed,
+            phase_data:       { ...(session.phase_data ?? {}), 3: data },
+          })
+          .eq('id', sessionId);
+      }
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error('[savePhase3]', err);
+    return { success: false, error: 'Failed to save. Please try again.' };
+  }
+}
