@@ -58,7 +58,7 @@ const PHASES = [
   { n: 1, label: 'Clinic profile', Icon: Building2, time: '3 min', desc: 'Identity, location, contact and medical director.', items: ['Name & clinic type', 'Address & contact', 'Medical director', 'CQC registration'] },
   { n: 2, label: 'Your agents',    Icon: Users,     time: '4 min', desc: 'Meet and name your 5 specialist AI agents.',        items: ['Primary orchestrator', 'Patient acquisition', 'Patient retention', 'Social media', 'Receptionist'] },
   { n: 3, label: 'Your team',      Icon: Users,     time: '5 min', desc: 'Staff accounts, roles and admin access.',          items: ['Staff accounts', 'Roles & permissions', 'Admin credentials'] },
-  { n: 4, label: 'Integrations',   Icon: Link2,     time: '3 min', desc: 'Connect Cliniko and activate your data sources.',   items: ['Cliniko API key', 'First patient sync', 'Appointment data', 'Verify connection'] },
+  { n: 4, label: 'Connect systems', Icon: Link2,     time: '3 min', desc: 'Link your practice management system or import data.', items: ['Choose your PMS', 'Connect or import', 'Verify data sync', 'Patients & appointments'] },
   { n: 5, label: 'Go live',        Icon: Rocket,    time: '2 min', desc: 'Final health checks and full platform activation.', items: ['System health check', 'Phone number', 'Staff notifications', 'Launch'] },
 ] as const;
 

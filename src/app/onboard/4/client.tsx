@@ -9,7 +9,7 @@ import { saveClinikoConfig } from '@/lib/actions/cliniko';
 import {
   Database, Upload, X, Check, ChevronRight, Eye, EyeOff,
   Key, ChevronDown, AlertCircle, SkipForward, FileSpreadsheet,
-  Wifi, WifiOff, Users,
+  Wifi, WifiOff, Users, Link2,
 } from 'lucide-react';
 
 // ─── Tokens ──────────────────────────────────────────────────────────────────
@@ -21,33 +21,60 @@ const BORDER = '#E4E4E7';
 const GRN    = '#059669';
 const RED    = '#DC2626';
 
+// ─── PMS provider list ────────────────────────────────────────────────────────
+const PROVIDERS = [
+  {
+    id: 'cliniko',
+    name: 'Cliniko',
+    desc: 'Live two-way sync — patients, appointments and invoices.',
+    available: true,
+    color: '#0E9F6E',
+  },
+  {
+    id: 'jane',
+    name: 'Jane App',
+    desc: 'Canadian & US practice management platform.',
+    available: false,
+    color: '#7C3AED',
+  },
+  {
+    id: 'powerdiary',
+    name: 'Power Diary',
+    desc: 'Allied health scheduling and billing.',
+    available: false,
+    color: '#0058E6',
+  },
+  {
+    id: 'nookal',
+    name: 'Nookal',
+    desc: 'Practice management for allied health.',
+    available: false,
+    color: '#D8A600',
+  },
+  {
+    id: 'csv',
+    name: 'CSV Import',
+    desc: 'Upload a spreadsheet export from any system.',
+    available: true,
+    color: '#6B7280',
+  },
+] as const;
+
+type ProviderId = typeof PROVIDERS[number]['id'];
+
 // ─── Cliniko shards ───────────────────────────────────────────────────────────
 const SHARDS = [
-  { value: 'uk1',  label: 'UK  — uk1.cliniko.com' },
-  { value: 'au1',  label: 'AU1 — au1.cliniko.com' },
-  { value: 'au2',  label: 'AU2 — au2.cliniko.com' },
-  { value: 'au3',  label: 'AU3 — au3.cliniko.com' },
-  { value: 'au4',  label: 'AU4 — au4.cliniko.com' },
-  { value: 'ca1',  label: 'CA  — ca1.cliniko.com' },
-  { value: 'us1',  label: 'US  — us1.cliniko.com' },
+  { value: 'uk1', label: 'UK  — uk1.cliniko.com' },
+  { value: 'au1', label: 'AU1 — au1.cliniko.com' },
+  { value: 'au2', label: 'AU2 — au2.cliniko.com' },
+  { value: 'au3', label: 'AU3 — au3.cliniko.com' },
+  { value: 'au4', label: 'AU4 — au4.cliniko.com' },
+  { value: 'ca1', label: 'CA  — ca1.cliniko.com' },
+  { value: 'us1', label: 'US  — us1.cliniko.com' },
 ];
 
-// ─── Cliniko SVG logo ─────────────────────────────────────────────────────────
-function ClinikoMark({ size = 28 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="40" height="40" rx="10" fill="#0E9F6E" />
-      {/* Stylised C + cross */}
-      <path d="M24 12a8 8 0 1 0 0 16 8 8 0 0 0 0-16z" stroke="#fff" strokeWidth="2.5" fill="none" strokeLinecap="round"
-        strokeDasharray="28 10" strokeDashoffset="-5" />
-      <path d="M20 16v8M16 20h8" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-// ─── CSV column tag ───────────────────────────────────────────────────────────
-const CSV_PATIENTS_COLS  = ['First name', 'Last name', 'Email', 'Phone', 'Date of birth', 'Address'];
-const CSV_APPTS_COLS     = ['Date', 'Time', 'Patient name', 'Practitioner', 'Treatment', 'Status'];
+const CSV_PATIENTS_COLS = ['First name', 'Last name', 'Email', 'Phone', 'Date of birth', 'Address'];
+const CSV_APPTS_COLS    = ['Date', 'Time', 'Patient name', 'Practitioner', 'Treatment', 'Status'];
 
 interface Props {
   sessionId: string;
@@ -55,32 +82,31 @@ interface Props {
   completedPhases: number[];
 }
 
-type Method = 'cliniko' | 'csv' | null;
 type ConnState = 'idle' | 'testing' | 'success' | 'error';
 
 export default function DataImportClient({ completedPhases }: Props) {
   const router = useRouter();
 
-  const [method, setMethod] = useState<Method>(null);
+  const [provider, setProvider] = useState<ProviderId | null>(null);
 
   // Cliniko state
-  const [apiKey, setApiKey]       = useState('');
-  const [shard, setShard]         = useState('uk1');
-  const [showKey, setShowKey]     = useState(false);
-  const [showShards, setShowShards] = useState(false);
-  const [connState, setConnState] = useState<ConnState>('idle');
-  const [connError, setConnError] = useState('');
-  const [practCount, setPractCount] = useState<number | null>(null);
+  const [apiKey,      setApiKey]      = useState('');
+  const [shard,       setShard]       = useState('uk1');
+  const [showKey,     setShowKey]     = useState(false);
+  const [showShards,  setShowShards]  = useState(false);
+  const [connState,   setConnState]   = useState<ConnState>('idle');
+  const [connError,   setConnError]   = useState('');
+  const [practCount,  setPractCount]  = useState<number | null>(null);
 
   // CSV state
-  const patientFileRef  = useRef<HTMLInputElement>(null);
-  const apptFileRef     = useRef<HTMLInputElement>(null);
-  const [patientFile, setPatientFile]   = useState<File | null>(null);
-  const [apptFile, setApptFile]         = useState<File | null>(null);
+  const patientFileRef = useRef<HTMLInputElement>(null);
+  const apptFileRef    = useRef<HTMLInputElement>(null);
+  const [patientFile, setPatientFile] = useState<File | null>(null);
+  const [apptFile,    setApptFile]    = useState<File | null>(null);
 
   const [done, setDone] = useState(false);
 
-  // ── Cliniko connect ────────────────────────────────────────────────────────
+  // ── Cliniko connect ──────────────────────────────────────────────────────
   const testCliniko = async () => {
     if (!apiKey.trim()) return;
     setConnState('testing');
@@ -95,14 +121,17 @@ export default function DataImportClient({ completedPhases }: Props) {
     }
   };
 
-  // ── Proceed / skip ─────────────────────────────────────────────────────────
+  const shardLabel = (v: string) => SHARDS.find(s => s.value === v)?.label ?? v;
+
+  const canContinue =
+    provider === 'cliniko' ? connState === 'success' :
+    provider === 'csv'     ? !!patientFile : false;
+
   const proceed = (skip = false) => {
-    if (!skip && method === 'cliniko' && connState !== 'success') return;
+    if (!skip && !canContinue) return;
     setDone(true);
     setTimeout(() => router.push('/onboard/5'), 2400);
   };
-
-  const shardLabel = (v: string) => SHARDS.find(s => s.value === v)?.label ?? v;
 
   return (
     <div style={{ background: BG, minHeight: '100vh', position: 'relative', overflowX: 'hidden' }}>
@@ -137,57 +166,33 @@ export default function DataImportClient({ completedPhases }: Props) {
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} style={{ textAlign: 'center', marginBottom: 40 }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: `${BRAND.accentLight}18`, border: `1px solid ${BRAND.accentLight}40`, borderRadius: 20, padding: '6px 14px', marginBottom: 20 }}>
-            <Database size={12} color={BRAND.accent} />
-            <span style={{ fontSize: 11, fontWeight: 600, color: BRAND.accent, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Phase 4 — Data Import</span>
+            <Link2 size={12} color={BRAND.accent} />
+            <span style={{ fontSize: 11, fontWeight: 600, color: BRAND.accent, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Phase 4 — Connect Systems</span>
           </div>
           <h1 style={{ fontSize: 38, fontWeight: 900, color: INK, letterSpacing: '-0.035em', lineHeight: 1.1, margin: '0 0 12px' }}>
-            Bring your data in
+            Connect your practice system
           </h1>
-          <p style={{ fontSize: 15, color: MUTED, maxWidth: 460, margin: '0 auto', lineHeight: 1.6 }}>
-            Connect your existing practice management system or upload a CSV export. You can also skip this and add data later.
+          <p style={{ fontSize: 15, color: MUTED, maxWidth: 500, margin: '0 auto', lineHeight: 1.6 }}>
+            Link your existing practice management software for live sync, or import a CSV export. You can also skip and connect later.
           </p>
         </motion.div>
 
-        {/* Method selector */}
+        {/* ── PROVIDER GRID (no provider selected yet) ─────────────────────── */}
         <AnimatePresence>
-          {!method && (
+          {!provider && (
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.97 }} transition={{ duration: 0.25 }}>
-              <p style={{ fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>Choose import method</p>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>Select your practice management system</p>
 
-                {/* Cliniko card */}
-                <motion.button onClick={() => setMethod('cliniko')} whileHover={{ y: -2, boxShadow: `0 6px 24px #0E9F6E18` }} whileTap={{ scale: 0.98 }}
-                  style={{ padding: '24px 20px', borderRadius: 16, border: `1.5px solid ${BORDER}`, background: '#FFFFFF', cursor: 'pointer', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 12, transition: 'all 0.2s' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <ClinikoMark size={36} />
-                    <span style={{ fontSize: 10, fontWeight: 700, color: GRN, background: '#05966912', border: '1px solid #05966930', borderRadius: 20, padding: '3px 8px', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Recommended</span>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 800, color: INK, letterSpacing: '-0.02em', marginBottom: 4 }}>Cliniko</div>
-                    <div style={{ fontSize: 12, color: MUTED, lineHeight: 1.5 }}>Live two-way sync. Patients, appointments and invoices — always up to date.</div>
-                  </div>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: '#0E9F6E', display: 'flex', alignItems: 'center', gap: 4 }}>Connect via API key <ChevronRight size={11} /></div>
-                </motion.button>
-
-                {/* CSV card */}
-                <motion.button onClick={() => setMethod('csv')} whileHover={{ y: -2, boxShadow: `0 6px 24px ${BRAND.accent}18` }} whileTap={{ scale: 0.98 }}
-                  style={{ padding: '24px 20px', borderRadius: 16, border: `1.5px solid ${BORDER}`, background: '#FFFFFF', cursor: 'pointer', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 12, transition: 'all 0.2s' }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 10, background: `${BRAND.accent}12`, border: `1px solid ${BRAND.accent}25`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <FileSpreadsheet size={18} color={BRAND.accent} strokeWidth={1.8} />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 800, color: INK, letterSpacing: '-0.02em', marginBottom: 4 }}>CSV Import</div>
-                    <div style={{ fontSize: 12, color: MUTED, lineHeight: 1.5 }}>Upload a spreadsheet export from any system — patients and appointments.</div>
-                  </div>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: BRAND.accent, display: 'flex', alignItems: 'center', gap: 4 }}>Upload files <ChevronRight size={11} /></div>
-                </motion.button>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 20 }}>
+                {PROVIDERS.map(p => (
+                  <ProviderCard key={p.id} provider={p} onSelect={() => p.available && setProvider(p.id)} />
+                ))}
               </div>
 
-              {/* Skip */}
               <div style={{ textAlign: 'center' }}>
                 <button onClick={() => proceed(true)}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: MUTED, fontWeight: 600, padding: '8px 12px' }}>
-                  <SkipForward size={13} /> Skip for now — I&apos;ll add data later
+                  <SkipForward size={13} /> Skip — I&apos;ll connect a system later
                 </button>
               </div>
             </motion.div>
@@ -196,31 +201,22 @@ export default function DataImportClient({ completedPhases }: Props) {
 
         {/* ── CLINIKO PANEL ────────────────────────────────────────────────── */}
         <AnimatePresence>
-          {method === 'cliniko' && (
+          {provider === 'cliniko' && (
             <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-              {/* Back */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
-                <ClinikoMark size={26} />
-                <span style={{ fontSize: 14, fontWeight: 800, color: INK }}>Cliniko</span>
-                <button onClick={() => { setMethod(null); setConnState('idle'); setApiKey(''); }}
-                  style={{ marginLeft: 'auto', fontSize: 11, color: MUTED, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <X size={11} /> Change method
-                </button>
-              </div>
+              <BackBar label="Cliniko" color="#0E9F6E" onBack={() => { setProvider(null); setConnState('idle'); setApiKey(''); }} />
 
               <div style={{ background: '#FFFFFF', border: `1.5px solid ${BORDER}`, borderRadius: 16, padding: '24px', marginBottom: 16 }}>
-
-                {/* Where to find API key */}
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: '#0E9F6E08', border: '1px solid #0E9F6E25', borderRadius: 10, padding: '12px 14px', marginBottom: 24 }}>
+                {/* API key hint */}
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: '#0E9F6E08', border: '1px solid #0E9F6E25', borderRadius: 10, padding: '12px 14px', marginBottom: 22 }}>
                   <Key size={13} color="#0E9F6E" style={{ flexShrink: 0, marginTop: 1 }} />
                   <p style={{ fontSize: 12, color: SEC, margin: 0, lineHeight: 1.6 }}>
                     Find your API key in Cliniko: <strong style={{ color: INK }}>Settings → My Info → API Keys</strong>. Generate one if you haven&apos;t already.
                   </p>
                 </div>
 
-                {/* Shard selector */}
-                <div style={{ marginBottom: 16, position: 'relative' }}>
-                  <label style={{ fontSize: 10, fontWeight: 700, color: MUTED, letterSpacing: '0.14em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Region / Shard</label>
+                {/* Shard */}
+                <div style={{ marginBottom: 14, position: 'relative' }}>
+                  <label style={{ fontSize: 10, fontWeight: 700, color: MUTED, letterSpacing: '0.14em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Region</label>
                   <button onClick={() => setShowShards(v => !v)}
                     style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderRadius: 10, border: `1.5px solid ${BORDER}`, background: BG, fontSize: 13, color: INK, fontWeight: 500, cursor: 'pointer' }}>
                     <span>{shardLabel(shard)}</span>
@@ -241,8 +237,8 @@ export default function DataImportClient({ completedPhases }: Props) {
                   </AnimatePresence>
                 </div>
 
-                {/* API Key input */}
-                <div style={{ marginBottom: 20 }}>
+                {/* API key input */}
+                <div style={{ marginBottom: 18 }}>
                   <label style={{ fontSize: 10, fontWeight: 700, color: MUTED, letterSpacing: '0.14em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>API Key</label>
                   <div style={{ position: 'relative' }}>
                     <Key size={13} color={MUTED} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
@@ -259,21 +255,14 @@ export default function DataImportClient({ completedPhases }: Props) {
                   </div>
                 </div>
 
-                {/* Connect button + status */}
+                {/* Connect / success */}
                 <AnimatePresence mode="wait">
                   {connState !== 'success' ? (
                     <motion.button key="test" onClick={testCliniko} disabled={!apiKey.trim() || connState === 'testing'}
                       whileHover={apiKey.trim() && connState !== 'testing' ? { y: -1 } : {}}
-                      style={{
-                        width: '100%', padding: '13px', borderRadius: 10, border: 'none',
-                        background: apiKey.trim() ? '#0E9F6E' : `${BORDER}`, color: apiKey.trim() ? '#fff' : MUTED,
-                        fontSize: 13, fontWeight: 700, cursor: apiKey.trim() ? 'pointer' : 'default',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'all 0.2s',
-                      }}>
+                      style={{ width: '100%', padding: '13px', borderRadius: 10, border: 'none', background: apiKey.trim() ? '#0E9F6E' : BORDER, color: apiKey.trim() ? '#fff' : MUTED, fontSize: 13, fontWeight: 700, cursor: apiKey.trim() ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'all 0.2s' }}>
                       {connState === 'testing' ? (
-                        <><motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}>
-                          <Wifi size={15} />
-                        </motion.div> Testing connection…</>
+                        <><motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}><Wifi size={15} /></motion.div> Testing connection…</>
                       ) : (
                         <><Wifi size={15} /> Test & connect</>
                       )}
@@ -298,7 +287,6 @@ export default function DataImportClient({ completedPhases }: Props) {
                   )}
                 </AnimatePresence>
 
-                {/* Error */}
                 <AnimatePresence>
                   {connState === 'error' && (
                     <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
@@ -309,108 +297,44 @@ export default function DataImportClient({ completedPhases }: Props) {
                   )}
                 </AnimatePresence>
 
-                {/* Sync info */}
                 {connState === 'success' && (
-                  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}
                     style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {[
-                      { icon: <Users size={12} color={MUTED} />, text: 'Patients synced automatically every 5 minutes' },
+                      { icon: <Users size={12} color={MUTED} />,    text: 'Patients synced automatically every 5 minutes' },
                       { icon: <Database size={12} color={MUTED} />, text: 'Appointments, invoices and practitioners included' },
-                      { icon: <Wifi size={12} color={MUTED} />, text: 'Changes in Cliniko appear here within minutes' },
+                      { icon: <Wifi size={12} color={MUTED} />,     text: 'Changes in Cliniko appear here within minutes' },
                     ].map((row, i) => (
                       <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        {row.icon}
-                        <span style={{ fontSize: 12, color: MUTED }}>{row.text}</span>
+                        {row.icon}<span style={{ fontSize: 12, color: MUTED }}>{row.text}</span>
                       </div>
                     ))}
                   </motion.div>
                 )}
               </div>
 
-              {/* More integrations coming */}
-              <div style={{ padding: '12px 16px', background: `${BORDER}50`, border: `1px solid ${BORDER}`, borderRadius: 10, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}>
-                <Database size={13} color={MUTED} />
-                <span style={{ fontSize: 11, color: MUTED }}>More integrations coming soon — Jane App, Power Diary, Nookal and others.</span>
-              </div>
-
-              {/* CTA */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <button onClick={() => proceed(true)}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: MUTED, fontWeight: 600, padding: '8px 0' }}>
-                  <SkipForward size={12} /> Skip for now
-                </button>
-                <button onClick={() => proceed(false)} disabled={connState !== 'success'}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 8,
-                    background: connState === 'success' ? INK : BORDER, color: connState === 'success' ? BG : MUTED,
-                    border: 'none', borderRadius: 10, padding: '12px 24px',
-                    fontSize: 13, fontWeight: 700, cursor: connState === 'success' ? 'pointer' : 'default',
-                    letterSpacing: '-0.01em', transition: 'all 0.2s',
-                  }}>
-                  Continue <ChevronRight size={15} />
-                </button>
-              </div>
+              <CtaRow onSkip={() => proceed(true)} onContinue={() => proceed(false)} canContinue={connState === 'success'} />
             </motion.div>
           )}
         </AnimatePresence>
 
         {/* ── CSV PANEL ─────────────────────────────────────────────────────── */}
         <AnimatePresence>
-          {method === 'csv' && (
+          {provider === 'csv' && (
             <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-              {/* Back */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
-                <FileSpreadsheet size={16} color={BRAND.accent} />
-                <span style={{ fontSize: 14, fontWeight: 800, color: INK }}>CSV Import</span>
-                <button onClick={() => setMethod(null)}
-                  style={{ marginLeft: 'auto', fontSize: 11, color: MUTED, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <X size={11} /> Change method
-                </button>
+              <BackBar label="CSV Import" color="#6B7280" onBack={() => setProvider(null)} />
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
+                <CsvUploadCard title="Patient records" subtitle="Export from your current system as CSV" columns={CSV_PATIENTS_COLS} file={patientFile} inputRef={patientFileRef} onFile={setPatientFile} accent={BRAND.accent} />
+                <CsvUploadCard title="Appointments" subtitle="Optional — import historical appointment data" columns={CSV_APPTS_COLS} file={apptFile} inputRef={apptFileRef} onFile={setApptFile} accent="#7C3AED" optional />
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 20 }}>
-                <CsvUploadCard
-                  title="Patient records"
-                  subtitle="Export from your current system as CSV"
-                  columns={CSV_PATIENTS_COLS}
-                  file={patientFile}
-                  inputRef={patientFileRef}
-                  onFile={setPatientFile}
-                  accent={BRAND.accent}
-                />
-                <CsvUploadCard
-                  title="Appointments"
-                  subtitle="Optional — import historical appointment data"
-                  columns={CSV_APPTS_COLS}
-                  file={apptFile}
-                  inputRef={apptFileRef}
-                  onFile={setApptFile}
-                  accent="#7C3AED"
-                  optional
-                />
-              </div>
-
-              <div style={{ padding: '12px 16px', background: `${BORDER}50`, border: `1px solid ${BORDER}`, borderRadius: 10, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ padding: '11px 14px', background: `${BORDER}50`, border: `1px solid ${BORDER}`, borderRadius: 10, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}>
                 <WifiOff size={13} color={MUTED} />
-                <span style={{ fontSize: 11, color: MUTED }}>CSV is a one-time import. For live sync, connect Cliniko instead.</span>
+                <span style={{ fontSize: 11, color: MUTED }}>CSV is a one-time import. To keep data live, connect a practice management system instead.</span>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <button onClick={() => proceed(true)}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: MUTED, fontWeight: 600, padding: '8px 0' }}>
-                  <SkipForward size={12} /> Skip for now
-                </button>
-                <button onClick={() => proceed(false)} disabled={!patientFile}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 8,
-                    background: patientFile ? INK : BORDER, color: patientFile ? BG : MUTED,
-                    border: 'none', borderRadius: 10, padding: '12px 24px',
-                    fontSize: 13, fontWeight: 700, cursor: patientFile ? 'pointer' : 'default',
-                    letterSpacing: '-0.01em', transition: 'all 0.2s',
-                  }}>
-                  Upload & continue <ChevronRight size={15} />
-                </button>
-              </div>
+              <CtaRow onSkip={() => proceed(true)} onContinue={() => proceed(false)} canContinue={!!patientFile} continueLabel="Upload & continue" />
             </motion.div>
           )}
         </AnimatePresence>
@@ -428,18 +352,89 @@ export default function DataImportClient({ completedPhases }: Props) {
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 22, fontWeight: 900, color: INK, letterSpacing: '-0.03em', marginBottom: 6 }}>Phase 4 complete</div>
               <div style={{ fontSize: 14, color: MUTED }}>
-                {method === 'cliniko' ? 'Cliniko connected — sync will begin shortly' : method === 'csv' ? 'Files uploaded for processing' : 'Data import skipped — you can connect later'}
+                {provider === 'cliniko' ? 'Cliniko connected — sync will begin shortly' :
+                 provider === 'csv'     ? 'Files uploaded for processing' :
+                 'You can connect a system from Settings at any time'}
               </div>
               <div style={{ fontSize: 13, color: BRAND.accent, marginTop: 6, fontWeight: 600 }}>Next up: go live</div>
             </motion.div>
             <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
               {[1, 2, 3, 4, 5].map(n => (
-                <div key={n} style={{ width: n <= 4 ? 20 : 8, height: 8, borderRadius: 4, background: n <= 4 ? GRN : BORDER, transition: 'all 0.3s' }} />
+                <div key={n} style={{ width: n <= 4 ? 20 : 8, height: 8, borderRadius: 4, background: n <= 4 ? GRN : BORDER }} />
               ))}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+// ─── Provider card ─────────────────────────────────────────────────────────
+function ProviderCard({ provider: p, onSelect }: {
+  provider: typeof PROVIDERS[number];
+  onSelect: () => void;
+}) {
+  return (
+    <motion.button
+      onClick={onSelect}
+      whileHover={p.available ? { y: -2, boxShadow: `0 6px 20px ${p.color}18` } : {}}
+      whileTap={p.available ? { scale: 0.98 } : {}}
+      style={{
+        padding: '20px 18px', borderRadius: 14,
+        border: `1.5px solid ${p.available ? BORDER : BORDER}`,
+        background: '#FFFFFF', cursor: p.available ? 'pointer' : 'default',
+        textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 10,
+        opacity: p.available ? 1 : 0.55, transition: 'all 0.2s',
+        position: 'relative', overflow: 'hidden',
+      }}
+    >
+      {/* Color accent dot */}
+      <div style={{ width: 10, height: 10, borderRadius: '50%', background: p.color }} />
+
+      <div>
+        <div style={{ fontSize: 13, fontWeight: 800, color: INK, letterSpacing: '-0.02em', marginBottom: 4 }}>{p.name}</div>
+        <div style={{ fontSize: 11, color: MUTED, lineHeight: 1.5 }}>{p.desc}</div>
+      </div>
+
+      {p.available ? (
+        <div style={{ fontSize: 11, fontWeight: 600, color: p.color, display: 'flex', alignItems: 'center', gap: 4 }}>
+          Connect <ChevronRight size={10} />
+        </div>
+      ) : (
+        <span style={{ fontSize: 10, fontWeight: 700, color: MUTED, background: `${BORDER}80`, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '2px 7px', letterSpacing: '0.06em', textTransform: 'uppercase', alignSelf: 'flex-start' }}>
+          Coming soon
+        </span>
+      )}
+    </motion.button>
+  );
+}
+
+// ─── Back bar ─────────────────────────────────────────────────────────────────
+function BackBar({ label, color, onBack }: { label: string; color: string; onBack: () => void }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+      <div style={{ width: 10, height: 10, borderRadius: '50%', background: color, flexShrink: 0 }} />
+      <span style={{ fontSize: 14, fontWeight: 800, color: INK }}>{label}</span>
+      <button onClick={onBack} style={{ marginLeft: 'auto', fontSize: 11, color: MUTED, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+        <X size={11} /> Change
+      </button>
+    </div>
+  );
+}
+
+// ─── CTA row ──────────────────────────────────────────────────────────────────
+function CtaRow({ onSkip, onContinue, canContinue, continueLabel = 'Continue' }:
+  { onSkip: () => void; onContinue: () => void; canContinue: boolean; continueLabel?: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
+      <button onClick={onSkip} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: MUTED, fontWeight: 600, padding: '8px 0' }}>
+        <SkipForward size={12} /> Skip for now
+      </button>
+      <button onClick={onContinue} disabled={!canContinue}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: canContinue ? INK : BORDER, color: canContinue ? BG : MUTED, border: 'none', borderRadius: 10, padding: '12px 24px', fontSize: 13, fontWeight: 700, cursor: canContinue ? 'pointer' : 'default', letterSpacing: '-0.01em', transition: 'all 0.2s' }}>
+        {continueLabel} <ChevronRight size={15} />
+      </button>
     </div>
   );
 }
@@ -459,62 +454,46 @@ function CsvUploadCard({ title, subtitle, columns, file, inputRef, onFile, accen
 
   return (
     <div style={{ background: '#FFFFFF', border: `1.5px solid ${file ? accent + '50' : BORDER}`, borderRadius: 14, overflow: 'hidden', transition: 'border-color 0.2s' }}>
-      <div style={{ padding: '14px 18px', borderBottom: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ width: 28, height: 28, borderRadius: 7, background: `${accent}12`, border: `1px solid ${accent}25`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <FileSpreadsheet size={13} color={accent} strokeWidth={1.8} />
+      <div style={{ padding: '13px 18px', borderBottom: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ width: 26, height: 26, borderRadius: 7, background: `${accent}12`, border: `1px solid ${accent}25`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <FileSpreadsheet size={12} color={accent} strokeWidth={1.8} />
         </div>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: INK }}>{title}</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: INK }}>{title}</div>
           <div style={{ fontSize: 11, color: MUTED }}>{subtitle}</div>
         </div>
-        {optional && <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 600, color: MUTED, background: `${BORDER}80`, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '2px 7px' }}>Optional</span>}
+        {optional && <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 600, color: MUTED, background: `${BORDER}80`, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '2px 7px' }}>Optional</span>}
       </div>
-
-      {/* Expected columns */}
-      <div style={{ padding: '10px 18px', borderBottom: `1px solid ${BORDER}`, display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+      <div style={{ padding: '8px 18px 10px', borderBottom: `1px solid ${BORDER}`, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
         {columns.map(c => (
-          <span key={c} style={{ fontSize: 10, color: MUTED, background: `${BORDER}80`, border: `1px solid ${BORDER}`, borderRadius: 6, padding: '2px 7px', fontWeight: 500 }}>{c}</span>
+          <span key={c} style={{ fontSize: 10, color: MUTED, background: `${BORDER}80`, border: `1px solid ${BORDER}`, borderRadius: 5, padding: '2px 6px', fontWeight: 500 }}>{c}</span>
         ))}
       </div>
-
-      {/* Drop zone */}
-      <div
-        onDragOver={e => { e.preventDefault(); setDragging(true); }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={handleDrop}
+      <div onDragOver={e => { e.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={handleDrop}
         onClick={() => !file && inputRef.current?.click()}
-        style={{
-          padding: '20px', cursor: file ? 'default' : 'pointer', transition: 'background 0.15s',
-          background: dragging ? `${accent}08` : file ? `${GRN}06` : 'transparent',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
-        }}
-      >
+        style={{ padding: '18px', cursor: file ? 'default' : 'pointer', background: dragging ? `${accent}08` : file ? `${GRN}06` : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, transition: 'background 0.15s' }}>
         <input ref={inputRef} type="file" accept=".csv,text/csv" style={{ display: 'none' }} onChange={e => onFile(e.target.files?.[0] ?? null)} />
         {file ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%' }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: '#05966912', border: '1px solid #05966930', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <Check size={15} color={GRN} />
+            <div style={{ width: 30, height: 30, borderRadius: 8, background: '#05966912', border: '1px solid #05966930', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Check size={14} color={GRN} />
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: INK }}>{file.name}</div>
               <div style={{ fontSize: 10, color: MUTED }}>{(file.size / 1024).toFixed(1)} KB</div>
             </div>
-            <button onClick={e => { e.stopPropagation(); onFile(null); }}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, padding: 4, display: 'flex' }}>
-              <X size={13} />
+            <button onClick={e => { e.stopPropagation(); onFile(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, padding: 4, display: 'flex' }}>
+              <X size={12} />
             </button>
           </div>
         ) : (
           <div style={{ textAlign: 'center' }}>
-            <Upload size={20} color={MUTED} style={{ margin: '0 auto 6px' }} />
-            <div style={{ fontSize: 12, color: MUTED }}>
-              <span style={{ fontWeight: 600, color: accent }}>Click to upload</span> or drag & drop
-            </div>
-            <div style={{ fontSize: 10, color: MUTED, marginTop: 3 }}>CSV files only</div>
+            <Upload size={18} color={MUTED} style={{ margin: '0 auto 5px' }} />
+            <div style={{ fontSize: 12, color: MUTED }}><span style={{ fontWeight: 600, color: accent }}>Click to upload</span> or drag & drop</div>
+            <div style={{ fontSize: 10, color: MUTED, marginTop: 2 }}>CSV files only</div>
           </div>
         )}
       </div>
     </div>
   );
 }
-
