@@ -389,7 +389,7 @@ export default function Phase1Client({
                   <span style={{
                     fontSize: 11, fontWeight: current ? 600 : 400,
                     color: current ? INK : done ? SEC : MUT,
-                    display: window.innerWidth > 900 ? 'inline' : 'none',
+                    display: typeof window !== 'undefined' && window.innerWidth > 900 ? 'inline' : 'none',
                   }}>
                     {p.label}
                   </span>
