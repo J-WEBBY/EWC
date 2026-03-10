@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ArrowRight, Building2, Palette, Users, Key, Link2, Rocket,
+  ArrowRight, Building2, Users, Link2, Rocket,
   Check, Clock, ChevronRight,
 } from 'lucide-react';
 import { JweblyIcon } from '@/components/jwebly-logo';
@@ -56,11 +56,10 @@ function Cursor() {
 // ─── Phase definitions ────────────────────────────────────────────────────────
 const PHASES = [
   { n: 1, label: 'Clinic profile', Icon: Building2, time: '3 min', desc: 'Identity, location, contact and medical director.', items: ['Name & clinic type', 'Address & contact', 'Medical director', 'CQC registration'] },
-  { n: 2, label: 'Brand',          Icon: Palette,   time: '2 min', desc: 'Upload logo and define your visual identity.',    items: ['Logo upload', 'Brand colour', 'Agent name', 'Receptionist persona'] },
+  { n: 2, label: 'Your agents',    Icon: Users,     time: '4 min', desc: 'Meet and name your 5 specialist AI agents.',        items: ['Primary orchestrator', 'Patient acquisition', 'Patient retention', 'Social media', 'Receptionist'] },
   { n: 3, label: 'Your team',      Icon: Users,     time: '5 min', desc: 'Staff accounts, roles and admin access.',          items: ['Staff accounts', 'Roles & permissions', 'Admin credentials'] },
-  { n: 4, label: 'Credentials',    Icon: Key,       time: '2 min', desc: 'Securely store API keys for connected services.',  items: ['Cliniko API key', 'Stripe / GoCardless', 'Twilio SMS'] },
-  { n: 5, label: 'Integrations',   Icon: Link2,     time: '5 min', desc: 'Connect, sync and test your live data sources.',   items: ['First Cliniko sync', 'Komal voice setup', 'n8n automations'] },
-  { n: 6, label: 'Go live',        Icon: Rocket,    time: '2 min', desc: 'Final health checks and full platform activation.', items: ['System health check', 'Phone number', 'Staff notifications', 'Launch'] },
+  { n: 4, label: 'Integrations',   Icon: Link2,     time: '3 min', desc: 'Connect Cliniko and activate your data sources.',   items: ['Cliniko API key', 'First patient sync', 'Appointment data', 'Verify connection'] },
+  { n: 5, label: 'Go live',        Icon: Rocket,    time: '2 min', desc: 'Final health checks and full platform activation.', items: ['System health check', 'Phone number', 'Staff notifications', 'Launch'] },
 ] as const;
 
 // ─── Welcome client ───────────────────────────────────────────────────────────
@@ -471,20 +470,6 @@ export default function WelcomeClient({
         </AnimatePresence>
       </div>
 
-      {/* Footer — same as activate page */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.9 }}
-        style={{ position: 'fixed', bottom: 26, display: 'flex', alignItems: 'center', gap: 18, zIndex: 1 }}
-      >
-        {['GDPR compliant', 'UK data residency', `© 2026 ${BRAND.platform}`].map((t, i) => (
-          <span key={i} style={{ fontSize: 10, color: MUT, letterSpacing: '0.03em', display: 'flex', alignItems: 'center', gap: 7 }}>
-            {i > 0 && <span style={{ width: 2, height: 2, borderRadius: '50%', background: BDR, display: 'inline-block' }} />}
-            {t}
-          </span>
-        ))}
-      </motion.div>
     </div>
   );
 }

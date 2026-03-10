@@ -420,18 +420,6 @@ export default function ActivatePage() {
         </AnimatePresence>
       </motion.div>
 
-      {/* Footer */}
-      <motion.div
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.9 }}
-        style={{ position: 'fixed', bottom: 26, display: 'flex', alignItems: 'center', gap: 18, zIndex: 1 }}
-      >
-        {['GDPR compliant', 'UK data residency', '© 2026 Jwebly Ltd.'].map((t, i) => (
-          <span key={i} style={{ fontSize: 10, color: MUT, letterSpacing: '0.03em', display: 'flex', alignItems: 'center', gap: 7 }}>
-            {i > 0 && <span style={{ width: 2, height: 2, borderRadius: '50%', background: BDR, display: 'inline-block' }} />}
-            {t}
-          </span>
-        ))}
-      </motion.div>
     </div>
   );
 }

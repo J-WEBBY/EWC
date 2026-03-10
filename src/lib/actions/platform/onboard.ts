@@ -96,3 +96,56 @@ export async function savePhase1(data: Phase1Data): Promise<{ success: boolean; 
     return { success: false, error: 'Failed to save. Please try again.' };
   }
 }
+
+// ── Phase 2: Save agent names ─────────────────────────────────────────────────
+export interface Phase2Data {
+  agents: { role: string; display_name: string }[];
+}
+
+export async function savePhase2(data: Phase2Data): Promise<{ success: boolean; error?: string }> {
+  try {
+    const tenantId = await getTenantId();
+    const sessionId = await getSessionId();
+    if (!tenantId) return { success: false, error: 'Session expired. Please re-activate.' };
+
+    // Dev bypass — no platform DB
+    if (!process.env.PLATFORM_SUPABASE_URL) {
+      console.log('[savePhase2] dev bypass — agent names:', data.agents);
+      return { success: true };
+    }
+
+    const db = createPlatformClient();
+
+    // Update agent display names in clinic_profiles (stored as JSON)
+    await db
+      .from('clinic_profiles')
+      .update({ agent_names: data.agents, updated_at: new Date().toISOString() })
+      .eq('tenant_id', tenantId);
+
+    // Advance onboarding session to phase 3
+    if (sessionId) {
+      const { data: session } = await db
+        .from('onboarding_sessions')
+        .select('completed_phases, phase_data')
+        .eq('id', sessionId)
+        .single();
+
+      if (session) {
+        const completed = Array.from(new Set([...(session.completed_phases ?? []), 2]));
+        await db
+          .from('onboarding_sessions')
+          .update({
+            current_phase:    3,
+            completed_phases: completed,
+            phase_data:       { ...(session.phase_data ?? {}), 2: data },
+          })
+          .eq('id', sessionId);
+      }
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error('[savePhase2]', err);
+    return { success: false, error: 'Failed to save. Please try again.' };
+  }
+}

@@ -307,6 +307,7 @@ export default function Phase1Client({
   const [activeSection, setActiveSection] = useState(1);
   const [confirmed, setConfirmed]         = useState<Set<number>>(new Set());
   const [saving, setSaving]               = useState(false);
+  const [phaseComplete, setPhaseComplete] = useState(false);
   const [error, setError]                 = useState('');
 
   function confirmSection(n: number) {
@@ -344,7 +345,8 @@ export default function Phase1Client({
     const result = await savePhase1(data);
     setSaving(false);
     if (!result.success) { setError(result.error ?? 'Failed to save.'); return; }
-    router.push('/onboard/2');
+    setPhaseComplete(true);
+    setTimeout(() => router.push('/onboard/2'), 2800);
   }
 
   const sectionSummary = (n: number) =>
@@ -631,6 +633,91 @@ export default function Phase1Client({
 
         </div>
       </div>
+
+      {/* ── Phase complete transition overlay ── */}
+      <AnimatePresence>
+        {phaseComplete && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 50,
+              background: BG, display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center', gap: 0,
+            }}
+          >
+            {/* Dot grid */}
+            <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
+              <defs>
+                <pattern id="ctdot" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
+                  <circle cx="1" cy="1" r="1" fill="rgba(120,113,108,0.18)" />
+                </pattern>
+              </defs>
+              <rect width="100%" height="100%" fill="url(#ctdot)" />
+            </svg>
+            <div style={{ position: 'absolute', top: '-15%', left: '50%', transform: 'translateX(-50%)', width: '60vw', height: '60vw', borderRadius: '50%', background: 'radial-gradient(circle, rgba(8,145,178,0.09) 0%, transparent 68%)', filter: 'blur(50px)', pointerEvents: 'none' }} />
+
+            <div style={{ position: 'relative', textAlign: 'center' }}>
+              {/* Check circle */}
+              <motion.div
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: 'spring', stiffness: 280, damping: 18, delay: 0.1 }}
+                style={{
+                  width: 72, height: 72, borderRadius: '50%',
+                  background: `${GRN}14`, border: `2px solid ${GRN}40`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  margin: '0 auto 24px',
+                  boxShadow: `0 0 32px ${GRN}25`,
+                }}
+              >
+                <Check size={32} strokeWidth={2.5} style={{ color: GRN }} />
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.25 }}
+              >
+                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.26em', textTransform: 'uppercase', color: GRN, marginBottom: 8 }}>
+                  Phase 1 complete
+                </div>
+                <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.04em', color: INK, marginBottom: 6 }}>
+                  Clinic profile saved
+                </div>
+                <div style={{ fontSize: 13, color: MUT }}>
+                  Next up: meet your AI agents
+                </div>
+              </motion.div>
+
+              {/* Progress dots */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.5 }}
+                style={{ display: 'flex', gap: 6, justifyContent: 'center', marginTop: 36 }}
+              >
+                {[1, 2, 3, 4, 5].map(n => (
+                  <div key={n} style={{
+                    width: n === 1 ? 20 : 6, height: 6, borderRadius: 3,
+                    background: n === 1 ? GRN : BDR,
+                    transition: 'all 0.3s',
+                  }} />
+                ))}
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.8 }}
+                style={{ marginTop: 12, fontSize: 10, color: MUT }}
+              >
+                Transitioning in a moment&hellip;
+              </motion.div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
