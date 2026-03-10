@@ -49,7 +49,15 @@ export async function validateActivationKey(key: string): Promise<
       .eq('key_plain', key.toUpperCase().trim())
       .single();
 
-    if (keyErr || !keyRow) {
+    if (keyErr) {
+      console.error('[validateActivationKey] key lookup error:', keyErr.message, keyErr.code);
+      // If table doesn't exist yet (DB not migrated), give a clear message
+      if (keyErr.code === '42P01') {
+        return { success: false, error: 'Platform database not yet initialised. Run migrations first.' };
+      }
+      return { success: false, error: 'Key not recognised. Contact your Jwebly account manager.' };
+    }
+    if (!keyRow) {
       return { success: false, error: 'Key not recognised. Contact your Jwebly account manager.' };
     }
     if (keyRow.status === 'revoked') {

@@ -225,10 +225,10 @@ export default function ActivatePage() {
     }
 
     setStep('success');
-    // Redirect to onboarding after success animation
+    // Always start at phase 1 — session tracks resume point
     setTimeout(() => {
-      router.push(`/onboard/${result.tenant.onboardingPhase}`);
-    }, 2200);
+      router.push('/onboard/1');
+    }, 1800);
   }, [complete, displayKey, router]);
 
   return (
@@ -492,7 +492,7 @@ export default function ActivatePage() {
                 <motion.div
                   initial={{ scaleX: 0 }}
                   animate={{ scaleX: 1 }}
-                  transition={{ duration: 2.2, ease: [0.22, 1, 0.36, 1] }}
+                  transition={{ duration: 1.6, ease: [0.22, 1, 0.36, 1] }}
                   style={{
                     height: '100%', originX: 0, borderRadius: 2,
                     background: `linear-gradient(90deg, ${CYAN} 0%, ${CYAN_LT} 100%)`,
