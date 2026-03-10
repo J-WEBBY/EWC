@@ -31,27 +31,6 @@ const PROVIDERS = [
     color: '#0E9F6E',
   },
   {
-    id: 'jane',
-    name: 'Jane App',
-    desc: 'Canadian & US practice management platform.',
-    available: false,
-    color: '#7C3AED',
-  },
-  {
-    id: 'powerdiary',
-    name: 'Power Diary',
-    desc: 'Allied health scheduling and billing.',
-    available: false,
-    color: '#0058E6',
-  },
-  {
-    id: 'nookal',
-    name: 'Nookal',
-    desc: 'Practice management for allied health.',
-    available: false,
-    color: '#D8A600',
-  },
-  {
     id: 'csv',
     name: 'CSV Import',
     desc: 'Upload a spreadsheet export from any system.',
@@ -72,6 +51,19 @@ const SHARDS = [
   { value: 'ca1', label: 'CA  — ca1.cliniko.com' },
   { value: 'us1', label: 'US  — us1.cliniko.com' },
 ];
+
+// ─── Cliniko icon ─────────────────────────────────────────────────────────────
+// TODO: replace with actual SVG asset when provided — drop into public/cliniko.svg
+// and swap to: <img src="/cliniko.svg" width={size} height={size} alt="Cliniko" />
+function ClinikoIcon({ size = 26 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="40" height="40" rx="9" fill="#0E9F6E" />
+      <rect x="17" y="10" width="6" height="20" rx="3" fill="white" />
+      <rect x="10" y="17" width="20" height="6" rx="3" fill="white" />
+    </svg>
+  );
+}
 
 const CSV_PATIENTS_COLS = ['First name', 'Last name', 'Email', 'Phone', 'Date of birth', 'Address'];
 const CSV_APPTS_COLS    = ['Date', 'Time', 'Patient name', 'Practitioner', 'Treatment', 'Status'];
@@ -183,7 +175,7 @@ export default function DataImportClient({ completedPhases }: Props) {
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.97 }} transition={{ duration: 0.25 }}>
               <p style={{ fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>Select your practice management system</p>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 20 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
                 {PROVIDERS.map(p => (
                   <ProviderCard key={p.id} provider={p} onSelect={() => p.available && setProvider(p.id)} />
                 ))}
@@ -378,28 +370,33 @@ function ProviderCard({ provider: p, onSelect }: {
   return (
     <motion.button
       onClick={onSelect}
-      whileHover={p.available ? { y: -2, boxShadow: `0 6px 20px ${p.color}18` } : {}}
+      whileHover={p.available ? { y: -2, boxShadow: `0 8px 28px ${p.color}20` } : {}}
       whileTap={p.available ? { scale: 0.98 } : {}}
       style={{
-        padding: '20px 18px', borderRadius: 14,
-        border: `1.5px solid ${p.available ? BORDER : BORDER}`,
+        padding: '24px 22px', borderRadius: 16,
+        border: `1.5px solid ${BORDER}`,
         background: '#FFFFFF', cursor: p.available ? 'pointer' : 'default',
-        textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 10,
-        opacity: p.available ? 1 : 0.55, transition: 'all 0.2s',
-        position: 'relative', overflow: 'hidden',
+        textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 14,
+        transition: 'all 0.2s', position: 'relative', overflow: 'hidden',
       }}
     >
-      {/* Color accent dot */}
-      <div style={{ width: 10, height: 10, borderRadius: '50%', background: p.color }} />
+      {/* Provider icon */}
+      <div style={{ width: 44, height: 44, borderRadius: 12, background: `${p.color}12`, border: `1.5px solid ${p.color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        {p.id === 'cliniko' ? (
+          <ClinikoIcon size={26} />
+        ) : (
+          <FileSpreadsheet size={20} color={p.color} strokeWidth={1.6} />
+        )}
+      </div>
 
       <div>
-        <div style={{ fontSize: 13, fontWeight: 800, color: INK, letterSpacing: '-0.02em', marginBottom: 4 }}>{p.name}</div>
-        <div style={{ fontSize: 11, color: MUTED, lineHeight: 1.5 }}>{p.desc}</div>
+        <div style={{ fontSize: 15, fontWeight: 800, color: INK, letterSpacing: '-0.02em', marginBottom: 5 }}>{p.name}</div>
+        <div style={{ fontSize: 12, color: MUTED, lineHeight: 1.5 }}>{p.desc}</div>
       </div>
 
       {p.available ? (
-        <div style={{ fontSize: 11, fontWeight: 600, color: p.color, display: 'flex', alignItems: 'center', gap: 4 }}>
-          Connect <ChevronRight size={10} />
+        <div style={{ fontSize: 12, fontWeight: 700, color: p.color, display: 'flex', alignItems: 'center', gap: 4 }}>
+          Connect <ChevronRight size={11} />
         </div>
       ) : (
         <span style={{ fontSize: 10, fontWeight: 700, color: MUTED, background: `${BORDER}80`, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '2px 7px', letterSpacing: '0.06em', textTransform: 'uppercase', alignSelf: 'flex-start' }}>
