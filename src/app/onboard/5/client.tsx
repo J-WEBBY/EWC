@@ -8,8 +8,8 @@ import { BRAND } from '@/lib/config/brand';
 import { completeOnboarding } from '@/lib/actions/platform/onboard';
 import type { ClinicProfile } from '@/lib/actions/platform/activate';
 import {
-  Check, Rocket, Building2, Users, Database,
-  Brain, ChevronRight, AlertCircle, Zap,
+  Check, Building2, Users, Database,
+  Brain, ChevronRight, AlertCircle,
 } from 'lucide-react';
 
 // ─── Tokens ──────────────────────────────────────────────────────────────────
@@ -23,7 +23,7 @@ const GRN    = '#059669';
 // ─── Health check items ───────────────────────────────────────────────────────
 const CHECKS = [
   { phase: 1, label: 'Clinic profile',    Icon: Building2, required: true  },
-  { phase: 2, label: 'AI agents named',   Icon: Brain,     required: true  },
+  { phase: 2, label: 'AI agents',          Icon: Brain,     required: true  },
   { phase: 3, label: 'Team accounts',     Icon: Users,     required: false },
   { phase: 4, label: 'Data connected',    Icon: Database,  required: false },
 ];
@@ -86,7 +86,7 @@ export default function GoLiveClient({ tenantName, completedPhases, profile }: P
 
     setLive(true);
     await new Promise(r => setTimeout(r, 2200));
-    router.push('/staff/dashboard');
+    router.push('/login');
   };
 
   const allRequired = CHECKS.filter(c => c.required).every(c => completedPhases.includes(c.phase));
@@ -115,7 +115,7 @@ export default function GoLiveClient({ tenantName, completedPhases, profile }: P
                   style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: `2px solid transparent`, borderTopColor: BRAND.accent, borderRightColor: BRAND.accentLight }}
                 />
                 <div style={{ position: 'absolute', inset: 8, borderRadius: '50%', background: `${BRAND.accent}14`, border: `1px solid ${BRAND.accent}30`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Zap size={22} color={BRAND.accent} strokeWidth={2} />
+                  <JweblyIcon size={28} uid="gl5-loading" />
                 </div>
               </div>
 
@@ -153,7 +153,7 @@ export default function GoLiveClient({ tenantName, completedPhases, profile }: P
               <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
                 <div style={{ fontSize: 28, fontWeight: 900, color: INK, letterSpacing: '-0.04em', marginBottom: 8 }}>{tenantName}</div>
                 <div style={{ fontSize: 16, color: GRN, fontWeight: 700 }}>is now live</div>
-                <div style={{ fontSize: 13, color: MUTED, marginTop: 10 }}>Opening your dashboard…</div>
+                <div style={{ fontSize: 13, color: MUTED, marginTop: 10 }}>Opening your login page…</div>
               </motion.div>
             </motion.div>
           )}
@@ -196,7 +196,6 @@ export default function GoLiveClient({ tenantName, completedPhases, profile }: P
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} style={{ textAlign: 'center', marginBottom: 48 }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: `${BRAND.accentLight}18`, border: `1px solid ${BRAND.accentLight}40`, borderRadius: 20, padding: '6px 14px', marginBottom: 20 }}>
-            <Rocket size={12} color={BRAND.accent} />
             <span style={{ fontSize: 11, fontWeight: 600, color: BRAND.accent, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Phase 5 — Go Live</span>
           </div>
           <h1 style={{ fontSize: 38, fontWeight: 900, color: INK, letterSpacing: '-0.035em', lineHeight: 1.1, margin: '0 0 12px' }}>
@@ -307,7 +306,6 @@ export default function GoLiveClient({ tenantName, completedPhases, profile }: P
               transition: 'all 0.2s',
             }}
           >
-            <Rocket size={18} strokeWidth={2} />
             Activate {profile.clinic_name || tenantName}
           </motion.button>
           <p style={{ fontSize: 11, color: MUTED, textAlign: 'center', marginTop: 10, lineHeight: 1.5 }}>

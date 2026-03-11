@@ -9,6 +9,7 @@ import { savePhase3, type TeamMember } from '@/lib/actions/platform/onboard';
 import {
   UserPlus, Trash2, Check, ChevronRight, Mail, AtSign, Shield,
   ChevronDown, Users, Layers, Building2, Plus, X, Info,
+  Download, AlertTriangle, Copy,
 } from 'lucide-react';
 
 // ─── Tokens ─────────────────────────────────────────────────────────────────
@@ -18,6 +19,7 @@ const SEC    = '#4A5568';
 const MUTED  = '#A1A1AA';
 const BORDER = '#E4E4E7';
 const GRN    = '#059669';
+const WARN   = '#D97706';
 
 // ─── Roles ───────────────────────────────────────────────────────────────────
 const ROLES = [
@@ -47,6 +49,28 @@ function generateUsername(fullName: string): string {
   return (parts[0][0] + parts[parts.length - 1]).replace(/[^a-z0-9]/g, '');
 }
 
+function generateOTP(): string {
+  const upper  = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const lower  = 'abcdefghjkmnpqrstuvwxyz';
+  const digits = '23456789';
+  const syms   = '!@#$%&';
+  const all    = upper + lower + digits + syms;
+  // Guarantee one of each category
+  let pw = '';
+  pw += upper[Math.floor(Math.random() * upper.length)];
+  pw += lower[Math.floor(Math.random() * lower.length)];
+  pw += digits[Math.floor(Math.random() * digits.length)];
+  pw += syms[Math.floor(Math.random() * syms.length)];
+  for (let i = 4; i < 12; i++) pw += all[Math.floor(Math.random() * all.length)];
+  // Fisher-Yates shuffle
+  const arr = pw.split('');
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr.join('');
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface MemberDraft {
   id: string;
@@ -65,6 +89,14 @@ interface DeptDraft {
   name: string;
   color: string;
   customName: string;
+}
+
+interface CredentialRow {
+  full_name: string;
+  email: string;
+  username: string;
+  role: string;
+  password: string;
 }
 
 function blankMember(department?: string): MemberDraft {
@@ -96,8 +128,11 @@ export default function TeamOnboardClient({ completedPhases }: Props) {
   const [showCustomDept, setShowCustomDept] = useState(false);
 
   const [saving, setSaving] = useState(false);
-  const [done, setDone] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [credentials, setCredentials] = useState<CredentialRow[]>([]);
+  const [showCredentials, setShowCredentials] = useState(false);
+  const [done, setDone] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   // ── Member mutations ────────────────────────────────────────────────────────
   const updateMember = (list: MemberDraft[], setList: (fn: (p: MemberDraft[]) => MemberDraft[]) => void, id: string, patch: Partial<MemberDraft>) => {
@@ -173,24 +208,195 @@ export default function TeamOnboardClient({ completedPhases }: Props) {
     return Object.keys(errs).length === 0;
   };
 
+  // ── Download CSV ────────────────────────────────────────────────────────────
+  const downloadCSV = () => {
+    const header = 'Full Name,Email,Username,Role,Temporary Password';
+    const rows = credentials.map(c =>
+      `"${c.full_name}","${c.email}","${c.username}","${c.role}","${c.password}"`
+    );
+    const csv = [header, ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'team-credentials.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const copyAll = () => {
+    const text = credentials.map(c =>
+      `${c.full_name} | ${c.email} | @${c.username} | ${c.password}`
+    ).join('\n');
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  // ── Save & generate credentials ─────────────────────────────────────────────
   const handleSave = async () => {
     if (!validate()) return;
     setSaving(true);
-    const payload: TeamMember[] = allMembers().map(m => ({
-      full_name: m.full_name.trim(),
-      email: m.email.trim().toLowerCase(),
-      role: m.role,
-      username: m.username.trim().toLowerCase() || generateUsername(m.full_name),
-      login_method: 'email_otp',
-      department: m.department,
+
+    const membersWithPasswords = allMembers().map(m => ({
+      ...m,
+      resolvedUsername: m.username.trim().toLowerCase() || generateUsername(m.full_name),
+      password: generateOTP(),
     }));
+
+    const payload: TeamMember[] = membersWithPasswords.map(m => ({
+      full_name:     m.full_name.trim(),
+      email:         m.email.trim().toLowerCase(),
+      role:          m.role,
+      username:      m.resolvedUsername,
+      login_method:  'email_otp' as const,
+      department:    m.department,
+      temp_password: m.password,
+    }));
+
     const res = await savePhase3({ members: payload });
-    if (!res.success) { setSaving(false); return; }
+    setSaving(false);
+    if (!res.success) return;
+
+    // Show credentials screen
+    setCredentials(membersWithPasswords.map(m => ({
+      full_name: m.full_name.trim(),
+      email:     m.email.trim().toLowerCase(),
+      username:  m.resolvedUsername,
+      role:      m.role,
+      password:  m.password,
+    })));
+    setShowCredentials(true);
+  };
+
+  const handleAcknowledge = () => {
+    setShowCredentials(false);
     setDone(true);
     setTimeout(() => router.push('/onboard/4'), 2600);
   };
 
   const totalCount = allMembers().length;
+
+  // ─── Credentials screen ────────────────────────────────────────────────────
+  if (showCredentials) {
+    return (
+      <div style={{ background: BG, minHeight: '100vh', position: 'relative', overflowX: 'hidden' }}>
+        {/* Dot grid */}
+        <svg style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', opacity: 0.35 }}>
+          <defs>
+            <pattern id="cred-dots" x="0" y="0" width="28" height="28" patternUnits="userSpaceOnUse">
+              <circle cx="1" cy="1" r="1" fill="#A1A1AA" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#cred-dots)" />
+        </svg>
+
+        {/* Top bar */}
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50, borderBottom: `1px solid ${BORDER}`, backdropFilter: 'blur(12px)', background: `${BG}F0`, padding: '0 32px', height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <JweblyIcon size={28} uid="cred3-nav" />
+            <span style={{ fontSize: 13, fontWeight: 700, color: INK, letterSpacing: '-0.02em' }}>{BRAND.platform}</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {[1, 2, 3, 4, 5].map(n => (
+              <div key={n} style={{ width: n === 3 ? 24 : 8, height: 8, borderRadius: 4, background: completedPhases.includes(n) ? GRN : n === 3 ? BRAND.accent : BORDER, transition: 'all 0.3s' }} />
+            ))}
+          </div>
+        </div>
+
+        <div style={{ maxWidth: 760, margin: '0 auto', padding: '100px 24px 80px' }}>
+
+          {/* Header */}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} style={{ textAlign: 'center', marginBottom: 32 }}>
+            <div style={{ width: 56, height: 56, borderRadius: '50%', background: `${WARN}12`, border: `2px solid ${WARN}35`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+              <AlertTriangle size={24} color={WARN} strokeWidth={2} />
+            </div>
+            <h1 style={{ fontSize: 32, fontWeight: 900, color: INK, letterSpacing: '-0.035em', lineHeight: 1.1, margin: '0 0 10px' }}>
+              Save team credentials
+            </h1>
+            <p style={{ fontSize: 14, color: SEC, maxWidth: 480, margin: '0 auto', lineHeight: 1.6 }}>
+              These temporary passwords will <strong style={{ color: INK }}>not be shown again</strong>. Download or copy them now and share with each staff member before they log in.
+            </p>
+          </motion.div>
+
+          {/* Warning banner */}
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+            style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: `${WARN}10`, border: `1px solid ${WARN}30`, borderRadius: 12, padding: '12px 16px', marginBottom: 20 }}>
+            <AlertTriangle size={14} color={WARN} style={{ flexShrink: 0, marginTop: 1 }} />
+            <p style={{ fontSize: 12, color: SEC, margin: 0, lineHeight: 1.6 }}>
+              Each staff member&apos;s temporary password is shown only once. Staff can log in with their email address or username and use this password to set a permanent one on first login.
+            </p>
+          </motion.div>
+
+          {/* Credentials table */}
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+            style={{ background: '#FFFFFF', border: `1.5px solid ${BORDER}`, borderRadius: 16, overflow: 'hidden', marginBottom: 16 }}>
+            {/* Table header */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 2fr 1.2fr 1.5fr 1.5fr', padding: '10px 20px', borderBottom: `1px solid ${BORDER}`, background: `${MUTED}08` }}>
+              {['Full name', 'Email', 'Username', 'Role', 'Password'].map(h => (
+                <div key={h} style={{ fontSize: 10, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.12em' }}>{h}</div>
+              ))}
+            </div>
+            {/* Rows */}
+            {credentials.map((c, i) => (
+              <motion.div key={i}
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.2 + i * 0.06 }}
+                style={{ display: 'grid', gridTemplateColumns: '1.5fr 2fr 1.2fr 1.5fr 1.5fr', padding: '12px 20px', borderBottom: i < credentials.length - 1 ? `1px solid ${BORDER}` : 'none', alignItems: 'center' }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: INK }}>{c.full_name}</div>
+                <div style={{ fontSize: 12, color: SEC }}>{c.email}</div>
+                <div style={{ fontSize: 12, color: SEC, display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <AtSign size={10} color={MUTED} />
+                  {c.username}
+                </div>
+                <div>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: SEC, background: `${MUTED}10`, border: `1px solid ${BORDER}`, borderRadius: 6, padding: '2px 7px' }}>{c.role}</span>
+                </div>
+                <div style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: INK, letterSpacing: '0.04em', background: `${BRAND.accent}08`, border: `1px solid ${BRAND.accent}20`, borderRadius: 6, padding: '3px 8px', display: 'inline-block' }}>
+                  {c.password}
+                </div>
+              </motion.div>
+            ))}
+          </motion.div>
+
+          {/* Actions */}
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }}
+            style={{ display: 'flex', gap: 10, marginBottom: 24 }}>
+            <button onClick={downloadCSV}
+              style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '13px 20px', borderRadius: 12, border: `1.5px solid ${BORDER}`, background: 'transparent', fontSize: 13, fontWeight: 700, color: INK, cursor: 'pointer', transition: 'all 0.2s' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = `${INK}06`; (e.currentTarget as HTMLButtonElement).style.borderColor = `${INK}30`; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.borderColor = BORDER; }}>
+              <Download size={14} /> Download CSV
+            </button>
+            <button onClick={copyAll}
+              style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '13px 20px', borderRadius: 12, border: `1.5px solid ${BORDER}`, background: 'transparent', fontSize: 13, fontWeight: 700, color: copied ? GRN : INK, cursor: 'pointer', transition: 'all 0.2s' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = `${INK}06`; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}>
+              {copied ? <Check size={14} /> : <Copy size={14} />}
+              {copied ? 'Copied' : 'Copy all'}
+            </button>
+          </motion.div>
+
+          {/* Acknowledge button */}
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
+            <motion.button
+              onClick={handleAcknowledge}
+              whileHover={{ y: -2, boxShadow: `0 12px 40px ${INK}20` }}
+              whileTap={{ scale: 0.98 }}
+              style={{ width: '100%', padding: '17px 24px', borderRadius: 14, border: 'none', background: INK, color: BG, fontSize: 15, fontWeight: 800, letterSpacing: '-0.02em', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, transition: 'all 0.2s' }}>
+              <Check size={16} strokeWidth={2.5} />
+              I&apos;ve saved all credentials
+            </motion.button>
+            <p style={{ fontSize: 11, color: MUTED, textAlign: 'center', marginTop: 10, lineHeight: 1.5 }}>
+              You will not be able to view these passwords again after proceeding.
+            </p>
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
 
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -240,7 +446,7 @@ export default function TeamOnboardClient({ completedPhases }: Props) {
           style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: `${BRAND.accent}08`, border: `1px solid ${BRAND.accent}25`, borderRadius: 12, padding: '12px 16px', marginBottom: 28 }}>
           <Info size={14} color={BRAND.accent} style={{ flexShrink: 0, marginTop: 1 }} />
           <p style={{ fontSize: 12, color: SEC, margin: 0, lineHeight: 1.6 }}>
-            <strong style={{ color: INK }}>Two ways to log in, always enabled:</strong> staff can use their email address + a one-time code, <em>or</em> their username + password. Credentials are sent to them on go-live.
+            <strong style={{ color: INK }}>Two ways to log in, always enabled:</strong> staff can use their email address + a one-time code, <em>or</em> their username + password. You&apos;ll receive temporary passwords to share after saving.
           </p>
         </motion.div>
 
@@ -435,7 +641,7 @@ export default function TeamOnboardClient({ completedPhases }: Props) {
                 <div style={{ fontSize: 13, fontWeight: 700, color: INK, marginBottom: 2 }}>
                   {totalCount} team member{totalCount !== 1 ? 's' : ''} added
                 </div>
-                <div style={{ fontSize: 11, color: MUTED }}>Credentials sent to each staff member on go-live</div>
+                <div style={{ fontSize: 11, color: MUTED }}>Temporary passwords generated on save</div>
               </div>
               <button
                 onClick={handleSave}

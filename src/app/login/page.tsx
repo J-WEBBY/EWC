@@ -3,8 +3,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Eye, EyeOff, ArrowRight, Loader2, Check, ChevronLeft, Shield } from 'lucide-react';
-import Image from 'next/image';
+import {
+  Eye, EyeOff, ArrowRight, Loader2, Check,
+  ChevronLeft, Shield, AtSign, Mail,
+} from 'lucide-react';
+import { JweblyIcon } from '@/components/jwebly-logo';
 import { verifyLogin, changePassword, getClinicInfo, requestPasswordReset } from '@/lib/actions/auth';
 
 // =============================================================================
@@ -20,29 +23,32 @@ interface Brand {
 interface AuthUser { id: string; first_name: string; last_name: string; email: string; }
 
 // =============================================================================
-// DESIGN TOKENS
+// TOKENS — match onboarding aesthetic
 // =============================================================================
 
-const NAVY  = '#181D23';
-const BLUE  = '#0058E6';
-const TER   = '#5A6475';
-const MUT   = '#96989B';
-const BDR   = '#D4E2FF';
-const GREEN = '#059669';
+const PANEL_L = '#0D1420';   // dark left panel
+const PANEL_R = '#F7F6F3';   // light right panel
+const INK     = '#18181B';
+const SEC     = '#4A5568';
+const MUTED   = '#A1A1AA';
+const BORDER  = '#E4E4E7';
+const ACCENT  = '#0058E6';
+const GRN     = '#059669';
 
 // =============================================================================
-// INPUT
+// SHARED FORM COMPONENTS
 // =============================================================================
 
-function Input({
+function FormInput({
   type, value, onChange, placeholder, autoFocus, autoComplete, children,
 }: {
   type: string; value: string; onChange: (v: string) => void;
   placeholder: string; autoFocus?: boolean; autoComplete?: string;
   children?: React.ReactNode;
 }) {
+  const [focused, setFocused] = useState(false);
   return (
-    <div className="relative">
+    <div style={{ position: 'relative' }}>
       <input
         type={type}
         value={value}
@@ -51,86 +57,136 @@ function Input({
         autoFocus={autoFocus}
         autoComplete={autoComplete}
         required
-        className="w-full h-[50px] border rounded-xl px-4 pr-12 text-[14px] outline-none transition-all duration-200 bg-white placeholder:text-[#B8C4D0]"
-        style={{ borderColor: BDR, color: NAVY }}
-        onFocus={e => {
-          e.target.style.borderColor = BLUE;
-          e.target.style.boxShadow = `0 0 0 3px rgba(0,88,230,0.10)`;
-        }}
-        onBlur={e => {
-          e.target.style.borderColor = BDR;
-          e.target.style.boxShadow = 'none';
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        style={{
+          width: '100%', height: 50, borderRadius: 12, padding: '0 44px 0 14px',
+          fontSize: 14, color: INK, fontFamily: 'inherit',
+          border: `1.5px solid ${focused ? ACCENT : BORDER}`,
+          background: PANEL_R, outline: 'none',
+          boxShadow: focused ? `0 0 0 3px ${ACCENT}12` : 'none',
+          transition: 'border-color 0.15s, box-shadow 0.15s',
+          boxSizing: 'border-box',
         }}
       />
       {children && (
-        <div className="absolute right-4 top-1/2 -translate-y-1/2">{children}</div>
+        <div style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)' }}>
+          {children}
+        </div>
       )}
     </div>
   );
 }
 
-// =============================================================================
-// BUTTON
-// =============================================================================
-
-function Btn({ disabled, loading, children }: {
+function FormBtn({ disabled, loading, children }: {
   disabled?: boolean; loading?: boolean; children: React.ReactNode;
 }) {
   return (
     <button
       type="submit"
       disabled={disabled || loading}
-      className="w-full h-[50px] rounded-xl font-semibold text-[14px] text-white flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed active:scale-[0.985]"
-      style={{ background: `linear-gradient(135deg, ${BLUE} 0%, #0045C4 100%)`, boxShadow: `0 4px 20px rgba(0,88,230,0.35)` }}
+      style={{
+        width: '100%', height: 50, borderRadius: 12, border: 'none',
+        background: disabled || loading ? BORDER : INK,
+        color: disabled || loading ? MUTED : PANEL_R,
+        fontSize: 14, fontWeight: 700, fontFamily: 'inherit',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+        cursor: disabled || loading ? 'not-allowed' : 'pointer',
+        transition: 'all 0.2s',
+        letterSpacing: '-0.01em',
+      }}
       onMouseEnter={e => {
-        if (!(e.currentTarget as HTMLButtonElement).disabled) {
-          (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 6px 28px rgba(0,88,230,0.50)';
-          (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)';
-        }
+        const btn = e.currentTarget as HTMLButtonElement;
+        if (!btn.disabled) { btn.style.transform = 'translateY(-1px)'; btn.style.boxShadow = `0 8px 24px ${INK}25`; }
       }}
       onMouseLeave={e => {
-        (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 20px rgba(0,88,230,0.35)';
-        (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)';
+        const btn = e.currentTarget as HTMLButtonElement;
+        btn.style.transform = 'translateY(0)'; btn.style.boxShadow = 'none';
       }}
     >
-      {loading ? <Loader2 size={16} className="animate-spin" /> : children}
+      {loading ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : children}
     </button>
   );
 }
 
 // =============================================================================
-// LOGO
+// LEFT PANEL
 // =============================================================================
 
-function Logo() {
-  const [imgFailed, setImgFailed] = useState(false);
-
-  if (imgFailed) {
-    return (
-      <div className="flex flex-col items-center gap-1">
-        <div
-          className="w-12 h-12 rounded-2xl flex items-center justify-center"
-          style={{ background: `${BLUE}12`, border: `1px solid ${BLUE}25` }}>
-          <span className="text-[15px] font-black tracking-tight" style={{ color: BLUE }}>EWC</span>
-        </div>
-        <p className="text-[11px] uppercase tracking-[0.22em] font-semibold" style={{ color: MUT }}>
-          Edgbaston Wellness Clinic
-        </p>
-      </div>
-    );
-  }
-
+function LeftPanel({ clinicName }: { clinicName: string }) {
   return (
-    <div className="flex flex-col items-center gap-3">
-      {/* Drop your logo at /public/ewc-logo.png */}
-      <Image
-        src="/ewc-logo.png"
-        alt="Edgbaston Wellness Clinic"
-        width={200}
-        height={64}
-        style={{ height: 64, width: 'auto', objectFit: 'contain' }}
-        onError={() => setImgFailed(true)}
-      />
+    <div style={{
+      width: '42%', minHeight: '100vh', background: PANEL_L,
+      display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden', flexShrink: 0,
+    }}>
+      {/* Dot grid */}
+      <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', opacity: 0.18 }}>
+        <defs>
+          <pattern id="lp-dots" x="0" y="0" width="28" height="28" patternUnits="userSpaceOnUse">
+            <circle cx="1" cy="1" r="1" fill="#ffffff" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#lp-dots)" />
+      </svg>
+
+      {/* Ambient blooms */}
+      <div style={{ position: 'absolute', top: '-20%', right: '-20%', width: 500, height: 500, borderRadius: '50%', background: `radial-gradient(circle, ${ACCENT}22 0%, transparent 70%)`, pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', bottom: '-15%', left: '-15%', width: 420, height: 420, borderRadius: '50%', background: 'radial-gradient(circle, #D8A60014 0%, transparent 70%)', pointerEvents: 'none' }} />
+
+      {/* Content */}
+      <div style={{ position: 'relative', zIndex: 1, flex: 1, display: 'flex', flexDirection: 'column', padding: '48px 52px' }}>
+
+        {/* Logo + platform name */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 'auto' }}>
+          <JweblyIcon size={36} uid="login-left" />
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.02em', lineHeight: 1.2 }}>Jwebly Health</div>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.38)', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Platform</div>
+          </div>
+        </motion.div>
+
+        {/* Headline block */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.55, delay: 0.1 }}
+          style={{ paddingBottom: 64 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: `${ACCENT}CC`, letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 18 }}>
+            Operational Intelligence
+          </div>
+          <h1 style={{
+            fontSize: 40, fontWeight: 900, color: '#FFFFFF',
+            letterSpacing: '-0.04em', lineHeight: 1.08, margin: '0 0 20px',
+          }}>
+            Your clinic,<br />running smarter.
+          </h1>
+          <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.45)', lineHeight: 1.65, margin: 0, maxWidth: 280 }}>
+            AI-powered operations for modern private clinics — signals, agents, and intelligence in one place.
+          </p>
+
+          {/* Clinic name pill */}
+          {clinicName && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.4, type: 'spring', stiffness: 240, damping: 20 }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 28, padding: '8px 16px', borderRadius: 20, border: '1px solid rgba(255,255,255,0.10)', background: 'rgba(255,255,255,0.05)' }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: GRN }} />
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.65)' }}>{clinicName}</span>
+            </motion.div>
+          )}
+        </motion.div>
+
+        {/* Footer */}
+        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.20)', lineHeight: 1.6 }}>
+          Secure access · Authorised staff only · Sessions are logged<br />
+          © {new Date().getFullYear()} Jwebly Ltd.
+        </div>
+      </div>
     </div>
   );
 }
@@ -154,7 +210,7 @@ export default function LoginPage() {
   const [brand, setBrand]     = useState<Brand>({
     clinic_name: 'Edgbaston Wellness Clinic',
     ai_name: 'Aria',
-    brand_color: '#0058E6',
+    brand_color: ACCENT,
     logo_url: null,
     tagline: null,
   });
@@ -243,11 +299,10 @@ export default function LoginPage() {
   // ── Loading skeleton ────────────────────────────────────────────────────────
   if (!ready) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#070D1F' }}>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: PANEL_L }}>
         <motion.div
-          className="w-1.5 h-1.5 rounded-full"
-          style={{ background: 'rgba(255,255,255,0.25)' }}
-          animate={{ opacity: [0.2, 0.8, 0.2] }}
+          style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(255,255,255,0.2)' }}
+          animate={{ opacity: [0.2, 0.7, 0.2] }}
           transition={{ duration: 1.2, repeat: Infinity }}
         />
       </div>
@@ -255,335 +310,246 @@ export default function LoginPage() {
   }
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-center relative overflow-hidden"
-      style={{
-        background: 'radial-gradient(ellipse at 25% 0%, rgba(0,88,230,0.22) 0%, transparent 55%), radial-gradient(ellipse at 85% 100%, rgba(216,166,0,0.10) 0%, transparent 50%), #070D1F',
-      }}
-    >
+    <div style={{ display: 'flex', minHeight: '100vh' }}>
 
-      {/* ── Background mesh lines ── */}
-      <svg
-        className="absolute inset-0 w-full h-full pointer-events-none"
-        style={{ opacity: 0.028 }}
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <defs>
-          <pattern id="grid" x="0" y="0" width="48" height="48" patternUnits="userSpaceOnUse">
-            <path d="M 48 0 L 0 0 0 48" fill="none" stroke="#ffffff" strokeWidth="0.6" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#grid)" />
-      </svg>
+      {/* ── Left panel (hidden on mobile) ── */}
+      <div className="hidden md:block" style={{ flexShrink: 0, width: '42%' }}>
+        <LeftPanel clinicName={brand.clinic_name} />
+      </div>
 
-      {/* ── Ambient glow orbs ── */}
-      <div
-        className="absolute pointer-events-none"
-        style={{
-          top: '-15%', left: '-10%',
-          width: '55vw', height: '55vw',
-          background: `radial-gradient(circle, rgba(0,88,230,0.14) 0%, transparent 70%)`,
-          borderRadius: '50%',
-        }}
-      />
-      <div
-        className="absolute pointer-events-none"
-        style={{
-          bottom: '-20%', right: '-10%',
-          width: '45vw', height: '45vw',
-          background: `radial-gradient(circle, rgba(216,166,0,0.08) 0%, transparent 70%)`,
-          borderRadius: '50%',
-        }}
-      />
+      {/* ── Right panel ── */}
+      <div style={{
+        flex: 1, minHeight: '100vh', background: PANEL_R,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        padding: '40px 32px', position: 'relative',
+      }}>
 
-      {/* ── Card ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 24, scale: 0.97 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-        className="relative z-10 w-full mx-4"
-        style={{ maxWidth: 420 }}
-      >
-        {/* Glass card */}
-        <div
-          className="rounded-3xl overflow-hidden"
-          style={{
-            background: '#FFFFFF',
-            boxShadow: '0 32px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.08)',
-          }}
+        {/* Mobile logo (visible only when left panel is hidden) */}
+        <div className="flex md:hidden" style={{ position: 'absolute', top: 28, left: 28, alignItems: 'center', gap: 8 }}>
+          <JweblyIcon size={24} uid="login-mob" />
+          <span style={{ fontSize: 12, fontWeight: 700, color: INK, letterSpacing: '-0.01em' }}>Jwebly Health</span>
+        </div>
+
+        {/* Form container */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+          style={{ width: '100%', maxWidth: 400 }}
         >
-          {/* Card top stripe — subtle BLUE line */}
-          <div style={{ height: 3, background: `linear-gradient(90deg, ${BLUE} 0%, #0045C4 60%, rgba(0,69,196,0) 100%)` }} />
-
-          {/* Header */}
-          <div className="flex flex-col items-center pt-9 pb-7 px-10" style={{ borderBottom: `1px solid ${BDR}` }}>
-            <Logo />
+          {/* Clinic name above form */}
+          <div style={{ marginBottom: 36 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 6 }}>Staff Portal</div>
+            <div style={{ fontSize: 26, fontWeight: 900, color: INK, letterSpacing: '-0.035em', lineHeight: 1.1 }}>{brand.clinic_name}</div>
           </div>
 
-          {/* Form body */}
-          <div className="px-10 py-8">
-            <AnimatePresence mode="wait">
+          <AnimatePresence mode="wait">
 
-              {/* ── EMAIL ── */}
-              {step === 'email' && (
-                <motion.form key="email" onSubmit={submitEmail}
-                  initial={{ opacity: 0, x: 12 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -12 }}
-                  transition={{ duration: 0.2 }}>
-                  <h2 className="text-[22px] font-bold tracking-tight mb-1" style={{ color: NAVY }}>Sign in</h2>
-                  <p className="text-[13px] mb-6" style={{ color: TER }}>Staff portal access</p>
-                  <div className="space-y-3">
-                    <Input type="email" value={email} onChange={setEmail}
-                      placeholder="Email address" autoFocus autoComplete="email" />
-                    <Btn disabled={!email.trim()}>
-                      Continue <ArrowRight size={14} />
-                    </Btn>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => { setError(''); setStep('forgot'); }}
-                    className="w-full text-center mt-5 text-[12px] py-1.5 rounded transition-colors"
-                    style={{ color: MUT }}
-                    onMouseEnter={e => (e.currentTarget.style.color = TER)}
-                    onMouseLeave={e => (e.currentTarget.style.color = MUT)}>
-                    Forgot your password?
-                  </button>
-                </motion.form>
-              )}
+            {/* ── EMAIL ── */}
+            {step === 'email' && (
+              <motion.form key="email" onSubmit={submitEmail}
+                initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -14 }} transition={{ duration: 0.2 }}>
+                <h2 style={{ fontSize: 20, fontWeight: 800, color: INK, letterSpacing: '-0.03em', marginBottom: 4 }}>Sign in</h2>
+                <p style={{ fontSize: 13, color: SEC, marginBottom: 24, lineHeight: 1.5 }}>Enter your email address to continue</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <FormInput type="email" value={email} onChange={setEmail}
+                    placeholder="Email address" autoFocus autoComplete="email">
+                    <Mail size={14} color={MUTED} />
+                  </FormInput>
+                  <FormBtn disabled={!email.trim()}>
+                    Continue <ArrowRight size={14} />
+                  </FormBtn>
+                </div>
+                <button type="button" onClick={() => { setError(''); setStep('forgot'); }}
+                  style={{ width: '100%', marginTop: 18, fontSize: 12, color: MUTED, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: '4px 0', transition: 'color 0.15s' }}
+                  onMouseEnter={e => (e.currentTarget.style.color = SEC)}
+                  onMouseLeave={e => (e.currentTarget.style.color = MUTED)}>
+                  Forgot your password?
+                </button>
+              </motion.form>
+            )}
 
-              {/* ── PASSWORD ── */}
-              {step === 'password' && (
-                <motion.form key="password" onSubmit={submitLogin}
-                  initial={{ opacity: 0, x: 12 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -12 }}
-                  transition={{ duration: 0.2 }}>
-                  <button
-                    type="button" onClick={back}
-                    className="flex items-center gap-1.5 text-[12px] mb-5 transition-colors"
-                    style={{ color: MUT }}
-                    onMouseEnter={e => (e.currentTarget.style.color = TER)}
-                    onMouseLeave={e => (e.currentTarget.style.color = MUT)}>
-                    <ChevronLeft size={13} /> Back
-                  </button>
-                  <h2 className="text-[22px] font-bold tracking-tight mb-4" style={{ color: NAVY }}>
-                    Enter password
-                  </h2>
-                  {/* Email pill */}
-                  <div
-                    className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 mb-5"
-                    style={{ background: `${BLUE}08`, border: `1px solid ${BLUE}18` }}>
-                    <div
-                      className="w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
-                      style={{ backgroundColor: BLUE }}>
-                      {email.charAt(0).toUpperCase()}
-                    </div>
-                    <span className="text-[12px]" style={{ color: TER }}>{email}</span>
+            {/* ── PASSWORD ── */}
+            {step === 'password' && (
+              <motion.form key="password" onSubmit={submitLogin}
+                initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -14 }} transition={{ duration: 0.2 }}>
+                <button type="button" onClick={back}
+                  style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: MUTED, background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 20px', fontFamily: 'inherit', transition: 'color 0.15s' }}
+                  onMouseEnter={e => (e.currentTarget.style.color = SEC)}
+                  onMouseLeave={e => (e.currentTarget.style.color = MUTED)}>
+                  <ChevronLeft size={13} /> Back
+                </button>
+                <h2 style={{ fontSize: 20, fontWeight: 800, color: INK, letterSpacing: '-0.03em', marginBottom: 16 }}>Enter password</h2>
+                {/* Email pill */}
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderRadius: 8, background: `${ACCENT}08`, border: `1px solid ${ACCENT}18`, marginBottom: 20 }}>
+                  <div style={{ width: 20, height: 20, borderRadius: 6, background: INK, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <span style={{ fontSize: 10, fontWeight: 800, color: PANEL_R }}>{email.charAt(0).toUpperCase()}</span>
                   </div>
-                  <div className="space-y-3">
-                    <Input
-                      type={showPw ? 'text' : 'password'}
-                      value={pw} onChange={setPw}
-                      placeholder="Password" autoFocus autoComplete="current-password">
-                      <button
-                        type="button" onClick={() => setShowPw(!showPw)}
-                        style={{ color: MUT }}
-                        onMouseEnter={e => (e.currentTarget.style.color = TER)}
-                        onMouseLeave={e => (e.currentTarget.style.color = MUT)}>
-                        {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
-                      </button>
-                    </Input>
-                    <AnimatePresence>
-                      {error && (
-                        <motion.p
-                          initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0 }}
-                          className="text-[12px] pl-1" style={{ color: '#DC2626' }}>
-                          {error}
-                        </motion.p>
-                      )}
-                    </AnimatePresence>
-                    <Btn disabled={!pw} loading={loading}>Sign in <ArrowRight size={14} /></Btn>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => { setError(''); setStep('forgot'); }}
-                    className="w-full text-center mt-5 text-[12px] py-1.5 transition-colors"
-                    style={{ color: MUT }}
-                    onMouseEnter={e => (e.currentTarget.style.color = TER)}
-                    onMouseLeave={e => (e.currentTarget.style.color = MUT)}>
-                    Forgot password?
-                  </button>
-                </motion.form>
-              )}
+                  <span style={{ fontSize: 12, color: SEC }}>{email}</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <FormInput type={showPw ? 'text' : 'password'} value={pw} onChange={setPw}
+                    placeholder="Password" autoFocus autoComplete="current-password">
+                    <button type="button" onClick={() => setShowPw(!showPw)}
+                      style={{ color: MUTED, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}
+                      onMouseEnter={e => (e.currentTarget.style.color = SEC)}
+                      onMouseLeave={e => (e.currentTarget.style.color = MUTED)}>
+                      {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </FormInput>
+                  <AnimatePresence>
+                    {error && (
+                      <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                        style={{ fontSize: 12, color: '#DC2626', margin: 0 }}>{error}</motion.p>
+                    )}
+                  </AnimatePresence>
+                  <FormBtn disabled={!pw} loading={loading}>Sign in <ArrowRight size={14} /></FormBtn>
+                </div>
+                <button type="button" onClick={() => { setError(''); setStep('forgot'); }}
+                  style={{ width: '100%', marginTop: 18, fontSize: 12, color: MUTED, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: '4px 0', transition: 'color 0.15s' }}
+                  onMouseEnter={e => (e.currentTarget.style.color = SEC)}
+                  onMouseLeave={e => (e.currentTarget.style.color = MUTED)}>
+                  Forgot password?
+                </button>
+              </motion.form>
+            )}
 
-              {/* ── CHANGE PASSWORD ── */}
-              {step === 'change-password' && (
-                <motion.form key="change-password" onSubmit={submitChangePw}
-                  initial={{ opacity: 0, x: 12 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -12 }}
-                  transition={{ duration: 0.2 }}>
-                  <div
-                    className="w-9 h-9 rounded-xl flex items-center justify-center mb-5"
-                    style={{ background: `${BLUE}0c`, border: `1px solid ${BLUE}22` }}>
-                    <Shield size={15} style={{ color: BLUE }} />
-                  </div>
-                  <h2 className="text-[22px] font-bold tracking-tight mb-1" style={{ color: NAVY }}>Set password</h2>
-                  <p className="text-[13px] mb-6" style={{ color: TER }}>
-                    {user?.first_name ? `Hi ${user.first_name} — ` : ''}Create a secure password.
-                  </p>
-                  <div className="space-y-3 mb-4">
-                    <Input
-                      type={showNewPw ? 'text' : 'password'}
-                      value={newPw} onChange={setNewPw}
-                      placeholder="New password" autoFocus>
-                      <button type="button" onClick={() => setSNP(!showNewPw)} style={{ color: MUT }}>
-                        {showNewPw ? <EyeOff size={15} /> : <Eye size={15} />}
-                      </button>
-                    </Input>
-                    <Input type="password" value={cPw} onChange={setCPw} placeholder="Confirm password" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 mb-5">
-                    {[
-                      { met: checks.len,                   label: '8+ characters'  },
-                      { met: checks.upper && checks.lower, label: 'Mixed case'      },
-                      { met: checks.num,                   label: 'Number'          },
-                      { met: checks.sym,                   label: 'Special char'    },
-                      { met: checks.match,                 label: 'Passwords match' },
-                    ].map(r => (
-                      <div key={r.label} className="flex items-center gap-1.5 text-[11px]"
-                        style={{ color: r.met ? GREEN : MUT }}>
-                        <div
-                          className="w-2.5 h-2.5 rounded-full border flex items-center justify-center flex-shrink-0"
-                          style={{
-                            borderColor: r.met ? GREEN : BDR,
-                            backgroundColor: r.met ? `${GREEN}12` : 'transparent',
-                          }}>
-                          {r.met && <Check size={6} strokeWidth={3.5} style={{ color: GREEN }} />}
-                        </div>
-                        {r.label}
+            {/* ── CHANGE PASSWORD ── */}
+            {step === 'change-password' && (
+              <motion.form key="change-password" onSubmit={submitChangePw}
+                initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -14 }} transition={{ duration: 0.2 }}>
+                <div style={{ width: 38, height: 38, borderRadius: 10, background: `${ACCENT}0e`, border: `1px solid ${ACCENT}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+                  <Shield size={16} color={ACCENT} />
+                </div>
+                <h2 style={{ fontSize: 20, fontWeight: 800, color: INK, letterSpacing: '-0.03em', marginBottom: 4 }}>Set your password</h2>
+                <p style={{ fontSize: 13, color: SEC, marginBottom: 24, lineHeight: 1.5 }}>
+                  {user?.first_name ? `Hi ${user.first_name} — ` : ''}Create a secure password to continue.
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+                  <FormInput type={showNewPw ? 'text' : 'password'} value={newPw} onChange={setNewPw} placeholder="New password" autoFocus>
+                    <button type="button" onClick={() => setSNP(!showNewPw)}
+                      style={{ color: MUTED, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}>
+                      {showNewPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </FormInput>
+                  <FormInput type="password" value={cPw} onChange={setCPw} placeholder="Confirm password" />
+                </div>
+                {/* Password requirements */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 20 }}>
+                  {[
+                    { met: checks.len,                   label: '8+ characters'  },
+                    { met: checks.upper && checks.lower, label: 'Mixed case'      },
+                    { met: checks.num,                   label: 'Number'          },
+                    { met: checks.sym,                   label: 'Special char'    },
+                    { met: checks.match,                 label: 'Passwords match' },
+                  ].map(r => (
+                    <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: r.met ? GRN : MUTED }}>
+                      <div style={{ width: 10, height: 10, borderRadius: '50%', border: `1.5px solid ${r.met ? GRN : BORDER}`, background: r.met ? `${GRN}12` : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.2s' }}>
+                        {r.met && <Check size={6} strokeWidth={3.5} color={GRN} />}
                       </div>
-                    ))}
-                  </div>
-                  {error && <p className="text-[12px] mb-3" style={{ color: '#DC2626' }}>{error}</p>}
-                  <Btn disabled={!pwReady} loading={loading}>Set password &amp; sign in</Btn>
-                </motion.form>
-              )}
+                      {r.label}
+                    </div>
+                  ))}
+                </div>
+                {error && <p style={{ fontSize: 12, color: '#DC2626', marginBottom: 12 }}>{error}</p>}
+                <FormBtn disabled={!pwReady} loading={loading}>Set password &amp; sign in</FormBtn>
+              </motion.form>
+            )}
 
-              {/* ── FORGOT ── */}
-              {step === 'forgot' && (
-                <motion.form key="forgot" onSubmit={submitForgot}
-                  initial={{ opacity: 0, x: 12 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -12 }}
-                  transition={{ duration: 0.2 }}>
-                  <button
-                    type="button" onClick={back}
-                    className="flex items-center gap-1.5 text-[12px] mb-5"
-                    style={{ color: MUT }}
-                    onMouseEnter={e => (e.currentTarget.style.color = TER)}
-                    onMouseLeave={e => (e.currentTarget.style.color = MUT)}>
-                    <ChevronLeft size={13} /> Back
-                  </button>
-                  <h2 className="text-[22px] font-bold tracking-tight mb-1" style={{ color: NAVY }}>Reset access</h2>
-                  <p className="text-[13px] mb-6" style={{ color: TER }}>
-                    Your administrator will be notified.
-                  </p>
-                  <div className="space-y-3">
-                    <Input type="email" value={email} onChange={setEmail}
-                      placeholder="Email address" autoFocus autoComplete="email" />
-                    <Btn disabled={!email.trim()} loading={loading}>Send reset request</Btn>
-                  </div>
-                </motion.form>
-              )}
+            {/* ── FORGOT ── */}
+            {step === 'forgot' && (
+              <motion.form key="forgot" onSubmit={submitForgot}
+                initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -14 }} transition={{ duration: 0.2 }}>
+                <button type="button" onClick={back}
+                  style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: MUTED, background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 20px', fontFamily: 'inherit', transition: 'color 0.15s' }}
+                  onMouseEnter={e => (e.currentTarget.style.color = SEC)}
+                  onMouseLeave={e => (e.currentTarget.style.color = MUTED)}>
+                  <ChevronLeft size={13} /> Back
+                </button>
+                <h2 style={{ fontSize: 20, fontWeight: 800, color: INK, letterSpacing: '-0.03em', marginBottom: 4 }}>Reset access</h2>
+                <p style={{ fontSize: 13, color: SEC, marginBottom: 24, lineHeight: 1.5 }}>Your administrator will be notified to reset your access.</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <FormInput type="email" value={email} onChange={setEmail}
+                    placeholder="Email address" autoFocus autoComplete="email">
+                    <AtSign size={14} color={MUTED} />
+                  </FormInput>
+                  <FormBtn disabled={!email.trim()} loading={loading}>Send reset request</FormBtn>
+                </div>
+              </motion.form>
+            )}
 
-              {/* ── FORGOT SENT ── */}
-              {step === 'forgot-sent' && (
-                <motion.div key="forgot-sent"
-                  initial={{ opacity: 0, x: 12 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -12 }}
-                  transition={{ duration: 0.2 }}>
-                  <div
-                    className="w-10 h-10 rounded-xl flex items-center justify-center mb-6"
-                    style={{ background: `${GREEN}0e`, border: `1px solid ${GREEN}28` }}>
-                    <Check size={18} style={{ color: GREEN }} />
-                  </div>
-                  <h2 className="text-[22px] font-bold tracking-tight mb-1.5" style={{ color: NAVY }}>Request sent</h2>
-                  <p className="text-[13px] mb-8 leading-relaxed" style={{ color: TER }}>
-                    If an account exists for{' '}
-                    <span className="font-medium" style={{ color: NAVY }}>{email}</span>,
-                    your administrator has been notified.
-                  </p>
-                  <button
-                    onClick={() => { setStep('email'); setError(''); }}
-                    className="w-full h-[50px] rounded-xl border text-[13px] font-medium transition-all duration-150"
-                    style={{ borderColor: BDR, color: TER, background: 'transparent' }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = `${BLUE}06`; (e.currentTarget as HTMLButtonElement).style.borderColor = `${BLUE}30`; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.borderColor = BDR; }}>
-                    Back to sign in
-                  </button>
+            {/* ── FORGOT SENT ── */}
+            {step === 'forgot-sent' && (
+              <motion.div key="forgot-sent"
+                initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -14 }} transition={{ duration: 0.2 }}>
+                <div style={{ width: 42, height: 42, borderRadius: 12, background: `${GRN}0e`, border: `1px solid ${GRN}28`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+                  <Check size={18} color={GRN} />
+                </div>
+                <h2 style={{ fontSize: 20, fontWeight: 800, color: INK, letterSpacing: '-0.03em', marginBottom: 8 }}>Request sent</h2>
+                <p style={{ fontSize: 13, color: SEC, lineHeight: 1.6, marginBottom: 32 }}>
+                  If an account exists for <strong style={{ color: INK }}>{email}</strong>, your administrator has been notified.
+                </p>
+                <button onClick={() => { setStep('email'); setError(''); }}
+                  style={{ width: '100%', height: 50, borderRadius: 12, border: `1.5px solid ${BORDER}`, background: 'transparent', fontSize: 13, fontWeight: 600, color: SEC, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = `${ACCENT}06`; (e.currentTarget as HTMLButtonElement).style.borderColor = `${ACCENT}30`; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.borderColor = BORDER; }}>
+                  Back to sign in
+                </button>
+              </motion.div>
+            )}
+
+            {/* ── AUTHENTICATED ── */}
+            {step === 'authenticated' && (
+              <motion.div key="authenticated"
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                transition={{ duration: 0.25 }}
+                style={{ textAlign: 'center', padding: '20px 0' }}>
+                <motion.div
+                  initial={{ scale: 0, rotate: -8 }} animate={{ scale: 1, rotate: 0 }}
+                  transition={{ type: 'spring', stiffness: 280, damping: 18, delay: 0.05 }}
+                  style={{ width: 56, height: 56, borderRadius: 16, background: `${GRN}0e`, border: `1px solid ${GRN}28`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+                  <Check size={24} color={GRN} strokeWidth={2.5} />
                 </motion.div>
-              )}
-
-              {/* ── AUTHENTICATED ── */}
-              {step === 'authenticated' && (
-                <motion.div key="authenticated"
-                  initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                  transition={{ duration: 0.25 }}
-                  className="text-center py-4">
+                <h2 style={{ fontSize: 22, fontWeight: 900, color: INK, letterSpacing: '-0.03em', marginBottom: 6 }}>
+                  {user?.first_name ? `Welcome, ${user.first_name}` : 'Authenticated'}
+                </h2>
+                <p style={{ fontSize: 12, color: MUTED, marginBottom: 28 }}>Launching dashboard…</p>
+                <div style={{ height: 2, borderRadius: 2, overflow: 'hidden', background: BORDER }}>
                   <motion.div
-                    initial={{ scale: 0, rotate: -8 }} animate={{ scale: 1, rotate: 0 }}
-                    transition={{ type: 'spring', stiffness: 280, damping: 18, delay: 0.05 }}
-                    className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-5"
-                    style={{ background: `${GREEN}0e`, border: `1px solid ${GREEN}28` }}>
-                    <Check size={24} style={{ color: GREEN }} strokeWidth={2.5} />
-                  </motion.div>
-                  <h2 className="text-[22px] font-bold tracking-tight mb-1" style={{ color: NAVY }}>
-                    {user?.first_name ? `Welcome, ${user.first_name}` : 'Authenticated'}
-                  </h2>
-                  <p className="text-[12px] mb-7" style={{ color: MUT }}>Launching dashboard…</p>
-                  <div className="h-[2px] rounded-full overflow-hidden" style={{ background: BDR }}>
-                    <motion.div
-                      initial={{ scaleX: 0 }} animate={{ scaleX: 1 }}
-                      transition={{ delay: 0.15, duration: 1.7, ease: [0.22, 1, 0.36, 1] }}
-                      className="h-full origin-left rounded-full"
-                      style={{ background: `linear-gradient(90deg, ${BLUE} 0%, #0045C4 100%)` }}
-                    />
-                  </div>
-                </motion.div>
-              )}
+                    initial={{ scaleX: 0 }} animate={{ scaleX: 1 }}
+                    transition={{ delay: 0.15, duration: 1.7, ease: [0.22, 1, 0.36, 1] }}
+                    style={{ height: '100%', originX: 0, borderRadius: 2, background: INK }}
+                  />
+                </div>
+              </motion.div>
+            )}
 
-            </AnimatePresence>
-          </div>
+          </AnimatePresence>
 
-          {/* Card footer */}
-          <div
-            className="px-10 py-4 flex items-center justify-between"
-            style={{ borderTop: `1px solid ${BDR}` }}>
-            <span className="text-[10px]" style={{ color: MUT }}>
+          {/* Bottom credit */}
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
+            style={{ marginTop: 40, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 10, color: MUTED }}>
               © {new Date().getFullYear()} {brand.clinic_name}
             </span>
-            <span className="text-[10px]" style={{ color: MUT }}>
-              Developed by{' '}
-              <a href="mailto:hello@jwebly.com" className="font-medium hover:underline" style={{ color: TER }}>
+            <span style={{ fontSize: 10, color: MUTED }}>
+              by{' '}
+              <a href="mailto:hello@jwebly.com" style={{ color: SEC, fontWeight: 600, textDecoration: 'none' }}
+                onMouseEnter={e => (e.currentTarget.style.color = INK)}
+                onMouseLeave={e => (e.currentTarget.style.color = SEC)}>
                 Jwebly Ltd.
               </a>
             </span>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
+      </div>
 
-        {/* Below-card note */}
-        <motion.p
-          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}
-          className="text-center mt-6 text-[11px]"
-          style={{ color: 'rgba(255,255,255,0.18)' }}>
-          Authorised access only · All sessions are logged
-        </motion.p>
-
-      </motion.div>
     </div>
   );
 }
