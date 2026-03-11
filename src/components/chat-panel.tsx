@@ -141,7 +141,6 @@ export function ChatPanel({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          tenant_id: 'clinic',
           user_id: userId,
           conversation_id: conversationId,
           message: text,

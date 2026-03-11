@@ -697,7 +697,6 @@ export default function ChatPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          tenant_id: 'clinic',
           user_id: userId,
           conversation_id: convId,
           message: userMessage.content,

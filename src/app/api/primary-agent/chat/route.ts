@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { agentChatStream } from '@/lib/actions/primary-agent';
+import { getStaffSession } from '@/lib/supabase/tenant-context';
 
 export const runtime = 'nodejs';
 export const maxDuration = 120;
@@ -9,6 +10,13 @@ const AGENT_SERVICE_SECRET = process.env.AGENT_SERVICE_SECRET || '';
 
 export async function POST(req: NextRequest) {
   try {
+    // Resolve tenantId from session cookie — reject unauthenticated requests
+    const session = await getStaffSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const tenantId = session.tenantId;
+
     const body = await req.json();
     const { user_id, conversation_id, message, agent_scope } = body;
 
@@ -32,7 +40,7 @@ export async function POST(req: NextRequest) {
           'x-service-secret': AGENT_SERVICE_SECRET,
         },
         body: JSON.stringify({
-          tenant_id: 'clinic',
+          tenant_id: tenantId,
           user_id,
           conversation_id,
           message,
@@ -67,7 +75,7 @@ export async function POST(req: NextRequest) {
       async start(controller) {
         try {
           for await (const event of agentChatStream(
-            'clinic',
+            tenantId,
             user_id,
             conversation_id,
             message,

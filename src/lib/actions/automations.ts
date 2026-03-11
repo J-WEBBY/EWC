@@ -129,13 +129,21 @@ export async function commandAutomationAI(
   if (!command.trim()) return { success: false, error: 'Empty command' };
 
   try {
+    const session = await getStaffSession();
+    const db = createSovereignClient();
+    let clinicName = 'the clinic';
+    if (session?.tenantId) {
+      const { data: cfg } = await db.from('clinic_config').select('clinic_name').eq('tenant_id', session.tenantId).single();
+      if (cfg?.clinic_name) clinicName = cfg.clinic_name;
+    }
+
     const client = getAnthropicClient();
 
     const registryList = AUTOMATION_REGISTRY.map(a =>
       `- ${a.id}: "${a.name}" (${a.trigger_description}) — currently ${a.is_active ? 'ACTIVE' : 'INACTIVE'}`,
     ).join('\n');
 
-    const systemPrompt = `You are Aria, the AI operations assistant for Edgbaston Wellness Clinic. You manage automation workflows on behalf of staff.
+    const systemPrompt = `You are Aria, the AI operations assistant for ${clinicName}. You manage automation workflows on behalf of staff.
 
 Available automations:
 ${registryList}

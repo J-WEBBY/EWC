@@ -13,7 +13,7 @@
 // =============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { KOMAL_SYSTEM_PROMPT } from '@/lib/vapi/komal-prompt';
+import { buildKomalPrompt } from '@/lib/vapi/komal-prompt';
 import { buildKomalToolDefinitions } from '@/lib/vapi/tool-registry';
 import { createSovereignClient } from '@/lib/supabase/service';
 
@@ -163,9 +163,10 @@ export async function POST(req: NextRequest) {
   await req.json().catch(() => null);
 
   try {
-    // 1. Read identity overrides from clinic_config
+    // 1. Read identity overrides and clinic name from clinic_config
     const db = createSovereignClient();
-    const { data: configData } = await db.from('clinic_config').select('settings').single();
+    const { data: configData } = await db.from('clinic_config').select('clinic_name, settings').single();
+    const clinicName = configData?.clinic_name ?? 'the clinic';
     const savedIdentity = ((configData?.settings as Record<string, unknown>)?.receptionist ?? {}) as {
       voiceId?: string; firstMessage?: string; endCallMessage?: string;
     };
@@ -183,13 +184,13 @@ export async function POST(req: NextRequest) {
     // Pass webhook secret so Vapi includes x-vapi-secret on every tool call.
     const komalTools = buildKomalToolDefinitions(APP_URL, WEBHOOK_SECRET || undefined);
     const komalPayload = {
-      name:           'Komal — EWC Receptionist',
-      firstMessage:   savedIdentity.firstMessage ?? 'Hello, thank you for calling Edgbaston Wellness Clinic. This call may be recorded for quality and training purposes. My name is Komal — how can I help you today?',
-      endCallMessage: savedIdentity.endCallMessage ?? 'Thank you for calling Edgbaston Wellness Clinic. Have a wonderful day. Goodbye!',
+      name:           `Komal — ${clinicName} Receptionist`,
+      firstMessage:   savedIdentity.firstMessage ?? `Hello, thank you for calling ${clinicName}. This call may be recorded for quality and training purposes. My name is Komal — how can I help you today?`,
+      endCallMessage: savedIdentity.endCallMessage ?? `Thank you for calling ${clinicName}. Have a wonderful day. Goodbye!`,
       model: {
         provider:    'anthropic',
         model:       HAIKU_MODEL,
-        messages:    [{ role: 'system', content: KOMAL_SYSTEM_PROMPT }],
+        messages:    [{ role: 'system', content: buildKomalPrompt(clinicName) }],
         temperature: 0.2,  // Low temperature = deterministic instruction following, no creative looping
         maxTokens:   400,  // 400 gives Haiku room to reason after tool results without looping
         tools:       komalTools,

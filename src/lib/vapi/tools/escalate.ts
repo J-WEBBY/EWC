@@ -47,7 +47,7 @@ export async function escalateToHuman(args: {
       return `I completely understand — I am flagging this as a priority right now. One of our team will call you back${caller_phone ? ` at ${caller_phone}` : ''} as soon as possible. Thank you for your patience${caller_name ? `, ${caller_name}` : ''}.`;
     }
 
-    return `Of course — I have noted that and one of our team will give you a call back${caller_phone ? ` at ${caller_phone}` : ''} shortly. Thank you for calling Edgbaston Wellness Clinic${caller_name ? `, ${caller_name}` : ''}.`;
+    return `Of course — I have noted that and one of our team will give you a call back${caller_phone ? ` at ${caller_phone}` : ''} shortly. Thank you for calling${caller_name ? `, ${caller_name}` : ''}.`;
 
   } catch (err) {
     console.error('[vapi/escalate] Error:', err);

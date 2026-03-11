@@ -20,7 +20,7 @@ import type {
   ConsentStats,
   GeneratedQuestionnaire,
 } from '@/lib/actions/consent';
-import { getStaffProfile, getLatestTenantAndUser } from '@/lib/actions/staff-onboarding';
+import { getStaffProfile } from '@/lib/actions/staff-onboarding';
 import type { StaffProfile } from '@/lib/actions/staff-onboarding';
 import { StaffNav } from '@/components/staff-nav';
 
@@ -454,20 +454,19 @@ type TabView = 'all' | 'today' | 'overdue' | 'post_survey';
 export default function ConsentPage() {
   const params = useSearchParams();
   const userId = params.get('userId') ?? '';
+  const tenantId = params.get('tenantId') ?? '';
 
   const [profile, setProfile] = useState<StaffProfile | null>(null);
   const [records, setRecords] = useState<ConsentRecord[]>([]);
   const [stats, setStats] = useState<ConsentStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabView>('today');
-  const [tenantId] = useState('clinic');
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [, profileRes, consentRes] = await Promise.all([
-      getLatestTenantAndUser(),
-      getStaffProfile('clinic', userId),
-      getConsentRecords('clinic'),
+    const [profileRes, consentRes] = await Promise.all([
+      getStaffProfile(tenantId || 'clinic', userId),
+      getConsentRecords(tenantId || 'clinic'),
     ]);
     setProfile(profileRes.success && profileRes.data ? profileRes.data.profile : FALLBACK);
     if (consentRes.success && consentRes.data) {

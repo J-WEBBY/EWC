@@ -15,7 +15,7 @@ import {
   markHelpful,
 } from '@/lib/actions/knowledge';
 import type { KnowledgeDocument, KnowledgeCategory, KnowledgeStats } from '@/lib/actions/knowledge';
-import { getStaffProfile, getLatestTenantAndUser } from '@/lib/actions/staff-onboarding';
+import { getStaffProfile } from '@/lib/actions/staff-onboarding';
 import type { StaffProfile } from '@/lib/actions/staff-onboarding';
 import { StaffNav } from '@/components/staff-nav';
 
@@ -387,6 +387,7 @@ function StatsBar({ stats, accentColor }: { stats: KnowledgeStats; accentColor: 
 export default function KnowledgeBasePage() {
   const params = useSearchParams();
   const userId = params.get('userId') ?? '';
+  const tenantId = params.get('tenantId') ?? '';
 
   const [profile, setProfile] = useState<StaffProfile | null>(null);
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
@@ -396,15 +397,13 @@ export default function KnowledgeBasePage() {
   const [searching, setSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<KnowledgeCategory | null>(null);
-  const [tenantId] = useState('clinic');
   const searchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadDocs = useCallback(async (cat?: KnowledgeCategory | null) => {
     setLoading(true);
-    const [, profileRes, kbRes] = await Promise.all([
-      getLatestTenantAndUser(),
-      getStaffProfile('clinic', userId),
-      getKnowledgeBase('clinic', cat ?? undefined),
+    const [profileRes, kbRes] = await Promise.all([
+      getStaffProfile(tenantId || 'clinic', userId),
+      getKnowledgeBase(tenantId || 'clinic', cat ?? undefined),
     ]);
     setProfile(profileRes.success && profileRes.data ? profileRes.data.profile : FALLBACK);
     if (kbRes.success && kbRes.data) {
@@ -412,7 +411,7 @@ export default function KnowledgeBasePage() {
       setStats(kbRes.data.stats);
     }
     setLoading(false);
-  }, [userId]);
+  }, [userId, tenantId]);
 
   useEffect(() => { loadDocs(); }, [loadDocs]);
 

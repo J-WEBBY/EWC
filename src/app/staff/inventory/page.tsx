@@ -22,7 +22,7 @@ import type {
   AIReorderRecommendation,
   ExpiryItem,
 } from '@/lib/actions/inventory';
-import { getStaffProfile, getLatestTenantAndUser } from '@/lib/actions/staff-onboarding';
+import { getStaffProfile } from '@/lib/actions/staff-onboarding';
 import type { StaffProfile } from '@/lib/actions/staff-onboarding';
 import { StaffNav } from '@/components/staff-nav';
 
@@ -185,6 +185,7 @@ type TabView = 'consumables' | 'equipment' | 'reorder' | 'expiry';
 export default function InventoryPage() {
   const params = useSearchParams();
   const userId = params.get('userId') ?? '';
+  const tenantId = params.get('tenantId') ?? '';
 
   const [profile, setProfile] = useState<StaffProfile | null>(null);
   const [consumables, setConsumables] = useState<ConsumableItem[]>([]);
@@ -196,14 +197,12 @@ export default function InventoryPage() {
   const [reorderLoading, setReorderLoading] = useState(false);
   const [expiryLoading, setExpiryLoading] = useState(false);
   const [tab, setTab] = useState<TabView>('consumables');
-  const [tenantId] = useState('clinic');
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [, profileRes, invRes] = await Promise.all([
-      getLatestTenantAndUser(),
-      getStaffProfile('clinic', userId),
-      getInventoryData('clinic'),
+    const [profileRes, invRes] = await Promise.all([
+      getStaffProfile(tenantId || 'clinic', userId),
+      getInventoryData(tenantId || 'clinic'),
     ]);
     setProfile(profileRes.success && profileRes.data ? profileRes.data.profile : FALLBACK);
     if (invRes.success && invRes.data) {
@@ -212,7 +211,7 @@ export default function InventoryPage() {
       setStats(invRes.data.stats);
     }
     setLoading(false);
-  }, [userId]);
+  }, [userId, tenantId]);
 
   useEffect(() => { load(); }, [load]);
 

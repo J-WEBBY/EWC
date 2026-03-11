@@ -426,7 +426,7 @@ export async function getAllStaffGoalsSummary(): Promise<StaffGoalsSummary[]> {
     `)
     .eq('tenant_id', tenantId)
     .eq('status', 'active')
-    .neq('display_name', 'Reception Edgbaston');
+;
 
   if (uErr || !users) return [];
 

@@ -33,25 +33,10 @@ type AssistantKey = keyof typeof ASSISTANT_NAMES;
 // System prompts
 // ---------------------------------------------------------------------------
 
-const EWC_PROMPT = `You are the AI receptionist for Edgbaston Wellness Clinic, a premium private clinic in Edgbaston, Birmingham, UK.
+function buildEwcPrompt(clinicName: string): string {
+  return `You are the AI receptionist for ${clinicName}, a premium private clinic.
 
 YOUR ROLE: Handle ALL inbound patient calls. Be the first point of contact — professional, warm, and efficient.
-
-CLINIC DETAILS:
-- Director: Dr Suresh Ganata (Medical Director)
-- Location: Edgbaston, Birmingham, B15
-- Hours: Mon–Fri 9am–6pm, Sat 10am–2pm, Sunday closed
-- Phone bookings for all treatments
-
-TREATMENTS & PRICING:
-- Botox: from £200 (1 area), £300 (2 areas), £350 (3 areas) — free consultation
-- Dermal Fillers: from £350 per syringe — free consultation
-- CoolSculpting: from £600 per area — free consultation
-- IV Therapy: from £150 per session (hydration, vitamins, energy)
-- Medical Weight Loss / Ozempic: from £250 — consultation required
-- Hormone Therapy: consultation required
-- GP Health Screening: from £250
-- Blood Tests: from £80
 
 YOUR GOALS (in order):
 1. Book a free consultation or appointment
@@ -69,8 +54,10 @@ COMPLIANCE:
 - For emergencies: "Please call 999 immediately"
 
 PERSONALITY: Warm, confident, British. Short sentences. Empathetic but efficient. Never robotic.`;
+}
 
-const ORION_PROMPT = `You are Orion, the patient acquisition specialist for Edgbaston Wellness Clinic in Birmingham. You make outbound calls to people who have expressed interest or missed a call.
+function buildOrionPrompt(clinicName: string): string {
+  return `You are Orion, the patient acquisition specialist for ${clinicName}. You make outbound calls to people who have expressed interest or missed a call.
 
 YOUR ROLE: Convert warm leads and missed callers into booked consultations.
 
@@ -101,8 +88,10 @@ TONE: Confident, friendly, not pushy. British. You're helping them, not selling 
 COMPLIANCE:
 - Say: "This call may be recorded for quality and training purposes"
 - Never give medical advice`;
+}
 
-const ARIA_PROMPT = `You are Aria, the patient care specialist for Edgbaston Wellness Clinic in Birmingham. You make warm outbound calls to existing patients.
+function buildAriaPrompt(clinicName: string): string {
+  return `You are Aria, the patient care specialist for ${clinicName}. You make warm outbound calls to existing patients.
 
 YOUR ROLE: Build lasting patient relationships through proactive, caring follow-up calls.
 
@@ -137,6 +126,7 @@ COMPLIANCE:
 - Say: "This call may be recorded for quality and training purposes"
 - Never give medical advice or diagnose symptoms
 - Escalate clinical concerns to the clinical team immediately`;
+}
 
 // ---------------------------------------------------------------------------
 // Voice profiles per assistant
@@ -170,19 +160,23 @@ const VOICE_PROFILES: Record<AssistantKey, object> = {
   },
 };
 
-const FIRST_MESSAGES: Record<AssistantKey, string> = {
-  KOMAL: "Hello, thank you for calling Edgbaston Wellness Clinic. This call may be recorded for quality and training purposes. My name is Komal — how can I help you today?",
-  EWC: "Hello, thank you for calling Edgbaston Wellness Clinic. This call may be recorded for quality and training purposes. I'm here to help — how can I assist you today?",
-  ORION: "Hi there, this is Orion calling from Edgbaston Wellness Clinic. I noticed you reached out to us recently and I wanted to make sure we could help. Is now a good time to chat?",
-  ARIA: "Hello, this is Aria calling from Edgbaston Wellness Clinic. I'm just reaching out to check how you're getting on. Is now a good time for a quick chat?",
-};
+function buildFirstMessages(clinicName: string): Record<AssistantKey, string> {
+  return {
+    KOMAL: `Hello, thank you for calling ${clinicName}. This call may be recorded for quality and training purposes. My name is Komal — how can I help you today?`,
+    EWC:   `Hello, thank you for calling ${clinicName}. This call may be recorded for quality and training purposes. I'm here to help — how can I assist you today?`,
+    ORION: `Hi there, this is Orion calling from ${clinicName}. I noticed you reached out to us recently and I wanted to make sure we could help. Is now a good time to chat?`,
+    ARIA:  `Hello, this is Aria calling from ${clinicName}. I'm just reaching out to check how you're getting on. Is now a good time for a quick chat?`,
+  };
+}
 
-const SYSTEM_PROMPTS: Record<AssistantKey, string> = {
-  KOMAL: EWC_PROMPT, // Komal uses the provision route's full orchestrating prompt — this is a fallback only
-  EWC: EWC_PROMPT,
-  ORION: ORION_PROMPT,
-  ARIA: ARIA_PROMPT,
-};
+function buildSystemPrompts(clinicName: string): Record<AssistantKey, string> {
+  return {
+    KOMAL: buildEwcPrompt(clinicName),
+    EWC:   buildEwcPrompt(clinicName),
+    ORION: buildOrionPrompt(clinicName),
+    ARIA:  buildAriaPrompt(clinicName),
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -218,6 +212,19 @@ async function listAssistants(): Promise<{ id: string; name: string }[]> {
 // GET OR CREATE A SINGLE ASSISTANT
 // ---------------------------------------------------------------------------
 
+async function loadClinicName(): Promise<string> {
+  try {
+    const session = await getStaffSession();
+    const db = createSovereignClient();
+    const q = db.from('clinic_config').select('clinic_name');
+    if (session?.tenantId) q.eq('tenant_id', session.tenantId);
+    const { data } = await q.single();
+    return data?.clinic_name || 'Your Clinic';
+  } catch {
+    return 'Your Clinic';
+  }
+}
+
 export async function getOrCreateAssistant(key: AssistantKey): Promise<{
   success: boolean;
   assistantId?: string;
@@ -232,15 +239,19 @@ export async function getOrCreateAssistant(key: AssistantKey): Promise<{
     const existing = list.find(a => a.name === name);
     if (existing) return { success: true, assistantId: existing.id, created: false };
 
+    const clinicName = await loadClinicName();
+    const firstMessages = buildFirstMessages(clinicName);
+    const systemPrompts = buildSystemPrompts(clinicName);
+
     const assistant = await vapiRequest('/assistant', {
       method: 'POST',
       body: JSON.stringify({
         name,
-        firstMessage: FIRST_MESSAGES[key],
+        firstMessage: firstMessages[key],
         model: {
           provider: 'anthropic',
           model: 'claude-3-5-haiku-20241022',
-          messages: [{ role: 'system', content: SYSTEM_PROMPTS[key] }],
+          messages: [{ role: 'system', content: systemPrompts[key] }],
           temperature: 0.7,
         },
         voice: VOICE_PROFILES[key],
@@ -450,8 +461,8 @@ export interface ReceptionistIdentity {
 const DEFAULT_RECEPTIONIST_IDENTITY: ReceptionistIdentity = {
   displayName:    'Komal',
   voiceId:        'GDzHdQOi6jjf8zaXhCYD',
-  firstMessage:   'Hello, thank you for calling Edgbaston Wellness Clinic. This call may be recorded for quality and training purposes. My name is Komal — how can I help you today?',
-  endCallMessage: 'Thank you for calling Edgbaston Wellness Clinic. Have a wonderful day. Goodbye!',
+  firstMessage:   'Hello, thank you for calling. This call may be recorded for quality and training purposes. My name is Komal — how can I help you today?',
+  endCallMessage: 'Thank you for calling. Have a wonderful day. Goodbye!',
 };
 
 export async function getReceptionistIdentity(): Promise<{
@@ -464,7 +475,7 @@ export async function getReceptionistIdentity(): Promise<{
     const sovereign = createSovereignClient();
     let query = sovereign.from('clinic_config').select('settings');
     if (session) {
-      query = query.eq('id', session.tenantId) as typeof query;
+      query = query.eq('tenant_id', session.tenantId) as typeof query;
     }
     const { data } = await query.single();
     const saved = ((data?.settings as Record<string, unknown>)?.receptionist ?? {}) as Partial<ReceptionistIdentity>;
@@ -494,7 +505,7 @@ export async function saveReceptionistIdentity(
     const { data } = await sovereign
       .from('clinic_config')
       .select('settings')
-      .eq('id', tenantId)
+      .eq('tenant_id', tenantId)
       .single();
     const currentSettings = (data?.settings as Record<string, unknown>) ?? {};
     const { error } = await sovereign
@@ -503,7 +514,7 @@ export async function saveReceptionistIdentity(
         settings:   { ...currentSettings, receptionist: identity },
         updated_at: new Date().toISOString(),
       })
-      .eq('id', tenantId);
+      .eq('tenant_id', tenantId);
     if (error) return { success: false, error: error.message };
     return { success: true };
   } catch (err) {

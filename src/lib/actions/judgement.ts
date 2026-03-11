@@ -209,7 +209,7 @@ function makeDemoHistory(): JudgementVerdict[] {
 // AI ASSESSMENT
 // =============================================================================
 
-async function runAIAssessment(context: string): Promise<{
+async function runAIAssessment(context: string, clinicName = 'the clinic'): Promise<{
   brief: string;
   key_risks: string[];
   recommendations: string[];
@@ -220,7 +220,7 @@ async function runAIAssessment(context: string): Promise<{
   const client = getAnthropicClient();
   const model = ANTHROPIC_MODELS.HAIKU;
 
-  const prompt = `You are the Judgement Engine for Edgbaston Wellness Clinic — a premium private clinic in Birmingham offering aesthetics (Botox, fillers, CoolSculpting), wellness (IV therapy, weight loss), and medical (GP, health screening) services.
+  const prompt = `You are the Judgement Engine for ${clinicName} — a premium private clinic offering aesthetics, wellness, and medical services.
 
 Your role: assess the operational risk posture of the clinic today based on the signals, redlines, and operational context below.
 
@@ -283,6 +283,9 @@ export async function getJudgementData(): Promise<{ success: boolean; data?: Jud
   const { tenantId } = session;
   try {
     const supabase = createSovereignClient();
+    let clinicName = 'the clinic';
+    const { data: cfg } = await supabase.from('clinic_config').select('clinic_name').eq('tenant_id', tenantId).single();
+    if (cfg?.clinic_name) clinicName = cfg.clinic_name as string;
 
     // Fetch recent signals for context
     const { data: signals } = await supabase
@@ -304,7 +307,7 @@ export async function getJudgementData(): Promise<{ success: boolean; data?: Jud
       `Recent signal priorities: ${signals?.slice(0, 5).map(s => `${s.title} [${s.priority}]`).join('; ') ?? 'No signals'}`,
     ].join('\n');
 
-    const ai = await runAIAssessment(contextSummary);
+    const ai = await runAIAssessment(contextSummary, clinicName);
 
     const scoreToLevel = (s: number): RiskLevel => {
       if (s >= 75) return 'critical';

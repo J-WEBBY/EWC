@@ -6,6 +6,7 @@
 // =============================================================================
 
 import { createSovereignClient } from '@/lib/supabase/service';
+import { getStaffSession } from '@/lib/supabase/tenant-context';
 import { getAnthropicClient, ANTHROPIC_MODELS } from '@/lib/ai/anthropic';
 
 // =============================================================================
@@ -192,9 +193,17 @@ export async function generatePreAppointmentQuestionnaire(
   patientContext?: string,
 ): Promise<{ success: boolean; data?: GeneratedQuestionnaire; error?: string }> {
   try {
+    const session = await getStaffSession();
+    const db = createSovereignClient();
+    let clinicName = 'the clinic';
+    if (session?.tenantId) {
+      const { data: cfg } = await db.from('clinic_config').select('clinic_name').eq('tenant_id', session.tenantId).single();
+      if (cfg?.clinic_name) clinicName = cfg.clinic_name;
+    }
+
     const client = getAnthropicClient();
 
-    const prompt = `You are a clinical safety AI for Edgbaston Wellness Clinic. Generate a pre-appointment health questionnaire for a patient about to receive: "${treatment}".
+    const prompt = `You are a clinical safety AI for ${clinicName}. Generate a pre-appointment health questionnaire for a patient about to receive: "${treatment}".
 
 ${patientContext ? `Patient context: ${patientContext}` : ''}
 
@@ -272,9 +281,17 @@ export async function generatePostAppointmentSurvey(
   treatment: string,
 ): Promise<{ success: boolean; data?: GeneratedQuestionnaire; error?: string }> {
   try {
+    const session = await getStaffSession();
+    const db = createSovereignClient();
+    let clinicName = 'the clinic';
+    if (session?.tenantId) {
+      const { data: cfg } = await db.from('clinic_config').select('clinic_name').eq('tenant_id', session.tenantId).single();
+      if (cfg?.clinic_name) clinicName = cfg.clinic_name;
+    }
+
     const client = getAnthropicClient();
 
-    const prompt = `You are a clinical compliance AI for Edgbaston Wellness Clinic. Generate a post-appointment patient survey for: "${treatment}".
+    const prompt = `You are a clinical compliance AI for ${clinicName}. Generate a post-appointment patient survey for: "${treatment}".
 
 The survey must serve two purposes:
 1. Clinical safety: detect any adverse reactions or concerns requiring follow-up

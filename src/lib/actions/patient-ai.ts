@@ -54,7 +54,7 @@ export async function askAboutPatient(
 
     const systemPrompt = `${agent.system_prompt}
 
-You are being asked to advise on a specific patient at Edgbaston Wellness Clinic.
+You are being asked to advise on a specific patient at this clinic.
 Be concise, warm, and clinically appropriate. Give actionable guidance in 2–4 short paragraphs.
 Do not repeat the patient data back — jump straight to your analysis and recommendation.`;
 

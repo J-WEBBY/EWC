@@ -53,16 +53,20 @@ type NavSection = {
 export function StaffNav({
   profile,
   userId,
+  tenantId,
   brandColor,
   currentPath,
 }: {
   profile: StaffProfile;
   userId: string;
+  tenantId?: string;
   brandColor: string;
   currentPath: string;
 }) {
   const router = useRouter();
   const c = brandColor || '#0058E6';
+  const tid = tenantId || '';
+  const tidParam = tid ? `&tenantId=${tid}` : '';
   const [collapsed, setCollapsed] = useState(false);
   const [mounted, setMounted]               = useState(false);
   const [pendingCount, setPendingCount]     = useState(0);
@@ -110,48 +114,48 @@ export function StaffNav({
     {
       title: 'Operations',
       items: [
-        { label: 'Dashboard',    href: `/staff/dashboard?userId=${userId}`,    icon: LayoutDashboard },
-        { label: 'KPIs',         href: `/staff/kpis?userId=${userId}`,         icon: BarChart2 },
-        { label: 'Signals',      href: `/staff/signals?userId=${userId}`,      icon: Activity },
-        { label: 'Calendar',     href: `/staff/calendar?userId=${userId}`,     icon: CalendarDays },
-        { label: 'Appointments', href: `/staff/appointments?userId=${userId}`, icon: CalendarCheck },
-        { label: 'Team',         href: `/staff/team?userId=${userId}`,         icon: LayoutGrid },
-        { label: 'Inventory',    href: `/staff/inventory?userId=${userId}`,    icon: Package },
-        { label: 'Corporate',    href: `/staff/corporate?userId=${userId}`,    icon: Building2 },
+        { label: 'Dashboard',    href: `/staff/dashboard?userId=${userId}${tidParam}`,    icon: LayoutDashboard },
+        { label: 'KPIs',         href: `/staff/kpis?userId=${userId}${tidParam}`,         icon: BarChart2 },
+        { label: 'Signals',      href: `/staff/signals?userId=${userId}${tidParam}`,      icon: Activity },
+        { label: 'Calendar',     href: `/staff/calendar?userId=${userId}${tidParam}`,     icon: CalendarDays },
+        { label: 'Appointments', href: `/staff/appointments?userId=${userId}${tidParam}`, icon: CalendarCheck },
+        { label: 'Team',         href: `/staff/team?userId=${userId}${tidParam}`,         icon: LayoutGrid },
+        { label: 'Inventory',    href: `/staff/inventory?userId=${userId}${tidParam}`,    icon: Package },
+        { label: 'Corporate',    href: `/staff/corporate?userId=${userId}${tidParam}`,    icon: Building2 },
       ],
     },
     {
       title: 'Intelligence',
       items: [
-        { label: 'Agents',          href: `/staff/agents?userId=${userId}`,      icon: Bot },
-        { label: 'Automations',     href: `/staff/automations?userId=${userId}`, icon: Zap },
-        { label: 'Judgement Engine',href: `/staff/judgement?userId=${userId}`,   icon: Brain },
-        { label: 'Receptionist',    href: `/staff/voice?userId=${userId}`,       icon: Mic },
-        { label: 'Bridge',          href: `/staff/bridge?userId=${userId}`,      icon: Link2 },
+        { label: 'Agents',          href: `/staff/agents?userId=${userId}${tidParam}`,      icon: Bot },
+        { label: 'Automations',     href: `/staff/automations?userId=${userId}${tidParam}`, icon: Zap },
+        { label: 'Judgement Engine',href: `/staff/judgement?userId=${userId}${tidParam}`,   icon: Brain },
+        { label: 'Receptionist',    href: `/staff/voice?userId=${userId}${tidParam}`,       icon: Mic },
+        { label: 'Bridge',          href: `/staff/bridge?userId=${userId}${tidParam}`,      icon: Link2 },
       ],
     },
     {
       title: 'Clinical',
       items: [
-        { label: 'Patients',       href: `/staff/patients?userId=${userId}`,   icon: Users },
-        { label: 'EHR Hub',        href: `/staff/ehr?userId=${userId}`,        icon: Stethoscope },
-        { label: 'Knowledge Base', href: `/staff/knowledge?userId=${userId}`,  icon: BookOpen },
-        { label: 'Consent Forms',  href: `/staff/consent?userId=${userId}`,    icon: ClipboardList },
+        { label: 'Patients',       href: `/staff/patients?userId=${userId}${tidParam}`,   icon: Users },
+        { label: 'EHR Hub',        href: `/staff/ehr?userId=${userId}${tidParam}`,        icon: Stethoscope },
+        { label: 'Knowledge Base', href: `/staff/knowledge?userId=${userId}${tidParam}`,  icon: BookOpen },
+        { label: 'Consent Forms',  href: `/staff/consent?userId=${userId}${tidParam}`,    icon: ClipboardList },
       ],
     },
     {
       title: 'Governance',
       items: [
-        { label: 'Analytics',      href: `/staff/governance?userId=${userId}`, icon: FileText },
-        { label: 'Compliance',     href: `/staff/compliance?userId=${userId}`, icon: Shield },
-        { label: 'CPD & Learning', href: `/staff/learning?userId=${userId}`,   icon: GraduationCap },
+        { label: 'Analytics',      href: `/staff/governance?userId=${userId}${tidParam}`, icon: FileText },
+        { label: 'Compliance',     href: `/staff/compliance?userId=${userId}${tidParam}`, icon: Shield },
+        { label: 'CPD & Learning', href: `/staff/learning?userId=${userId}${tidParam}`,   icon: GraduationCap },
       ],
     },
   ];
 
   const bottomItems: NavItem[] = [
-    { label: 'Account',  href: `/staff/account?userId=${userId}`,       icon: UserCircle },
-    { label: 'Team',     href: `/staff/settings/team?userId=${userId}`, icon: Settings },
+    { label: 'Account',  href: `/staff/account?userId=${userId}${tidParam}`,       icon: UserCircle },
+    { label: 'Team',     href: `/staff/settings/team?userId=${userId}${tidParam}`, icon: Settings },
   ];
 
   return (

@@ -5,9 +5,10 @@
 // =============================================================================
 
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { StaffNav } from '@/components/staff-nav';
-import { getStaffProfile, getLatestTenantAndUser } from '@/lib/actions/staff-onboarding';
+import { getStaffProfile } from '@/lib/actions/staff-onboarding';
 import type { StaffProfile } from '@/lib/actions/staff-onboarding';
 import {
   getLearningData,
@@ -503,9 +504,11 @@ function LogCPDModal({ onClose, onSave }: { onClose: () => void; onSave: () => v
 type Tab = 'cpd' | 'certs' | 'resources';
 
 export default function LearningPage() {
+  const params = useSearchParams();
+  const userId = params.get('userId') ?? '';
+  const tenantId = params.get('tenantId') ?? '';
+
   const [profile, setProfile] = useState<StaffProfile>(FALLBACK);
-  const [userId, setUserId] = useState('');
-  const [tenantId, setTenantId] = useState('clinic');
 
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>('cpd');
@@ -521,11 +524,8 @@ export default function LearningPage() {
 
   useEffect(() => {
     async function init() {
-      const { tenantId: tid, userId: uid } = await getLatestTenantAndUser();
-      const resolvedTid = tid || 'clinic';
-      const resolvedUid = uid || '';
-      setTenantId(resolvedTid);
-      setUserId(resolvedUid);
+      const resolvedTid = tenantId || 'clinic';
+      const resolvedUid = userId;
 
       if (resolvedUid) {
         const profileRes = await getStaffProfile(resolvedTid, resolvedUid);
@@ -542,7 +542,7 @@ export default function LearningPage() {
       setLoading(false);
     }
     init();
-  }, []);
+  }, [userId, tenantId]);
 
   const staffNames = Array.from(new Set(cpd.map(e => e.staff_name)));
 

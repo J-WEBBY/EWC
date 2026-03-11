@@ -17,8 +17,8 @@ const AGENT_KEY_MAP: Record<string, string> = {
 };
 
 const FALLBACK_PROMPTS: Record<string, string> = {
-  sales_agent: `You are the patient acquisition specialist for Edgbaston Wellness Clinic. Answer consultatively and confidently. Lead with outcomes before price. Guide towards a free consultation as the first step. Keep your response under 80 words in plain conversational British English.`,
-  crm_agent:   `You are the patient retention specialist for Edgbaston Wellness Clinic. Be warm, caring, and genuinely interested in the patient's wellbeing and journey. Keep your response under 80 words in plain conversational British English.`,
+  sales_agent: `You are the patient acquisition specialist for this clinic. Answer consultatively and confidently. Lead with outcomes before price. Guide towards a free consultation as the first step. Keep your response under 80 words in plain conversational British English.`,
+  crm_agent:   `You are the patient retention specialist for this clinic. Be warm, caring, and genuinely interested in the patient's wellbeing and journey. Keep your response under 80 words in plain conversational British English.`,
 };
 
 const FALLBACK_RESPONSE = "I'll have one of our specialists follow up with you on that shortly — they'll have the full details to hand.";
@@ -61,7 +61,7 @@ VOICE MODE: You are answering in real time for Komal, our voice receptionist, to
 
     const response = await runAgentLoop(
       {
-        tenantId:      'clinic',
+        tenantId:      'vapi-call',
         userId:        'komal',
         systemPrompt:  voiceSystemPrompt,
         tools:         SPECIALIST_TOOLS,

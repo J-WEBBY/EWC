@@ -246,12 +246,20 @@ export async function generateIntelligenceBrief(
   const rangeLbl = range === '7d' ? 'last 7 days' : range === '30d' ? 'last 30 days' : 'last 90 days';
 
   try {
+    const session = await getStaffSession();
+    const db = createSovereignClient();
+    let clinicName = 'the clinic';
+    if (session?.tenantId) {
+      const { data: cfg } = await db.from('clinic_config').select('clinic_name').eq('tenant_id', session.tenantId).single();
+      if (cfg?.clinic_name) clinicName = cfg.clinic_name;
+    }
+
     const anthropic = getAnthropicClient();
     const res = await anthropic.messages.create({
       model:       ANTHROPIC_MODELS.HAIKU,
       max_tokens:  220,
       temperature: 0.6,
-      system: `You are Aria, the operational intelligence AI for Edgbaston Wellness Clinic — a premium private aesthetics and wellness clinic in Edgbaston, Birmingham. Write a concise intelligence brief (3–4 sentences) summarising the clinic's performance for the ${rangeLbl}. Be specific with the numbers given. Highlight the top opportunity and the top risk. Write in a direct, confident, professional tone. No markdown, no bullet points. Plain prose only.`,
+      system: `You are Aria, the operational intelligence AI for ${clinicName} — a premium private aesthetics and wellness clinic. Write a concise intelligence brief (3–4 sentences) summarising the clinic's performance for the ${rangeLbl}. Be specific with the numbers given. Highlight the top opportunity and the top risk. Write in a direct, confident, professional tone. No markdown, no bullet points. Plain prose only.`,
       messages: [{
         role: 'user',
         content: `Revenue: £${analytics.revenue.current.toLocaleString()} (${analytics.revenue.change_pct > 0 ? '+' : ''}${analytics.revenue.change_pct}% vs previous period). Top treatment: ${analytics.treatments[0]?.name ?? 'Botox'} at £${analytics.treatments[0]?.revenue.toLocaleString()}. New patients: ${analytics.patients.new_period}. At-risk patients: ${analytics.patients.at_risk}. Komal calls: ${analytics.komal.calls_total}, booking rate ${analytics.komal.booking_rate}%. Missed calls: ${analytics.komal.calls_missed}. Compliance score: ${analytics.operations.compliance_score}%. ${analytics.operations.cqc_days_to !== null ? `CQC inspection in ${analytics.operations.cqc_days_to} days.` : ''}`,

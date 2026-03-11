@@ -16,6 +16,12 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
 
+    // tenantId must be supplied in the payload — we never default to a hardcoded tenant
+    const tenantId = body.tenant_id as string | undefined;
+    if (!tenantId) {
+      return NextResponse.json({ error: 'Missing tenant_id in payload' }, { status: 400 });
+    }
+
     const userId = body.user_id || body.created_by;
     const text = body.text || body.message || body.content || body.description || '';
     const source = body.source || 'webhook';
@@ -38,7 +44,7 @@ export async function POST(req: NextRequest) {
           'x-service-secret': AGENT_SERVICE_SECRET,
         },
         body: JSON.stringify({
-          tenant_id: 'clinic',
+          tenant_id: tenantId,
           user_id: userId,
           text,
           source: 'api',
@@ -59,7 +65,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ─── Fallback: local classifier ──────────────────────────────────
-    const result = await classifyAndRoute('clinic', userId, {
+    const result = await classifyAndRoute(tenantId, userId, {
       text,
       source: 'api',
       metadata: {

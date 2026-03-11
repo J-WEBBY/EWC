@@ -2947,7 +2947,7 @@ function IntelligenceTab({ patient, onChatWithAgent, userId }: {
       const res = await fetch('/api/primary-agent/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenant_id: 'clinic', user_id: userId, conversation_id: `report-${patient.id}`, message, agent_scope: 'crm_agent' }),
+        body: JSON.stringify({ user_id: userId, conversation_id: `report-${patient.id}`, message, agent_scope: 'crm_agent' }),
       });
       if (!res.ok || !res.body) { setReportStatus('error'); return; }
       const reader = res.body.getReader();

@@ -386,7 +386,7 @@ export async function askSignalAI(
     const session = await getStaffSession();
     const tenantId = session?.tenantId;
     const db = createSovereignClient();
-    let clinicName = 'Edgbaston Wellness Clinic';
+    let clinicName = 'Your Clinic';
     if (tenantId) {
       const { data: cfg } = await db.from('clinic_config').select('clinic_name').eq('tenant_id', tenantId).single();
       if (cfg?.clinic_name) clinicName = cfg.clinic_name;
@@ -431,7 +431,8 @@ export async function createReminder(
   if (!data.title.trim()) return { success: false, error: 'Title is required' };
 
   const session = await getStaffSession();
-  const tenantId = session?.tenantId ?? 'clinic';
+  const tenantId = session?.tenantId;
+  if (!tenantId) return { success: false, error: 'Not authenticated' };
 
   const reminder: Reminder = {
     id: `rem-${Date.now()}`,

@@ -464,12 +464,20 @@ export async function draftMessageWithAI(
   };
 
   try {
+    const session = await getStaffSession();
+    const db = createSovereignClient();
+    let clinicName = 'the clinic';
+    if (session?.tenantId) {
+      const { data: cfg } = await db.from('clinic_config').select('clinic_name').eq('tenant_id', session.tenantId).single();
+      if (cfg?.clinic_name) clinicName = cfg.clinic_name;
+    }
+
     const anthropic = getAnthropicClient();
     const res = await anthropic.messages.create({
       model:      ANTHROPIC_MODELS.HAIKU,
       max_tokens: channel === 'sms' ? 80 : 220,
       temperature: 0.7,
-      system: `You are Aria, the AI assistant for Edgbaston Wellness Clinic — a premium private aesthetics and wellness clinic in Edgbaston, Birmingham. Draft a ${channel.toUpperCase()} message. Purpose: ${purposeLabel[purpose]}. ${channel === 'sms' ? 'SMS rules: max 160 characters, warm, personal, British English. No jargon.' : 'Email rules: Include a "Subject: " line on the first line. Then 2–3 short paragraphs. Professional yet warm. British English.'} Return only the message text, nothing else.`,
+      system: `You are Aria, the AI assistant for ${clinicName} — a premium private aesthetics and wellness clinic. Draft a ${channel.toUpperCase()} message. Purpose: ${purposeLabel[purpose]}. ${channel === 'sms' ? 'SMS rules: max 160 characters, warm, personal, British English. No jargon.' : 'Email rules: Include a "Subject: " line on the first line. Then 2–3 short paragraphs. Professional yet warm. British English.'} Return only the message text, nothing else.`,
       messages: [{
         role: 'user',
         content: `Patient: ${patientName}. Last treatment: ${lastTreatment ?? 'not on record'}. Write the ${purposeLabel[purpose]} message now.`,
@@ -481,39 +489,39 @@ export async function draftMessageWithAI(
   } catch {
     const fallback: Record<DraftPurpose, Record<SendChannel, string>> = {
       appointment_confirmation: {
-        sms:      `Hi ${patientName}, your appointment at Edgbaston Wellness Clinic is confirmed! We look forward to seeing you. Any questions, please call 0121 456 7890. — EWC Team`,
-        email:    `Subject: Your Appointment is Confirmed — Edgbaston Wellness\n\nDear ${patientName},\n\nWe are delighted to confirm your upcoming appointment at Edgbaston Wellness Clinic. Please contact us if you need to rearrange.\n\nWarm regards,\nEdgbaston Wellness Clinic`,
-        whatsapp: `Hi ${patientName}! Great news — your appointment at Edgbaston Wellness Clinic is confirmed. We look forward to seeing you! — EWC Team`,
+        sms:      `Hi ${patientName}, your appointment is confirmed! We look forward to seeing you. Any questions, please don't hesitate to get in touch. — The Clinic Team`,
+        email:    `Subject: Your Appointment is Confirmed\n\nDear ${patientName},\n\nWe are delighted to confirm your upcoming appointment. Please contact us if you need to rearrange.\n\nWarm regards,\nThe Clinic Team`,
+        whatsapp: `Hi ${patientName}! Great news — your appointment is confirmed. We look forward to seeing you! — The Clinic Team`,
       },
       appointment_reminder: {
-        sms:      `Hi ${patientName}, a reminder of your upcoming appointment at Edgbaston Wellness Clinic. See you soon! — EWC Team`,
-        email:    `Subject: Your Appointment Reminder — Edgbaston Wellness\n\nDear ${patientName},\n\nThis is a friendly reminder of your upcoming appointment at Edgbaston Wellness Clinic. Please contact us if you need to rearrange.\n\nWarm regards,\nEdgbaston Wellness Clinic`,
-        whatsapp: `Hi ${patientName}! Just a reminder about your upcoming appointment with us at EWC. See you soon 😊 — EWC Team`,
+        sms:      `Hi ${patientName}, a reminder of your upcoming appointment. See you soon! — The Clinic Team`,
+        email:    `Subject: Your Appointment Reminder\n\nDear ${patientName},\n\nThis is a friendly reminder of your upcoming appointment. Please contact us if you need to rearrange.\n\nWarm regards,\nThe Clinic Team`,
+        whatsapp: `Hi ${patientName}! Just a reminder about your upcoming appointment with us. See you soon! — The Clinic Team`,
       },
       post_treatment_checkin: {
-        sms:      `Hi ${patientName}, hope you're feeling great after your ${lastTreatment ?? 'treatment'}! Any concerns, we're here on 0121 456 7890. — EWC`,
-        email:    `Subject: Checking In After Your Treatment\n\nDear ${patientName},\n\nWe hope you're feeling wonderful after your recent ${lastTreatment ?? 'treatment'} with us. Please don't hesitate to reach out if you have any questions at all.\n\nWarm regards,\nEdgbaston Wellness Clinic`,
-        whatsapp: `Hi ${patientName}! Just checking in after your recent visit. Hope you're feeling great 😊 Let us know if you need anything!`,
+        sms:      `Hi ${patientName}, hope you're feeling great after your ${lastTreatment ?? 'treatment'}! Any concerns, we're here to help. — The Clinic`,
+        email:    `Subject: Checking In After Your Treatment\n\nDear ${patientName},\n\nWe hope you're feeling wonderful after your recent ${lastTreatment ?? 'treatment'} with us. Please don't hesitate to reach out if you have any questions at all.\n\nWarm regards,\nThe Clinic Team`,
+        whatsapp: `Hi ${patientName}! Just checking in after your recent visit. Hope you're feeling great! Let us know if you need anything.`,
       },
       rebooking: {
-        sms:      `Hi ${patientName}, your ${lastTreatment ?? 'treatment'} review window is coming up — we'd love to see you again! Reply or call 0121 456 7890. — EWC`,
-        email:    `Subject: Time for Your Next Visit?\n\nDear ${patientName},\n\nWe hope you're enjoying the results of your ${lastTreatment ?? 'treatment'} with us. It's a great time to book your next session and keep things looking their best.\n\nKind regards,\nEdgbaston Wellness Clinic`,
-        whatsapp: `Hi ${patientName}! It's that time again — ready to book your next ${lastTreatment ?? 'treatment'}? Reply here or call us 😊 — EWC`,
+        sms:      `Hi ${patientName}, your ${lastTreatment ?? 'treatment'} review window is coming up — we'd love to see you again! — The Clinic`,
+        email:    `Subject: Time for Your Next Visit?\n\nDear ${patientName},\n\nWe hope you're enjoying the results of your ${lastTreatment ?? 'treatment'} with us. It's a great time to book your next session and keep things looking their best.\n\nKind regards,\nThe Clinic Team`,
+        whatsapp: `Hi ${patientName}! It's that time again — ready to book your next ${lastTreatment ?? 'treatment'}? Reply here or give us a call. — The Clinic`,
       },
       payment_chase: {
-        sms:      `Hi ${patientName}, gentle reminder of an outstanding balance on your account. Please call us on 0121 456 7890. — EWC`,
-        email:    `Subject: Outstanding Balance — Action Required\n\nDear ${patientName},\n\nThis is a polite reminder that an outstanding balance remains on your account. Please contact us to arrange settlement at your earliest convenience.\n\nKind regards,\nEdgbaston Wellness Clinic`,
-        whatsapp: `Hi ${patientName}, just a gentle reminder about an outstanding balance. Please give us a call when convenient — 0121 456 7890. Thank you 😊`,
+        sms:      `Hi ${patientName}, gentle reminder of an outstanding balance on your account. Please get in touch when you can. — The Clinic`,
+        email:    `Subject: Outstanding Balance — Action Required\n\nDear ${patientName},\n\nThis is a polite reminder that an outstanding balance remains on your account. Please contact us to arrange settlement at your earliest convenience.\n\nKind regards,\nThe Clinic Team`,
+        whatsapp: `Hi ${patientName}, just a gentle reminder about an outstanding balance. Please give us a call when convenient. Thank you.`,
       },
       follow_up: {
-        sms:      `Hi ${patientName}, following up from Edgbaston Wellness Clinic. Hope you're well! Don't hesitate to get in touch. — EWC Team`,
-        email:    `Subject: Following Up — Edgbaston Wellness Clinic\n\nDear ${patientName},\n\nI hope this message finds you well. I'm reaching out to check in and see if there is anything we can help you with.\n\nWarm regards,\nEdgbaston Wellness Clinic`,
-        whatsapp: `Hi ${patientName}! Reaching out from EWC — hope you're doing well 😊 Let us know if there's anything we can help with!`,
+        sms:      `Hi ${patientName}, following up from the clinic. Hope you're well! Don't hesitate to get in touch. — The Clinic Team`,
+        email:    `Subject: Following Up\n\nDear ${patientName},\n\nI hope this message finds you well. I'm reaching out to check in and see if there is anything we can help you with.\n\nWarm regards,\nThe Clinic Team`,
+        whatsapp: `Hi ${patientName}! Reaching out from the clinic — hope you're doing well. Let us know if there's anything we can help with!`,
       },
       general: {
-        sms:      `Hi ${patientName}, this is Edgbaston Wellness Clinic. Don't hesitate to get in touch! — EWC Team`,
-        email:    `Subject: Message from Edgbaston Wellness Clinic\n\nDear ${patientName},\n\nThank you for being a valued patient at Edgbaston Wellness Clinic. We hope you're keeping well.\n\nKind regards,\nEdgbaston Wellness Clinic`,
-        whatsapp: `Hi ${patientName}! Reaching out from Edgbaston Wellness Clinic. Let us know if there's anything we can help with 😊`,
+        sms:      `Hi ${patientName}, a message from the clinic. Don't hesitate to get in touch! — The Clinic Team`,
+        email:    `Subject: A Message from the Clinic\n\nDear ${patientName},\n\nThank you for being a valued patient. We hope you're keeping well.\n\nKind regards,\nThe Clinic Team`,
+        whatsapp: `Hi ${patientName}! Reaching out from the clinic. Let us know if there's anything we can help with!`,
       },
     };
 

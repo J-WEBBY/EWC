@@ -3,6 +3,7 @@
 import { createSovereignClient } from '@/lib/supabase/service';
 import { getAnthropicClient, ANTHROPIC_MODELS } from '@/lib/ai/anthropic';
 import { getAgentsForTenant } from '@/lib/actions/agent-service';
+import { getStaffSession } from '@/lib/supabase/tenant-context';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -286,17 +287,23 @@ export async function getStaffProfile(
 
   try {
     const sovereign = createSovereignClient();
+    const session = await getStaffSession();
+    const tenantId = session?.tenantId;
+
+    const userQuery = sovereign
+      .from('users')
+      .select('id, first_name, last_name, email, job_title, department_id, role_id, is_admin, department:departments(id, name), role:roles(name)')
+      .eq('id', userId);
+    if (tenantId) userQuery.eq('tenant_id', tenantId);
+
+    const clinicQuery = sovereign
+      .from('clinic_config')
+      .select('clinic_name, ai_name, brand_color, logo_url');
+    if (tenantId) clinicQuery.eq('tenant_id', tenantId);
 
     const [userResult, clinicResult] = await Promise.all([
-      sovereign
-        .from('users')
-        .select('id, first_name, last_name, email, job_title, department_id, role_id, is_admin, department:departments(id, name), role:roles(name)')
-        .eq('id', userId)
-        .single(),
-      sovereign
-        .from('clinic_config')
-        .select('clinic_name, ai_name, brand_color, logo_url')
-        .single(),
+      userQuery.single(),
+      clinicQuery.single(),
     ]);
 
     const user = userResult.data;
@@ -310,11 +317,13 @@ export async function getStaffProfile(
     // Count teammates
     let teamSize = 0;
     if (user.department_id) {
-      const { count } = await sovereign
+      const countQuery = sovereign
         .from('users')
         .select('id', { count: 'exact', head: true })
         .eq('department_id', user.department_id)
         .neq('id', userId);
+      if (tenantId) countQuery.eq('tenant_id', tenantId);
+      const { count } = await countQuery;
       teamSize = count || 0;
     }
 
@@ -334,7 +343,7 @@ export async function getStaffProfile(
       roleName: (role?.name as string) || null,
       isAdmin: user.is_admin,
       isOwner: false,
-      companyName: clinic?.clinic_name || 'Edgbaston Wellness Clinic',
+      companyName: clinic?.clinic_name || 'Your Clinic',
       aiName: clinic?.ai_name || 'Aria',
       brandColor: clinic?.brand_color || '#0ea5e9',
       logoUrl: clinic?.logo_url || null,
@@ -592,7 +601,7 @@ export async function getUserData(_tenantId: string, userId: string) {
         email: user.email,
         role: (role?.name as string) || user.job_title || 'Staff',
         is_admin: user.is_admin,
-        company_name: clinic?.clinic_name || 'Edgbaston Wellness Clinic',
+        company_name: clinic?.clinic_name || 'Your Clinic',
         ai_name: clinic?.ai_name || 'Aria',
         brand_color: clinic?.brand_color || '#0ea5e9',
         logo_url: clinic?.logo_url || null,
@@ -677,7 +686,7 @@ Return ONLY the JSON.`,
 Role: ${(role?.name as string) || user.job_title || 'Staff'}
 Department: ${(dept?.name as string) || 'General'}
 Name: ${user.first_name}
-Company: ${clinic?.clinic_name || 'Edgbaston Wellness Clinic'}
+Company: ${clinic?.clinic_name || 'Your Clinic'}
 AI Name: ${clinic?.ai_name || 'Aria'}
 Preferences: ${JSON.stringify(user.settings || {})}
 Onboarding: ${JSON.stringify(user.onboarding_responses || {})}`,
@@ -730,14 +739,18 @@ export async function getCurrentUser(): Promise<{
   }
 }
 
-// getLatestTenantAndUser — kept for backward compat, use getCurrentUser instead
-/** @deprecated use getCurrentUser() */
+// getLatestTenantAndUser — kept for backward compat, use getStaffSession() instead
+/** @deprecated use getStaffSession() from @/lib/supabase/tenant-context */
 export async function getLatestTenantAndUser(): Promise<{
   success: boolean;
   tenantId?: string;
   userId?: string;
   error?: string;
 }> {
+  const session = await getStaffSession();
+  if (session) {
+    return { success: true, tenantId: session.tenantId, userId: session.userId };
+  }
   const res = await getCurrentUser();
-  return { ...res, tenantId: 'clinic' };
+  return { ...res, tenantId: undefined };
 }

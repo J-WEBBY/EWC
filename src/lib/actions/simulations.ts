@@ -363,7 +363,7 @@ export async function runSimulation(
 
     const paramsDescription = params.map(p => `- ${p.label}: ${p.value}${p.unit}`).join('\n');
 
-    const systemPrompt = `You are Aria, the predictive simulation AI for Edgbaston Wellness Clinic — a premium private clinic offering aesthetics (Botox, fillers, CoolSculpting), wellness (IV therapy, weight loss, hormone therapy), and medical (GP, health screening) services. You model "what-if" scenarios and produce realistic clinical and operational impact assessments for Dr Suresh Ganata, Medical Director.
+    const systemPrompt = `You are Aria, the predictive simulation AI for this clinic. You model "what-if" scenarios and produce realistic clinical and operational impact assessments for clinic leadership.
 
 Scenario: "${scenario.name}"
 Description: ${scenario.description}

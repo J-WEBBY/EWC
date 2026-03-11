@@ -9,7 +9,7 @@ import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getCorporateAccounts, generateAccountBrief, logCorporateNote } from '@/lib/actions/corporate';
 import type { CorporateAccount, CorporateStats, AccountStatus } from '@/lib/actions/corporate';
-import { getStaffProfile, getLatestTenantAndUser } from '@/lib/actions/staff-onboarding';
+import { getStaffProfile } from '@/lib/actions/staff-onboarding';
 import type { StaffProfile } from '@/lib/actions/staff-onboarding';
 import { StaffNav } from '@/components/staff-nav';
 
@@ -316,21 +316,20 @@ function InvoicePanel({ accounts, accentColor }: { accounts: CorporateAccount[];
 export default function CorporatePage() {
   const params = useSearchParams();
   const userId = params.get('userId') ?? '';
+  const tenantId = params.get('tenantId') ?? '';
 
   const [profile, setProfile] = useState<StaffProfile | null>(null);
   const [accounts, setAccounts] = useState<CorporateAccount[]>([]);
   const [stats, setStats] = useState<CorporateStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [tenantId] = useState('clinic');
   const [view, setView] = useState<'accounts' | 'pipeline'>('accounts');
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [, profileRes, corpRes] = await Promise.all([
-      getLatestTenantAndUser(),
-      getStaffProfile('clinic', userId),
-      getCorporateAccounts('clinic'),
+    const [profileRes, corpRes] = await Promise.all([
+      getStaffProfile(tenantId || 'clinic', userId),
+      getCorporateAccounts(tenantId || 'clinic'),
     ]);
     setProfile(profileRes.success && profileRes.data ? profileRes.data.profile : FALLBACK);
     if (corpRes.success && corpRes.data) {
@@ -338,7 +337,7 @@ export default function CorporatePage() {
       setStats(corpRes.data.stats);
     }
     setLoading(false);
-  }, [userId]);
+  }, [userId, tenantId]);
 
   useEffect(() => { load(); }, [load]);
 

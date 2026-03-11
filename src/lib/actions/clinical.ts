@@ -7,6 +7,7 @@
 // =============================================================================
 
 import { createSovereignClient } from '@/lib/supabase/service';
+import { getStaffSession } from '@/lib/supabase/tenant-context';
 import { getAnthropicClient } from '@/lib/ai/anthropic';
 
 const HAIKU = 'claude-haiku-4-5-20251001';
@@ -827,8 +828,16 @@ export async function generateAINotesDraft(input: {
   clinicalRecord?: string;    // existing allergies/contraindications as text
 }): Promise<{ draft: Partial<SOAPNote> | null; error?: string }> {
   try {
+    const session = await getStaffSession();
+    const db = createSovereignClient();
+    let clinicName = 'the clinic';
+    if (session?.tenantId) {
+      const { data: cfg } = await db.from('clinic_config').select('clinic_name').eq('tenant_id', session.tenantId).single();
+      if (cfg?.clinic_name) clinicName = cfg.clinic_name;
+    }
+
     const anthropic = getAnthropicClient();
-    const prompt = `You are Aria, a clinical documentation assistant at Edgbaston Wellness Clinic.
+    const prompt = `You are Aria, a clinical documentation assistant at ${clinicName}.
 
 Generate a professional SOAP note draft for the following clinical encounter.
 Use formal clinical language. Be concise and accurate.
@@ -871,7 +880,13 @@ export async function generateClinicalSummary(
   patientName: string,
 ): Promise<{ summary: string; riskAssessment: string; error?: string }> {
   try {
+    const session = await getStaffSession();
     const db = createSovereignClient();
+    let clinicName = 'the clinic';
+    if (session?.tenantId) {
+      const { data: cfg } = await db.from('clinic_config').select('clinic_name').eq('tenant_id', session.tenantId).single();
+      if (cfg?.clinic_name) clinicName = cfg.clinic_name;
+    }
 
     // Gather all clinical data
     const [recordRes, soapRes, consentRes] = await Promise.all([
@@ -902,7 +917,7 @@ Recent notes: ${notes.map(n => `${n.appointment_date} — ${n.appointment_type}:
       max_tokens: 800,
       messages: [{
         role: 'user',
-        content: `You are Aria, clinical intelligence assistant at Edgbaston Wellness Clinic.
+        content: `You are Aria, clinical intelligence assistant at ${clinicName}.
 
 Based on this patient's clinical data, provide:
 1. A concise clinical summary (2–3 sentences covering key health status, treatment history, and clinical standing)

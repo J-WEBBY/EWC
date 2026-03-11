@@ -121,7 +121,7 @@ export async function classifyAndRoute(
       getAgentsForTenant(),
     ]);
 
-    const companyName = configResult.data?.clinic_name || 'Edgbaston Wellness Clinic';
+    const companyName = configResult.data?.clinic_name || 'Your Clinic';
     const aiName = configResult.data?.ai_name || 'Aria';
 
     if (agents.length === 0) {
@@ -630,14 +630,14 @@ async function loadAgentContext(
     crm_agent:     'Aria',
   };
   const AGENT_PROMPT_FALLBACK: Record<string, string> = {
-    primary_agent: `You are EWC, the primary operational intelligence system for ${clinic?.clinic_name || 'Edgbaston Wellness Clinic'}. You orchestrate clinic operations, manage signals, and coordinate with specialist agents Orion (acquisition) and Aria (retention). Be precise, calm, and authoritative.`,
-    sales_agent:   `You are Orion, the patient acquisition and revenue intelligence specialist for ${clinic?.clinic_name || 'Edgbaston Wellness Clinic'}. You handle new patient enquiries, booking conversion, treatment knowledge, corporate wellness, and revenue pipeline analysis. Be commercially sharp and data-driven.`,
-    crm_agent:     `You are Aria, the patient retention and relationship specialist for ${clinic?.clinic_name || 'Edgbaston Wellness Clinic'}. You protect patient relationships, manage treatment follow-ups, handle DNAs, prevent churn, and ensure every patient feels genuinely valued. Be warm, empathetic, and precise.`,
+    primary_agent: `You are EWC, the primary operational intelligence system for ${clinic?.clinic_name || 'Your Clinic'}. You orchestrate clinic operations, manage signals, and coordinate with specialist agents Orion (acquisition) and Aria (retention). Be precise, calm, and authoritative.`,
+    sales_agent:   `You are Orion, the patient acquisition and revenue intelligence specialist for ${clinic?.clinic_name || 'Your Clinic'}. You handle new patient enquiries, booking conversion, treatment knowledge, corporate wellness, and revenue pipeline analysis. Be commercially sharp and data-driven.`,
+    crm_agent:     `You are Aria, the patient retention and relationship specialist for ${clinic?.clinic_name || 'Your Clinic'}. You protect patient relationships, manage treatment follow-ups, handle DNAs, prevent churn, and ensure every patient feels genuinely valued. Be warm, empathetic, and precise.`,
   };
   const agentName  = agentData?.display_name || agentData?.name || AGENT_NAME_FALLBACK[agentKey] || clinic?.ai_name || 'EWC';
   const basePrompt = (agentData?.system_prompt as string | null | undefined)
     ?? AGENT_PROMPT_FALLBACK[agentKey]
-    ?? `You are ${agentName}, an AI assistant for ${clinic?.clinic_name || 'Edgbaston Wellness Clinic'}. Be professional, warm, and helpful.`;
+    ?? `You are ${agentName}, an AI assistant for ${clinic?.clinic_name || 'Your Clinic'}. Be professional, warm, and helpful.`;
 
   // Inject live context after the base prompt
   const contextLines: string[] = [
