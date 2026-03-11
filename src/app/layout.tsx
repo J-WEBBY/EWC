@@ -14,8 +14,9 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "EWC — Edgbaston Wellness Clinic",
-  description: "Operational intelligence for Edgbaston Wellness Clinic",
+  title: "Jwebly Health",
+  description: "Operational intelligence platform for private clinics",
+  icons: { icon: '/icon' },
 };
 
 export default function RootLayout({
