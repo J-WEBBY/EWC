@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Eye, EyeOff, ArrowRight, Loader2, Check,
-  ChevronLeft, Shield, AtSign, Mail,
+  ChevronLeft, Shield,
 } from 'lucide-react';
 import { JweblyIcon } from '@/components/jwebly-logo';
 import { verifyLogin, changePassword, getClinicInfo, requestPasswordReset } from '@/lib/actions/auth';
@@ -23,20 +23,19 @@ interface Brand {
 interface AuthUser { id: string; first_name: string; last_name: string; email: string; }
 
 // =============================================================================
-// TOKENS — match onboarding aesthetic
+// TOKENS — single-color page, matches activate/onboarding aesthetic
 // =============================================================================
 
-const PANEL_L = '#0D1420';   // dark left panel
-const PANEL_R = '#F7F6F3';   // light right panel
-const INK     = '#18181B';
-const SEC     = '#4A5568';
-const MUTED   = '#A1A1AA';
-const BORDER  = '#E4E4E7';
-const ACCENT  = '#0058E6';
-const GRN     = '#059669';
+const BG     = '#F7F6F3';
+const INK    = '#18181B';
+const SEC    = '#4A5568';
+const MUTED  = '#A1A1AA';
+const BORDER = '#E4E4E7';
+const ACCENT = '#0058E6';
+const GRN    = '#059669';
 
 // =============================================================================
-// SHARED FORM COMPONENTS
+// FORM INPUT
 // =============================================================================
 
 function FormInput({
@@ -50,23 +49,19 @@ function FormInput({
   return (
     <div style={{ position: 'relative' }}>
       <input
-        type={type}
-        value={value}
+        type={type} value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
         autoFocus={autoFocus}
         autoComplete={autoComplete}
-        required
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         style={{
-          width: '100%', height: 50, borderRadius: 12, padding: '0 44px 0 14px',
-          fontSize: 14, color: INK, fontFamily: 'inherit',
-          border: `1.5px solid ${focused ? ACCENT : BORDER}`,
-          background: PANEL_R, outline: 'none',
-          boxShadow: focused ? `0 0 0 3px ${ACCENT}12` : 'none',
-          transition: 'border-color 0.15s, box-shadow 0.15s',
-          boxSizing: 'border-box',
+          width: '100%', height: 50, borderRadius: 12,
+          padding: '0 44px 0 14px', fontSize: 14, color: INK,
+          fontFamily: 'inherit', outline: 'none', background: BG,
+          border: `1.5px solid ${focused ? INK : BORDER}`,
+          boxSizing: 'border-box', transition: 'border-color 0.15s',
         }}
       />
       {children && (
@@ -78,6 +73,10 @@ function FormInput({
   );
 }
 
+// =============================================================================
+// FORM BUTTON
+// =============================================================================
+
 function FormBtn({ disabled, loading, children }: {
   disabled?: boolean; loading?: boolean; children: React.ReactNode;
 }) {
@@ -88,106 +87,23 @@ function FormBtn({ disabled, loading, children }: {
       style={{
         width: '100%', height: 50, borderRadius: 12, border: 'none',
         background: disabled || loading ? BORDER : INK,
-        color: disabled || loading ? MUTED : PANEL_R,
+        color: disabled || loading ? MUTED : BG,
         fontSize: 14, fontWeight: 700, fontFamily: 'inherit',
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
         cursor: disabled || loading ? 'not-allowed' : 'pointer',
-        transition: 'all 0.2s',
-        letterSpacing: '-0.01em',
+        letterSpacing: '-0.01em', transition: 'all 0.2s',
       }}
       onMouseEnter={e => {
-        const btn = e.currentTarget as HTMLButtonElement;
-        if (!btn.disabled) { btn.style.transform = 'translateY(-1px)'; btn.style.boxShadow = `0 8px 24px ${INK}25`; }
+        const b = e.currentTarget as HTMLButtonElement;
+        if (!b.disabled) { b.style.transform = 'translateY(-1px)'; b.style.boxShadow = `0 8px 24px ${INK}20`; }
       }}
       onMouseLeave={e => {
-        const btn = e.currentTarget as HTMLButtonElement;
-        btn.style.transform = 'translateY(0)'; btn.style.boxShadow = 'none';
+        const b = e.currentTarget as HTMLButtonElement;
+        b.style.transform = 'translateY(0)'; b.style.boxShadow = 'none';
       }}
     >
       {loading ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : children}
     </button>
-  );
-}
-
-// =============================================================================
-// LEFT PANEL
-// =============================================================================
-
-function LeftPanel({ clinicName }: { clinicName: string }) {
-  return (
-    <div style={{
-      width: '42%', minHeight: '100vh', background: PANEL_L,
-      display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden', flexShrink: 0,
-    }}>
-      {/* Dot grid */}
-      <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', opacity: 0.18 }}>
-        <defs>
-          <pattern id="lp-dots" x="0" y="0" width="28" height="28" patternUnits="userSpaceOnUse">
-            <circle cx="1" cy="1" r="1" fill="#ffffff" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#lp-dots)" />
-      </svg>
-
-      {/* Ambient blooms */}
-      <div style={{ position: 'absolute', top: '-20%', right: '-20%', width: 500, height: 500, borderRadius: '50%', background: `radial-gradient(circle, ${ACCENT}22 0%, transparent 70%)`, pointerEvents: 'none' }} />
-      <div style={{ position: 'absolute', bottom: '-15%', left: '-15%', width: 420, height: 420, borderRadius: '50%', background: 'radial-gradient(circle, #D8A60014 0%, transparent 70%)', pointerEvents: 'none' }} />
-
-      {/* Content */}
-      <div style={{ position: 'relative', zIndex: 1, flex: 1, display: 'flex', flexDirection: 'column', padding: '48px 52px' }}>
-
-        {/* Logo + platform name */}
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 'auto' }}>
-          <JweblyIcon size={36} uid="login-left" />
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.02em', lineHeight: 1.2 }}>Jwebly Health</div>
-            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.38)', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Platform</div>
-          </div>
-        </motion.div>
-
-        {/* Headline block */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.55, delay: 0.1 }}
-          style={{ paddingBottom: 64 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: `${ACCENT}CC`, letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 18 }}>
-            Operational Intelligence
-          </div>
-          <h1 style={{
-            fontSize: 40, fontWeight: 900, color: '#FFFFFF',
-            letterSpacing: '-0.04em', lineHeight: 1.08, margin: '0 0 20px',
-          }}>
-            Your clinic,<br />running smarter.
-          </h1>
-          <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.45)', lineHeight: 1.65, margin: 0, maxWidth: 280 }}>
-            AI-powered operations for modern private clinics — signals, agents, and intelligence in one place.
-          </p>
-
-          {/* Clinic name pill */}
-          {clinicName && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.92 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.4, type: 'spring', stiffness: 240, damping: 20 }}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 28, padding: '8px 16px', borderRadius: 20, border: '1px solid rgba(255,255,255,0.10)', background: 'rgba(255,255,255,0.05)' }}>
-              <div style={{ width: 6, height: 6, borderRadius: '50%', background: GRN }} />
-              <span style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.65)' }}>{clinicName}</span>
-            </motion.div>
-          )}
-        </motion.div>
-
-        {/* Footer */}
-        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.20)', lineHeight: 1.6 }}>
-          Secure access · Authorised staff only · Sessions are logged<br />
-          © {new Date().getFullYear()} Jwebly Ltd.
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -198,7 +114,7 @@ function LeftPanel({ clinicName }: { clinicName: string }) {
 export default function LoginPage() {
   const router = useRouter();
   const [step, setStep]       = useState<Step>('email');
-  const [email, setEmail]     = useState('');
+  const [identifier, setIdentifier] = useState(''); // email or username
   const [pw, setPw]           = useState('');
   const [showPw, setShowPw]   = useState(false);
   const [newPw, setNewPw]     = useState('');
@@ -208,11 +124,8 @@ export default function LoginPage() {
   const [error, setError]     = useState('');
   const [user, setUser]       = useState<AuthUser | null>(null);
   const [brand, setBrand]     = useState<Brand>({
-    clinic_name: 'Edgbaston Wellness Clinic',
-    ai_name: 'Aria',
-    brand_color: ACCENT,
-    logo_url: null,
-    tagline: null,
+    clinic_name: '', ai_name: 'Aria', brand_color: ACCENT,
+    logo_url: null, tagline: null,
   });
   const [ready, setReady] = useState(false);
 
@@ -242,19 +155,19 @@ export default function LoginPage() {
   };
   const pwReady = Object.values(checks).every(Boolean);
 
-  const submitEmail = useCallback((e: React.FormEvent) => {
+  const submitIdentifier = useCallback((e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) return;
+    if (!identifier.trim()) return;
     setError('');
     setStep('password');
-  }, [email]);
+  }, [identifier]);
 
   const submitLogin = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (!pw) return;
     setError('');
     setLoading(true);
-    const res = await verifyLogin(email, pw);
+    const res = await verifyLogin(identifier, pw);
     if (res.success && res.user) {
       setUser(res.user);
       if (res.requiresPasswordChange) {
@@ -265,10 +178,10 @@ export default function LoginPage() {
         setTimeout(() => router.push(`/staff/dashboard?userId=${res.user!.id}`), 1800);
       }
     } else {
-      setError(res.error === 'ACCOUNT_DISABLED' ? 'Account suspended.' : 'Incorrect email or password.');
+      setError(res.error === 'ACCOUNT_DISABLED' ? 'Account suspended.' : 'Incorrect credentials.');
       setLoading(false);
     }
-  }, [email, pw, router]);
+  }, [identifier, pw, router]);
 
   const submitChangePw = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -287,82 +200,107 @@ export default function LoginPage() {
 
   const submitForgot = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) return;
+    if (!identifier.trim()) return;
     setLoading(true);
-    await requestPasswordReset(email);
+    await requestPasswordReset(identifier);
     setStep('forgot-sent');
     setLoading(false);
-  }, [email]);
+  }, [identifier]);
 
   const back = useCallback(() => { setError(''); setStep('email'); }, []);
 
-  // ── Loading skeleton ────────────────────────────────────────────────────────
+  // ── Skeleton ────────────────────────────────────────────────────────────────
   if (!ready) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: PANEL_L }}>
-        <motion.div
-          style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(255,255,255,0.2)' }}
-          animate={{ opacity: [0.2, 0.7, 0.2] }}
-          transition={{ duration: 1.2, repeat: Infinity }}
-        />
+      <div style={{ minHeight: '100vh', background: BG, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <motion.div style={{ width: 6, height: 6, borderRadius: '50%', background: BORDER }}
+          animate={{ opacity: [0.3, 0.8, 0.3] }} transition={{ duration: 1.2, repeat: Infinity }} />
       </div>
     );
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
+    <div style={{ minHeight: '100vh', background: BG, display: 'flex', position: 'relative', overflow: 'hidden' }}>
 
-      {/* ── Left panel (hidden on mobile) ── */}
-      <div className="hidden md:block" style={{ flexShrink: 0, width: '42%' }}>
-        <LeftPanel clinicName={brand.clinic_name} />
-      </div>
+      {/* ── Full-page dot grid ── */}
+      <svg style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', opacity: 0.4 }}>
+        <defs>
+          <pattern id="lg-dots" x="0" y="0" width="28" height="28" patternUnits="userSpaceOnUse">
+            <circle cx="1" cy="1" r="1" fill="#A1A1AA" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#lg-dots)" />
+      </svg>
 
-      {/* ── Right panel ── */}
-      <div style={{
-        flex: 1, minHeight: '100vh', background: PANEL_R,
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        padding: '40px 32px', position: 'relative',
-      }}>
+      {/* ── Divider line ── */}
+      <div style={{ position: 'fixed', left: '50%', top: '10%', bottom: '10%', width: 1, background: BORDER, transform: 'translateX(-50%)', zIndex: 1 }} />
 
-        {/* Mobile logo (visible only when left panel is hidden) */}
-        <div className="flex md:hidden" style={{ position: 'absolute', top: 28, left: 28, alignItems: 'center', gap: 8 }}>
-          <JweblyIcon size={24} uid="login-mob" />
-          <span style={{ fontSize: 12, fontWeight: 700, color: INK, letterSpacing: '-0.01em' }}>Jwebly Health</span>
-        </div>
-
-        {/* Form container */}
+      {/* ══════════════════════════════════════════════════════════
+          LEFT PANEL — brand identity
+      ══════════════════════════════════════════════════════════ */}
+      <div style={{ width: '50%', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', zIndex: 2 }}>
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-          style={{ width: '100%', maxWidth: 400 }}
+          transition={{ duration: 0.5 }}
+          style={{ textAlign: 'center', padding: '0 48px' }}
         >
-          {/* Clinic name above form */}
-          <div style={{ marginBottom: 36 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 6 }}>Staff Portal</div>
-            <div style={{ fontSize: 26, fontWeight: 900, color: INK, letterSpacing: '-0.035em', lineHeight: 1.1 }}>{brand.clinic_name}</div>
+          {/* Jwebly icon */}
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 28 }}>
+            <JweblyIcon size={72} uid="lg-left" />
           </div>
 
+          {/* Platform name */}
+          <div style={{ fontSize: 28, fontWeight: 900, color: INK, letterSpacing: '-0.04em', lineHeight: 1.1, marginBottom: 14 }}>
+            Jwebly Health
+          </div>
+
+          {/* × separator */}
+          <div style={{ fontSize: 22, fontWeight: 300, color: MUTED, marginBottom: 14, letterSpacing: '0.04em' }}>×</div>
+
+          {/* Clinic name */}
+          {brand.clinic_name && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.94 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.3, type: 'spring', stiffness: 240, damping: 20 }}
+              style={{ fontSize: 17, fontWeight: 700, color: SEC, letterSpacing: '-0.02em', lineHeight: 1.3 }}
+            >
+              {brand.clinic_name}
+            </motion.div>
+          )}
+        </motion.div>
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════
+          RIGHT PANEL — form
+      ══════════════════════════════════════════════════════════ */}
+      <div style={{ width: '50%', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', zIndex: 2, padding: '40px 32px' }}>
+
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+          style={{ width: '100%', maxWidth: 380 }}
+        >
           <AnimatePresence mode="wait">
 
-            {/* ── EMAIL ── */}
+            {/* ── SIGN IN (identifier) ── */}
             {step === 'email' && (
-              <motion.form key="email" onSubmit={submitEmail}
+              <motion.form key="email" onSubmit={submitIdentifier}
                 initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -14 }} transition={{ duration: 0.2 }}>
-                <h2 style={{ fontSize: 20, fontWeight: 800, color: INK, letterSpacing: '-0.03em', marginBottom: 4 }}>Sign in</h2>
-                <p style={{ fontSize: 13, color: SEC, marginBottom: 24, lineHeight: 1.5 }}>Enter your email address to continue</p>
+                <h2 style={{ fontSize: 26, fontWeight: 900, color: INK, letterSpacing: '-0.04em', marginBottom: 6 }}>Sign in</h2>
+                <p style={{ fontSize: 13, color: MUTED, marginBottom: 28, lineHeight: 1.5 }}>Use your email address or username</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <FormInput type="email" value={email} onChange={setEmail}
-                    placeholder="Email address" autoFocus autoComplete="email">
-                    <Mail size={14} color={MUTED} />
-                  </FormInput>
-                  <FormBtn disabled={!email.trim()}>
+                  <FormInput type="text" value={identifier} onChange={setIdentifier}
+                    placeholder="Email or username" autoFocus autoComplete="username" />
+                  <FormBtn disabled={!identifier.trim()}>
                     Continue <ArrowRight size={14} />
                   </FormBtn>
                 </div>
                 <button type="button" onClick={() => { setError(''); setStep('forgot'); }}
-                  style={{ width: '100%', marginTop: 18, fontSize: 12, color: MUTED, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: '4px 0', transition: 'color 0.15s' }}
+                  style={{ width: '100%', marginTop: 20, fontSize: 12, color: MUTED, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: '4px 0', transition: 'color 0.15s' }}
                   onMouseEnter={e => (e.currentTarget.style.color = SEC)}
                   onMouseLeave={e => (e.currentTarget.style.color = MUTED)}>
                   Forgot your password?
@@ -381,19 +319,19 @@ export default function LoginPage() {
                   onMouseLeave={e => (e.currentTarget.style.color = MUTED)}>
                   <ChevronLeft size={13} /> Back
                 </button>
-                <h2 style={{ fontSize: 20, fontWeight: 800, color: INK, letterSpacing: '-0.03em', marginBottom: 16 }}>Enter password</h2>
-                {/* Email pill */}
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderRadius: 8, background: `${ACCENT}08`, border: `1px solid ${ACCENT}18`, marginBottom: 20 }}>
+                <h2 style={{ fontSize: 26, fontWeight: 900, color: INK, letterSpacing: '-0.04em', marginBottom: 20 }}>Enter password</h2>
+                {/* Identifier pill */}
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderRadius: 8, background: `${INK}06`, border: `1px solid ${BORDER}`, marginBottom: 20 }}>
                   <div style={{ width: 20, height: 20, borderRadius: 6, background: INK, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <span style={{ fontSize: 10, fontWeight: 800, color: PANEL_R }}>{email.charAt(0).toUpperCase()}</span>
+                    <span style={{ fontSize: 10, fontWeight: 800, color: BG }}>{identifier.charAt(0).toUpperCase()}</span>
                   </div>
-                  <span style={{ fontSize: 12, color: SEC }}>{email}</span>
+                  <span style={{ fontSize: 12, color: SEC }}>{identifier}</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   <FormInput type={showPw ? 'text' : 'password'} value={pw} onChange={setPw}
                     placeholder="Password" autoFocus autoComplete="current-password">
                     <button type="button" onClick={() => setShowPw(!showPw)}
-                      style={{ color: MUTED, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}
+                      style={{ color: MUTED, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0, transition: 'color 0.15s' }}
                       onMouseEnter={e => (e.currentTarget.style.color = SEC)}
                       onMouseLeave={e => (e.currentTarget.style.color = MUTED)}>
                       {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
@@ -408,7 +346,7 @@ export default function LoginPage() {
                   <FormBtn disabled={!pw} loading={loading}>Sign in <ArrowRight size={14} /></FormBtn>
                 </div>
                 <button type="button" onClick={() => { setError(''); setStep('forgot'); }}
-                  style={{ width: '100%', marginTop: 18, fontSize: 12, color: MUTED, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: '4px 0', transition: 'color 0.15s' }}
+                  style={{ width: '100%', marginTop: 20, fontSize: 12, color: MUTED, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: '4px 0', transition: 'color 0.15s' }}
                   onMouseEnter={e => (e.currentTarget.style.color = SEC)}
                   onMouseLeave={e => (e.currentTarget.style.color = MUTED)}>
                   Forgot password?
@@ -421,12 +359,12 @@ export default function LoginPage() {
               <motion.form key="change-password" onSubmit={submitChangePw}
                 initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -14 }} transition={{ duration: 0.2 }}>
-                <div style={{ width: 38, height: 38, borderRadius: 10, background: `${ACCENT}0e`, border: `1px solid ${ACCENT}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
-                  <Shield size={16} color={ACCENT} />
+                <div style={{ width: 38, height: 38, borderRadius: 10, background: `${INK}0a`, border: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+                  <Shield size={16} color={INK} />
                 </div>
-                <h2 style={{ fontSize: 20, fontWeight: 800, color: INK, letterSpacing: '-0.03em', marginBottom: 4 }}>Set your password</h2>
-                <p style={{ fontSize: 13, color: SEC, marginBottom: 24, lineHeight: 1.5 }}>
-                  {user?.first_name ? `Hi ${user.first_name} — ` : ''}Create a secure password to continue.
+                <h2 style={{ fontSize: 26, fontWeight: 900, color: INK, letterSpacing: '-0.04em', marginBottom: 6 }}>Set password</h2>
+                <p style={{ fontSize: 13, color: MUTED, marginBottom: 24, lineHeight: 1.5 }}>
+                  {user?.first_name ? `Hi ${user.first_name} — ` : ''}Create a secure password.
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
                   <FormInput type={showNewPw ? 'text' : 'password'} value={newPw} onChange={setNewPw} placeholder="New password" autoFocus>
@@ -437,7 +375,6 @@ export default function LoginPage() {
                   </FormInput>
                   <FormInput type="password" value={cPw} onChange={setCPw} placeholder="Confirm password" />
                 </div>
-                {/* Password requirements */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 20 }}>
                   {[
                     { met: checks.len,                   label: '8+ characters'  },
@@ -470,14 +407,12 @@ export default function LoginPage() {
                   onMouseLeave={e => (e.currentTarget.style.color = MUTED)}>
                   <ChevronLeft size={13} /> Back
                 </button>
-                <h2 style={{ fontSize: 20, fontWeight: 800, color: INK, letterSpacing: '-0.03em', marginBottom: 4 }}>Reset access</h2>
-                <p style={{ fontSize: 13, color: SEC, marginBottom: 24, lineHeight: 1.5 }}>Your administrator will be notified to reset your access.</p>
+                <h2 style={{ fontSize: 26, fontWeight: 900, color: INK, letterSpacing: '-0.04em', marginBottom: 6 }}>Reset access</h2>
+                <p style={{ fontSize: 13, color: MUTED, marginBottom: 24, lineHeight: 1.5 }}>Your administrator will be notified.</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <FormInput type="email" value={email} onChange={setEmail}
-                    placeholder="Email address" autoFocus autoComplete="email">
-                    <AtSign size={14} color={MUTED} />
-                  </FormInput>
-                  <FormBtn disabled={!email.trim()} loading={loading}>Send reset request</FormBtn>
+                  <FormInput type="text" value={identifier} onChange={setIdentifier}
+                    placeholder="Email or username" autoFocus autoComplete="username" />
+                  <FormBtn disabled={!identifier.trim()} loading={loading}>Send reset request</FormBtn>
                 </div>
               </motion.form>
             )}
@@ -487,17 +422,17 @@ export default function LoginPage() {
               <motion.div key="forgot-sent"
                 initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -14 }} transition={{ duration: 0.2 }}>
-                <div style={{ width: 42, height: 42, borderRadius: 12, background: `${GRN}0e`, border: `1px solid ${GRN}28`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+                <div style={{ width: 42, height: 42, borderRadius: 12, background: `${GRN}10`, border: `1px solid ${GRN}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
                   <Check size={18} color={GRN} />
                 </div>
-                <h2 style={{ fontSize: 20, fontWeight: 800, color: INK, letterSpacing: '-0.03em', marginBottom: 8 }}>Request sent</h2>
-                <p style={{ fontSize: 13, color: SEC, lineHeight: 1.6, marginBottom: 32 }}>
-                  If an account exists for <strong style={{ color: INK }}>{email}</strong>, your administrator has been notified.
+                <h2 style={{ fontSize: 26, fontWeight: 900, color: INK, letterSpacing: '-0.04em', marginBottom: 8 }}>Request sent</h2>
+                <p style={{ fontSize: 13, color: MUTED, lineHeight: 1.6, marginBottom: 32 }}>
+                  If an account exists for <strong style={{ color: INK }}>{identifier}</strong>, your administrator has been notified.
                 </p>
                 <button onClick={() => { setStep('email'); setError(''); }}
                   style={{ width: '100%', height: 50, borderRadius: 12, border: `1.5px solid ${BORDER}`, background: 'transparent', fontSize: 13, fontWeight: 600, color: SEC, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = `${ACCENT}06`; (e.currentTarget as HTMLButtonElement).style.borderColor = `${ACCENT}30`; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.borderColor = BORDER; }}>
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = INK; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = BORDER; }}>
                   Back to sign in
                 </button>
               </motion.div>
@@ -512,10 +447,10 @@ export default function LoginPage() {
                 <motion.div
                   initial={{ scale: 0, rotate: -8 }} animate={{ scale: 1, rotate: 0 }}
                   transition={{ type: 'spring', stiffness: 280, damping: 18, delay: 0.05 }}
-                  style={{ width: 56, height: 56, borderRadius: 16, background: `${GRN}0e`, border: `1px solid ${GRN}28`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+                  style={{ width: 56, height: 56, borderRadius: 16, background: `${GRN}10`, border: `1px solid ${GRN}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
                   <Check size={24} color={GRN} strokeWidth={2.5} />
                 </motion.div>
-                <h2 style={{ fontSize: 22, fontWeight: 900, color: INK, letterSpacing: '-0.03em', marginBottom: 6 }}>
+                <h2 style={{ fontSize: 24, fontWeight: 900, color: INK, letterSpacing: '-0.04em', marginBottom: 6 }}>
                   {user?.first_name ? `Welcome, ${user.first_name}` : 'Authenticated'}
                 </h2>
                 <p style={{ fontSize: 12, color: MUTED, marginBottom: 28 }}>Launching dashboard…</p>
@@ -531,13 +466,10 @@ export default function LoginPage() {
 
           </AnimatePresence>
 
-          {/* Bottom credit */}
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
-            style={{ marginTop: 40, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 10, color: MUTED }}>
-              © {new Date().getFullYear()} {brand.clinic_name}
-            </span>
+          {/* Footer */}
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}
+            style={{ marginTop: 48, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 10, color: MUTED }}>Authorised access only</span>
             <span style={{ fontSize: 10, color: MUTED }}>
               by{' '}
               <a href="mailto:hello@jwebly.com" style={{ color: SEC, fontWeight: 600, textDecoration: 'none' }}
