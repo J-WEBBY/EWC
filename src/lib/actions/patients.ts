@@ -1,6 +1,7 @@
 'use server';
 
 import { createSovereignClient } from '@/lib/supabase/service';
+import { getStaffSession } from '@/lib/supabase/tenant-context';
 import { getClinikoClient } from '@/lib/cliniko/client';
 
 // =============================================================================
@@ -474,6 +475,9 @@ export async function getPatientPage(params: {
   const lifecycle = params.lifecycle ?? null;
 
   try {
+    const session = await getStaffSession();
+    if (!session) return { success: false, patients: [], total: 0, page, totalPages: 0, isDemo: false, error: 'Not authenticated' };
+    const { tenantId } = session;
     const db = createSovereignClient();
 
     // Build search filter once, apply to both count + row queries
@@ -481,10 +485,11 @@ export async function getPatientPage(params: {
       ? `first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`
       : null;
 
-    let countQ = db.from('cliniko_patients').select('id', { count: 'exact', head: true });
+    let countQ = db.from('cliniko_patients').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId);
     let rowQ   = db
       .from('cliniko_patients')
       .select('id, cliniko_id, first_name, last_name, email, phone, date_of_birth, gender, referral_source, notes, occupation, emergency_contact, all_phones, address, created_in_cliniko_at, lifecycle_stage, lifecycle_override, lifecycle_manually_set')
+      .eq('tenant_id', tenantId)
       .order('last_name', { ascending: true })
       .range(page * pageSize, (page + 1) * pageSize - 1);
 
@@ -629,6 +634,9 @@ export async function getPatientIntelligenceList(search?: string): Promise<{
   error?: string;
 }> {
   try {
+    const session = await getStaffSession();
+    if (!session) return { success: false, patients: [], total: 0, isDemo: false, error: 'Not authenticated' };
+    const { tenantId } = session;
     const db = createSovereignClient();
 
     // Exclude raw_data (full Cliniko API payload) — not needed for the list view,
@@ -636,6 +644,7 @@ export async function getPatientIntelligenceList(search?: string): Promise<{
     let query = db
       .from('cliniko_patients')
       .select('id, cliniko_id, first_name, last_name, email, phone, date_of_birth, gender, referral_source, notes, occupation, emergency_contact, all_phones, address, created_in_cliniko_at, lifecycle_override, lifecycle_manually_set')
+      .eq('tenant_id', tenantId)
       .order('last_name', { ascending: true })
       .limit(15000); // High enough for any realistic clinic size
 
@@ -903,14 +912,18 @@ export async function addPatientNote(
   content: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const session = await getStaffSession();
+    const tenantId = session?.tenantId;
     const db = createSovereignClient();
-    const { error } = await db.from('agent_memories').insert({
+    const insertData: Record<string, unknown> = {
       agent_key: 'crm_agent',
       memory_type: 'patient_note',
       content,
       importance: 5,
       metadata: { cliniko_patient_id: clinikoPatientId, source: 'staff_note' },
-    });
+    };
+    if (tenantId) insertData.tenant_id = tenantId;
+    const { error } = await db.from('agent_memories').insert(insertData);
     if (error) throw error;
     return { success: true };
   } catch (err) {
@@ -921,8 +934,10 @@ export async function addPatientNote(
 export async function getPatientNotes(
   clinikoPatientId: number,
 ): Promise<PatientNote[]> {
+  const session = await getStaffSession();
+  const tenantId = session?.tenantId;
   const db = createSovereignClient();
-  const { data } = await db
+  let query = db
     .from('agent_memories')
     .select('id, content, created_at')
     .eq('agent_key', 'crm_agent')
@@ -930,6 +945,8 @@ export async function getPatientNotes(
     .filter('metadata->>cliniko_patient_id', 'eq', String(clinikoPatientId))
     .order('created_at', { ascending: false })
     .limit(50);
+  if (tenantId) query = query.eq('tenant_id', tenantId);
+  const { data } = await query;
   return (data ?? []) as PatientNote[];
 }
 
@@ -952,12 +969,16 @@ export async function getPatientSignalList(
   phone: string | null,
 ): Promise<PatientSignal[]> {
   if (!phone) return [];
+  const session = await getStaffSession();
+  const tenantId = session?.tenantId;
   const db = createSovereignClient();
-  const { data } = await db
+  let query = db
     .from('signals')
     .select('id, title, description, priority, status, category, created_at, source_type, data')
     .order('created_at', { ascending: false })
     .limit(100);
+  if (tenantId) query = query.eq('tenant_id', tenantId);
+  const { data } = await query;
   // Filter by phone in JSONB data field
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const matched = (data ?? []).filter((s: any) => {
@@ -1017,8 +1038,10 @@ export async function setPatientLifecycle(
   stage: LifecycleStage | null,
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const session = await getStaffSession();
+    const tenantId = session?.tenantId;
     const db = createSovereignClient();
-    const { error } = await db
+    let query = db
       .from('cliniko_patients')
       .update({
         lifecycle_override:     stage,
@@ -1027,6 +1050,8 @@ export async function setPatientLifecycle(
         lifecycle_stage:        stage ?? undefined,
       })
       .eq('id', patientId);
+    if (tenantId) query = query.eq('tenant_id', tenantId);
+    const { error } = await query;
     if (error) return { success: false, error: error.message };
     return { success: true };
   } catch (err) {
@@ -1036,11 +1061,16 @@ export async function setPatientLifecycle(
 
 export async function getPatientStats() {
   try {
+    const session = await getStaffSession();
+    const tenantId = session?.tenantId;
     const db = createSovereignClient();
-    const [totalRes, appointmentsRes] = await Promise.all([
-      db.from('cliniko_patients').select('id', { count: 'exact', head: true }),
-      db.from('cliniko_appointments').select('cliniko_patient_id, starts_at, status').gte('starts_at', new Date(Date.now() - 30 * 86400000).toISOString()),
-    ]);
+    let patQ = db.from('cliniko_patients').select('id', { count: 'exact', head: true });
+    let apptQ = db.from('cliniko_appointments').select('cliniko_patient_id, starts_at, status').gte('starts_at', new Date(Date.now() - 30 * 86400000).toISOString());
+    if (tenantId) {
+      patQ = patQ.eq('tenant_id', tenantId);
+      apptQ = apptQ.eq('tenant_id', tenantId);
+    }
+    const [totalRes, appointmentsRes] = await Promise.all([patQ, apptQ]);
     const total = totalRes.count ?? 0;
     const appts = appointmentsRes.data ?? [];
     const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);

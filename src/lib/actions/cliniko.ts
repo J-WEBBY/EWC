@@ -1,11 +1,12 @@
 'use server';
 
 // =============================================================================
-// Cliniko Server Actions
+// Cliniko Server Actions — Multi-tenant
 // Used by: Integrations page, Settings, API routes, Agent tools
 // =============================================================================
 
 import { createSovereignClient } from '@/lib/supabase/service';
+import { getStaffSession } from '@/lib/supabase/tenant-context';
 import { ClinikoClient } from '@/lib/cliniko/client';
 import { syncAll, syncPatients, syncAppointments, syncInvoices } from '@/lib/cliniko/sync';
 import type { SyncResult } from '@/lib/cliniko/types';
@@ -26,6 +27,9 @@ export async function saveClinikoConfig(
       return { success: false, error: test.error ?? 'Connection failed. Check your API key and shard.' };
     }
 
+    const session = await getStaffSession();
+    if (!session) return { success: false, error: 'Not authenticated' };
+    const { tenantId } = session;
     const supabase = createSovereignClient();
     await supabase.from('cliniko_config').update({
       api_key_encrypted: apiKey,   // stored as-is (Supabase RLS + service role protects it)
@@ -33,7 +37,7 @@ export async function saveClinikoConfig(
       api_url:      `https://api.${shard}.cliniko.com/v1`,
       is_connected: true,
       sync_error:   null,
-    }).neq('id', '00000000-0000-0000-0000-000000000000');
+    }).eq('tenant_id', tenantId);
 
     return { success: true, practitionerCount: test.practitionerCount };
   } catch (err) {
@@ -52,11 +56,14 @@ export async function getClinikoStatus(): Promise<{
   lastSyncStatus: string | null;
   syncError: string | null;
 }> {
+  const session = await getStaffSession();
+  const tenantId = session?.tenantId;
   const supabase = createSovereignClient();
-  const { data } = await supabase
+  let query = supabase
     .from('cliniko_config')
-    .select('is_connected, shard, last_sync_at, last_sync_status, sync_error')
-    .single();
+    .select('is_connected, shard, last_sync_at, last_sync_status, sync_error');
+  if (tenantId) query = query.eq('tenant_id', tenantId);
+  const { data } = await query.single();
 
   return {
     isConnected:    data?.is_connected ?? false,

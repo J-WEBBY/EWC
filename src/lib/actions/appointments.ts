@@ -631,10 +631,16 @@ export async function dismissPendingBooking(
   bookingRequestId?: string | null,
 ): Promise<{ success: boolean }> {
   try {
+    const session = await getStaffSession();
+    const tenantId = session?.tenantId;
     const db = createSovereignClient();
-    await db.from('signals').update({ status: 'dismissed' }).eq('id', signalId);
+    let signalQuery = db.from('signals').update({ status: 'dismissed' }).eq('id', signalId);
+    if (tenantId) signalQuery = signalQuery.eq('tenant_id', tenantId);
+    await signalQuery;
     if (bookingRequestId) {
-      await db.from('booking_requests').update({ status: 'cancelled' }).eq('id', bookingRequestId);
+      let brQuery = db.from('booking_requests').update({ status: 'cancelled' }).eq('id', bookingRequestId);
+      if (tenantId) brQuery = brQuery.eq('tenant_id', tenantId);
+      await brQuery;
     }
     return { success: true };
   } catch {
