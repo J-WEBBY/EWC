@@ -41,11 +41,12 @@ const LAUNCH_STEPS = [
 interface Props {
   sessionId: string;
   tenantName: string;
+  tenantSlug: string;
   completedPhases: number[];
   profile: ClinicProfile;
 }
 
-export default function GoLiveClient({ tenantName, completedPhases, profile }: Props) {
+export default function GoLiveClient({ tenantName, tenantSlug, completedPhases, profile }: Props) {
   const router = useRouter();
 
   const [checked,   setChecked]   = useState<number>(-1);
@@ -152,8 +153,16 @@ export default function GoLiveClient({ tenantName, completedPhases, profile }: P
               </motion.div>
               <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
                 <div style={{ fontSize: 28, fontWeight: 900, color: INK, letterSpacing: '-0.04em', marginBottom: 8 }}>{tenantName}</div>
-                <div style={{ fontSize: 16, color: GRN, fontWeight: 700 }}>is now live</div>
-                <div style={{ fontSize: 13, color: MUTED, marginTop: 10 }}>Opening your login page…</div>
+                <div style={{ fontSize: 16, color: GRN, fontWeight: 700, marginBottom: 16 }}>is now live</div>
+                {tenantSlug && (
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 10, background: `${GRN}08`, border: `1px solid ${GRN}25`, marginBottom: 12 }}>
+                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: GRN, flexShrink: 0 }} />
+                    <span style={{ fontSize: 12, fontWeight: 600, color: SEC, fontFamily: 'monospace', letterSpacing: '0.01em' }}>
+                      {tenantSlug}.jwebly.app
+                    </span>
+                  </div>
+                )}
+                <div style={{ fontSize: 13, color: MUTED, marginTop: 4 }}>Opening your login page…</div>
               </motion.div>
             </motion.div>
           )}

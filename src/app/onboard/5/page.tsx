@@ -12,6 +12,7 @@ export default async function OnboardPhase5() {
     <GoLiveClient
       sessionId={session.sessionId}
       tenantName={session.tenantName}
+      tenantSlug={session.tenantSlug}
       completedPhases={session.completedPhases}
       profile={session.profile}
     />
