@@ -423,11 +423,15 @@ export async function renameConversation(
   if (!UUID_RE.test(conversationId)) return { success: false, error: 'Invalid conversation ID' };
 
   try {
+    const session = await getStaffSession();
+    if (!session) return { success: false, error: 'Not authenticated' };
+    const { tenantId } = session;
     const db = createSovereignClient();
     await db
       .from('chat_conversations')
       .update({ title: title.trim().slice(0, 200) })
-      .eq('id', conversationId);
+      .eq('id', conversationId)
+      .eq('tenant_id', tenantId);
 
     return { success: true };
   } catch (err) {
@@ -444,11 +448,15 @@ export async function pinConversation(
   if (!UUID_RE.test(conversationId)) return { success: false, error: 'Invalid conversation ID' };
 
   try {
+    const session = await getStaffSession();
+    if (!session) return { success: false, error: 'Not authenticated' };
+    const { tenantId } = session;
     const db = createSovereignClient();
     await db
       .from('chat_conversations')
       .update({ is_pinned: pinned })
-      .eq('id', conversationId);
+      .eq('id', conversationId)
+      .eq('tenant_id', tenantId);
 
     return { success: true };
   } catch (err) {

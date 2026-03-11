@@ -1,12 +1,13 @@
 'use server';
 
 // =============================================================================
-// Appointments Server Actions — Edgbaston Wellness Clinic
+// Appointments Server Actions — Multi-tenant
 // Reads from cliniko_appointments local cache + writes directly to Cliniko API.
 // Pending bookings come from signals created by Komal (vapi_call source).
 // =============================================================================
 
 import { createSovereignClient } from '@/lib/supabase/service';
+import { getStaffSession } from '@/lib/supabase/tenant-context';
 import { getClinikoClient } from '@/lib/cliniko/client';
 import { draftMessageWithAI } from '@/lib/actions/bridge';
 
@@ -384,12 +385,16 @@ export async function getPendingBookings(): Promise<{
   isDemo: boolean;
 }> {
   try {
+    const session = await getStaffSession();
+    if (!session) return { bookings: DEMO_PENDING, isDemo: true };
+    const { tenantId } = session;
     const db = createSovereignClient();
 
     // Primary: booking_requests table (richer data — referral, practitioner, time)
     const { data: brData } = await db
       .from('booking_requests')
       .select('id, signal_id, caller_name, caller_phone, caller_email, service, service_detail, preferred_date, preferred_time, preferred_practitioner, referral_source, call_notes, status, created_at, cliniko_appointment_id')
+      .eq('tenant_id', tenantId)
       .eq('status', 'pending')
       .order('created_at', { ascending: false });
 
@@ -424,6 +429,7 @@ export async function getPendingBookings(): Promise<{
     const { data, error } = await db
       .from('signals')
       .select('id, title, description, category, status, created_at, data, action_log')
+      .eq('tenant_id', tenantId)
       .in('category', ['Booking', 'Patient Acquisition'])
       .not('status', 'in', '("resolved","dismissed","completed")')
       .order('created_at', { ascending: false });
@@ -532,6 +538,9 @@ export async function confirmBooking(params: ConfirmBookingParams): Promise<{
   appointmentId?: string;
   error?: string;
 }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'Not authenticated' };
+  const { tenantId } = session;
   const db = createSovereignClient();
 
   try {
@@ -603,7 +612,7 @@ export async function confirmBooking(params: ConfirmBookingParams): Promise<{
     await db.from('signals').update({
       status: 'resolved',
       data:   { cliniko_appointment_id: apptClinikoId, cliniko_booked: true, resolved_at: new Date().toISOString() },
-    }).eq('id', params.signalId);
+    }).eq('id', params.signalId).eq('tenant_id', tenantId);
 
     return { success: true, appointmentId: apptClinikoId };
 

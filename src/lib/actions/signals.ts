@@ -383,9 +383,17 @@ export async function askSignalAI(
   if (!UUID_RE.test(userId)) return { success: false, error: 'Invalid user ID' };
 
   try {
+    const session = await getStaffSession();
+    const tenantId = session?.tenantId;
+    const db = createSovereignClient();
+    let clinicName = 'Edgbaston Wellness Clinic';
+    if (tenantId) {
+      const { data: cfg } = await db.from('clinic_config').select('clinic_name').eq('tenant_id', tenantId).single();
+      if (cfg?.clinic_name) clinicName = cfg.clinic_name;
+    }
     const client = getAnthropicClient();
 
-    const systemPrompt = `You are Aria, the AI assistant for Edgbaston Wellness Clinic's operational intelligence platform. You help Dr Suresh Ganata and his team understand, triage, and act on signals (alerts from agents, automations, and patient-related operational events).
+    const systemPrompt = `You are Aria, the AI assistant for ${clinicName}'s operational intelligence platform. You help the team understand, triage, and act on signals (alerts from agents, automations, and patient-related operational events).
 
 When asked about a specific signal, provide:
 - A concise analysis of the situation
