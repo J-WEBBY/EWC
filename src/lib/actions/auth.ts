@@ -1,13 +1,14 @@
 'use server';
 
 // =============================================================================
-// Edgbaston Wellness Clinic — Authentication Actions
-// Single-tenant: no tenant_id, no activation keys, no multi-tenancy
+// Jwebly Health — Authentication Actions (multi-tenant)
+// Tenant-scoped: every query filters by tenant_id.
 // Password hashing: bcrypt via pgcrypto (DB-side on creation),
-//                   bcryptjs on the application side for verification
+//                   bcryptjs on the application side for verification.
 // =============================================================================
 
 import { createSovereignClient } from '../supabase/service';
+import { setStaffSession, clearStaffSession } from '../supabase/tenant-context';
 import bcrypt from 'bcryptjs';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -16,15 +17,19 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 // getClinicInfo — load clinic branding for the login page
 // ---------------------------------------------------------------------------
 
-export async function getClinicInfo() {
+export async function getClinicInfo(tenantId?: string) {
   const sovereign = createSovereignClient();
 
   try {
-    const { data, error } = await sovereign
+    let query = sovereign
       .from('clinic_config')
-      .select('clinic_name, ai_name, brand_color, logo_url, tone, tagline, manifesto, ai_persona, neural_contract')
-      .limit(1)
-      .single();
+      .select('clinic_name, ai_name, brand_color, logo_url, tone, tagline, manifesto, ai_persona, neural_contract');
+
+    if (tenantId) {
+      query = query.eq('tenant_id', tenantId);
+    }
+
+    const { data, error } = await query.limit(1).single();
 
     if (error || !data) {
       console.error('[auth] getClinicInfo failed:', error);
@@ -32,7 +37,7 @@ export async function getClinicInfo() {
       return {
         success: true as const,
         data: {
-          clinic_name: 'Edgbaston Wellness Clinic',
+          clinic_name: 'Your Clinic',
           ai_name: 'Aria',
           brand_color: '#0058E6',
           logo_url: null as string | null,
@@ -71,13 +76,15 @@ export async function getClinicInfo() {
 }
 
 // ---------------------------------------------------------------------------
-// verifyLogin — authenticate staff by email + password (bcrypt)
+// verifyLogin — authenticate staff by email OR username + password (bcrypt)
 // ---------------------------------------------------------------------------
 
-export async function verifyLogin(email: string, password: string) {
+export async function verifyLogin(identifier: string, password: string, tenantId: string) {
   const sovereign = createSovereignClient();
 
-  if (!email?.trim() || !password) {
+  const identifierClean = identifier?.toLowerCase().trim();
+
+  if (!identifierClean || !password) {
     return { success: false as const, error: 'MISSING_CREDENTIALS' };
   }
 
@@ -85,13 +92,14 @@ export async function verifyLogin(email: string, password: string) {
     const { data: user, error } = await sovereign
       .from('users')
       .select(`
-        id, email, first_name, last_name, display_name,
+        id, email, username, first_name, last_name, display_name,
         is_admin, must_change_password,
         temp_password_hash, password_hash,
         status, staff_onboarding_completed,
-        role_id
+        role_id, tenant_id
       `)
-      .eq('email', email.toLowerCase().trim())
+      .eq('tenant_id', tenantId)
+      .or(`email.eq.${identifierClean},username.eq.${identifierClean}`)
       .single();
 
     if (error || !user) {
@@ -132,7 +140,8 @@ export async function verifyLogin(email: string, password: string) {
     await sovereign
       .from('users')
       .update({ last_login_at: new Date().toISOString() })
-      .eq('id', user.id);
+      .eq('id', user.id)
+      .eq('tenant_id', tenantId);
 
     return {
       success: true as const,
@@ -145,6 +154,7 @@ export async function verifyLogin(email: string, password: string) {
         is_admin: user.is_admin,
         staff_onboarding_completed: user.staff_onboarding_completed,
         role_id: user.role_id as string | null,
+        tenant_id: user.tenant_id as string,
       },
       requiresPasswordChange: isTempPassword || user.must_change_password,
     };
@@ -156,10 +166,38 @@ export async function verifyLogin(email: string, password: string) {
 }
 
 // ---------------------------------------------------------------------------
+// setSession — persist a staff session cookie after successful login
+// ---------------------------------------------------------------------------
+
+export async function setSession(userId: string, tenantId: string, tenantSlug: string) {
+  try {
+    await setStaffSession(userId, tenantId, tenantSlug);
+    return { success: true as const };
+  } catch (err) {
+    console.error('[auth] setSession failed:', err);
+    return { success: false as const, error: 'SESSION_FAILED' };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// logout — clear the staff session cookie
+// ---------------------------------------------------------------------------
+
+export async function logout() {
+  try {
+    await clearStaffSession();
+    return { success: true as const };
+  } catch (err) {
+    console.error('[auth] logout failed:', err);
+    return { success: false as const, error: 'LOGOUT_FAILED' };
+  }
+}
+
+// ---------------------------------------------------------------------------
 // changePassword — set a new bcrypt password for the user
 // ---------------------------------------------------------------------------
 
-export async function changePassword(userId: string, newPassword: string) {
+export async function changePassword(userId: string, newPassword: string, tenantId: string) {
   const sovereign = createSovereignClient();
 
   if (!userId || !UUID_RE.test(userId)) {
@@ -181,7 +219,8 @@ export async function changePassword(userId: string, newPassword: string) {
         password_changed_at: new Date().toISOString(),
         status: 'active',
       })
-      .eq('id', userId);
+      .eq('id', userId)
+      .eq('tenant_id', tenantId);
 
     if (error) {
       console.error('[auth] changePassword failed:', error);
@@ -190,6 +229,7 @@ export async function changePassword(userId: string, newPassword: string) {
 
     await sovereign.from('audit_trail').insert({
       user_id: userId,
+      tenant_id: tenantId,
       action_type: 'user.password_changed',
       resource_type: 'user',
       resource_id: userId,
@@ -208,7 +248,7 @@ export async function changePassword(userId: string, newPassword: string) {
 // getUserSession — re-validate a session on page load
 // ---------------------------------------------------------------------------
 
-export async function getUserSession(userId: string) {
+export async function getUserSession(userId: string, tenantId: string) {
   const sovereign = createSovereignClient();
 
   if (!userId || !UUID_RE.test(userId)) {
@@ -218,8 +258,9 @@ export async function getUserSession(userId: string) {
   try {
     const { data: user, error } = await sovereign
       .from('users')
-      .select('id, first_name, last_name, email, is_admin, staff_onboarding_completed, status, role_id, display_name')
+      .select('id, first_name, last_name, email, is_admin, staff_onboarding_completed, status, role_id, display_name, tenant_id')
       .eq('id', userId)
+      .eq('tenant_id', tenantId)
       .single();
 
     if (error || !user) {
@@ -241,6 +282,7 @@ export async function getUserSession(userId: string) {
         is_admin: user.is_admin,
         staff_onboarding_completed: user.staff_onboarding_completed,
         role_id: user.role_id as string | null,
+        tenant_id: user.tenant_id as string,
       },
     };
 
@@ -254,7 +296,7 @@ export async function getUserSession(userId: string) {
 // requestPasswordReset — logs the request; admin handles reset manually
 // ---------------------------------------------------------------------------
 
-export async function requestPasswordReset(email: string) {
+export async function requestPasswordReset(email: string, tenantId: string) {
   const sovereign = createSovereignClient();
 
   try {
@@ -262,11 +304,13 @@ export async function requestPasswordReset(email: string) {
       .from('users')
       .select('id')
       .eq('email', email.toLowerCase().trim())
+      .eq('tenant_id', tenantId)
       .single();
 
     if (user) {
       await sovereign.from('audit_trail').insert({
         user_id: user.id,
+        tenant_id: tenantId,
         action_type: 'user.password_reset_requested',
         resource_type: 'user',
         resource_id: user.id,

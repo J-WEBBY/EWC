@@ -8,10 +8,10 @@ import {
   ChevronLeft, Shield,
 } from 'lucide-react';
 import { JweblyIcon } from '@/components/jwebly-logo';
-import { verifyLogin, changePassword, getClinicInfo, requestPasswordReset } from '@/lib/actions/auth';
+import { verifyLogin, changePassword, getClinicInfo, requestPasswordReset, setSession } from '@/lib/actions/auth';
 
 type Step = 'email' | 'password' | 'change-password' | 'forgot' | 'forgot-sent' | 'authenticated';
-interface AuthUser { id: string; first_name: string; last_name: string; email: string; }
+interface AuthUser { id: string; first_name: string; last_name: string; email: string; tenant_id: string; }
 
 const BG     = '#F7F6F3';
 const INK    = '#18181B';
@@ -82,9 +82,11 @@ interface Props {
   // Passed by server wrapper when running on a tenant subdomain.
   // If provided, skips the getClinicInfo fetch (no flash of missing clinic name).
   initialClinicName?: string;
+  tenantId?: string;
+  tenantSlug?: string;
 }
 
-export default function LoginClient({ initialClinicName }: Props) {
+export default function LoginClient({ initialClinicName, tenantId, tenantSlug }: Props) {
   const router = useRouter();
   const [step, setStep]           = useState<Step>('email');
   const [identifier, setIdentifier] = useState('');
@@ -129,41 +131,43 @@ export default function LoginClient({ initialClinicName }: Props) {
     e.preventDefault();
     if (!pw) return;
     setError(''); setLoading(true);
-    const res = await verifyLogin(identifier, pw);
+    const res = await verifyLogin(identifier, pw, tenantId ?? '');
     if (res.success && res.user) {
       setUser(res.user);
       if (res.requiresPasswordChange) {
         setStep('change-password'); setLoading(false);
       } else {
+        await setSession(res.user.id, tenantId ?? res.user.tenant_id, tenantSlug ?? '');
         setStep('authenticated');
-        setTimeout(() => router.push(`/staff/dashboard?userId=${res.user!.id}`), 1800);
+        setTimeout(() => router.push('/staff/dashboard'), 1800);
       }
     } else {
       setError(res.error === 'ACCOUNT_DISABLED' ? 'Account suspended.' : 'Incorrect credentials.');
       setLoading(false);
     }
-  }, [identifier, pw, router]);
+  }, [identifier, pw, tenantId, tenantSlug, router]);
 
   const submitChangePw = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !pwReady) return;
     setError(''); setLoading(true);
-    const res = await changePassword(user.id, newPw);
+    const res = await changePassword(user.id, newPw, tenantId ?? user.tenant_id);
     if (res.success) {
+      await setSession(user.id, tenantId ?? user.tenant_id, tenantSlug ?? '');
       setStep('authenticated');
-      setTimeout(() => router.push(`/staff/dashboard?userId=${user.id}`), 1800);
+      setTimeout(() => router.push('/staff/dashboard'), 1800);
     } else {
       setError('Failed to update password.'); setLoading(false);
     }
-  }, [user, newPw, pwReady, router]);
+  }, [user, newPw, pwReady, tenantId, tenantSlug, router]);
 
   const submitForgot = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (!identifier.trim()) return;
     setLoading(true);
-    await requestPasswordReset(identifier);
+    await requestPasswordReset(identifier, tenantId ?? '');
     setStep('forgot-sent'); setLoading(false);
-  }, [identifier]);
+  }, [identifier, tenantId]);
 
   const back = useCallback(() => { setError(''); setStep('email'); }, []);
 

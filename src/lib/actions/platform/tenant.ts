@@ -3,6 +3,7 @@
 import { createPlatformClient } from '@/lib/supabase/platform';
 
 export interface TenantBrand {
+  id: string;
   clinic_name: string;
   brand_color: string;
   logo_url: string | null;
@@ -20,13 +21,14 @@ export async function getTenantBySlug(slug: string): Promise<
 > {
   // ── Dev bypass ─────────────────────────────────────────────────────────────
   if (!process.env.PLATFORM_SUPABASE_URL || !process.env.PLATFORM_SUPABASE_SERVICE_KEY) {
-    // Accept 'dev' or any slug matching the EWC demo
-    const knownDevSlugs = ['dev', 'edgbastonwellness', 'ewc'];
+    // Accept 'dev' slug only in bypass mode
+    const knownDevSlugs = ['dev'];
     if (knownDevSlugs.includes(slug.toLowerCase())) {
       return {
         success: true,
         tenant: {
-          clinic_name:  'Edgbaston Wellness Clinic',
+          id:           'dev',
+          clinic_name:  'Demo Clinic',
           brand_color:  '#0058E6',
           logo_url:     null,
           slug,
@@ -60,7 +62,8 @@ export async function getTenantBySlug(slug: string): Promise<
     return {
       success: true,
       tenant: {
-        clinic_name: profile?.clinic_name ?? tenant.name,
+        id:           tenant.id,
+        clinic_name:  profile?.clinic_name ?? tenant.name,
         brand_color:  profile?.primary_color ?? '#0058E6',
         logo_url:     profile?.logo_url ?? null,
         slug:         tenant.slug,

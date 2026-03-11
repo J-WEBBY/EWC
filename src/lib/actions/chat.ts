@@ -1,6 +1,7 @@
 'use server';
 
 import { createSovereignClient } from '@/lib/supabase/service';
+import { getStaffSession } from '@/lib/supabase/tenant-context';
 import { getAnthropicClient, ANTHROPIC_MODELS } from '@/lib/ai/anthropic';
 import { runAgentLoop } from '@/lib/ai/agent-executor';
 import { ALL_TOOLS } from '@/lib/ai/tools';
@@ -57,6 +58,9 @@ export async function getConversations(
   if (!UUID_RE.test(userId)) return { success: false, error: 'Invalid user ID' };
 
   try {
+    const session = await getStaffSession();
+    if (!session) return { success: false, error: 'Not authenticated' };
+    const { tenantId } = session;
     const db = createSovereignClient();
     let data: Record<string, unknown>[] | null = null;
     const hasPinColumn = true;
@@ -64,6 +68,7 @@ export async function getConversations(
     const { data: rows, error } = await db
       .from('chat_conversations')
       .select('id, title, agent_scope, message_count, is_archived, is_pinned, created_at, updated_at')
+      .eq('tenant_id', tenantId)
       .eq('user_id', userId)
       .eq('is_archived', false)
       .order('is_pinned', { ascending: false })
@@ -138,10 +143,14 @@ export async function createConversation(
   if (!UUID_RE.test(userId)) return { success: false, error: 'Invalid user ID' };
 
   try {
+    const session = await getStaffSession();
+    if (!session) return { success: false, error: 'Not authenticated' };
+    const { tenantId } = session;
     const db = createSovereignClient();
     const { data, error } = await db
       .from('chat_conversations')
       .insert({
+        tenant_id: tenantId,
         user_id: userId,
         agent_scope: agentScope || null,
         title: title || 'New Conversation',
@@ -174,6 +183,9 @@ export async function sendMessage(
   if (!content.trim()) return { success: false, error: 'Message cannot be empty' };
 
   try {
+    const session = await getStaffSession();
+    if (!session) return { success: false, error: 'Not authenticated' };
+    const { tenantId } = session;
     const db = createSovereignClient();
 
     // 1. Load conversation history + clinic context + agents in parallel
@@ -258,7 +270,7 @@ ${agentList}
 
     // 4. Run agent loop with tools
     const ctx: AgentContext = {
-      tenantId: 'clinic',
+      tenantId,
       userId,
       conversationId,
       systemPrompt,
@@ -371,11 +383,15 @@ export async function deleteConversation(
   if (!UUID_RE.test(conversationId)) return { success: false, error: 'Invalid conversation ID' };
 
   try {
+    const session = await getStaffSession();
+    if (!session) return { success: false, error: 'Not authenticated' };
+    const { tenantId } = session;
     const db = createSovereignClient();
     await db
       .from('chat_conversations')
       .update({ is_archived: true })
-      .eq('id', conversationId);
+      .eq('id', conversationId)
+      .eq('tenant_id', tenantId);
 
     return { success: true };
   } catch (err) {

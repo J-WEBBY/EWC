@@ -1,6 +1,7 @@
 'use server';
 
 import { createSovereignClient } from '@/lib/supabase/service';
+import { getStaffSession } from '@/lib/supabase/tenant-context';
 import { getAnthropicClient, ANTHROPIC_MODELS } from '@/lib/ai/anthropic';
 import type { SignalPriority, SignalStatus } from '@/lib/types/database';
 
@@ -140,11 +141,15 @@ export async function createSignal(
   },
 ): Promise<{ success: boolean; signalId?: string; error?: string }> {
   try {
+    const session = await getStaffSession();
+    if (!session) return { success: false, error: 'Not authenticated' };
+    const { tenantId } = session;
     const sovereign = createSovereignClient();
 
     const { data: signal, error: sigErr } = await sovereign
       .from('signals')
       .insert({
+        tenant_id: tenantId,
         signal_type: data.signalType,
         title: data.title,
         description: data.description,
@@ -200,11 +205,15 @@ export async function getSignalFeed(
   },
 ): Promise<{ success: boolean; signals?: SignalEntry[]; error?: string }> {
   try {
+    const session = await getStaffSession();
+    if (!session) return { success: false, error: 'Not authenticated' };
+    const { tenantId } = session;
     const sovereign = createSovereignClient();
 
     let query = sovereign
       .from('signals')
       .select('*')
+      .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
       .limit(50);
 
@@ -270,11 +279,15 @@ export async function getSignalStats(
   _tenantId: string,
 ): Promise<{ success: boolean; stats?: SignalStats; error?: string }> {
   try {
+    const session = await getStaffSession();
+    if (!session) return { success: false, error: 'Not authenticated' };
+    const { tenantId } = session;
     const sovereign = createSovereignClient();
 
     const { data: allSignals, error } = await sovereign
       .from('signals')
       .select('id, priority, status, source_type, category, created_at')
+      .eq('tenant_id', tenantId)
       .limit(500);
 
     if (error) {
@@ -409,9 +422,12 @@ export async function createReminder(
   if (!UUID_RE.test(userId)) return { success: false, error: 'Invalid user ID' };
   if (!data.title.trim()) return { success: false, error: 'Title is required' };
 
+  const session = await getStaffSession();
+  const tenantId = session?.tenantId ?? 'clinic';
+
   const reminder: Reminder = {
     id: `rem-${Date.now()}`,
-    tenant_id: 'clinic',
+    tenant_id: tenantId,
     created_by_user_id: userId,
     title: data.title,
     description: data.description || null,
@@ -452,10 +468,14 @@ export async function getPendingSignals(
   _tenantId: string,
 ): Promise<{ success: boolean; signals?: PendingSignal[]; error?: string }> {
   try {
+    const session = await getStaffSession();
+    if (!session) return { success: false, error: 'Not authenticated' };
+    const { tenantId } = session;
     const sovereign = createSovereignClient();
     const { data: rows, error } = await sovereign
       .from('signals')
       .select('id, title, description, priority, signal_type, category, tags, created_at')
+      .eq('tenant_id', tenantId)
       .eq('status', 'pending_approval')
       .order('created_at', { ascending: false })
       .limit(20);
@@ -491,11 +511,15 @@ export async function approveSignal(
   if (!UUID_RE.test(signalId)) return { success: false, error: 'Invalid signal ID' };
 
   try {
+    const session = await getStaffSession();
+    if (!session) return { success: false, error: 'Not authenticated' };
+    const { tenantId } = session;
     const sovereign = createSovereignClient();
     const { error } = await sovereign
       .from('signals')
       .update({ status: 'new' })
       .eq('id', signalId)
+      .eq('tenant_id', tenantId)
       .eq('status', 'pending_approval');
 
     if (error) {
@@ -517,11 +541,15 @@ export async function rejectSignal(
   if (!UUID_RE.test(signalId)) return { success: false, error: 'Invalid signal ID' };
 
   try {
+    const session = await getStaffSession();
+    if (!session) return { success: false, error: 'Not authenticated' };
+    const { tenantId } = session;
     const sovereign = createSovereignClient();
     const { error } = await sovereign
       .from('signals')
       .update({ status: 'archived' })
       .eq('id', signalId)
+      .eq('tenant_id', tenantId)
       .eq('status', 'pending_approval');
 
     if (error) {
@@ -548,12 +576,16 @@ export async function logSignalAction(
   if (!UUID_RE.test(signalId)) return { success: false, error: 'Invalid signal ID' };
 
   try {
+    const session = await getStaffSession();
+    if (!session) return { success: false, error: 'Not authenticated' };
+    const { tenantId } = session;
     const sovereign = createSovereignClient();
 
     const { data: current, error: fetchErr } = await sovereign
       .from('signals')
       .select('action_log')
       .eq('id', signalId)
+      .eq('tenant_id', tenantId)
       .single();
 
     if (fetchErr) return { success: false, error: fetchErr.message };
@@ -563,7 +595,8 @@ export async function logSignalAction(
     const { error } = await sovereign
       .from('signals')
       .update({ action_log: log, last_action_at: entry.timestamp, updated_at: new Date().toISOString() })
-      .eq('id', signalId);
+      .eq('id', signalId)
+      .eq('tenant_id', tenantId);
 
     return error ? { success: false, error: error.message } : { success: true };
   } catch (err) {
@@ -583,12 +616,16 @@ export async function resolveSignal(
   const now = new Date().toISOString();
 
   try {
+    const session = await getStaffSession();
+    if (!session) return { success: false, error: 'Not authenticated' };
+    const { tenantId } = session;
     const sovereign = createSovereignClient();
 
     const { data: current, error: fetchErr } = await sovereign
       .from('signals')
       .select('action_log')
       .eq('id', signalId)
+      .eq('tenant_id', tenantId)
       .single();
 
     if (fetchErr) return { success: false, error: fetchErr.message };
@@ -601,7 +638,8 @@ export async function resolveSignal(
     const { error } = await sovereign
       .from('signals')
       .update({ status: 'resolved', resolved_at: now, last_action_at: now, action_log: log, updated_at: now })
-      .eq('id', signalId);
+      .eq('id', signalId)
+      .eq('tenant_id', tenantId);
 
     return error ? { success: false, error: error.message } : { success: true };
   } catch (err) {
@@ -620,12 +658,16 @@ export async function dismissSignal(
   const now = new Date().toISOString();
 
   try {
+    const session = await getStaffSession();
+    if (!session) return { success: false, error: 'Not authenticated' };
+    const { tenantId } = session;
     const sovereign = createSovereignClient();
 
     const { data: current, error: fetchErr } = await sovereign
       .from('signals')
       .select('action_log')
       .eq('id', signalId)
+      .eq('tenant_id', tenantId)
       .single();
 
     if (fetchErr) return { success: false, error: fetchErr.message };
@@ -638,7 +680,8 @@ export async function dismissSignal(
     const { error } = await sovereign
       .from('signals')
       .update({ status: 'archived', last_action_at: now, action_log: log, updated_at: now })
-      .eq('id', signalId);
+      .eq('id', signalId)
+      .eq('tenant_id', tenantId);
 
     return error ? { success: false, error: error.message } : { success: true };
   } catch (err) {
@@ -658,6 +701,9 @@ export async function updateSignalStatus(
   const now = new Date().toISOString();
 
   try {
+    const session = await getStaffSession();
+    if (!session) return { success: false, error: 'Not authenticated' };
+    const { tenantId } = session;
     const sovereign = createSovereignClient();
     const updates: Record<string, unknown> = { status, last_action_at: now, updated_at: now };
 
@@ -666,6 +712,7 @@ export async function updateSignalStatus(
         .from('signals')
         .select('action_log')
         .eq('id', signalId)
+        .eq('tenant_id', tenantId)
         .single();
 
       const log: ActionLogEntry[] = [
@@ -675,7 +722,7 @@ export async function updateSignalStatus(
       updates.action_log = log;
     }
 
-    const { error } = await sovereign.from('signals').update(updates).eq('id', signalId);
+    const { error } = await sovereign.from('signals').update(updates).eq('id', signalId).eq('tenant_id', tenantId);
     return error ? { success: false, error: error.message } : { success: true };
   } catch (err) {
     console.error('[signals] updateSignalStatus threw:', err);

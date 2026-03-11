@@ -29,7 +29,13 @@ export default async function LoginPage() {
       notFound();
     }
 
-    return <LoginClient initialClinicName={result.tenant.clinic_name} />;
+    return (
+      <LoginClient
+        initialClinicName={result.tenant.clinic_name}
+        tenantId={result.tenant.id}
+        tenantSlug={result.tenant.slug}
+      />
+    );
   }
 
   // Root domain / dev mode — client handles clinic info fetch
