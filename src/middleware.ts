@@ -21,14 +21,21 @@ import { NextRequest, NextResponse } from 'next/server';
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? '';
 
 function extractSubdomain(host: string): string | null {
-  if (!ROOT_DOMAIN) return null; // env not set → dev mode, no subdomain routing
-
   const bare = host.split(':')[0]; // strip port
+
+  // ── Dev: support {slug}.localhost ──────────────────────────────────────────
+  if (bare.endsWith('.localhost')) {
+    const sub = bare.slice(0, -'.localhost'.length);
+    if (!sub || sub === 'www') return null;
+    return sub;
+  }
+
+  // ── Production: {slug}.jwebly.app (or configured ROOT_DOMAIN) ──────────────
+  if (!ROOT_DOMAIN) return null; // env not set → no subdomain routing in prod
 
   // Exact root domain — no subdomain
   if (bare === ROOT_DOMAIN) return null;
 
-  // {slug}.jwebly.app
   if (bare.endsWith(`.${ROOT_DOMAIN}`)) {
     const sub = bare.slice(0, -(ROOT_DOMAIN.length + 1));
     if (!sub || sub === 'www') return null;
@@ -77,6 +84,11 @@ export function middleware(request: NextRequest) {
   }
 
   // ── ROOT DOMAIN (jwebly.app or localhost) ───────────────────────────────────
+
+  // Root domain homepage → onboarding entry point
+  if (pathname === '/') {
+    return NextResponse.redirect(new URL('/activate', request.url));
+  }
 
   // In production: staff portal must be accessed via subdomain
   if (ROOT_DOMAIN && process.env.NODE_ENV === 'production') {

@@ -87,7 +87,13 @@ export default function GoLiveClient({ tenantName, tenantSlug, completedPhases, 
 
     setLive(true);
     await new Promise(r => setTimeout(r, 2200));
-    router.push('/login');
+    // Redirect to the tenant's own subdomain login
+    const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN;
+    if (rootDomain && tenantSlug) {
+      window.location.href = `https://${tenantSlug}.${rootDomain}/login`;
+    } else {
+      router.push('/login'); // dev fallback
+    }
   };
 
   const allRequired = CHECKS.filter(c => c.required).every(c => completedPhases.includes(c.phase));
@@ -158,7 +164,7 @@ export default function GoLiveClient({ tenantName, tenantSlug, completedPhases, 
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 10, background: `${GRN}08`, border: `1px solid ${GRN}25`, marginBottom: 12 }}>
                     <div style={{ width: 6, height: 6, borderRadius: '50%', background: GRN, flexShrink: 0 }} />
                     <span style={{ fontSize: 12, fontWeight: 600, color: SEC, fontFamily: 'monospace', letterSpacing: '0.01em' }}>
-                      {tenantSlug}.jwebly.app
+                      {tenantSlug}.{process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'jweblyhealth.app'}
                     </span>
                   </div>
                 )}
