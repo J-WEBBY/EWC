@@ -6,6 +6,7 @@
 // =============================================================================
 
 import { createSovereignClient } from '@/lib/supabase/service';
+import { getStaffSession } from '@/lib/supabase/tenant-context';
 import { getAnthropicClient, ANTHROPIC_MODELS } from '@/lib/ai/anthropic';
 
 // =============================================================================
@@ -429,12 +430,16 @@ export async function getKnowledgeBase(
   category?: KnowledgeCategory,
   search?: string,
 ): Promise<{ success: boolean; data?: { documents: KnowledgeDocument[]; stats: KnowledgeStats }; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
+  const { tenantId } = session;
   try {
     // Attempt real DB fetch; fall through to demo on any error
     const supabase = createSovereignClient();
     let query = supabase
       .from('knowledge_documents')
       .select('id, title, content, status, created_at, updated_at')
+      .eq('tenant_id', tenantId)
       .limit(5);
     if (category) query = query.eq('category', category);
     await query; // result ignored — just checking if table exists
@@ -471,6 +476,8 @@ export async function searchKnowledge(
   _tenantId: string,
   query: string,
 ): Promise<{ success: boolean; data?: KnowledgeSearchResult[]; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
   try {
     if (!query.trim()) return { success: true, data: [] };
     const results = keywordSearch(DEMO_DOCS, query);
@@ -485,6 +492,8 @@ export async function getAIDocumentSummary(
   docId: string,
   userQuestion?: string,
 ): Promise<{ success: boolean; data?: { answer: string }; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
   try {
     const doc = DEMO_DOCS.find(d => d.id === docId);
     if (!doc) return { success: false, error: 'Document not found' };

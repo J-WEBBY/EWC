@@ -10,12 +10,15 @@ import { SPECIALIST_TOOLS } from '@/lib/ai/tools';
 import { getAgentByKey } from '@/lib/actions/agent-service';
 import { ANTHROPIC_MODELS } from '@/lib/ai/anthropic';
 import { getPatientHub } from '@/lib/actions/patients';
+import { getStaffSession } from '@/lib/supabase/tenant-context';
 
 export async function askAboutPatient(
   patientId: string,
   question: string,
 ): Promise<{ success: boolean; response?: string; agentName?: string; error?: string }> {
   try {
+    const session = await getStaffSession();
+    const tenantId = session?.tenantId ?? 'clinic';
     const hubResult = await getPatientHub(patientId);
     if (!hubResult.success || !hubResult.data) {
       return { success: false, error: 'Patient data not available.' };
@@ -57,7 +60,7 @@ Do not repeat the patient data back — jump straight to your analysis and recom
 
     const result = await runAgentLoop(
       {
-        tenantId: 'clinic',
+        tenantId,
         userId: 'system',
         systemPrompt,
         tools: SPECIALIST_TOOLS,

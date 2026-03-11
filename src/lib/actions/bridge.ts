@@ -1,6 +1,7 @@
 'use server';
 
 import { createSovereignClient } from '@/lib/supabase/service';
+import { getStaffSession } from '@/lib/supabase/tenant-context';
 import { getAnthropicClient, ANTHROPIC_MODELS } from '@/lib/ai/anthropic';
 
 // =============================================================================
@@ -342,11 +343,15 @@ const DEMO_TIMELINES: Record<string, TimelineItem[]> = {
 // =============================================================================
 
 export async function getPatientList(): Promise<PatientSummary[]> {
+  const session = await getStaffSession();
+  if (!session) return DEMO_PATIENTS;
+  const { tenantId } = session;
   try {
     const db = createSovereignClient();
     const { data } = await db
       .from('cliniko_patients')
       .select('id, first_name, last_name, email, phone, created_at')
+      .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
       .limit(50);
 
@@ -367,11 +372,15 @@ export async function getPatientList(): Promise<PatientSummary[]> {
 }
 
 export async function getPatientTimeline(patientId: string): Promise<TimelineItem[]> {
+  const session = await getStaffSession();
+  if (!session) return DEMO_TIMELINES[patientId] ?? [];
+  const { tenantId } = session;
   try {
     const db = createSovereignClient();
     const { data } = await db
       .from('patient_messages')
       .select('*')
+      .eq('tenant_id', tenantId)
       .eq('patient_id', patientId)
       .order('created_at', { ascending: false })
       .limit(50);
@@ -404,11 +413,15 @@ export async function sendPatientMessage(data: {
   sent_by_name:  string;
   purpose:       DraftPurpose;
 }): Promise<{ success: boolean; id?: string; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
+  const { tenantId } = session;
   try {
     const db = createSovereignClient();
     const { data: row, error } = await db
       .from('patient_messages')
       .insert({
+        tenant_id:     tenantId,
         patient_id:    data.patient_id,
         patient_name:  data.patient_name,
         patient_phone: data.patient_phone,
@@ -576,11 +589,15 @@ const DEMO_CONVERSATIONS: Conversation[] = [
 // =============================================================================
 
 export async function getConversations(): Promise<Conversation[]> {
+  const session = await getStaffSession();
+  if (!session) return DEMO_CONVERSATIONS;
+  const { tenantId } = session;
   try {
     const db = createSovereignClient();
     const { data } = await db
       .from('cliniko_patients')
       .select('id, first_name, last_name, email, phone, created_at')
+      .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
       .limit(20);
 

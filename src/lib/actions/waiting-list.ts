@@ -1,6 +1,7 @@
 'use server';
 
 import { createSovereignClient } from '@/lib/supabase/service';
+import { getStaffSession } from '@/lib/supabase/tenant-context';
 
 // =============================================================================
 // Types
@@ -46,10 +47,14 @@ export async function getPatientWaitList(clinikoPatientId: string): Promise<{
   error?: string;
 }> {
   try {
+    const session = await getStaffSession();
+    if (!session) return { success: false, entries: [], error: 'UNAUTHORIZED' };
+    const { tenantId } = session;
     const db = createSovereignClient();
     const { data, error } = await db
       .from('patient_waiting_list')
       .select('*')
+      .eq('tenant_id', tenantId)
       .eq('cliniko_patient_id', clinikoPatientId)
       .order('created_at', { ascending: false });
 
@@ -71,10 +76,14 @@ export async function getAllWaitList(status?: WaitListEntry['status']): Promise<
   error?: string;
 }> {
   try {
+    const session = await getStaffSession();
+    if (!session) return { success: false, entries: [], error: 'UNAUTHORIZED' };
+    const { tenantId } = session;
     const db = createSovereignClient();
     let q = db
       .from('patient_waiting_list')
       .select('*')
+      .eq('tenant_id', tenantId)
       .order('priority', { ascending: false })  // high first
       .order('created_at', { ascending: true });
 
@@ -100,10 +109,14 @@ export async function addToWaitList(input: AddToWaitListInput): Promise<{
   error?: string;
 }> {
   try {
+    const session = await getStaffSession();
+    if (!session) return { success: false, error: 'UNAUTHORIZED' };
+    const { tenantId } = session;
     const db = createSovereignClient();
     const { data, error } = await db
       .from('patient_waiting_list')
       .insert({
+        tenant_id:            tenantId,
         cliniko_patient_id:   input.cliniko_patient_id,
         patient_name:         input.patient_name,
         treatment_type:       input.treatment_type,
@@ -135,6 +148,9 @@ export async function updateWaitListStatus(
   status: WaitListEntry['status'],
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const session = await getStaffSession();
+    if (!session) return { success: false, error: 'UNAUTHORIZED' };
+    const { tenantId } = session;
     const db = createSovereignClient();
     const patch: Record<string, unknown> = { status };
     if (status === 'offered')   patch.offered_at   = new Date().toISOString();
@@ -143,7 +159,8 @@ export async function updateWaitListStatus(
     const { error } = await db
       .from('patient_waiting_list')
       .update(patch)
-      .eq('id', id);
+      .eq('id', id)
+      .eq('tenant_id', tenantId);
 
     if (error) throw error;
     return { success: true };
@@ -159,11 +176,15 @@ export async function updateWaitListStatus(
 
 export async function removeFromWaitList(id: string): Promise<{ success: boolean; error?: string }> {
   try {
+    const session = await getStaffSession();
+    if (!session) return { success: false, error: 'UNAUTHORIZED' };
+    const { tenantId } = session;
     const db = createSovereignClient();
     const { error } = await db
       .from('patient_waiting_list')
       .update({ status: 'cancelled' })
-      .eq('id', id);
+      .eq('id', id)
+      .eq('tenant_id', tenantId);
 
     if (error) throw error;
     return { success: true };

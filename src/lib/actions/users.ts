@@ -6,6 +6,7 @@
 // =============================================================================
 
 import { createSovereignClient } from '@/lib/supabase/service';
+import { getStaffSession } from '@/lib/supabase/tenant-context';
 import bcrypt from 'bcryptjs';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -42,6 +43,9 @@ export interface RoleRow {
 // ---------------------------------------------------------------------------
 
 export async function listUsers(): Promise<UserRow[]> {
+  const session = await getStaffSession();
+  if (!session) return [];
+  const { tenantId } = session;
   const db = createSovereignClient();
   const { data, error } = await db
     .from('users')
@@ -50,6 +54,7 @@ export async function listUsers(): Promise<UserRow[]> {
       status, is_admin, must_change_password, last_login_at, created_at,
       role:roles(id, name, slug)
     `)
+    .eq('tenant_id', tenantId)
     .order('first_name', { ascending: true });
 
   if (error) {
@@ -68,10 +73,14 @@ export async function listUsers(): Promise<UserRow[]> {
 // ---------------------------------------------------------------------------
 
 export async function listRoles(): Promise<RoleRow[]> {
+  const session = await getStaffSession();
+  if (!session) return [];
+  const { tenantId } = session;
   const db = createSovereignClient();
   const { data } = await db
     .from('roles')
     .select('id, name, slug, permission_level, is_admin')
+    .eq('tenant_id', tenantId)
     .order('permission_level', { ascending: false });
   return (data ?? []) as RoleRow[];
 }
@@ -89,6 +98,9 @@ export async function createUser(input: {
   is_admin: boolean;
   temp_password: string;
 }): Promise<{ success: boolean; id?: string; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
+  const { tenantId } = session;
   const db = createSovereignClient();
   const { first_name, last_name, email, job_title, role_id, is_admin, temp_password } = input;
 
@@ -109,6 +121,7 @@ export async function createUser(input: {
     const { data, error } = await db
       .from('users')
       .insert({
+        tenant_id: tenantId,
         email: email.toLowerCase().trim(),
         first_name: first_name.trim(),
         last_name: last_name.trim(),
@@ -156,6 +169,9 @@ export async function updateUser(
   if (!UUID_RE.test(userId)) return { success: false, error: 'Invalid user.' };
   if (updates.role_id && !UUID_RE.test(updates.role_id)) return { success: false, error: 'Invalid role.' };
 
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
+  const { tenantId } = session;
   const db = createSovereignClient();
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
 
@@ -169,13 +185,13 @@ export async function updateUser(
   // Auto-update display_name when name changes
   if ((updates.first_name || updates.last_name) && !updates.display_name) {
     const { data: current } = await db
-      .from('users').select('first_name, last_name').eq('id', userId).single();
+      .from('users').select('first_name, last_name').eq('id', userId).eq('tenant_id', tenantId).single();
     if (current) {
       patch.display_name = `${updates.first_name?.trim() ?? current.first_name} ${updates.last_name?.trim() ?? current.last_name}`;
     }
   }
 
-  const { error } = await db.from('users').update(patch).eq('id', userId);
+  const { error } = await db.from('users').update(patch).eq('id', userId).eq('tenant_id', tenantId);
   if (error) {
     console.error('[users] updateUser error:', error);
     return { success: false, error: 'Failed to update user.' };
@@ -193,11 +209,15 @@ export async function setUserStatus(
 ): Promise<{ success: boolean; error?: string }> {
   if (!UUID_RE.test(userId)) return { success: false, error: 'Invalid user.' };
 
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
+  const { tenantId } = session;
   const db = createSovereignClient();
   const { error } = await db
     .from('users')
     .update({ status, updated_at: new Date().toISOString() })
-    .eq('id', userId);
+    .eq('id', userId)
+    .eq('tenant_id', tenantId);
 
   if (error) {
     console.error('[users] setUserStatus error:', error);
@@ -220,6 +240,9 @@ export async function resetUserPassword(
     return { success: false, error: 'Temp password must be at least 8 characters.' };
   }
 
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
+  const { tenantId } = session;
   try {
     const passwordHash = await bcrypt.hash(tempPassword, 10);
     const db = createSovereignClient();
@@ -232,7 +255,8 @@ export async function resetUserPassword(
         must_change_password: true,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', userId);
+      .eq('id', userId)
+      .eq('tenant_id', tenantId);
 
     if (error) {
       console.error('[users] resetUserPassword error:', error);

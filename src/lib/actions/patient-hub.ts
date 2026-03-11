@@ -1,6 +1,7 @@
 'use server';
 
 import { createSovereignClient } from '@/lib/supabase/service';
+import { getStaffSession } from '@/lib/supabase/tenant-context';
 
 // =============================================================================
 // TYPES
@@ -254,11 +255,15 @@ export async function getTreatmentLogs(
     return { success: true, logs: makeDemoLogs(clinikoPatientId), isDemo: true };
   }
 
+  const session = await getStaffSession();
+  if (!session) return { success: false, logs: [], isDemo: false, error: 'UNAUTHORIZED' };
+  const { tenantId } = session;
   try {
     const db = createSovereignClient();
     const { data, error } = await db
       .from('patient_treatment_logs')
       .select('*')
+      .eq('tenant_id', tenantId)
       .eq('cliniko_patient_id', clinikoPatientId)
       .order('log_date', { ascending: false })
       .order('created_at', { ascending: false });
@@ -332,11 +337,15 @@ export interface AddTreatmentLogInput {
 export async function addTreatmentLog(
   input: AddTreatmentLogInput,
 ): Promise<{ success: boolean; id?: string; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
+  const { tenantId } = session;
   try {
     const db = createSovereignClient();
     const { data, error } = await db
       .from('patient_treatment_logs')
       .insert({
+        tenant_id:             tenantId,
         cliniko_patient_id:    input.cliniko_patient_id,
         cliniko_appointment_id: input.cliniko_appointment_id ?? null,
         log_date:              input.log_date,
@@ -374,12 +383,16 @@ export async function updateTreatmentLog(
   logId: string,
   input: Partial<AddTreatmentLogInput>,
 ): Promise<{ success: boolean; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
+  const { tenantId } = session;
   try {
     const db = createSovereignClient();
     const { error } = await db
       .from('patient_treatment_logs')
       .update({ ...input })
-      .eq('id', logId);
+      .eq('id', logId)
+      .eq('tenant_id', tenantId);
     if (error) throw error;
     return { success: true };
   } catch (err) {
@@ -390,9 +403,12 @@ export async function updateTreatmentLog(
 export async function deleteTreatmentLog(
   logId: string,
 ): Promise<{ success: boolean; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
+  const { tenantId } = session;
   try {
     const db = createSovereignClient();
-    const { error } = await db.from('patient_treatment_logs').delete().eq('id', logId);
+    const { error } = await db.from('patient_treatment_logs').delete().eq('id', logId).eq('tenant_id', tenantId);
     if (error) throw error;
     return { success: true };
   } catch (err) {
@@ -411,11 +427,15 @@ export async function getPatientPlan(
     return { success: true, plan: makeDemoPlan(clinikoPatientId), isDemo: true };
   }
 
+  const session = await getStaffSession();
+  if (!session) return { success: false, plan: null, isDemo: false, error: 'UNAUTHORIZED' };
+  const { tenantId } = session;
   try {
     const db = createSovereignClient();
     const { data, error } = await db
       .from('patient_plans')
       .select('*')
+      .eq('tenant_id', tenantId)
       .eq('cliniko_patient_id', clinikoPatientId)
       .in('status', ['active', 'draft', 'on_hold'])
       .order('created_at', { ascending: false })
@@ -474,6 +494,9 @@ export async function savePatientPlan(
   input: SavePatientPlanInput,
   existingPlanId?: string,
 ): Promise<{ success: boolean; id?: string; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
+  const { tenantId } = session;
   try {
     const db = createSovereignClient();
 
@@ -481,7 +504,8 @@ export async function savePatientPlan(
       const { error } = await db
         .from('patient_plans')
         .update({ ...input, updated_at: new Date().toISOString() })
-        .eq('id', existingPlanId);
+        .eq('id', existingPlanId)
+        .eq('tenant_id', tenantId);
       if (error) throw error;
       return { success: true, id: existingPlanId };
     }
@@ -489,6 +513,7 @@ export async function savePatientPlan(
     const { data, error } = await db
       .from('patient_plans')
       .insert({
+        tenant_id:            tenantId,
         cliniko_patient_id:   input.cliniko_patient_id,
         title:                input.title,
         description:          input.description ?? null,
@@ -519,6 +544,9 @@ export async function updatePlanPhaseStatus(
   phaseId: string,
   status: PlanPhaseStatus,
 ): Promise<{ success: boolean; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
+  const { tenantId } = session;
   try {
     const db = createSovereignClient();
 
@@ -527,6 +555,7 @@ export async function updatePlanPhaseStatus(
       .from('patient_plans')
       .select('phases')
       .eq('id', planId)
+      .eq('tenant_id', tenantId)
       .single();
 
     if (readErr || !data) throw readErr ?? new Error('Plan not found');
@@ -538,7 +567,8 @@ export async function updatePlanPhaseStatus(
     const { error } = await db
       .from('patient_plans')
       .update({ phases, updated_at: new Date().toISOString() })
-      .eq('id', planId);
+      .eq('id', planId)
+      .eq('tenant_id', tenantId);
 
     if (error) throw error;
     return { success: true };

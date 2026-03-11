@@ -7,6 +7,7 @@
 // =============================================================================
 
 import { createSovereignClient } from '@/lib/supabase/service';
+import { getStaffSession } from '@/lib/supabase/tenant-context';
 
 // =============================================================================
 // TYPES
@@ -77,6 +78,10 @@ export interface CalendarData {
 // =============================================================================
 
 export async function getCalendarData(from: string, to: string): Promise<CalendarData> {
+  const session = await getStaffSession();
+  if (!session) return { events: [], compliance: [], goals: [], signals: [], users: [] };
+  const { tenantId } = session;
+
   try {
     const db = createSovereignClient();
 
@@ -88,6 +93,7 @@ export async function getCalendarData(from: string, to: string): Promise<Calenda
           start_time, end_time, all_day, color, assigned_to, created_by, status,
           assignee:assigned_to(first_name, last_name)
         `)
+        .eq('tenant_id', tenantId)
         .gte('start_date', from)
         .lte('start_date', to)
         .neq('status', 'cancelled')
@@ -99,6 +105,7 @@ export async function getCalendarData(from: string, to: string): Promise<Calenda
           id, task_name, frequency, next_due_date, notes,
           users:responsible_user_id(first_name, last_name)
         `)
+        .eq('tenant_id', tenantId)
         .order('task_order'),
 
       // Goals with due dates in the expanded range (3 months out)
@@ -107,6 +114,7 @@ export async function getCalendarData(from: string, to: string): Promise<Calenda
           id, title, category, due_date, status, target_value, current_value,
           users:owner_id(first_name, last_name)
         `)
+        .eq('tenant_id', tenantId)
         .gte('due_date', from)
         .lte('due_date', to)
         .neq('status', 'completed')
@@ -115,6 +123,7 @@ export async function getCalendarData(from: string, to: string): Promise<Calenda
       // High-priority signals from the last 60 days
       db.from('signals')
         .select('id, title, category, priority, created_at, status')
+        .eq('tenant_id', tenantId)
         .in('priority', ['high', 'critical', 'urgent'])
         .gte('created_at', from + 'T00:00:00Z')
         .lte('created_at', to + 'T23:59:59Z')
@@ -124,6 +133,7 @@ export async function getCalendarData(from: string, to: string): Promise<Calenda
       // Active users for assignment dropdowns
       db.from('users')
         .select('id, first_name, last_name, roles!inner(name)')
+        .eq('tenant_id', tenantId)
         .eq('status', 'active')
         .order('first_name'),
     ]);
@@ -217,11 +227,16 @@ export async function createCalendarEvent(data: {
   assigned_to?: string | null;
   created_by?:  string;
 }): Promise<{ success: boolean; id?: string; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
+  const { tenantId } = session;
+
   try {
     const db = createSovereignClient();
     const { data: row, error } = await db
       .from('calendar_events')
       .insert({
+        tenant_id:   tenantId,
         title:       data.title,
         description: data.description ?? null,
         event_type:  data.event_type,
@@ -261,12 +276,17 @@ export async function updateCalendarEvent(
     status:      string;
   }>
 ): Promise<{ success: boolean; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
+  const { tenantId } = session;
+
   try {
     const db = createSovereignClient();
     const { error } = await db
       .from('calendar_events')
       .update(data)
-      .eq('id', id);
+      .eq('id', id)
+      .eq('tenant_id', tenantId);
     if (error) return { success: false, error: error.message };
     return { success: true };
   } catch (e) { return { success: false, error: String(e) }; }
@@ -277,12 +297,17 @@ export async function updateCalendarEvent(
 // =============================================================================
 
 export async function deleteCalendarEvent(id: string): Promise<{ success: boolean; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
+  const { tenantId } = session;
+
   try {
     const db = createSovereignClient();
     const { error } = await db
       .from('calendar_events')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('tenant_id', tenantId);
     if (error) return { success: false, error: error.message };
     return { success: true };
   } catch (e) { return { success: false, error: String(e) }; }
@@ -293,12 +318,17 @@ export async function deleteCalendarEvent(id: string): Promise<{ success: boolea
 // =============================================================================
 
 export async function markEventComplete(id: string): Promise<{ success: boolean; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
+  const { tenantId } = session;
+
   try {
     const db = createSovereignClient();
     const { error } = await db
       .from('calendar_events')
       .update({ status: 'completed' })
-      .eq('id', id);
+      .eq('id', id)
+      .eq('tenant_id', tenantId);
     if (error) return { success: false, error: error.message };
     return { success: true };
   } catch (e) { return { success: false, error: String(e) }; }

@@ -1,6 +1,7 @@
 'use server';
 
 import { createSovereignClient } from '@/lib/supabase/service';
+import { getStaffSession } from '@/lib/supabase/tenant-context';
 import type { AgentPreferences } from '@/lib/constants/agent-preferences';
 import { DEFAULT_AGENT_PREFS } from '@/lib/constants/agent-preferences';
 
@@ -15,6 +16,8 @@ export async function getAgentPreferences(
   agentKey: string,
 ): Promise<AgentPreferences> {
   try {
+    const session = await getStaffSession();
+    if (!session) return { ...DEFAULT_AGENT_PREFS };
     const db = createSovereignClient();
     const { data } = await db
       .from('users')
@@ -39,6 +42,8 @@ export async function saveAgentPreferences(
   prefs: AgentPreferences,
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const session = await getStaffSession();
+    if (!session) return { success: false, error: 'UNAUTHORIZED' };
     const db = createSovereignClient();
 
     const { data } = await db

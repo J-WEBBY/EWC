@@ -15,6 +15,7 @@
 // =============================================================================
 
 import { createSovereignClient } from '@/lib/supabase/service';
+import { getStaffSession } from '@/lib/supabase/tenant-context';
 import { getClinikoClient } from '@/lib/cliniko/client';
 
 // =============================================================================
@@ -88,11 +89,15 @@ export interface AvailableSlot {
 // =============================================================================
 
 export async function getBookingRequests(status?: string): Promise<BookingRequest[]> {
+  const session = await getStaffSession();
+  if (!session) return getDemoBookingRequests();
+  const { tenantId } = session;
   const db = createSovereignClient();
 
   let query = db
     .from('booking_requests')
     .select('*')
+    .eq('tenant_id', tenantId)
     .order('created_at', { ascending: false })
     .limit(100);
 
@@ -110,11 +115,15 @@ export async function getBookingRequests(status?: string): Promise<BookingReques
 }
 
 export async function getBookingRequestById(id: string): Promise<BookingRequest | null> {
+  const session = await getStaffSession();
+  if (!session) return null;
+  const { tenantId } = session;
   const db = createSovereignClient();
   const { data } = await db
     .from('booking_requests')
     .select('*')
     .eq('id', id)
+    .eq('tenant_id', tenantId)
     .single();
   return (data as BookingRequest) ?? null;
 }
@@ -140,11 +149,15 @@ export async function createBookingRequest(params: {
   signal_id?: string;
 }): Promise<{ success: boolean; id?: string; error?: string }> {
   try {
+    const session = await getStaffSession();
+    if (!session) return { success: false, error: 'UNAUTHORIZED' };
+    const { tenantId } = session;
     const db = createSovereignClient();
 
     const { data, error } = await db
       .from('booking_requests')
       .insert({
+        tenant_id:               tenantId,
         signal_id:               params.signal_id ?? null,
         caller_name:             params.caller_name ?? null,
         caller_phone:            params.caller_phone ?? null,
@@ -187,6 +200,9 @@ export async function confirmBookingRequest(
   },
 ): Promise<{ success: boolean; cliniko_appointment_id?: string; error?: string }> {
   try {
+    const session = await getStaffSession();
+    if (!session) return { success: false, error: 'UNAUTHORIZED' };
+    const { tenantId } = session;
     const db = createSovereignClient();
 
     // 1. Load the booking request
@@ -194,6 +210,7 @@ export async function confirmBookingRequest(
       .from('booking_requests')
       .select('*')
       .eq('id', bookingId)
+      .eq('tenant_id', tenantId)
       .single();
 
     if (fetchErr || !booking) {
@@ -311,7 +328,8 @@ export async function confirmBookingRequest(
         preferred_date_iso:      overrides?.confirmed_date ?? booking.preferred_date_iso,
         preferred_time_iso:      overrides?.confirmed_time ?? booking.preferred_time_iso,
       })
-      .eq('id', bookingId);
+      .eq('id', bookingId)
+      .eq('tenant_id', tenantId);
 
     // 4. Resolve the linked signal
     if (booking.signal_id) {
@@ -332,11 +350,15 @@ export async function dismissBookingRequest(
   bookingId: string,
   reason: 'cancelled' | 'duplicate' = 'cancelled',
 ): Promise<{ success: boolean }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false };
+  const { tenantId } = session;
   const db = createSovereignClient();
   await db
     .from('booking_requests')
     .update({ status: reason })
-    .eq('id', bookingId);
+    .eq('id', bookingId)
+    .eq('tenant_id', tenantId);
   return { success: true };
 }
 
@@ -679,10 +701,14 @@ export interface CallRecord {
 }
 
 export async function getCallHistory(limit = 50): Promise<CallRecord[]> {
+  const session = await getStaffSession();
+  if (!session) return [];
+  const { tenantId } = session;
   const db = createSovereignClient();
   const { data } = await db
     .from('signals')
     .select('id, title, description, status, priority, created_at, data')
+    .eq('tenant_id', tenantId)
     .eq('source_type', 'vapi_call')
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -693,10 +719,14 @@ export async function getCallHistory(limit = 50): Promise<CallRecord[]> {
 /** Fetch all Komal call records associated with a specific phone number. */
 export async function getPatientCallHistory(phone: string): Promise<CallRecord[]> {
   if (!phone) return [];
+  const session = await getStaffSession();
+  if (!session) return [];
+  const { tenantId } = session;
   const db = createSovereignClient();
   const { data } = await db
     .from('signals')
     .select('id, title, description, status, priority, created_at, data')
+    .eq('tenant_id', tenantId)
     .eq('source_type', 'vapi_call')
     .order('created_at', { ascending: false })
     .limit(100);
@@ -719,6 +749,9 @@ export async function getCallStats(): Promise<{
   missed: number;
   avg_duration: number;
 }> {
+  const session = await getStaffSession();
+  if (!session) return { total: 0, today: 0, booked: 0, leads: 0, missed: 0, avg_duration: 0 };
+  const { tenantId } = session;
   const db = createSovereignClient();
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
@@ -726,6 +759,7 @@ export async function getCallStats(): Promise<{
   const { data: all } = await db
     .from('signals')
     .select('created_at, data, title')
+    .eq('tenant_id', tenantId)
     .eq('source_type', 'vapi_call');
 
   const records = all ?? [];

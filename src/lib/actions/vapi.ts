@@ -12,6 +12,7 @@
 // =============================================================================
 
 import { createSovereignClient } from '@/lib/supabase/service';
+import { getStaffSession } from '@/lib/supabase/tenant-context';
 
 const VAPI_BASE = 'https://api.vapi.ai';
 const PRIVATE_KEY = process.env.VAPI_PRIVATE_KEY ?? '';
@@ -459,11 +460,13 @@ export async function getReceptionistIdentity(): Promise<{
   error?: string;
 }> {
   try {
+    const session = await getStaffSession();
     const sovereign = createSovereignClient();
-    const { data } = await sovereign
-      .from('clinic_config')
-      .select('settings')
-      .single();
+    let query = sovereign.from('clinic_config').select('settings');
+    if (session) {
+      query = query.eq('id', session.tenantId) as typeof query;
+    }
+    const { data } = await query.single();
     const saved = ((data?.settings as Record<string, unknown>)?.receptionist ?? {}) as Partial<ReceptionistIdentity>;
     return {
       success: true,
@@ -483,11 +486,15 @@ export async function saveReceptionistIdentity(
   identity: ReceptionistIdentity,
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const session = await getStaffSession();
+    if (!session) return { success: false, error: 'UNAUTHORIZED' };
+    const { tenantId } = session;
     const sovereign = createSovereignClient();
     // Read current settings first to merge
     const { data } = await sovereign
       .from('clinic_config')
       .select('settings')
+      .eq('id', tenantId)
       .single();
     const currentSettings = (data?.settings as Record<string, unknown>) ?? {};
     const { error } = await sovereign
@@ -496,7 +503,7 @@ export async function saveReceptionistIdentity(
         settings:   { ...currentSettings, receptionist: identity },
         updated_at: new Date().toISOString(),
       })
-      .neq('id', '00000000-0000-0000-0000-000000000000');
+      .eq('id', tenantId);
     if (error) return { success: false, error: error.message };
     return { success: true };
   } catch (err) {

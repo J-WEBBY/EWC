@@ -6,6 +6,7 @@
 // =============================================================================
 
 import { createSovereignClient } from '@/lib/supabase/service';
+import { getStaffSession } from '@/lib/supabase/tenant-context';
 import { getAnthropicClient, ANTHROPIC_MODELS } from '@/lib/ai/anthropic';
 
 // =============================================================================
@@ -277,6 +278,9 @@ Respond with a JSON object only. No prose outside the JSON. Schema:
 // =============================================================================
 
 export async function getJudgementData(): Promise<{ success: boolean; data?: JudgementData; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
+  const { tenantId } = session;
   try {
     const supabase = createSovereignClient();
 
@@ -284,6 +288,7 @@ export async function getJudgementData(): Promise<{ success: boolean; data?: Jud
     const { data: signals } = await supabase
       .from('signals')
       .select('id, title, category, priority, status, created_at')
+      .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
       .limit(20);
 
@@ -365,6 +370,8 @@ export async function toggleRedline(
   ruleId: string,
   enabled: boolean,
 ): Promise<{ success: boolean; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
   // In production this would update a redlines config table
   // For now: no-op with success (rules are in-memory)
   void ruleId; void enabled;

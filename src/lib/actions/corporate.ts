@@ -5,6 +5,7 @@
 // =============================================================================
 
 import { createSovereignClient } from '@/lib/supabase/service';
+import { getStaffSession } from '@/lib/supabase/tenant-context';
 import { getAnthropicClient, ANTHROPIC_MODELS } from '@/lib/ai/anthropic';
 
 // =============================================================================
@@ -148,6 +149,8 @@ export async function getCorporateAccounts(
   _tenantId: string,
 ): Promise<{ success: boolean; data?: { accounts: CorporateAccount[]; stats: CorporateStats }; error?: string }> {
   try {
+    const session = await getStaffSession();
+    if (!session) return { success: false, error: 'UNAUTHORIZED' };
     const supabase = createSovereignClient();
     await supabase.from('clinic_config').select('id').limit(1);
 
@@ -175,6 +178,8 @@ export async function generateAccountBrief(
   accountId: string,
 ): Promise<{ success: boolean; data?: { brief: string }; error?: string }> {
   try {
+    const session = await getStaffSession();
+    if (!session) return { success: false, error: 'UNAUTHORIZED' };
     const account = DEMO_ACCOUNTS.find(a => a.id === accountId);
     if (!account) return { success: false, error: 'Account not found' };
 
@@ -203,6 +208,8 @@ export async function logCorporateNote(
   accountId: string,
   note: string,
 ): Promise<{ success: boolean; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
   void accountId; void note;
   return { success: true };
 }

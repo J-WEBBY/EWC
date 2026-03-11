@@ -9,6 +9,7 @@
 // =============================================================================
 
 import { createSovereignClient } from '@/lib/supabase/service';
+import { getStaffSession } from '@/lib/supabase/tenant-context';
 
 // =============================================================================
 // TYPES
@@ -54,10 +55,14 @@ export interface CallStats {
 // =============================================================================
 
 export async function getCallLogs(limit = 50): Promise<CallLog[]> {
+  const session = await getStaffSession();
+  if (!session) return getDemoCallLogs();
+  const { tenantId } = session;
   const db = createSovereignClient();
   const { data, error } = await db
     .from('call_logs')
     .select('*, booking_req:booking_request_id(status)')
+    .eq('tenant_id', tenantId)
     .order('created_at', { ascending: false })
     .limit(limit);
 
@@ -77,33 +82,44 @@ export async function getCallLogs(limit = 50): Promise<CallLog[]> {
 }
 
 export async function getCallLogById(id: string): Promise<CallLog | null> {
+  const session = await getStaffSession();
+  if (!session) return null;
+  const { tenantId } = session;
   const db = createSovereignClient();
   const { data } = await db
     .from('call_logs')
     .select('*')
     .eq('id', id)
+    .eq('tenant_id', tenantId)
     .single();
   return (data as CallLog) ?? null;
 }
 
 export async function getCallLogByVapiCallId(vapiCallId: string): Promise<CallLog | null> {
+  const session = await getStaffSession();
+  if (!session) return null;
+  const { tenantId } = session;
   const db = createSovereignClient();
   const { data } = await db
     .from('call_logs')
     .select('*')
     .eq('vapi_call_id', vapiCallId)
+    .eq('tenant_id', tenantId)
     .single();
   return (data as CallLog) ?? null;
 }
 
 export async function getCallStats(): Promise<CallStats> {
+  const session = await getStaffSession();
+  if (!session) return { total: 0, today: 0, booked: 0, pending_bookings: 0, confirmed_bookings: 0, leads: 0, missed: 0, avg_duration: 0 };
+  const { tenantId } = session;
   const db = createSovereignClient();
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
 
   const [callResult, bookingResult] = await Promise.all([
-    db.from('call_logs').select('created_at, outcome, duration_seconds'),
-    db.from('booking_requests').select('status'),
+    db.from('call_logs').select('created_at, outcome, duration_seconds').eq('tenant_id', tenantId),
+    db.from('booking_requests').select('status').eq('tenant_id', tenantId),
   ]);
 
   if (callResult.error) {
@@ -154,10 +170,14 @@ export async function createCallLog(params: {
   transcript?: string;
 }): Promise<{ success: boolean; id?: string; error?: string }> {
   try {
+    const session = await getStaffSession();
+    if (!session) return { success: false, error: 'UNAUTHORIZED' };
+    const { tenantId } = session;
     const db = createSovereignClient();
     const { data, error } = await db
       .from('call_logs')
       .insert({
+        tenant_id:          tenantId,
         vapi_call_id:       params.vapi_call_id       ?? null,
         caller_name:        params.caller_name         ?? null,
         caller_phone:       params.caller_phone        ?? null,
@@ -192,11 +212,15 @@ export async function linkCallLogToBooking(
   callLogId: string,
   bookingRequestId: string,
 ): Promise<void> {
+  const session = await getStaffSession();
+  if (!session) return;
+  const { tenantId } = session;
   const db = createSovereignClient();
   await db
     .from('call_logs')
     .update({ booking_request_id: bookingRequestId })
-    .eq('id', callLogId);
+    .eq('id', callLogId)
+    .eq('tenant_id', tenantId);
 }
 
 // =============================================================================

@@ -334,7 +334,7 @@ export async function sendDirectToAgent(
 
   // Background: run lightweight classification for category tracking
   if (signalRes.success) {
-    backgroundClassify('clinic', agent, text).catch(() => {});
+    backgroundClassify(_tenantId, agent, text).catch(() => {});
   }
 
   return signalRes;

@@ -1,6 +1,7 @@
 'use server';
 
 import { createSovereignClient } from '@/lib/supabase/service';
+import { getStaffSession } from '@/lib/supabase/tenant-context';
 import { getAnthropicClient, ANTHROPIC_MODELS } from '@/lib/ai/anthropic';
 
 // =============================================================================
@@ -210,12 +211,15 @@ function buildDemoData(range: TimeRange): ClinicAnalytics {
 // =============================================================================
 
 export async function getClinicAnalytics(range: TimeRange): Promise<ClinicAnalytics> {
+  const session = await getStaffSession();
+  if (!session) return buildDemoData(range);
+  const { tenantId } = session;
   try {
     const db = createSovereignClient();
 
     const [patientsRes, signalsRes] = await Promise.all([
-      db.from('cliniko_patients').select('id', { count: 'exact', head: true }),
-      db.from('signals').select('id', { count: 'exact', head: true }).eq('status', 'new'),
+      db.from('cliniko_patients').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
+      db.from('signals').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('status', 'new'),
     ]);
 
     const demo  = buildDemoData(range);

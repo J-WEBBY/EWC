@@ -7,6 +7,7 @@
 // =============================================================================
 
 import { createSovereignClient } from '@/lib/supabase/service';
+import { getStaffSession } from '@/lib/supabase/tenant-context';
 import { TRAINING_MODULES, MODULE_FREQUENCY } from '@/lib/constants/compliance-constants';
 
 // =============================================================================
@@ -238,11 +239,15 @@ function computeCalendarStatus(nextDue: string | null): CalendarTask['status'] {
 // =============================================================================
 
 export async function getActiveUsers(): Promise<ActiveUser[]> {
+  const session = await getStaffSession();
+  if (!session) return [];
+  const { tenantId } = session;
   try {
     const db = createSovereignClient();
     const { data, error } = await db
       .from('users')
       .select(`id, first_name, last_name, email, roles!inner(name)`)
+      .eq('tenant_id', tenantId)
       .eq('status', 'active')
       .order('first_name');
 
@@ -262,12 +267,16 @@ export async function getActiveUsers(): Promise<ActiveUser[]> {
 // =============================================================================
 
 export async function getHRRecords(): Promise<HRRecord[]> {
+  const session = await getStaffSession();
+  if (!session) return [];
+  const { tenantId } = session;
   try {
     const db = createSovereignClient();
 
     const { data: users, error: uErr } = await db
       .from('users')
       .select('id, first_name, last_name, roles!inner(name)')
+      .eq('tenant_id', tenantId)
       .eq('status', 'active')
       .order('first_name');
 
@@ -275,7 +284,8 @@ export async function getHRRecords(): Promise<HRRecord[]> {
 
     const { data: records } = await db
       .from('compliance_hr_records')
-      .select('*');
+      .select('*')
+      .eq('tenant_id', tenantId);
 
     const recordMap: Record<string, Record<string, unknown>> = {};
     for (const r of records ?? []) {
@@ -334,11 +344,14 @@ export async function upsertHRRecord(
     assigned_by?: string;
   }
 ): Promise<{ success: boolean; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
+  const { tenantId } = session;
   try {
     const db = createSovereignClient();
     const { error } = await db
       .from('compliance_hr_records')
-      .upsert({ user_id: userId, ...data }, { onConflict: 'user_id' });
+      .upsert({ tenant_id: tenantId, user_id: userId, ...data }, { onConflict: 'user_id' });
     if (error) return { success: false, error: error.message };
     return { success: true };
   } catch (e) { return { success: false, error: String(e) }; }
@@ -349,12 +362,16 @@ export async function upsertHRRecord(
 // =============================================================================
 
 export async function getTrainingMatrix(): Promise<TrainingMatrixRow[]> {
+  const session = await getStaffSession();
+  if (!session) return [];
+  const { tenantId } = session;
   try {
     const db = createSovereignClient();
 
     const { data: users, error: uErr } = await db
       .from('users')
       .select('id, first_name, last_name, roles!inner(name)')
+      .eq('tenant_id', tenantId)
       .eq('status', 'active')
       .order('first_name');
 
@@ -362,7 +379,8 @@ export async function getTrainingMatrix(): Promise<TrainingMatrixRow[]> {
 
     const { data: entries } = await db
       .from('compliance_training')
-      .select('*');
+      .select('*')
+      .eq('tenant_id', tenantId);
 
     const entryMap: Record<string, Record<string, Record<string, unknown>>> = {};
     for (const e of entries ?? []) {
@@ -415,6 +433,9 @@ export async function upsertTrainingEntry(
     assigned_by?: string;
   }
 ): Promise<{ success: boolean; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
+  const { tenantId } = session;
   try {
     const db = createSovereignClient();
     const freq = MODULE_FREQUENCY[module] ?? 12;
@@ -427,7 +448,7 @@ export async function upsertTrainingEntry(
     const { error } = await db
       .from('compliance_training')
       .upsert({
-        user_id: userId, module, frequency_months: freq,
+        tenant_id: tenantId, user_id: userId, module, frequency_months: freq,
         completed_date: data.completed_date ?? null,
         expiry_date: expiryDate ?? null,
         certificate_url: data.certificate_url ?? null,
@@ -444,6 +465,9 @@ export async function upsertTrainingEntry(
 // =============================================================================
 
 export async function getEquipmentList(): Promise<EquipmentItem[]> {
+  const session = await getStaffSession();
+  if (!session) return [];
+  const { tenantId } = session;
   try {
     const db = createSovereignClient();
     const { data, error } = await db
@@ -454,6 +478,7 @@ export async function getEquipmentList(): Promise<EquipmentItem[]> {
         responsible_user_id, action_required, notes,
         users:responsible_user_id(first_name, last_name)
       `)
+      .eq('tenant_id', tenantId)
       .order('item_code');
 
     if (error || !data) return [];
@@ -493,12 +518,16 @@ export async function updateEquipmentItem(
     assigned_by?: string;
   }
 ): Promise<{ success: boolean; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
+  const { tenantId } = session;
   try {
     const db = createSovereignClient();
     const { error } = await db
       .from('compliance_equipment')
       .update(data)
-      .eq('id', id);
+      .eq('id', id)
+      .eq('tenant_id', tenantId);
     if (error) return { success: false, error: error.message };
     return { success: true };
   } catch (e) { return { success: false, error: String(e) }; }
@@ -509,11 +538,15 @@ export async function updateEquipmentItem(
 // =============================================================================
 
 export async function getCQCAudit(): Promise<CQCAnswer[]> {
+  const session = await getStaffSession();
+  if (!session) return [];
+  const { tenantId } = session;
   try {
     const db = createSovereignClient();
     const { data, error } = await db
       .from('compliance_cqc_answers')
       .select('*')
+      .eq('tenant_id', tenantId)
       .order('question_number');
 
     if (error || !data) return [];
@@ -544,6 +577,9 @@ export async function saveCQCAnswer(
     answered_by?: string;
   }
 ): Promise<{ success: boolean; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
+  const { tenantId } = session;
   try {
     const db = createSovereignClient();
     const { error } = await db
@@ -556,7 +592,8 @@ export async function saveCQCAnswer(
         answered_by:     data.answered_by ?? null,
         audit_date:      new Date().toISOString().split('T')[0],
       })
-      .eq('question_number', questionNumber);
+      .eq('question_number', questionNumber)
+      .eq('tenant_id', tenantId);
     if (error) return { success: false, error: error.message };
     return { success: true };
   } catch (e) { return { success: false, error: String(e) }; }
@@ -567,6 +604,9 @@ export async function saveCQCAnswer(
 // =============================================================================
 
 export async function getGovernanceLog(): Promise<GovernanceEntry[]> {
+  const session = await getStaffSession();
+  if (!session) return [];
+  const { tenantId } = session;
   try {
     const db = createSovereignClient();
     const { data, error } = await db
@@ -576,6 +616,7 @@ export async function getGovernanceLog(): Promise<GovernanceEntry[]> {
         actions_arising, owner_id, due_date, status, created_at,
         users:owner_id(first_name, last_name)
       `)
+      .eq('tenant_id', tenantId)
       .order('event_date', { ascending: false });
 
     if (error || !data) return [];
@@ -612,11 +653,14 @@ export async function createGovernanceEntry(data: {
   status?: string;
   created_by?: string;
 }): Promise<{ success: boolean; id?: string; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
+  const { tenantId } = session;
   try {
     const db = createSovereignClient();
     const { data: row, error } = await db
       .from('compliance_governance_log')
-      .insert(data)
+      .insert({ tenant_id: tenantId, ...data })
       .select('id')
       .single();
     if (error) return { success: false, error: error.message };
@@ -638,12 +682,16 @@ export async function updateGovernanceEntry(
     status: string;
   }>
 ): Promise<{ success: boolean; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
+  const { tenantId } = session;
   try {
     const db = createSovereignClient();
     const { error } = await db
       .from('compliance_governance_log')
       .update(data)
-      .eq('id', id);
+      .eq('id', id)
+      .eq('tenant_id', tenantId);
     if (error) return { success: false, error: error.message };
     return { success: true };
   } catch (e) { return { success: false, error: String(e) }; }
@@ -654,6 +702,9 @@ export async function updateGovernanceEntry(
 // =============================================================================
 
 export async function getCalendarTasks(): Promise<CalendarTask[]> {
+  const session = await getStaffSession();
+  if (!session) return [];
+  const { tenantId } = session;
   try {
     const db = createSovereignClient();
     const { data, error } = await db
@@ -663,6 +714,7 @@ export async function getCalendarTasks(): Promise<CalendarTask[]> {
         responsible_user_id, last_completed_date, next_due_date, notes,
         users:responsible_user_id(first_name, last_name)
       `)
+      .eq('tenant_id', tenantId)
       .order('task_order');
 
     if (error || !data) return [];
@@ -696,12 +748,16 @@ export async function updateCalendarTask(
     assigned_by?: string;
   }
 ): Promise<{ success: boolean; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
+  const { tenantId } = session;
   try {
     const db = createSovereignClient();
     const { error } = await db
       .from('compliance_calendar')
       .update(data)
-      .eq('id', id);
+      .eq('id', id)
+      .eq('tenant_id', tenantId);
     if (error) return { success: false, error: error.message };
     return { success: true };
   } catch (e) { return { success: false, error: String(e) }; }
@@ -719,17 +775,20 @@ const EMPTY_DASHBOARD: ComplianceDashboard = {
 };
 
 export async function getComplianceDashboard(): Promise<ComplianceDashboard> {
+  const session = await getStaffSession();
+  if (!session) return EMPTY_DASHBOARD;
+  const { tenantId } = session;
   try {
     const db = createSovereignClient();
 
     const [users, hrRecords, training, equipment, cqcAnswers, govLog, calendar] = await Promise.all([
-      db.from('users').select('id').eq('status', 'active'),
-      db.from('compliance_hr_records').select('dbs_expiry_date, rtw_type, rtw_expiry_date, next_appraisal_date'),
-      db.from('compliance_training').select('completed_date, expiry_date'),
-      db.from('compliance_equipment').select('next_due_date'),
-      db.from('compliance_cqc_answers').select('answer'),
-      db.from('compliance_governance_log').select('status'),
-      db.from('compliance_calendar').select('next_due_date'),
+      db.from('users').select('id').eq('tenant_id', tenantId).eq('status', 'active'),
+      db.from('compliance_hr_records').select('dbs_expiry_date, rtw_type, rtw_expiry_date, next_appraisal_date').eq('tenant_id', tenantId),
+      db.from('compliance_training').select('completed_date, expiry_date').eq('tenant_id', tenantId),
+      db.from('compliance_equipment').select('next_due_date').eq('tenant_id', tenantId),
+      db.from('compliance_cqc_answers').select('answer').eq('tenant_id', tenantId),
+      db.from('compliance_governance_log').select('status').eq('tenant_id', tenantId),
+      db.from('compliance_calendar').select('next_due_date').eq('tenant_id', tenantId),
     ]);
 
     const totalStaff = users.data?.length ?? 0;

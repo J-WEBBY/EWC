@@ -6,6 +6,7 @@
 // =============================================================================
 
 import { createSovereignClient } from '@/lib/supabase/service';
+import { getStaffSession } from '@/lib/supabase/tenant-context';
 
 // =============================================================================
 // TYPES
@@ -410,6 +411,9 @@ export async function getAllStaffGoals(): Promise<StaffGoal[]> {
 }
 
 export async function getAllStaffGoalsSummary(): Promise<StaffGoalsSummary[]> {
+  const session = await getStaffSession();
+  if (!session) return [];
+  const { tenantId } = session;
   const db = createSovereignClient();
 
   // Fetch all users + their goals + compliance items
@@ -420,6 +424,7 @@ export async function getAllStaffGoalsSummary(): Promise<StaffGoalsSummary[]> {
       role_id(name),
       departments(name)
     `)
+    .eq('tenant_id', tenantId)
     .eq('status', 'active')
     .neq('display_name', 'Reception Edgbaston');
 
@@ -801,6 +806,7 @@ export async function getPersonalKPIMetrics(
 // =============================================================================
 
 export async function getClinicKPIMetrics(): Promise<ClinicKPIMetrics> {
+  await getStaffSession(); // auth check — read-only, no UNAUTHORIZED needed for KPI display
   const db = createSovereignClient();
 
   const now = new Date();

@@ -1,6 +1,7 @@
 'use server';
 
 import { createSovereignClient } from '@/lib/supabase/service';
+import { getStaffSession } from '@/lib/supabase/tenant-context';
 
 // =============================================================================
 // TYPES
@@ -39,11 +40,15 @@ export async function getClinicSettings(): Promise<{
   settings?: ClinicSettings;
   error?: string;
 }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
+  const { tenantId } = session;
   try {
     const sovereign = createSovereignClient();
     const { data, error } = await sovereign
       .from('clinic_config')
       .select('*')
+      .eq('id', tenantId)
       .single();
 
     if (error || !data) {
@@ -65,6 +70,9 @@ export async function getClinicSettings(): Promise<{
 export async function updateClinicSettings(
   payload: SettingsUpdatePayload
 ): Promise<{ success: boolean; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
+  const { tenantId } = session;
   try {
     const sovereign = createSovereignClient();
 
@@ -74,7 +82,7 @@ export async function updateClinicSettings(
         ...payload,
         updated_at: new Date().toISOString(),
       })
-      .neq('id', '00000000-0000-0000-0000-000000000000'); // update the single row
+      .eq('id', tenantId);
 
     if (error) {
       console.error('[settings] update failed:', error.message);

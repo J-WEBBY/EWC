@@ -1,6 +1,7 @@
 'use server';
 
 import { createSovereignClient } from '@/lib/supabase/service';
+import { getStaffSession } from '@/lib/supabase/tenant-context';
 import { getAnthropicClient, ANTHROPIC_MODELS } from '@/lib/ai/anthropic';
 import { AUTOMATION_REGISTRY, type AutomationRun } from '@/lib/automations/registry';
 
@@ -22,6 +23,9 @@ export async function getAutomationRuns(): Promise<{
   runs?: AutomationRun[];
   error?: string;
 }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
+  const { tenantId } = session;
   try {
     const sovereign = createSovereignClient();
 
@@ -29,6 +33,7 @@ export async function getAutomationRuns(): Promise<{
     const { data: rows, error } = await sovereign
       .from('signals')
       .select('id, title, description, source_type, created_at, status, tags')
+      .eq('tenant_id', tenantId)
       .eq('source_type', 'automation')
       .order('created_at', { ascending: false })
       .limit(30);
@@ -76,6 +81,9 @@ export async function getAutomationStats(): Promise<{
   };
   error?: string;
 }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
+  const { tenantId } = session;
   try {
     const sovereign = createSovereignClient();
 
@@ -85,6 +93,7 @@ export async function getAutomationStats(): Promise<{
     const { data: todayRows } = await sovereign
       .from('signals')
       .select('id, status')
+      .eq('tenant_id', tenantId)
       .eq('source_type', 'automation')
       .gte('created_at', todayStart.toISOString());
 

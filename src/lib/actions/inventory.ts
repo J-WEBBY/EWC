@@ -6,6 +6,7 @@
 // =============================================================================
 
 import { createSovereignClient } from '@/lib/supabase/service';
+import { getStaffSession } from '@/lib/supabase/tenant-context';
 import { getAnthropicClient, ANTHROPIC_MODELS } from '@/lib/ai/anthropic';
 
 // =============================================================================
@@ -275,6 +276,8 @@ const DEMO_EQUIPMENT: EquipmentItem[] = [
 export async function getInventoryData(
   _tenantId: string,
 ): Promise<{ success: boolean; data?: { consumables: ConsumableItem[]; equipment: EquipmentItem[]; stats: InventoryStats }; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
   try {
     const supabase = createSovereignClient();
     await supabase.from('clinic_config').select('id').limit(1);
@@ -303,6 +306,8 @@ export async function getInventoryData(
 export async function getAIReorderRecommendations(
   _tenantId: string,
 ): Promise<{ success: boolean; data?: AIReorderRecommendation[]; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
   try {
     const client = getAnthropicClient();
     const lowItems = DEMO_CONSUMABLES.filter(c => c.stock_status !== 'ok');
@@ -341,6 +346,8 @@ export async function updateStockLevel(
   itemId: string,
   newStock: number,
 ): Promise<{ success: boolean; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
   void itemId; void newStock;
   return { success: true };
 }
@@ -350,6 +357,8 @@ export async function markEquipmentServiced(
   equipmentId: string,
   servicedDate: string,
 ): Promise<{ success: boolean; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
   void equipmentId; void servicedDate;
   return { success: true };
 }
@@ -428,6 +437,8 @@ const DEMO_EXPIRY_ITEMS: Omit<ExpiryItem, 'days_until_expiry' | 'expiry_status'>
 ];
 
 export async function getExpiryTracking(_tenantId: string): Promise<{ success: boolean; data?: ExpiryItem[]; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
   const now = Date.now();
   const data: ExpiryItem[] = DEMO_EXPIRY_ITEMS.map(item => {
     const days = Math.round((new Date(item.expiry_date).getTime() - now) / 86400000);
