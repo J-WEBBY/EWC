@@ -45,8 +45,9 @@ function extractSubdomain(host: string): string | null {
   return null;
 }
 
-// Routes that are only accessible on the root domain (onboarding flow)
-const ROOT_ONLY_PATHS = ['/onboard', '/activate', '/onboard/welcome'];
+// Routes that are only accessible on the root domain
+// Note: /onboard is allowed on subdomains (tenant onboards on their own subdomain)
+const ROOT_ONLY_PATHS = ['/activate'];
 
 // Routes that require a tenant subdomain in production
 const SUBDOMAIN_REQUIRED_PATHS = ['/staff', '/login'];
