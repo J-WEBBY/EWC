@@ -45,7 +45,7 @@ export async function validateActivationKey(key: string): Promise<
     const cookieStore = await cookies();
     cookieStore.set('jwh_tenant', JSON.stringify({
       tenantId: 'dev-bypass', tenantSlug: 'dev', sessionId: 'dev-session',
-    }), { httpOnly: true, sameSite: 'lax', maxAge: 60 * 60 * 24, path: '/' });
+    }), { httpOnly: true, sameSite: 'lax', maxAge: 60 * 60 * 24, path: '/' }); // dev: no domain scoping needed
     return {
       success: true,
       tenant: {
@@ -144,6 +144,7 @@ export async function validateActivationKey(key: string): Promise<
 
     // 6. Store tenant context in cookie
     const cookieStore = await cookies();
+    const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN;
     cookieStore.set('jwh_tenant', JSON.stringify({
       tenantId: tenant.id,
       tenantSlug: tenant.slug,
@@ -154,6 +155,8 @@ export async function validateActivationKey(key: string): Promise<
       sameSite: 'lax',
       maxAge: 60 * 60 * 24, // 24 hours
       path: '/',
+      // Share cookie across all subdomains (e.g. ewc.jweblyhealth.app can read it)
+      ...(rootDomain ? { domain: `.${rootDomain}` } : {}),
     });
 
     return {
