@@ -31,37 +31,27 @@ BEGIN
   RAISE NOTICE 'Step 1: Truncating all tables...';
 END $$;
 
--- Core schema tables (migration 013) — truncate in dependency-safe order
-TRUNCATE TABLE
-  -- Knowledge base (chunks → docs → categories)
-  knowledge_chunks,
-  knowledge_documents,
-  knowledge_categories,
-  -- Chat
-  chat_messages,
-  chat_conversations,
-  -- Agent memory
-  agent_memories,
-  -- Judgements before signals
-  judgements,
-  -- Signals
-  signals,
-  -- Cliniko integration
-  cliniko_sync_logs,
-  cliniko_appointments,
-  cliniko_patients,
-  cliniko_config,
-  -- Audit
-  audit_trail,
-  -- Core org
-  users,
-  roles,
-  departments,
-  -- Agents
-  agents,
-  -- Clinic config
-  clinic_config
-CASCADE;
+-- Core schema tables — each wrapped in IF EXISTS so migration is safe
+-- even if some tables were never created (partial schema installs).
+DO $$
+DECLARE v_tables TEXT[] := ARRAY[
+  'knowledge_chunks', 'knowledge_documents', 'knowledge_categories',
+  'chat_messages', 'chat_conversations', 'agent_memories',
+  'judgements', 'signals',
+  'cliniko_sync_logs', 'cliniko_appointments', 'cliniko_patients', 'cliniko_config',
+  'audit_trail', 'users', 'roles', 'departments', 'agents', 'clinic_config'
+];
+v_t TEXT;
+BEGIN
+  FOREACH v_t IN ARRAY v_tables LOOP
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = v_t AND table_schema = 'public') THEN
+      EXECUTE 'TRUNCATE TABLE ' || quote_ident(v_t) || ' CASCADE';
+      RAISE NOTICE 'Truncated: %', v_t;
+    ELSE
+      RAISE NOTICE 'Table % does not exist — skipping.', v_t;
+    END IF;
+  END LOOP;
+END $$;
 
 -- Later-migration tables (truncate with IF EXISTS safety via DO block)
 DO $$

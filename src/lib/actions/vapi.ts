@@ -21,7 +21,7 @@ const PRIVATE_KEY = process.env.VAPI_PRIVATE_KEY ?? '';
 // Assistant name constants (used for lookup — do not change without migrating)
 // ---------------------------------------------------------------------------
 const ASSISTANT_NAMES = {
-  KOMAL: 'Komal — EWC Receptionist',
+  KOMAL: 'Komal — AI Receptionist',
   EWC:   'EWC — Inbound Receptionist',
   ORION: 'Orion — Outbound Sales',
   ARIA:  'Aria — Patient Retention',
