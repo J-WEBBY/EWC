@@ -5,7 +5,7 @@
 // All queries scoped to tenant_id from staff session.
 // =============================================================================
 
-import { createSovereignClient } from '@/lib/supabase/service';
+import { createSovereignClient, getSovereignTenantId } from '@/lib/supabase/service';
 import { getStaffSession } from '@/lib/supabase/tenant-context';
 import type { Agent } from '@/lib/types/database';
 
@@ -17,8 +17,7 @@ export type DBAgent = Agent;
 // ---------------------------------------------------------------------------
 
 export async function getAgentsForTenant(_tenantId?: string): Promise<Agent[]> {
-  const session = await getStaffSession();
-  const tenantId = session?.tenantId ?? _tenantId;
+  const tenantId = await getSovereignTenantId();
   if (!tenantId) return [];
   const db = createSovereignClient();
   const { data, error } = await db

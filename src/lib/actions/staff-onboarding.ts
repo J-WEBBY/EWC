@@ -1,6 +1,6 @@
 'use server';
 
-import { createSovereignClient } from '@/lib/supabase/service';
+import { createSovereignClient, getSovereignTenantId } from '@/lib/supabase/service';
 import { getAnthropicClient, ANTHROPIC_MODELS } from '@/lib/ai/anthropic';
 import { getAgentsForTenant } from '@/lib/actions/agent-service';
 import { getStaffSession } from '@/lib/supabase/tenant-context';
@@ -287,8 +287,9 @@ export async function getStaffProfile(
 
   try {
     const sovereign = createSovereignClient();
-    const session = await getStaffSession();
-    const tenantId = session?.tenantId;
+    // Use the sovereign DB's own tenant UUID — NOT the platform DB UUID stored
+    // in the session cookie (those differ; sovereign DB is single-tenant).
+    const tenantId = await getSovereignTenantId();
 
     const userQuery = sovereign
       .from('users')
