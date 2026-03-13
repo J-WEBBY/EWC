@@ -4,26 +4,26 @@
 
 /* =============================================================================
    EWC BRAND DESIGN TOKENS
-   Source: Edgbaston Wellness Clinic brand CSS kit (jkit variables)
-   Primary: #0058E6 (Royal Blue)
+   Source: Edgbaston Wellness Clinic brand CSS kit
+   Primary: #093091 (EWC Deep Navy)
    Gold:    #D8A600 (Brand Gold)
-   Dark:    #181D23 (EWC Navy Dark)
+   Light:   #E6F0FF (EWC Light Blue)
    ============================================================================= */
 
 :root {
   /* Page & layout */
-  --background:    #FAF7F2;      /* warm cream — EWC brand base */
-  --foreground:    #1A1035;      /* dark navy — primary text */
-  --sidebar:       #1A1035;      /* nav background — EWC dark */
-  --card:          #FAF7F2;
-  --border:        #EBE5FF;      /* warm purple-tinted border */
-  --border-strong: #C5BAF0;      /* stronger accent border */
+  --background:    #E6F0FF;      /* EWC light blue — brand base */
+  --foreground:    #093091;      /* EWC navy — primary text */
+  --sidebar:       #093091;      /* nav background — EWC navy */
+  --card:          #ffffff;
+  --border:        #C5D5EE;      /* blue-tinted border */
+  --border-strong: #8AAAD8;      /* stronger accent border */
 
   /* Brand accent */
-  --accent:        #0058E6;      /* EWC Royal Blue — primary brand */
-  --accent-hover:  #0048BD;      /* darker blue hover */
-  --accent-light:  #80B1FF;      /* light blue */
-  --accent-bg:     #EBF2FF;      /* very light blue background */
+  --accent:        #093091;      /* EWC Deep Navy — primary brand */
+  --accent-hover:  #071F66;      /* darker navy hover */
+  --accent-light:  #ADC5F0;      /* light blue */
+  --accent-bg:     #E6F0FF;      /* very light blue background */
 
   /* Gold — premium accent */
   --gold:          #D8A600;
@@ -31,10 +31,10 @@
   --gold-bg:       #FFFBEA;
 
   /* Text hierarchy */
-  --text-primary:   #181D23;
-  --text-secondary: #3D4451;
-  --text-tertiary:  #5A6475;
-  --text-muted:     #96989B;
+  --text-primary:   #093091;
+  --text-secondary: #2A4A8F;
+  --text-tertiary:  #4A6AAF;
+  --text-muted:     #7A96C4;
 }
 
 body {

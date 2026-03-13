@@ -7,17 +7,16 @@ import {
   Eye, EyeOff, ArrowRight, Loader2, Check,
   ChevronLeft, Shield,
 } from 'lucide-react';
-import { JweblyIcon } from '@/components/jwebly-logo';
 import { verifyLogin, changePassword, getClinicInfo, requestPasswordReset, setSession } from '@/lib/actions/auth';
 
 type Step = 'email' | 'password' | 'change-password' | 'forgot' | 'forgot-sent' | 'authenticated';
 interface AuthUser { id: string; first_name: string; last_name: string; email: string; tenant_id: string; }
 
-const BG     = '#F7F6F3';
-const INK    = '#18181B';
-const SEC    = '#4A5568';
-const MUTED  = '#A1A1AA';
-const BORDER = '#E4E4E7';
+const BG     = '#E6F0FF';
+const INK    = '#093091';
+const SEC    = '#2A4A8F';
+const MUTED  = '#7A96C4';
+const BORDER = '#C5D5EE';
 const GRN    = '#059669';
 
 function FormInput({
@@ -187,7 +186,7 @@ export default function LoginClient({ initialClinicName, tenantId, tenantSlug }:
       <svg style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', opacity: 0.4 }}>
         <defs>
           <pattern id="lg-dots" x="0" y="0" width="28" height="28" patternUnits="userSpaceOnUse">
-            <circle cx="1" cy="1" r="1" fill="#A1A1AA" />
+            <circle cx="1" cy="1" r="1" fill="#8AAAD8" />
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#lg-dots)" />
@@ -201,19 +200,20 @@ export default function LoginClient({ initialClinicName, tenantId, tenantSlug }:
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
           style={{ textAlign: 'center', padding: '0 48px' }}>
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 28 }}>
-            <JweblyIcon size={72} uid="lg-left" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/ewc-logo.png" alt="Edgbaston Wellness Clinic" style={{ width: 80, height: 80, objectFit: 'contain' }} />
           </div>
-          <div style={{ fontSize: 28, fontWeight: 900, color: INK, letterSpacing: '-0.04em', lineHeight: 1.1, marginBottom: 14 }}>
-            Jwebly Health
+          <div style={{ fontSize: 22, fontWeight: 900, color: INK, letterSpacing: '-0.03em', lineHeight: 1.15, marginBottom: 8 }}>
+            Edgbaston Wellness Clinic
           </div>
-          <div style={{ fontSize: 22, fontWeight: 300, color: MUTED, marginBottom: 14, letterSpacing: '0.04em' }}>×</div>
-          {clinicName && (
-            <motion.div initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.3, type: 'spring', stiffness: 240, damping: 20 }}
-              style={{ fontSize: 17, fontWeight: 700, color: SEC, letterSpacing: '-0.02em', lineHeight: 1.3 }}>
-              {clinicName}
-            </motion.div>
-          )}
+          <div style={{ fontSize: 10, fontWeight: 600, color: '#D8A600', letterSpacing: '0.22em', textTransform: 'uppercase', marginBottom: 28 }}>
+            Operational Intelligence
+          </div>
+          <div style={{ width: 40, height: 1, background: BORDER, margin: '0 auto 20px' }} />
+          <div style={{ fontSize: 11, color: MUTED }}>
+            by{' '}
+            <span style={{ fontWeight: 700, color: SEC }}>Jwebly Ltd.</span>
+          </div>
         </motion.div>
       </div>
 

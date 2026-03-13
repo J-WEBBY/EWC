@@ -34,7 +34,6 @@ import {
 } from 'lucide-react';
 import type { StaffProfile } from '@/lib/actions/staff-onboarding';
 import { getPendingBookingCount } from '@/lib/actions/appointments';
-import { JweblyIcon } from '@/components/jwebly-logo';
 
 const NAV_EXPANDED = 240;
 const NAV_COLLAPSED = 60;
@@ -64,7 +63,7 @@ export function StaffNav({
   currentPath: string;
 }) {
   const router = useRouter();
-  const c = brandColor || '#0058E6';
+  const c = brandColor || '#093091';
   const tid = tenantId || '';
   const tidParam = tid ? `&tenantId=${tid}` : '';
   const [collapsed, setCollapsed] = useState(false);
@@ -163,19 +162,24 @@ export function StaffNav({
       className="fixed top-0 left-0 h-screen flex flex-col z-50 select-none overflow-hidden"
       animate={{ width: collapsed ? NAV_COLLAPSED : NAV_EXPANDED }}
       transition={{ type: 'spring', stiffness: 320, damping: 32 }}
-      style={{ backgroundColor: '#181D23', borderRight: '1px solid rgba(0,88,230,0.10)' }}
+      style={{ backgroundColor: '#093091', borderRight: '1px solid rgba(255,255,255,0.10)' }}
     >
       {/* Brand */}
       <div
         className="flex items-center h-[64px] flex-shrink-0 px-[18px]"
-        style={{ borderBottom: '1px solid rgba(0,88,230,0.08)' }}
+        style={{ borderBottom: '1px solid rgba(255,255,255,0.10)' }}
       >
         <motion.div
           className="flex-shrink-0"
-          animate={{ opacity: [0.82, 1, 0.82] }}
+          animate={{ opacity: [0.88, 1, 0.88] }}
           transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
         >
-          <JweblyIcon size={collapsed ? 28 : 30} uid="nav" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/ewc-logo.png"
+            alt="EWC"
+            style={{ width: collapsed ? 28 : 30, height: collapsed ? 28 : 30, objectFit: 'contain', filter: 'brightness(0) invert(1)' }}
+          />
         </motion.div>
         <AnimatePresence>
           {!collapsed && (
@@ -186,8 +190,8 @@ export function StaffNav({
               exit={{ opacity: 0, width: 0 }}
               transition={{ duration: 0.2 }}
             >
-              <p className="text-[13px] font-semibold leading-tight whitespace-nowrap" style={{ color: '#EBF0FF' }}>EWC</p>
-              <p className="text-[9px] leading-tight whitespace-nowrap" style={{ color: 'rgba(235,240,255,0.30)' }}>Operational Intelligence</p>
+              <p className="text-[13px] font-semibold leading-tight whitespace-nowrap" style={{ color: '#ffffff' }}>EWC</p>
+              <p className="text-[9px] leading-tight whitespace-nowrap" style={{ color: 'rgba(214,165,0,0.80)' }}>Operational Intelligence</p>
             </motion.div>
           )}
         </AnimatePresence>
@@ -227,7 +231,7 @@ export function StaffNav({
       </nav>
 
       {/* Bottom */}
-      <div style={{ padding: collapsed ? '0 8px 12px' : '0 12px 12px', borderTop: '1px solid rgba(0,88,230,0.08)' }}>
+      <div style={{ padding: collapsed ? '0 8px 12px' : '0 12px 12px', borderTop: '1px solid rgba(255,255,255,0.10)' }}>
         <div className="pt-3">
           {bottomItems.map((item) => (
             <NavButton
