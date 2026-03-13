@@ -157,6 +157,8 @@ export interface TeamMember {
   full_name: string;
   email: string;
   role: string;
+  title?: string;         // Dr, Mr, Ms, Miss, Mrs, Prof
+  is_clinical?: boolean;  // true if this person delivers clinical care
   username: string;
   login_method: 'email_otp' | 'username';
   department?: string;
@@ -252,13 +254,16 @@ export async function completeOnboarding(): Promise<{ success: boolean; error?: 
     }, { onConflict: 'tenant_id' });
 
     // 2b. Roles (standard set per tenant)
+    // Architecture:
+    //   BASE ROLES: practitioner (clinical), receptionist (non-clinical)
+    //   PRIVILEGE TIERS: admin, manager, system_admin
+    //   is_clinical=true on practitioner role — clinical staff get EHR/SOAP access
     const roles = [
-      { slug: 'admin',         name: 'Admin',         permission_level: 100 },
-      { slug: 'director',      name: 'Director',      permission_level: 90  },
-      { slug: 'doctor',        name: 'Doctor',        permission_level: 70  },
-      { slug: 'nurse',         name: 'Nurse',         permission_level: 60  },
-      { slug: 'practitioner',  name: 'Practitioner',  permission_level: 50  },
-      { slug: 'receptionist',  name: 'Receptionist',  permission_level: 30  },
+      { slug: 'system_admin', name: 'System Admin',  permission_level: 200, is_admin: true,  is_clinical: false },
+      { slug: 'manager',      name: 'Manager',       permission_level: 100, is_admin: true,  is_clinical: false },
+      { slug: 'admin',        name: 'Admin',         permission_level: 70,  is_admin: true,  is_clinical: false },
+      { slug: 'practitioner', name: 'Practitioner',  permission_level: 30,  is_admin: false, is_clinical: true  },
+      { slug: 'receptionist', name: 'Receptionist',  permission_level: 20,  is_admin: false, is_clinical: false },
     ];
     for (const role of roles) {
       await sov.from('roles').upsert({ tenant_id: tenantId, ...role, permissions: {} }, { onConflict: 'tenant_id,slug' });
@@ -306,11 +311,11 @@ export async function completeOnboarding(): Promise<{ success: boolean; error?: 
       const [firstName, ...rest] = (member.full_name ?? '').split(' ');
       const lastName = rest.join(' ') || '';
 
-      // Look up role_id
+      // Look up role_id by slug (role values from onboarding form match slugs)
       const { data: roleRow } = await sov.from('roles')
         .select('id')
         .eq('tenant_id', tenantId)
-        .eq('name', member.role)
+        .eq('slug', member.role)
         .single();
 
       const tempHash = member.temp_password ? await bcrypt.hash(member.temp_password, 10) : null;
@@ -319,6 +324,7 @@ export async function completeOnboarding(): Promise<{ success: boolean; error?: 
         tenant_id:             tenantId,
         email:                 member.email?.toLowerCase() ?? '',
         username:              member.username ?? null,
+        title:                 member.title ?? null,
         first_name:            firstName ?? '',
         last_name:             lastName,
         role_id:               roleRow?.id ?? null,
@@ -326,7 +332,8 @@ export async function completeOnboarding(): Promise<{ success: boolean; error?: 
         must_change_password:  true,
         status:                'active',
         staff_onboarding_completed: false,
-        is_admin:              member.role === 'Admin' || member.role === 'Director',
+        is_admin:              ['admin', 'manager', 'system_admin'].includes(member.role),
+        is_clinical:           member.is_clinical ?? member.role === 'practitioner',
       }, { onConflict: 'tenant_id,email' });
     }
 
@@ -346,5 +353,55 @@ export async function completeOnboarding(): Promise<{ success: boolean; error?: 
   } catch (err) {
     console.error('[completeOnboarding]', err);
     return { success: false, error: 'Failed to activate. Please try again.' };
+  }
+}
+
+// ── Get existing team from sovereign DB (used by Phase 3 to detect pre-seeded staff) ──
+export interface ExistingMember {
+  id: string;
+  display_name: string;
+  email: string;
+  job_title: string | null;
+  role_name: string | null;
+  role_slug: string | null;
+  department_name: string | null;
+}
+
+export async function getExistingTeam(): Promise<ExistingMember[]> {
+  try {
+    const tenantId = await getTenantId();
+    if (!tenantId) return [];
+
+    const sov = createSovereignClient();
+
+    const { data, error } = await sov
+      .from('users')
+      .select(`
+        id,
+        display_name,
+        email,
+        job_title,
+        roles ( name, slug ),
+        departments ( name )
+      `)
+      .eq('tenant_id', tenantId)
+      .eq('status', 'active')
+      .neq('email', 'admin@edgbastonwellness.co.uk')
+      .order('display_name');
+
+    if (error || !data) return [];
+
+    return data.map((u: Record<string, unknown>) => ({
+      id:              u.id as string,
+      display_name:    (u.display_name as string) || (u.email as string),
+      email:           u.email as string,
+      job_title:       u.job_title as string | null,
+      role_name:       (u.roles as { name: string; slug: string } | null)?.name ?? null,
+      role_slug:       (u.roles as { name: string; slug: string } | null)?.slug ?? null,
+      department_name: (u.departments as { name: string } | null)?.name ?? null,
+    }));
+  } catch (err) {
+    console.error('[getExistingTeam]', err);
+    return [];
   }
 }

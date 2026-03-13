@@ -9,8 +9,9 @@ import { savePhase3, type TeamMember } from '@/lib/actions/platform/onboard';
 import {
   UserPlus, Trash2, Check, ChevronRight, Mail, AtSign, Shield,
   ChevronDown, Users, Layers, Building2, Plus, X, Info,
-  Download, AlertTriangle, Copy,
+  Download, AlertTriangle, Copy, CheckCircle2, Briefcase,
 } from 'lucide-react';
+import type { ExistingMember } from '@/lib/actions/platform/onboard';
 
 // ─── Tokens ─────────────────────────────────────────────────────────────────
 const BG     = '#F7F6F3';
@@ -22,12 +23,16 @@ const GRN    = '#059669';
 const WARN   = '#D97706';
 
 // ─── Roles ───────────────────────────────────────────────────────────────────
+// BASE ROLES: what they do day-to-day (clinical vs non-clinical).
+// PRIVILEGE TIERS: additional system access granted on top.
+// A person gets ONE role (their highest level). is_clinical is set separately.
 const ROLES = [
-  { value: 'admin',        label: 'Admin',            desc: 'Full system access' },
-  { value: 'practitioner', label: 'Practitioner',     desc: 'Clinical + patient data' },
-  { value: 'receptionist', label: 'Receptionist',     desc: 'Bookings & front desk' },
-  { value: 'manager',      label: 'Practice Manager', desc: 'Operations & reports' },
-  { value: 'nurse',        label: 'Nurse / Therapist', desc: 'Clinical care support' },
+  // Base roles
+  { value: 'practitioner', label: 'Practitioner',     desc: 'Clinical staff — EHR, SOAP notes, patient records', clinical: true  },
+  { value: 'receptionist', label: 'Receptionist',     desc: 'Non-clinical — bookings, front desk, patient flow',  clinical: false },
+  // Privilege tiers
+  { value: 'admin',        label: 'Admin',            desc: 'Admin privilege — manage users, settings, reports',  clinical: false },
+  { value: 'manager',      label: 'Manager',          desc: 'Manager privilege — full operational oversight',     clinical: false },
 ];
 
 // ─── Suggested departments ────────────────────────────────────────────────────
@@ -77,6 +82,8 @@ interface MemberDraft {
   full_name: string;
   email: string;
   role: string;
+  title: string;
+  is_clinical: boolean;
   username: string;
   usernameEdited: boolean;
   showRoleMenu: boolean;
@@ -102,6 +109,7 @@ interface CredentialRow {
 function blankMember(department?: string): MemberDraft {
   return {
     id: uid(), full_name: '', email: '', role: 'practitioner',
+    title: '', is_clinical: true,
     username: '', usernameEdited: false, showRoleMenu: false,
     showUsernameField: false, department,
   };
@@ -111,12 +119,23 @@ interface Props {
   sessionId: string;
   tenantName: string;
   completedPhases: number[];
+  existingTeam?: ExistingMember[];
 }
 
+// ─── Role colour chips ────────────────────────────────────────────────────────
+const ROLE_COLORS: Record<string, string> = {
+  system_admin: '#7C3AED',
+  manager:      '#0058E6',
+  admin:        '#D8A600',
+  practitioner: '#00A693',
+  receptionist: '#059669',
+};
+
 // ─── Main component ───────────────────────────────────────────────────────────
-export default function TeamOnboardClient({ completedPhases }: Props) {
+export default function TeamOnboardClient({ completedPhases, existingTeam = [] }: Props) {
   const router = useRouter();
   const [mode, setMode] = useState<'single' | 'departments' | null>(null);
+  const [confirmedExisting, setConfirmedExisting] = useState(false);
 
   // Single-team state
   const [members, setMembers] = useState<MemberDraft[]>([blankMember()]);
@@ -249,6 +268,8 @@ export default function TeamOnboardClient({ completedPhases }: Props) {
       full_name:     m.full_name.trim(),
       email:         m.email.trim().toLowerCase(),
       role:          m.role,
+      title:         m.title || undefined,
+      is_clinical:   m.is_clinical,
       username:      m.resolvedUsername,
       login_method:  'email_otp' as const,
       department:    m.department,
@@ -277,6 +298,127 @@ export default function TeamOnboardClient({ completedPhases }: Props) {
   };
 
   const totalCount = allMembers().length;
+
+  // ─── Existing team confirmation view ────────────────────────────────────────
+  if (existingTeam.length > 0 && !confirmedExisting) {
+    // Group by department
+    const byDept: Record<string, ExistingMember[]> = {};
+    for (const m of existingTeam) {
+      const key = m.department_name ?? 'Other';
+      if (!byDept[key]) byDept[key] = [];
+      byDept[key].push(m);
+    }
+
+    return (
+      <div style={{ background: BG, minHeight: '100vh', position: 'relative', overflowX: 'hidden' }}>
+        <svg style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', opacity: 0.35 }}>
+          <defs>
+            <pattern id="ex-dots" x="0" y="0" width="28" height="28" patternUnits="userSpaceOnUse">
+              <circle cx="1" cy="1" r="1" fill="#A1A1AA" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#ex-dots)" />
+        </svg>
+
+        {/* Top bar */}
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50, borderBottom: `1px solid ${BORDER}`, backdropFilter: 'blur(12px)', background: `${BG}F0`, padding: '0 32px', height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <JweblyIcon size={28} uid="ex3-nav" />
+            <span style={{ fontSize: 13, fontWeight: 700, color: INK, letterSpacing: '-0.02em' }}>Jwebly Health</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {[1, 2, 3, 4, 5].map(n => (
+              <div key={n} style={{ width: n === 3 ? 24 : 8, height: 8, borderRadius: 4, background: completedPhases.includes(n) ? GRN : n === 3 ? BRAND.accent : BORDER, transition: 'all 0.3s' }} />
+            ))}
+          </div>
+        </div>
+
+        <div style={{ maxWidth: 760, margin: '0 auto', padding: '100px 24px 80px' }}>
+
+          {/* Header */}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} style={{ textAlign: 'center', marginBottom: 36 }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: `${GRN}12`, border: `1px solid ${GRN}35`, borderRadius: 20, padding: '6px 14px', marginBottom: 20 }}>
+              <CheckCircle2 size={12} color={GRN} />
+              <span style={{ fontSize: 11, fontWeight: 600, color: GRN, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Phase 3 — Your Team</span>
+            </div>
+            <h1 style={{ fontSize: 38, fontWeight: 900, color: INK, letterSpacing: '-0.035em', lineHeight: 1.1, margin: '0 0 12px' }}>
+              Your team is already set up
+            </h1>
+            <p style={{ fontSize: 15, color: MUTED, maxWidth: 520, margin: '0 auto', lineHeight: 1.6 }}>
+              We found <strong style={{ color: INK }}>{existingTeam.length} staff accounts</strong> already configured for this clinic. Review the structure below and confirm to continue.
+            </p>
+          </motion.div>
+
+          {/* Team grouped by department */}
+          {Object.entries(byDept).map(([dept, members], di) => (
+            <motion.div key={dept}
+              initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + di * 0.06 }}
+              style={{ marginBottom: 16 }}>
+              {/* Dept header */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <Briefcase size={12} color={MUTED} />
+                <span style={{ fontSize: 10, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.14em' }}>{dept}</span>
+                <span style={{ fontSize: 10, color: MUTED }}>({members.length})</span>
+              </div>
+              {/* Members */}
+              <div style={{ border: `1.5px solid ${BORDER}`, borderRadius: 14, overflow: 'hidden', background: '#FFFFFF' }}>
+                {members.map((m, mi) => {
+                  const roleColor = ROLE_COLORS[m.role_slug ?? ''] ?? MUTED;
+                  return (
+                    <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px', borderBottom: mi < members.length - 1 ? `1px solid ${BORDER}` : 'none' }}>
+                      {/* Avatar */}
+                      <div style={{ width: 34, height: 34, borderRadius: '50%', background: `${roleColor}12`, border: `1px solid ${roleColor}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <span style={{ fontSize: 12, fontWeight: 800, color: roleColor }}>
+                          {m.display_name.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                      {/* Info */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: INK, marginBottom: 1 }}>{m.display_name}</div>
+                        <div style={{ fontSize: 11, color: MUTED }}>{m.email}</div>
+                      </div>
+                      {/* Job title */}
+                      {m.job_title && (
+                        <div style={{ fontSize: 11, color: MUTED, marginRight: 8 }}>{m.job_title}</div>
+                      )}
+                      {/* Role chip */}
+                      <span style={{ fontSize: 10, fontWeight: 700, color: roleColor, background: `${roleColor}10`, border: `1px solid ${roleColor}25`, borderRadius: 6, padding: '2px 8px', whiteSpace: 'nowrap' }}>
+                        {m.role_name ?? 'Staff'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          ))}
+
+          {/* Actions */}
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} style={{ display: 'flex', gap: 10, marginTop: 28 }}>
+            <button
+              onClick={() => setConfirmedExisting(true)}
+              style={{ flex: 1, background: 'transparent', border: `1.5px solid ${BORDER}`, borderRadius: 12, padding: '12px 20px', fontSize: 13, fontWeight: 700, color: SEC, cursor: 'pointer', transition: 'all 0.2s' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = `${INK}40`; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = BORDER; }}>
+              Edit team instead
+            </button>
+            <motion.button
+              onClick={() => router.push('/onboard/4')}
+              whileHover={{ y: -2, boxShadow: `0 12px 40px ${INK}20` }}
+              whileTap={{ scale: 0.98 }}
+              style={{ flex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: INK, border: 'none', borderRadius: 12, padding: '14px 24px', fontSize: 14, fontWeight: 800, color: BG, cursor: 'pointer', letterSpacing: '-0.02em', transition: 'all 0.2s' }}>
+              <Check size={16} strokeWidth={2.5} />
+              Confirm team &amp; continue
+              <ChevronRight size={16} />
+            </motion.button>
+          </motion.div>
+
+          <p style={{ fontSize: 11, color: MUTED, textAlign: 'center', marginTop: 14, lineHeight: 1.5 }}>
+            Staff accounts were pre-configured during clinic setup. All staff must change their password on first login.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // ─── Credentials screen ────────────────────────────────────────────────────
   if (showCredentials) {

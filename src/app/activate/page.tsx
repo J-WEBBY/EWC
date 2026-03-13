@@ -175,13 +175,8 @@ export default function ActivatePage() {
     const res = await validateActivationKey(displayKey);
     if (!res.success) { setStep('error'); setError(res.error); return; }
     setStep('success');
-    const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN;
     setTimeout(() => {
-      if (rootDomain && res.tenant.tenantSlug) {
-        window.location.href = `https://${res.tenant.tenantSlug}.${rootDomain}/onboard`;
-      } else {
-        router.push('/onboard');
-      }
+      router.push('/onboard');
     }, 1800);
   }, [complete, displayKey, router]);
 
