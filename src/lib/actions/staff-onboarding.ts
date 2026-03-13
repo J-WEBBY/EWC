@@ -719,22 +719,13 @@ export async function getCurrentUser(): Promise<{
   error?: string;
 }> {
   try {
-    const sovereign = createSovereignClient();
-
-    const { data: user, error: userErr } = await sovereign
-      .from('users')
-      .select('id')
-      .eq('status', 'active')
-      .order('is_admin', { ascending: false })
-      .order('created_at', { ascending: true })
-      .limit(1)
-      .single();
-
-    if (userErr || !user) {
-      return { success: false, error: 'NO_USER_FOUND' };
+    // Always prefer the session cookie — it holds the authenticated user's UUID
+    const session = await getStaffSession();
+    if (session?.userId) {
+      return { success: true, userId: session.userId };
     }
 
-    return { success: true, userId: user.id };
+    return { success: false, error: 'NO_SESSION' };
   } catch {
     return { success: false, error: 'RESOLUTION_FAILED' };
   }
