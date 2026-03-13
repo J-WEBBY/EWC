@@ -1,39 +1,23 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard,
-  Activity,
-  Users,
-  Link2,
   Bot,
   Mic,
   UserCircle,
   LogOut,
   BarChart2,
-  Shield,
-  Settings,
   ChevronLeft,
-  CalendarDays,
-  LayoutGrid,
   Brain,
-  Package,
   BookOpen,
-  ClipboardList,
-  Building2,
-  GraduationCap,
-  Stethoscope,
-  CalendarCheck,
   Zap,
-  FileText,
-  Bell,
-  X,
+  Link2,
+  MessageSquare,
 } from 'lucide-react';
 import type { StaffProfile } from '@/lib/actions/staff-onboarding';
-import { getPendingBookingCount } from '@/lib/actions/appointments';
 
 const NAV_EXPANDED = 240;
 const NAV_COLLAPSED = 60;
@@ -63,16 +47,11 @@ export function StaffNav({
   currentPath: string;
 }) {
   const router = useRouter();
-  const c = brandColor || '#093091';
+  const c = brandColor || '#011440';
   const tid = tenantId || '';
   const tidParam = tid ? `&tenantId=${tid}` : '';
   const [collapsed, setCollapsed] = useState(false);
-  const [mounted, setMounted]               = useState(false);
-  const [pendingCount, setPendingCount]     = useState(0);
-  const [showPopup, setShowPopup]           = useState(false);
-  const [popupName, setPopupName]           = useState<string | null>(null);
-  const prevCountRef                        = useRef(0);
-  const popupTimerRef                       = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [mounted, setMounted] = useState(false);
 
   // Load persisted collapse state and set CSS var on mount
   useEffect(() => {
@@ -80,26 +59,6 @@ export function StaffNav({
     setCollapsed(stored);
     document.documentElement.style.setProperty('--nav-w', stored ? `${NAV_COLLAPSED}px` : `${NAV_EXPANDED}px`);
     setMounted(true);
-  }, []);
-
-  // Poll for pending booking count every 30s; show popup when count rises
-  useEffect(() => {
-    async function check() {
-      try {
-        const { count, latestName } = await getPendingBookingCount();
-        setPendingCount(count);
-        if (count > prevCountRef.current) {
-          setPopupName(latestName);
-          setShowPopup(true);
-          if (popupTimerRef.current) clearTimeout(popupTimerRef.current);
-          popupTimerRef.current = setTimeout(() => setShowPopup(false), 8_000);
-        }
-        prevCountRef.current = count;
-      } catch { /* silent */ }
-    }
-    check();
-    const id = setInterval(check, 30_000);
-    return () => { clearInterval(id); if (popupTimerRef.current) clearTimeout(popupTimerRef.current); };
   }, []);
 
   function toggle() {
@@ -111,50 +70,28 @@ export function StaffNav({
 
   const sections: NavSection[] = [
     {
-      title: 'Operations',
+      title: 'Core',
       items: [
-        { label: 'Dashboard',    href: `/staff/dashboard?userId=${userId}${tidParam}`,    icon: LayoutDashboard },
-        { label: 'KPIs',         href: `/staff/kpis?userId=${userId}${tidParam}`,         icon: BarChart2 },
-        { label: 'Signals',      href: `/staff/signals?userId=${userId}${tidParam}`,      icon: Activity },
-        { label: 'Calendar',     href: `/staff/calendar?userId=${userId}${tidParam}`,     icon: CalendarDays },
-        { label: 'Appointments', href: `/staff/appointments?userId=${userId}${tidParam}`, icon: CalendarCheck },
-        { label: 'Team',         href: `/staff/team?userId=${userId}${tidParam}`,         icon: LayoutGrid },
-        { label: 'Inventory',    href: `/staff/inventory?userId=${userId}${tidParam}`,    icon: Package },
-        { label: 'Corporate',    href: `/staff/corporate?userId=${userId}${tidParam}`,    icon: Building2 },
+        { label: 'Dashboard',        href: `/staff/dashboard?userId=${userId}${tidParam}`,    icon: LayoutDashboard },
+        { label: 'KPIs',             href: `/staff/kpis?userId=${userId}${tidParam}`,         icon: BarChart2 },
+        { label: 'Agents',           href: `/staff/agents?userId=${userId}${tidParam}`,       icon: Bot },
+        { label: 'Chat',             href: `/staff/chat?userId=${userId}${tidParam}`,         icon: MessageSquare },
+        { label: 'Automations',      href: `/staff/automations?userId=${userId}${tidParam}`,  icon: Zap },
+        { label: 'Judgement Engine', href: `/staff/judgement?userId=${userId}${tidParam}`,    icon: Brain },
       ],
     },
     {
-      title: 'Intelligence',
+      title: 'System',
       items: [
-        { label: 'Agents',          href: `/staff/agents?userId=${userId}${tidParam}`,      icon: Bot },
-        { label: 'Automations',     href: `/staff/automations?userId=${userId}${tidParam}`, icon: Zap },
-        { label: 'Judgement Engine',href: `/staff/judgement?userId=${userId}${tidParam}`,   icon: Brain },
-        { label: 'Receptionist',    href: `/staff/voice?userId=${userId}${tidParam}`,       icon: Mic },
-        { label: 'Bridge',          href: `/staff/bridge?userId=${userId}${tidParam}`,      icon: Link2 },
-      ],
-    },
-    {
-      title: 'Clinical',
-      items: [
-        { label: 'Patients',       href: `/staff/patients?userId=${userId}${tidParam}`,   icon: Users },
-        { label: 'EHR Hub',        href: `/staff/ehr?userId=${userId}${tidParam}`,        icon: Stethoscope },
-        { label: 'Knowledge Base', href: `/staff/knowledge?userId=${userId}${tidParam}`,  icon: BookOpen },
-        { label: 'Consent Forms',  href: `/staff/consent?userId=${userId}${tidParam}`,    icon: ClipboardList },
-      ],
-    },
-    {
-      title: 'Governance',
-      items: [
-        { label: 'Analytics',      href: `/staff/governance?userId=${userId}${tidParam}`, icon: FileText },
-        { label: 'Compliance',     href: `/staff/compliance?userId=${userId}${tidParam}`, icon: Shield },
-        { label: 'CPD & Learning', href: `/staff/learning?userId=${userId}${tidParam}`,   icon: GraduationCap },
+        { label: 'Receptionist',  href: `/staff/voice?userId=${userId}${tidParam}`,         icon: Mic },
+        { label: 'Knowledge Base',href: `/staff/knowledge?userId=${userId}${tidParam}`,     icon: BookOpen },
+        { label: 'Integrations',  href: `/staff/integrations?userId=${userId}${tidParam}`,  icon: Link2 },
       ],
     },
   ];
 
   const bottomItems: NavItem[] = [
-    { label: 'Account',  href: `/staff/account?userId=${userId}${tidParam}`,       icon: UserCircle },
-    { label: 'Team',     href: `/staff/settings/team?userId=${userId}${tidParam}`, icon: Settings },
+    { label: 'Account', href: `/staff/account?userId=${userId}${tidParam}`, icon: UserCircle },
   ];
 
   return (
@@ -162,7 +99,7 @@ export function StaffNav({
       className="fixed top-0 left-0 h-screen flex flex-col z-50 select-none overflow-hidden"
       animate={{ width: collapsed ? NAV_COLLAPSED : NAV_EXPANDED }}
       transition={{ type: 'spring', stiffness: 320, damping: 32 }}
-      style={{ backgroundColor: '#093091', borderRight: '1px solid rgba(255,255,255,0.10)' }}
+      style={{ backgroundColor: '#011440', borderRight: '1px solid rgba(255,255,255,0.10)' }}
     >
       {/* Brand */}
       <div
@@ -223,7 +160,7 @@ export function StaffNav({
                 brandColor={c}
                 collapsed={collapsed}
                 onClick={() => router.push(item.href)}
-                badge={item.label === 'Appointments' && pendingCount > 0 ? pendingCount : undefined}
+                badge={undefined}
               />
             ))}
           </div>
@@ -249,7 +186,7 @@ export function StaffNav({
         <div
           className="mt-2 flex items-center rounded-xl overflow-hidden"
           style={{
-            backgroundColor: 'rgba(0,88,230,0.06)',
+            backgroundColor: 'rgba(255,255,255,0.05)',
             padding: collapsed ? '10px 0' : '10px 12px',
             justifyContent: collapsed ? 'center' : 'flex-start',
             gap: collapsed ? 0 : 12,
@@ -300,7 +237,7 @@ export function StaffNav({
           style={{ color: 'rgba(235,240,255,0.18)' }}
           onMouseEnter={e => {
             (e.currentTarget as HTMLButtonElement).style.color = 'rgba(235,240,255,0.50)';
-            (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(0,88,230,0.06)';
+            (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(255,255,255,0.05)';
           }}
           onMouseLeave={e => {
             (e.currentTarget as HTMLButtonElement).style.color = 'rgba(235,240,255,0.18)';
@@ -317,63 +254,6 @@ export function StaffNav({
         </button>
       </div>
 
-      {/* Global notification popup — rendered as a portal to document.body */}
-      {mounted && createPortal(
-        <AnimatePresence>
-          {showPopup && (
-            <motion.div
-              initial={{ opacity: 0, y: -12, scale: 0.97 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -12, scale: 0.97 }}
-              transition={{ type: 'spring', stiffness: 380, damping: 28 }}
-              className="fixed top-4 right-4 z-[9999] flex items-start gap-3"
-              style={{
-                backgroundColor: '#181D23',
-                border: '1px solid rgba(220,38,38,0.35)',
-                borderRadius: 14,
-                padding: '14px 16px',
-                boxShadow: '0 8px 32px rgba(0,0,0,0.45)',
-                maxWidth: 320,
-                minWidth: 260,
-              }}
-            >
-              <div
-                className="flex-shrink-0 flex items-center justify-center rounded-full"
-                style={{ width: 32, height: 32, backgroundColor: 'rgba(220,38,38,0.12)', marginTop: 1 }}
-              >
-                <Bell size={14} style={{ color: '#DC2626' }} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[12px] font-semibold leading-tight mb-0.5" style={{ color: 'rgba(235,240,255,0.90)' }}>
-                  New booking request
-                </p>
-                <p className="text-[11px] leading-snug" style={{ color: 'rgba(235,240,255,0.50)' }}>
-                  {popupName ? `From ${popupName}` : `${pendingCount} pending request${pendingCount !== 1 ? 's' : ''} awaiting confirmation`}
-                </p>
-                <button
-                  onClick={() => { setShowPopup(false); router.push(`/staff/appointments?userId=${userId}`); }}
-                  className="mt-2 text-[11px] font-medium transition-opacity"
-                  style={{ color: '#0058E6' }}
-                  onMouseEnter={e => (e.currentTarget.style.opacity = '0.75')}
-                  onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
-                >
-                  View requests
-                </button>
-              </div>
-              <button
-                onClick={() => setShowPopup(false)}
-                className="flex-shrink-0 transition-opacity mt-0.5"
-                style={{ color: 'rgba(235,240,255,0.25)' }}
-                onMouseEnter={e => (e.currentTarget.style.color = 'rgba(235,240,255,0.60)')}
-                onMouseLeave={e => (e.currentTarget.style.color = 'rgba(235,240,255,0.25)')}
-              >
-                <X size={13} />
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>,
-        document.body,
-      )}
     </motion.aside>
   );
 }

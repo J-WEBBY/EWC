@@ -13,7 +13,7 @@ type Step = 'email' | 'password' | 'change-password' | 'forgot' | 'forgot-sent' 
 interface AuthUser { id: string; first_name: string; last_name: string; email: string; tenant_id: string; }
 
 const BG     = '#E6F0FF';
-const INK    = '#093091';
+const INK    = '#011440';
 const SEC    = '#2A4A8F';
 const MUTED  = '#7A96C4';
 const BORDER = '#C5D5EE';

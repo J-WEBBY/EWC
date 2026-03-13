@@ -3,7 +3,7 @@
 import { motion } from 'framer-motion';
 
 const BG   = '#E6F0FF';   // EWC light blue
-const NAVY = '#093091';   // EWC deep navy
+const NAVY = '#011440';   // EWC deep navy
 const GOLD = '#D8A600';   // EWC gold
 
 export default function OrbLoader() {
