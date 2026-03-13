@@ -43,8 +43,9 @@ DO $$ BEGIN RAISE NOTICE '=== Migration 055: EWC Tenant Seed — START ==='; END
 -- =============================================================================
 
 -- ── tenants table ─────────────────────────────────────────────────────────────
--- 053 may have used 'name' instead of 'clinic_name', and may be missing
--- subdomain, stripe_customer_id, trial_ends_at, primary_contact_phone, settings.
+-- 053 used 'name TEXT NOT NULL' as the primary name column; 054 renamed it to
+-- 'clinic_name'. Both are added here so the INSERT works on both paths.
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS name                   TEXT;
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS clinic_name            TEXT;
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS subdomain              TEXT;
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS plan                   TEXT NOT NULL DEFAULT 'starter';
@@ -89,6 +90,7 @@ DO $$ BEGIN RAISE NOTICE 'Schema preamble complete.'; END $$;
 
 INSERT INTO tenants (
   slug,
+  name,
   clinic_name,
   subdomain,
   plan,
@@ -105,6 +107,7 @@ INSERT INTO tenants (
 ) VALUES (
   'edgbaston-wellness',
   'Edgbaston Wellness Clinic',
+  'Edgbaston Wellness Clinic',
   'ewc',
   'growth',
   'admin@edgbastonwellness.co.uk',
@@ -119,6 +122,8 @@ INSERT INTO tenants (
   'GBP'
 )
 ON CONFLICT (slug) DO UPDATE SET
+  name                    = EXCLUDED.name,
+  clinic_name             = EXCLUDED.clinic_name,
   status                  = EXCLUDED.status,
   onboarding_completed    = EXCLUDED.onboarding_completed,
   onboarding_completed_at = EXCLUDED.onboarding_completed_at,
