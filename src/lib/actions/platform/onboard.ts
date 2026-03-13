@@ -230,13 +230,18 @@ export async function completeOnboarding(): Promise<{ success: boolean; error?: 
       return { success: true };
     }
 
-    const db  = createPlatformClient();
-    const sov = createSovereignClient();
+    const db = createPlatformClient();
 
-    // 0. If tenant is already active, treat as success immediately
+    // 0. If tenant is already active, short-circuit immediately (no sovereign DB needed)
     const { data: tenantCheck } = await db.from('tenants').select('status').eq('id', tenantId).single();
     if (tenantCheck?.status === 'active') {
-      console.log('[completeOnboarding] Tenant already active — skipping provisioning');
+      console.log('[completeOnboarding] Tenant already active — done');
+      if (sessionId) {
+        await db.from('onboarding_sessions').update({
+          current_phase: 5, completed_phases: [1, 2, 3, 4, 5],
+          completed_at: new Date().toISOString(),
+        }).eq('id', sessionId);
+      }
       return { success: true };
     }
 
@@ -253,6 +258,7 @@ export async function completeOnboarding(): Promise<{ success: boolean; error?: 
     // If the sovereign DB is the original single-tenant schema (no tenant_id columns),
     // these upserts will silently fail and we continue to the critical platform DB steps.
     try {
+      const sov = createSovereignClient();
       // 2a. clinic_config
       await sov.from('clinic_config').upsert({
         tenant_id:   tenantId,
