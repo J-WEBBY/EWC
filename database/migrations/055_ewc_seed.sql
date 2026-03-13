@@ -248,6 +248,24 @@ ON CONFLICT (tenant_id, slug) DO UPDATE SET
   permissions      = EXCLUDED.permissions;
 
 -- =============================================================================
+-- 4b. DEDUPLICATE ROLES + DEPARTMENTS
+--     Old schemas may lack unique constraints → duplicate rows from partial runs.
+--     Keep the row with the lowest ctid (first inserted) per (tenant_id, slug/name).
+-- =============================================================================
+
+DELETE FROM roles a
+  USING roles b
+  WHERE a.ctid > b.ctid
+    AND a.tenant_id IS NOT DISTINCT FROM b.tenant_id
+    AND a.slug = b.slug;
+
+DELETE FROM departments a
+  USING departments b
+  WHERE a.ctid > b.ctid
+    AND a.tenant_id IS NOT DISTINCT FROM b.tenant_id
+    AND a.name = b.name;
+
+-- =============================================================================
 -- 5. STAFF ACCOUNTS
 --
 -- Passwords:

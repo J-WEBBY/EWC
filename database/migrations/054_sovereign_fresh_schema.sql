@@ -25,6 +25,24 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE EXTENSION IF NOT EXISTS "vector";
 
 -- =============================================================================
+-- DROP EXISTING TRIGGERS (idempotent — safe to re-run on any DB state)
+-- =============================================================================
+
+DO $$
+DECLARE
+  r RECORD;
+BEGIN
+  FOR r IN
+    SELECT trigger_name, event_object_table
+    FROM information_schema.triggers
+    WHERE trigger_schema = 'public'
+      AND trigger_name LIKE 'trg_%'
+  LOOP
+    EXECUTE format('DROP TRIGGER IF EXISTS %I ON %I', r.trigger_name, r.event_object_table);
+  END LOOP;
+END $$;
+
+-- =============================================================================
 -- SHARED UPDATED_AT TRIGGER FUNCTION
 -- =============================================================================
 
