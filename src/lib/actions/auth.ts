@@ -92,14 +92,13 @@ export async function verifyLogin(identifier: string, password: string, tenantId
     const { data: user, error } = await sovereign
       .from('users')
       .select(`
-        id, email, username, first_name, last_name, display_name,
+        id, email, first_name, last_name, display_name,
         is_admin, must_change_password,
         temp_password_hash, password_hash,
         status, staff_onboarding_completed,
-        role_id, tenant_id
+        role_id
       `)
-      .eq('tenant_id', tenantId)
-      .or(`email.eq.${identifierClean},username.eq.${identifierClean}`)
+      .eq('email', identifierClean)
       .single();
 
     if (error || !user) {
@@ -140,8 +139,7 @@ export async function verifyLogin(identifier: string, password: string, tenantId
     await sovereign
       .from('users')
       .update({ last_login_at: new Date().toISOString() })
-      .eq('id', user.id)
-      .eq('tenant_id', tenantId);
+      .eq('id', user.id);
 
     return {
       success: true as const,
@@ -154,7 +152,7 @@ export async function verifyLogin(identifier: string, password: string, tenantId
         is_admin: user.is_admin,
         staff_onboarding_completed: user.staff_onboarding_completed,
         role_id: user.role_id as string | null,
-        tenant_id: user.tenant_id as string,
+        tenant_id: tenantId,
       },
       requiresPasswordChange: isTempPassword || user.must_change_password,
     };
@@ -197,7 +195,7 @@ export async function logout() {
 // changePassword — set a new bcrypt password for the user
 // ---------------------------------------------------------------------------
 
-export async function changePassword(userId: string, newPassword: string, tenantId: string) {
+export async function changePassword(userId: string, newPassword: string, _tenantId?: string) {
   const sovereign = createSovereignClient();
 
   if (!userId || !UUID_RE.test(userId)) {
@@ -219,8 +217,7 @@ export async function changePassword(userId: string, newPassword: string, tenant
         password_changed_at: new Date().toISOString(),
         status: 'active',
       })
-      .eq('id', userId)
-      .eq('tenant_id', tenantId);
+      .eq('id', userId);
 
     if (error) {
       console.error('[auth] changePassword failed:', error);
@@ -229,7 +226,6 @@ export async function changePassword(userId: string, newPassword: string, tenant
 
     await sovereign.from('audit_trail').insert({
       user_id: userId,
-      tenant_id: tenantId,
       action_type: 'user.password_changed',
       resource_type: 'user',
       resource_id: userId,
@@ -258,9 +254,8 @@ export async function getUserSession(userId: string, tenantId: string) {
   try {
     const { data: user, error } = await sovereign
       .from('users')
-      .select('id, first_name, last_name, email, is_admin, staff_onboarding_completed, status, role_id, display_name, tenant_id')
+      .select('id, first_name, last_name, email, is_admin, staff_onboarding_completed, status, role_id, display_name')
       .eq('id', userId)
-      .eq('tenant_id', tenantId)
       .single();
 
     if (error || !user) {
@@ -282,7 +277,7 @@ export async function getUserSession(userId: string, tenantId: string) {
         is_admin: user.is_admin,
         staff_onboarding_completed: user.staff_onboarding_completed,
         role_id: user.role_id as string | null,
-        tenant_id: user.tenant_id as string,
+        tenant_id: tenantId,
       },
     };
 
@@ -296,7 +291,7 @@ export async function getUserSession(userId: string, tenantId: string) {
 // requestPasswordReset — logs the request; admin handles reset manually
 // ---------------------------------------------------------------------------
 
-export async function requestPasswordReset(email: string, tenantId: string) {
+export async function requestPasswordReset(email: string, _tenantId?: string) {
   const sovereign = createSovereignClient();
 
   try {
@@ -304,13 +299,11 @@ export async function requestPasswordReset(email: string, tenantId: string) {
       .from('users')
       .select('id')
       .eq('email', email.toLowerCase().trim())
-      .eq('tenant_id', tenantId)
       .single();
 
     if (user) {
       await sovereign.from('audit_trail').insert({
         user_id: user.id,
-        tenant_id: tenantId,
         action_type: 'user.password_reset_requested',
         resource_type: 'user',
         resource_id: user.id,
