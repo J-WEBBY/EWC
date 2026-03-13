@@ -233,6 +233,13 @@ export async function completeOnboarding(): Promise<{ success: boolean; error?: 
     const db  = createPlatformClient();
     const sov = createSovereignClient();
 
+    // 0. If tenant is already active, treat as success immediately
+    const { data: tenantCheck } = await db.from('tenants').select('status').eq('id', tenantId).single();
+    if (tenantCheck?.status === 'active') {
+      console.log('[completeOnboarding] Tenant already active — skipping provisioning');
+      return { success: true };
+    }
+
     // 1. Load all clinic data from platform DB
     const { data: profile } = await db
       .from('clinic_profiles')

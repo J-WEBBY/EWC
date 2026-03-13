@@ -87,13 +87,7 @@ export default function GoLiveClient({ tenantName, tenantSlug, completedPhases, 
 
     setLive(true);
     await new Promise(r => setTimeout(r, 2200));
-    // Redirect to the tenant's own subdomain login
-    const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN;
-    if (rootDomain && tenantSlug) {
-      window.location.href = `https://${tenantSlug}.${rootDomain}/login`;
-    } else {
-      router.push('/login'); // dev fallback
-    }
+    router.push('/login');
   };
 
   const allRequired = CHECKS.filter(c => c.required).every(c => completedPhases.includes(c.phase));
