@@ -242,99 +242,91 @@ export async function completeOnboarding(): Promise<{ success: boolean; error?: 
 
     if (!profile) return { success: false, error: 'Clinic profile not found.' };
 
-    // 2. Provision sovereign DB — idempotent (upsert pattern)
-
-    // 2a. clinic_config (one row per tenant)
-    await sov.from('clinic_config').upsert({
-      tenant_id:  tenantId,
-      clinic_name: profile.clinic_name ?? 'Your Clinic',
-      ai_name:    'Aria',
-      brand_color: profile.primary_color ?? '#0058E6',
-      tagline:    profile.tagline ?? null,
-    }, { onConflict: 'tenant_id' });
-
-    // 2b. Roles (standard set per tenant)
-    // Architecture:
-    //   BASE ROLES: practitioner (clinical), receptionist (non-clinical)
-    //   PRIVILEGE TIERS: admin, manager, system_admin
-    //   is_clinical=true on practitioner role — clinical staff get EHR/SOAP access
-    const roles = [
-      { slug: 'system_admin', name: 'System Admin',  permission_level: 200, is_admin: true,  is_clinical: false },
-      { slug: 'manager',      name: 'Manager',       permission_level: 100, is_admin: true,  is_clinical: false },
-      { slug: 'admin',        name: 'Admin',         permission_level: 70,  is_admin: true,  is_clinical: false },
-      { slug: 'practitioner', name: 'Practitioner',  permission_level: 30,  is_admin: false, is_clinical: true  },
-      { slug: 'receptionist', name: 'Receptionist',  permission_level: 20,  is_admin: false, is_clinical: false },
-    ];
-    for (const role of roles) {
-      await sov.from('roles').upsert({ tenant_id: tenantId, ...role, permissions: {} }, { onConflict: 'tenant_id,slug' });
-    }
-
-    // 2c. Departments (standard set per tenant)
-    const departments = [
-      { name: 'Reception',      display_order: 1 },
-      { name: 'Clinical',       display_order: 2 },
-      { name: 'Management',     display_order: 3 },
-      { name: 'Administration', display_order: 4 },
-    ];
-    for (const dept of departments) {
-      // Check if already exists
-      const { data: existing } = await sov.from('departments').select('id').eq('tenant_id', tenantId).eq('name', dept.name).single();
-      if (!existing) {
-        await sov.from('departments').insert({ tenant_id: tenantId, ...dept, is_active: true });
-      }
-    }
-
-    // 2d. Agents (3 standard agents per tenant)
-    const agentNames = (profile.agent_names as { role: string; display_name: string }[] | null) ?? [];
-    const getAgentName = (role: string, fallback: string) =>
-      agentNames.find(a => a.role === role)?.display_name || fallback;
-
-    const agents = [
-      { agent_key: 'primary_agent', name: getAgentName('primary_agent', 'EWC'),   is_catch_all: true  },
-      { agent_key: 'sales_agent',   name: getAgentName('sales_agent',   'Orion'), is_catch_all: false },
-      { agent_key: 'crm_agent',     name: getAgentName('crm_agent',     'Aria'),  is_catch_all: false },
-    ];
-    for (const agent of agents) {
-      await sov.from('agents').upsert({
+    // 2. Provision sovereign DB — best-effort, idempotent.
+    // If the sovereign DB is the original single-tenant schema (no tenant_id columns),
+    // these upserts will silently fail and we continue to the critical platform DB steps.
+    try {
+      // 2a. clinic_config
+      await sov.from('clinic_config').upsert({
         tenant_id:   tenantId,
-        agent_key:   agent.agent_key,
-        name:        agent.name,
-        is_active:   true,
-        is_catch_all: agent.is_catch_all,
-        scope:       agent.agent_key === 'primary_agent' ? 'all' : agent.agent_key === 'sales_agent' ? 'sales,acquisition' : 'retention,crm',
-      }, { onConflict: 'tenant_id,agent_key' });
-    }
+        clinic_name: profile.clinic_name ?? 'Your Clinic',
+        ai_name:     'Aria',
+        brand_color: profile.primary_color ?? '#0058E6',
+        tagline:     profile.tagline ?? null,
+      }, { onConflict: 'tenant_id' });
 
-    // 2e. Users — create staff accounts from Phase 3 team members
-    const members = (profile.team_members as TeamMember[] | null) ?? [];
-    for (const member of members) {
-      const [firstName, ...rest] = (member.full_name ?? '').split(' ');
-      const lastName = rest.join(' ') || '';
+      // 2b. Roles
+      const roles = [
+        { slug: 'system_admin', name: 'System Admin',  permission_level: 200, is_admin: true,  is_clinical: false },
+        { slug: 'manager',      name: 'Manager',       permission_level: 100, is_admin: true,  is_clinical: false },
+        { slug: 'admin',        name: 'Admin',         permission_level: 70,  is_admin: true,  is_clinical: false },
+        { slug: 'practitioner', name: 'Practitioner',  permission_level: 30,  is_admin: false, is_clinical: true  },
+        { slug: 'receptionist', name: 'Receptionist',  permission_level: 20,  is_admin: false, is_clinical: false },
+      ];
+      for (const role of roles) {
+        await sov.from('roles').upsert({ tenant_id: tenantId, ...role, permissions: {} }, { onConflict: 'tenant_id,slug' });
+      }
 
-      // Look up role_id by slug (role values from onboarding form match slugs)
-      const { data: roleRow } = await sov.from('roles')
-        .select('id')
-        .eq('tenant_id', tenantId)
-        .eq('slug', member.role)
-        .single();
+      // 2c. Departments
+      const departments = [
+        { name: 'Reception',      display_order: 1 },
+        { name: 'Clinical',       display_order: 2 },
+        { name: 'Management',     display_order: 3 },
+        { name: 'Administration', display_order: 4 },
+      ];
+      for (const dept of departments) {
+        const { data: existing } = await sov.from('departments').select('id').eq('tenant_id', tenantId).eq('name', dept.name).single();
+        if (!existing) {
+          await sov.from('departments').insert({ tenant_id: tenantId, ...dept, is_active: true });
+        }
+      }
 
-      const tempHash = member.temp_password ? await bcrypt.hash(member.temp_password, 10) : null;
+      // 2d. Agents
+      const agentNames = (profile.agent_names as { role: string; display_name: string }[] | null) ?? [];
+      const getAgentName = (role: string, fallback: string) =>
+        agentNames.find(a => a.role === role)?.display_name || fallback;
+      const agents = [
+        { agent_key: 'primary_agent', name: getAgentName('primary_agent', 'EWC'),   is_catch_all: true  },
+        { agent_key: 'sales_agent',   name: getAgentName('sales_agent',   'Orion'), is_catch_all: false },
+        { agent_key: 'crm_agent',     name: getAgentName('crm_agent',     'Aria'),  is_catch_all: false },
+      ];
+      for (const agent of agents) {
+        await sov.from('agents').upsert({
+          tenant_id:    tenantId,
+          agent_key:    agent.agent_key,
+          name:         agent.name,
+          is_active:    true,
+          is_catch_all: agent.is_catch_all,
+          scope:        agent.agent_key === 'primary_agent' ? 'all' : agent.agent_key === 'sales_agent' ? 'sales,acquisition' : 'retention,crm',
+        }, { onConflict: 'tenant_id,agent_key' });
+      }
 
-      await sov.from('users').upsert({
-        tenant_id:             tenantId,
-        email:                 member.email?.toLowerCase() ?? '',
-        username:              member.username ?? null,
-        title:                 member.title ?? null,
-        first_name:            firstName ?? '',
-        last_name:             lastName,
-        role_id:               roleRow?.id ?? null,
-        temp_password_hash:    tempHash,
-        must_change_password:  true,
-        status:                'active',
-        staff_onboarding_completed: false,
-        is_admin:              ['admin', 'manager', 'system_admin'].includes(member.role),
-        is_clinical:           member.is_clinical ?? member.role === 'practitioner',
-      }, { onConflict: 'tenant_id,email' });
+      // 2e. Users from Phase 3 team members
+      const members = (profile.team_members as TeamMember[] | null) ?? [];
+      for (const member of members) {
+        const [firstName, ...rest] = (member.full_name ?? '').split(' ');
+        const lastName = rest.join(' ') || '';
+        const { data: roleRow } = await sov.from('roles').select('id').eq('tenant_id', tenantId).eq('slug', member.role).single();
+        const tempHash = member.temp_password ? await bcrypt.hash(member.temp_password, 10) : null;
+        await sov.from('users').upsert({
+          tenant_id:                  tenantId,
+          email:                      member.email?.toLowerCase() ?? '',
+          username:                   member.username ?? null,
+          title:                      member.title ?? null,
+          first_name:                 firstName ?? '',
+          last_name:                  lastName,
+          role_id:                    roleRow?.id ?? null,
+          temp_password_hash:         tempHash,
+          must_change_password:       true,
+          status:                     'active',
+          staff_onboarding_completed: false,
+          is_admin:                   ['admin', 'manager', 'system_admin'].includes(member.role),
+          is_clinical:                member.is_clinical ?? member.role === 'practitioner',
+        }, { onConflict: 'tenant_id,email' });
+      }
+    } catch (sovErr) {
+      // Sovereign DB is already provisioned (single-tenant schema) — log and continue
+      console.warn('[completeOnboarding] Sovereign DB provisioning skipped (already set up):', sovErr);
     }
 
     // 3. Mark tenant as active in platform DB
