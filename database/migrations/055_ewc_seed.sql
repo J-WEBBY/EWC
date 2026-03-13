@@ -46,6 +46,7 @@ DO $$ BEGIN RAISE NOTICE '=== Migration 055: EWC Tenant Seed — START ==='; END
 -- 053 used 'name TEXT NOT NULL' as the primary name column; 054 renamed it to
 -- 'clinic_name'. Both are added here so the INSERT works on both paths.
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS name                   TEXT;
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS schema_name            TEXT;
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS clinic_name            TEXT;
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS subdomain              TEXT;
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS plan                   TEXT NOT NULL DEFAULT 'starter';
@@ -91,6 +92,7 @@ DO $$ BEGIN RAISE NOTICE 'Schema preamble complete.'; END $$;
 INSERT INTO tenants (
   slug,
   name,
+  schema_name,
   clinic_name,
   subdomain,
   plan,
@@ -107,6 +109,7 @@ INSERT INTO tenants (
 ) VALUES (
   'edgbaston-wellness',
   'Edgbaston Wellness Clinic',
+  'public',
   'Edgbaston Wellness Clinic',
   'ewc',
   'growth',
@@ -123,6 +126,7 @@ INSERT INTO tenants (
 )
 ON CONFLICT (slug) DO UPDATE SET
   name                    = EXCLUDED.name,
+  schema_name             = EXCLUDED.schema_name,
   clinic_name             = EXCLUDED.clinic_name,
   status                  = EXCLUDED.status,
   onboarding_completed    = EXCLUDED.onboarding_completed,
