@@ -37,54 +37,51 @@ DO $$ BEGIN RAISE NOTICE '=== Migration 055: EWC Tenant Seed — START ==='; END
 
 -- =============================================================================
 -- 0. SCHEMA PREAMBLE
---    Adds columns that may be missing depending on which migration path was used.
---    Safe to run on both 054 (fresh) and 053 (incremental) schemas.
+--    Ensures all columns exist regardless of which migration path was used.
+--    ADD COLUMN IF NOT EXISTS is idempotent — safe to re-run.
+--    Covers the gap between 053 (incremental) and 054 (fresh) schemas.
 -- =============================================================================
 
+-- ── tenants table ─────────────────────────────────────────────────────────────
+-- 053 may have used 'name' instead of 'clinic_name', and may be missing
+-- subdomain, stripe_customer_id, trial_ends_at, primary_contact_phone, settings.
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS clinic_name            TEXT;
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS subdomain              TEXT;
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS plan                   TEXT NOT NULL DEFAULT 'starter';
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS billing_email          TEXT;
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS stripe_customer_id     TEXT;
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS status                 TEXT NOT NULL DEFAULT 'trialing';
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS trial_ends_at          TIMESTAMPTZ;
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS onboarding_completed   BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS onboarding_completed_at TIMESTAMPTZ;
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS onboarding_step        INT NOT NULL DEFAULT 1;
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS primary_contact_name   TEXT;
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS primary_contact_email  TEXT;
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS primary_contact_phone  TEXT;
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS country                TEXT NOT NULL DEFAULT 'GB';
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS timezone               TEXT NOT NULL DEFAULT 'Europe/London';
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS currency               TEXT NOT NULL DEFAULT 'GBP';
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS settings               JSONB NOT NULL DEFAULT '{}';
+
+-- Backfill clinic_name from 'name' column if 053 used that name
 DO $$
 BEGIN
-  -- tenants: 054 uses clinic_name; 053 may have used name. Ensure clinic_name exists.
-  IF NOT EXISTS (
+  IF EXISTS (
     SELECT 1 FROM information_schema.columns
-    WHERE table_schema = 'public' AND table_name = 'tenants' AND column_name = 'clinic_name'
+    WHERE table_schema = 'public' AND table_name = 'tenants' AND column_name = 'name'
   ) THEN
-    ALTER TABLE tenants ADD COLUMN clinic_name TEXT;
-    -- Backfill from 'name' column if it exists (053 schema compatibility)
-    IF EXISTS (
-      SELECT 1 FROM information_schema.columns
-      WHERE table_schema = 'public' AND table_name = 'tenants' AND column_name = 'name'
-    ) THEN
-      UPDATE tenants SET clinic_name = name WHERE clinic_name IS NULL;
-    END IF;
+    EXECUTE 'UPDATE tenants SET clinic_name = name WHERE clinic_name IS NULL';
   END IF;
-
-  -- users: title (honorific: Dr, Mr, Ms, Miss, Mrs, Prof)
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'title'
-  ) THEN
-    ALTER TABLE users ADD COLUMN title TEXT;
-  END IF;
-
-  -- users: is_clinical — true if this person delivers clinical care
-  --        Allows manager/admin-role users to also be flagged as clinical (e.g. Dr Suresh)
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'is_clinical'
-  ) THEN
-    ALTER TABLE users ADD COLUMN is_clinical BOOLEAN NOT NULL DEFAULT FALSE;
-  END IF;
-
-  -- roles: is_clinical — true for clinical base roles (practitioner etc.)
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_schema = 'public' AND table_name = 'roles' AND column_name = 'is_clinical'
-  ) THEN
-    ALTER TABLE roles ADD COLUMN is_clinical BOOLEAN NOT NULL DEFAULT FALSE;
-  END IF;
-
-  RAISE NOTICE 'Schema preamble complete.';
 END $$;
+
+-- ── users table ───────────────────────────────────────────────────────────────
+ALTER TABLE users ADD COLUMN IF NOT EXISTS title       TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_clinical BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- ── roles table ───────────────────────────────────────────────────────────────
+ALTER TABLE roles ADD COLUMN IF NOT EXISTS is_clinical BOOLEAN NOT NULL DEFAULT FALSE;
+
+DO $$ BEGIN RAISE NOTICE 'Schema preamble complete.'; END $$;
 
 -- =============================================================================
 -- 1. TENANT
