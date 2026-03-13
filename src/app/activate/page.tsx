@@ -176,7 +176,13 @@ export default function ActivatePage() {
     if (!res.success) { setStep('error'); setError(res.error); return; }
     setStep('success');
     setTimeout(() => {
-      router.push('/onboard');
+      const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN;
+      const slug = res.tenant.tenantSlug;
+      if (rootDomain && slug) {
+        window.location.href = `https://${slug}.${rootDomain}/onboard`;
+      } else {
+        router.push('/onboard');
+      }
     }, 1800);
   }, [complete, displayKey, router]);
 
