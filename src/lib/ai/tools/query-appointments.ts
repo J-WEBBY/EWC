@@ -1,8 +1,8 @@
 // =============================================================================
-// Tool: query_appointments — Search clinic appointments from Cliniko cache
+// Tool: query_appointments — Fetch appointments from Cliniko live API
 // =============================================================================
 
-import { createSovereignClient } from '@/lib/supabase/service';
+import { getClinikoClient } from '@/lib/cliniko/client';
 import type { AgentTool, ToolResult, AgentContext } from '@/lib/ai/types';
 
 async function handler(
@@ -10,85 +10,77 @@ async function handler(
   _ctx: AgentContext,
 ): Promise<ToolResult> {
   try {
-    const sovereign = createSovereignClient();
-    const limit = Math.min(Number(input.limit) || 20, 100);
-
-    let query = sovereign
-      .from('cliniko_appointments')
-      .select(`
-        id, cliniko_id, cliniko_patient_id,
-        appointment_type, practitioner_name,
-        starts_at, ends_at, duration_minutes,
-        status, cancellation_reason,
-        notes, invoice_status, room_name
-      `)
-      .order('starts_at', { ascending: false })
-      .limit(limit);
-
-    // Filter by patient Cliniko ID
-    if (input.patient_id && typeof input.patient_id === 'string') {
-      const pid = parseInt(input.patient_id, 10);
-      if (!isNaN(pid)) query = query.eq('cliniko_patient_id', pid);
+    const client = await getClinikoClient();
+    if (!client) {
+      return { content: 'Cliniko is not connected. Ask the admin to add the API key in the Integrations page.', isError: true };
     }
 
-    // Filter by status
-    if (input.status && typeof input.status === 'string') {
-      query = query.eq('status', input.status);
-    }
+    const limit       = Math.min(Number(input.limit) || 30, 100);
+    const patientId   = typeof input.patient_id  === 'string' ? input.patient_id.trim()  : '';
+    const dateFrom    = typeof input.date_from   === 'string' ? input.date_from.trim()   : '';
+    const dateTo      = typeof input.date_to     === 'string' ? input.date_to.trim()     : '';
+    const typeFilter  = typeof input.appointment_type === 'string' ? input.appointment_type.toLowerCase().trim() : '';
+    const practFilter = typeof input.practitioner    === 'string' ? input.practitioner.toLowerCase().trim()      : '';
 
-    // Filter by appointment type (treatment name)
-    if (input.appointment_type && typeof input.appointment_type === 'string') {
-      query = query.ilike('appointment_type', `%${input.appointment_type}%`);
-    }
-
-    // Filter by practitioner
-    if (input.practitioner && typeof input.practitioner === 'string') {
-      query = query.ilike('practitioner_name', `%${input.practitioner}%`);
-    }
-
-    // Date range filters
-    if (input.date_from && typeof input.date_from === 'string') {
-      query = query.gte('starts_at', input.date_from);
-    }
-    if (input.date_to && typeof input.date_to === 'string') {
-      query = query.lte('starts_at', input.date_to);
-    }
-
-    // Invoice status filter
-    if (input.invoice_status && typeof input.invoice_status === 'string') {
-      query = query.eq('invoice_status', input.invoice_status);
-    }
-
-    const { data: appointments, error } = await query;
-
-    if (error) {
-      return { content: `Appointment query failed: ${error.message}`, isError: true };
-    }
-
-    if (!appointments || appointments.length === 0) {
-      return {
-        content: 'No appointments found matching those criteria. Note: appointment data is only available after Cliniko sync.',
-      };
-    }
+    // Fetch with optional date window
+    const updatedSince = dateFrom || undefined;
+    const appointments = await client.getAppointments(updatedSince);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let output = `Found ${appointments.length} appointment(s):\n\n`;
-    for (const a of appointments as any[]) {
+    let filtered: any[] = appointments;
+
+    if (patientId) {
+      filtered = filtered.filter((a: { patient?: { links?: { self?: string } } }) => {
+        const link = a.patient?.links?.self ?? '';
+        return link.endsWith(`/${patientId}`);
+      });
+    }
+    if (dateFrom) {
+      filtered = filtered.filter((a: { starts_at?: string }) => !a.starts_at || a.starts_at >= dateFrom);
+    }
+    if (dateTo) {
+      filtered = filtered.filter((a: { starts_at?: string }) => !a.starts_at || a.starts_at <= dateTo);
+    }
+    if (typeFilter) {
+      filtered = filtered.filter((a: { appointment_type?: { name?: string } }) =>
+        (a.appointment_type?.name ?? '').toLowerCase().includes(typeFilter),
+      );
+    }
+    if (practFilter) {
+      filtered = filtered.filter((a: { practitioner?: { first_name?: string; last_name?: string } }) => {
+        const name = `${a.practitioner?.first_name ?? ''} ${a.practitioner?.last_name ?? ''}`.toLowerCase();
+        return name.includes(practFilter);
+      });
+    }
+
+    // Sort upcoming first
+    filtered.sort((a: { starts_at?: string }, b: { starts_at?: string }) =>
+      (a.starts_at ?? '').localeCompare(b.starts_at ?? ''),
+    );
+    filtered = filtered.slice(0, limit);
+
+    if (filtered.length === 0) {
+      return { content: 'No appointments found matching those criteria.' };
+    }
+
+    let output = `Found ${filtered.length} appointment(s):\n\n`;
+    for (const a of filtered) {
       const startDt = a.starts_at ? new Date(a.starts_at).toLocaleString('en-GB') : 'unknown';
-      const statusStr = a.status || 'booked';
-      const invoiceStr = a.invoice_status ? ` | Invoice: ${a.invoice_status}` : '';
-      const cancelStr = a.cancellation_reason ? ` (Reason: ${a.cancellation_reason})` : '';
-      output += `- **${a.appointment_type || 'Appointment'}** — ${startDt}\n`;
-      output += `  Patient ID: ${a.cliniko_patient_id} | Practitioner: ${a.practitioner_name || 'unassigned'}\n`;
-      output += `  Status: ${statusStr}${cancelStr}${invoiceStr} | Room: ${a.room_name || 'TBC'} | ${a.duration_minutes || '?'}min\n`;
+      const typeName = a.appointment_type?.name ?? 'Appointment';
+      const practName = a.practitioner
+        ? `${a.practitioner.first_name ?? ''} ${a.practitioner.last_name ?? ''}`.trim()
+        : 'unassigned';
+      const patLink = a.patient?.links?.self ?? '';
+      const patId = patLink.split('/').pop() ?? 'unknown';
+      const duration = a.duration_in_minutes ? `${a.duration_in_minutes}min` : '';
+      const cancelled = a.cancellation_reason ? ` (Cancelled: ${a.cancellation_reason})` : '';
+      output += `- **${typeName}** — ${startDt} ${duration}\n`;
+      output += `  Patient ID: ${patId} | Practitioner: ${practName}${cancelled}\n`;
       if (a.notes) output += `  Notes: ${String(a.notes).slice(0, 100)}\n`;
       output += '\n';
     }
 
-    return {
-      content: output.trim(),
-      metadata: { resultCount: appointments.length },
-    };
+    return { content: output.trim(), metadata: { resultCount: filtered.length } };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return { content: `Appointment query failed: ${msg}`, isError: true };
@@ -98,42 +90,16 @@ async function handler(
 export const queryAppointmentsTool: AgentTool = {
   name: 'query_appointments',
   description:
-    'Search and retrieve appointment records from the Cliniko appointment cache. Use this to look up appointments by patient, status, treatment type, practitioner, date range, or invoice status. Useful for checking booking history, identifying cancellations, or reviewing unpaid invoices.',
+    'Fetch appointments from Cliniko in real-time. Filter by patient ID, date range, treatment type, or practitioner. Returns upcoming and past appointments.',
   input_schema: {
     type: 'object',
     properties: {
-      patient_id: {
-        type: 'string',
-        description: 'Cliniko patient ID (numeric) to filter appointments for a specific patient',
-      },
-      status: {
-        type: 'string',
-        description: 'Appointment status: null (booked), "Arrived", "Did Not Arrive", "Cancelled", "Confirmed", "In Treatment"',
-      },
-      appointment_type: {
-        type: 'string',
-        description: 'Treatment name to filter by (e.g. "Botox", "Dermal Filler", "IV Therapy")',
-      },
-      practitioner: {
-        type: 'string',
-        description: 'Practitioner name to filter by',
-      },
-      date_from: {
-        type: 'string',
-        description: 'Start of date range in ISO format (e.g. "2026-02-01")',
-      },
-      date_to: {
-        type: 'string',
-        description: 'End of date range in ISO format (e.g. "2026-02-28")',
-      },
-      invoice_status: {
-        type: 'string',
-        description: 'Invoice status to filter by (e.g. "Unpaid", "Paid", "Draft")',
-      },
-      limit: {
-        type: 'number',
-        description: 'Maximum number of results to return (1-100, default 20)',
-      },
+      patient_id:       { type: 'string', description: 'Cliniko patient ID to filter appointments for a specific patient' },
+      appointment_type: { type: 'string', description: 'Treatment name to filter by (e.g. "Botox", "IV Therapy")' },
+      practitioner:     { type: 'string', description: 'Practitioner name to filter by' },
+      date_from:        { type: 'string', description: 'Start of date range ISO format (e.g. "2026-03-01")' },
+      date_to:          { type: 'string', description: 'End of date range ISO format (e.g. "2026-03-31")' },
+      limit:            { type: 'number', description: 'Max results (1-100, default 30)' },
     },
     required: [],
   },

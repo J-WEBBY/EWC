@@ -25,14 +25,19 @@ import { queryPatientsTool } from './query-patients';
 import { queryAppointmentsTool } from './query-appointments';
 import { getClinicOverviewTool } from './get-clinic-overview';
 import { invokeSpecialistTool, SPECIALIST_TOOLS } from './invoke-specialist';
+import { createPatientTool, bookAppointmentTool, cancelAppointmentTool, logClinikoNoteTool } from './cliniko-write';
 
 export { SPECIALIST_TOOLS };
 
-/** All 13 base tools (no invoke_specialist — use EWC_TOOLS for primary_agent) */
+/** All 17 base tools (no invoke_specialist — use EWC_TOOLS for primary_agent) */
 export const ALL_TOOLS: AgentTool[] = [
   getClinicOverviewTool,
   queryPatientsTool,
   queryAppointmentsTool,
+  createPatientTool,
+  bookAppointmentTool,
+  cancelAppointmentTool,
+  logClinikoNoteTool,
   webSearchTool,
   knowledgeBaseSearchTool,
   signalQueryTool,
@@ -104,6 +109,10 @@ export {
   runScanTool,
   queryPatientsTool,
   queryAppointmentsTool,
+  createPatientTool,
+  bookAppointmentTool,
+  cancelAppointmentTool,
+  logClinikoNoteTool,
   getClinicOverviewTool,
   invokeSpecialistTool,
 };

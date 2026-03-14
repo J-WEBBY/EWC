@@ -337,12 +337,12 @@ export async function getClinikoClient(): Promise<ClinikoClient | null> {
   const supabase = createSovereignClient();
   const { data } = await supabase
     .from('cliniko_config')
-    .select('api_key_encrypted, shard, is_connected')
+    .select('api_key, shard, is_active')
     .single();
 
-  if (!data?.api_key_encrypted || !data.is_connected) return null;
+  if (!data?.api_key || !data.is_active) return null;
 
-  return new ClinikoClient(data.api_key_encrypted, data.shard ?? 'uk1');
+  return new ClinikoClient(data.api_key, data.shard ?? 'uk1');
 }
 
 export async function getClinikoConfig(): Promise<ClinikoConfig | null> {

@@ -1,35 +1,66 @@
 'use client';
 
 // =============================================================================
-// Integrations Page — Data connection control centre
-// Light design system — #F8FAFF base.
+// Integrations Page — Connected Systems
+// Design system: #F8FAFF base, EWC brand colours, no white panels.
 // =============================================================================
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Database, Users, Calendar, PoundSterling, Activity,
-  Eye, EyeOff, Link2, Unplug, RefreshCw,
-  CheckCircle2, AlertTriangle, Clock, Loader2,
-  Phone, MessageSquare, CreditCard, Zap, Mail,
-  ArrowUpRight, type LucideIcon,
+  Database,
+  Phone,
+  MessageSquare,
+  CreditCard,
+  Eye,
+  EyeOff,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  ExternalLink,
+  Link2,
+  Unplug,
+  RefreshCw,
+  Shield,
 } from 'lucide-react';
 import OrbLoader from '@/components/orb-loader';
-import {
-  getClinikoStatus, saveClinikoConfig, triggerFullSync, clearAndResync,
-  getSyncLogs, disconnectCliniko, getClinikoStats,
-} from '@/lib/actions/cliniko';
-import {
-  getStaffProfile, getCurrentUser, type StaffProfile,
-} from '@/lib/actions/staff-onboarding';
 import { StaffNav } from '@/components/staff-nav';
+import {
+  getCurrentUser,
+  getStaffProfile,
+  type StaffProfile,
+} from '@/lib/actions/staff-onboarding';
+import {
+  getClinikoStatus,
+  saveClinikoConfig,
+  disconnectCliniko,
+  getClinikoStats,
+} from '@/lib/actions/cliniko';
+
+// =============================================================================
+// DESIGN TOKENS
+// =============================================================================
+
+const BG     = '#F8FAFF';
+const NAVY   = '#181D23';
+const SEC    = '#3D4451';
+const TER    = '#5A6475';
+const MUTED  = '#96989B';
+const BORDER = '#D4E2FF';
+const BLUE   = '#0058E6';
+const GOLD   = '#D8A600';
+const TEAL   = '#00A693';
+const PURPLE = '#7C3AED';
+const GREEN  = '#059669';
+const ORANGE = '#EA580C';
+const RED    = '#DC2626';
 
 // =============================================================================
 // TYPES
 // =============================================================================
 
-interface ClinikoStatus {
+interface ClinikoStatusType {
   isConnected: boolean;
   shard: string | null;
   lastSyncAt: string | null;
@@ -37,106 +68,15 @@ interface ClinikoStatus {
   syncError: string | null;
 }
 
-interface ClinikoStats {
+interface ClinikoStatsType {
   patients: number;
   appointments: number;
   appointments_upcoming: number;
+  appointments_this_month: number;
   invoices: number;
   revenue_outstanding: number;
   practitioners: number;
 }
-
-interface SyncLog {
-  id: string;
-  sync_type: string;
-  status: string;
-  records_synced: number;
-  records_failed: number;
-  error_message: string | null;
-  started_at: string;
-  completed_at: string | null;
-}
-
-interface SyncMessage {
-  success: boolean;
-  message: string;
-  patients?: number;
-  appointments?: number;
-  invoices?: number;
-}
-
-type CatalogStatus = 'live' | 'pending' | 'planned';
-
-interface CatalogItem {
-  id: string;
-  name: string;
-  category: string;
-  description: string;
-  icon: LucideIcon;
-  status: CatalogStatus;
-  statusLabel: string;
-}
-
-// =============================================================================
-// CATALOG — non-Cliniko integrations
-// =============================================================================
-
-const CATALOG: CatalogItem[] = [
-  {
-    id: 'vapi',
-    name: 'Vapi.ai',
-    category: 'Voice',
-    description: 'Komal — AI receptionist. Answers every call, identifies returning patients, captures leads, and books appointments 24/7.',
-    icon: Phone,
-    status: 'pending',
-    statusLabel: 'Built — awaiting phone number',
-  },
-  {
-    id: 'twilio',
-    name: 'Twilio',
-    category: 'SMS',
-    description: 'Automated SMS for appointment reminders, payment links, post-treatment follow-ups, and rebooking nudges.',
-    icon: MessageSquare,
-    status: 'planned',
-    statusLabel: 'Planned — Week 2',
-  },
-  {
-    id: 'stripe',
-    name: 'Stripe / GoCardless',
-    category: 'Payments',
-    description: 'Collect deposits, take card payments, send invoice payment links, and manage recurring treatment plans.',
-    icon: CreditCard,
-    status: 'planned',
-    statusLabel: 'Planned — Week 2',
-  },
-  {
-    id: 'n8n',
-    name: 'n8n',
-    category: 'Automation',
-    description: 'Multi-step workflow automation: missed call recovery, review requests, retention sequences, and morning briefings.',
-    icon: Zap,
-    status: 'planned',
-    statusLabel: 'Planned — Week 2',
-  },
-  {
-    id: 'openai',
-    name: 'OpenAI',
-    category: 'Embeddings',
-    description: 'Vector embeddings for the knowledge base. Semantic search across treatment protocols, FAQs, and clinical notes.',
-    icon: Database,
-    status: 'live',
-    statusLabel: 'Active',
-  },
-  {
-    id: 'mailchimp',
-    name: 'Mailchimp',
-    category: 'Email',
-    description: 'Sync patient segments for email campaigns, treatment newsletters, and post-treatment education sequences.',
-    icon: Mail,
-    status: 'planned',
-    statusLabel: 'Planned — Week 2',
-  },
-];
 
 // =============================================================================
 // HELPERS
@@ -153,125 +93,143 @@ function timeSince(ts: string | null): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-function formatTime(ts: string | null): string {
-  if (!ts) return '—';
-  try { return new Date(ts).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); }
-  catch { return '—'; }
-}
-
-function formatCurrency(n: number): string {
-  return `£${n.toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-}
-
 // =============================================================================
-// STATUS BADGE
+// STATUS PILL
 // =============================================================================
 
-function StatusBadge({ status, label }: { status: CatalogStatus; label: string }) {
-  const styles: Record<CatalogStatus, React.CSSProperties> = {
-    live:    { backgroundColor: 'rgba(5,150,105,0.10)', border: '1px solid rgba(5,150,105,0.25)', color: '#059669' },
-    pending: { backgroundColor: 'rgba(217,119,6,0.10)', border: '1px solid rgba(217,119,6,0.25)', color: '#D8A600' },
-    planned: { backgroundColor: 'rgba(0,88,230,0.06)', border: '1px solid #EBE5FF', color: '#96989B' },
-  };
+function ConnectedPill() {
   return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium tracking-wide" style={styles[status]}>
-      {label}
+    <span style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 4,
+      padding: '2px 8px',
+      borderRadius: 999,
+      fontSize: 10,
+      fontWeight: 600,
+      background: GREEN + '18',
+      border: '1px solid ' + GREEN + '30',
+      color: GREEN,
+    }}>
+      <span style={{ width: 5, height: 5, borderRadius: '50%', background: GREEN, display: 'inline-block' }} />
+      Connected
+    </span>
+  );
+}
+
+function NotConfiguredPill() {
+  return (
+    <span style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 4,
+      padding: '2px 8px',
+      borderRadius: 999,
+      fontSize: 10,
+      fontWeight: 600,
+      background: MUTED + '18',
+      border: '1px solid ' + MUTED + '30',
+      color: MUTED,
+    }}>
+      Not configured
     </span>
   );
 }
 
 // =============================================================================
-// SYNC LOG ROW
+// INTEGRATION CARD SHELL
 // =============================================================================
 
-function SyncLogRow({ log }: { log: SyncLog }) {
-  const statusColor: Record<string, string> = {
-    completed: '#059669', failed: '#DC2626', partial: '#D8A600', started: '#D8A600',
-  };
-  const color = statusColor[log.status] ?? '#96989B';
-  const typeLabels: Record<string, string> = {
-    full: 'Full sync', patients: 'Patients', appointments: 'Appointments',
-    invoices: 'Invoices', practitioners: 'Practitioners',
-  };
-
-  return (
-    <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 items-center py-2.5 last:border-0" style={{ borderBottom: '1px solid #EBE5FF' }}>
-      <div className="min-w-0">
-        <span className="text-[12px]" style={{ color: '#3D4451' }}>{typeLabels[log.sync_type] ?? log.sync_type}</span>
-        {log.error_message && <p className="text-[10px] truncate mt-0.5" style={{ color: '#DC2626' }}>{log.error_message}</p>}
-      </div>
-      <span className="text-[11px] font-medium" style={{ color }}>{log.status}</span>
-      <span className="text-[11px]" style={{ color: '#5A6475' }}>{log.records_synced > 0 ? `+${log.records_synced}` : '—'}</span>
-      <span className="text-[11px]" style={{ color: '#96989B' }}>{formatTime(log.started_at)}</span>
-    </div>
-  );
+interface CardShellProps {
+  accent: string;
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  statusPill: React.ReactNode;
+  description: string;
+  children: React.ReactNode;
+  colSpan2?: boolean;
 }
 
-// =============================================================================
-// STAT TILE
-// =============================================================================
-
-function StatTile({ label, value, sub, icon: Icon, delay }: { label: string; value: string; sub?: string; icon: LucideIcon; delay?: number }) {
+function CardShell({ accent, icon, title, subtitle, statusPill, description, children, colSpan2 }: CardShellProps) {
   return (
-    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: delay ?? 0 }}
-      className="rounded-xl p-5 flex flex-col gap-3" style={{ border: '1px solid #EBE5FF' }}>
-      <div className="flex items-center justify-between">
-        <span className="text-[8px] uppercase tracking-[0.28em] font-semibold" style={{ color: '#96989B' }}>{label}</span>
-        <Icon size={14} style={{ color: '#96989B' }} />
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      style={{
+        background: 'transparent',
+        border: '1px solid ' + BORDER,
+        borderRadius: 16,
+        padding: 24,
+        position: 'relative',
+        overflow: 'hidden',
+        gridColumn: colSpan2 ? 'span 2' : undefined,
+      }}
+    >
+      {/* Left accent strip */}
+      <div style={{
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        bottom: 0,
+        width: 3,
+        background: accent,
+        borderRadius: '16px 0 0 16px',
+      }} />
+
+      {/* Header row */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 16 }}>
+        <div style={{
+          width: 40,
+          height: 40,
+          borderRadius: 10,
+          background: accent + '18',
+          border: '1px solid ' + accent + '30',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}>
+          {icon}
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 15, fontWeight: 700, color: NAVY }}>{title}</span>
+            {statusPill}
+          </div>
+          <span style={{ fontSize: 11, color: MUTED }}>{subtitle}</span>
+        </div>
       </div>
-      <div>
-        <p className="text-[28px] font-black leading-none tracking-tight" style={{ color: '#1A1035' }}>{value}</p>
-        {sub && <p className="text-[11px] mt-1.5" style={{ color: '#5A6475' }}>{sub}</p>}
-      </div>
+
+      <p style={{ fontSize: 12, color: SEC, lineHeight: 1.6, marginBottom: 20 }}>{description}</p>
+
+      {children}
     </motion.div>
   );
 }
 
 // =============================================================================
-// CATALOG CARD
-// =============================================================================
-
-function CatalogCard({ item }: { item: CatalogItem }) {
-  const Icon = item.icon;
-  return (
-    <div className="rounded-xl p-5 flex flex-col gap-4" style={{ border: '1px solid #EBE5FF' }}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(0,88,230,0.08)', border: '1px solid #EBE5FF' }}>
-            <Icon size={15} style={{ color: '#5A6475' }} />
-          </div>
-          <div>
-            <p className="text-[13px] font-semibold" style={{ color: '#1A1035' }}>{item.name}</p>
-            <p className="text-[8px] uppercase tracking-[0.15em] mt-0.5" style={{ color: '#96989B' }}>{item.category}</p>
-          </div>
-        </div>
-        <StatusBadge status={item.status} label={item.statusLabel} />
-      </div>
-      <p className="text-[12px] leading-relaxed" style={{ color: '#5A6475' }}>{item.description}</p>
-    </div>
-  );
-}
-
-// =============================================================================
-// CLINIKO CONNECT FORM
+// CLINIKO — CONNECT FORM
 // =============================================================================
 
 function ClinikoConnectForm({ onConnected }: { onConnected: () => void }) {
-  const [apiKey, setApiKey] = useState('');
-  const [showKey, setShowKey] = useState(false);
+  const [apiKey, setApiKey]       = useState('');
+  const [shard, setShard]         = useState('uk1');
+  const [showKey, setShowKey]     = useState(false);
   const [connecting, setConnecting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError]         = useState<string | null>(null);
+  const [focused, setFocused]     = useState(false);
 
   const handleConnect = useCallback(async () => {
     if (!apiKey.trim()) { setError('API key is required'); return; }
     setConnecting(true);
     setError(null);
 
-    // Auto-detect shard from key suffix (e.g. -uk1, -au2)
+    // Auto-detect shard from key suffix if possible
     const match = apiKey.trim().match(/-([a-z]{2}\d+)$/);
-    const shard = match ? match[1] : 'uk1';
+    const detectedShard = match ? match[1] : shard;
 
-    const res = await saveClinikoConfig(apiKey.trim(), shard);
+    const res = await saveClinikoConfig(apiKey.trim(), detectedShard);
     setConnecting(false);
 
     if (res.success) {
@@ -279,188 +237,349 @@ function ClinikoConnectForm({ onConnected }: { onConnected: () => void }) {
     } else {
       setError(res.error ?? 'Connection failed. Check your API key and try again.');
     }
-  }, [apiKey, onConnected]);
+  }, [apiKey, shard, onConnected]);
 
   return (
-    <div className="space-y-5">
-      <p className="text-[13px] leading-relaxed max-w-lg" style={{ color: '#5A6475' }}>
-        Enter your Cliniko API key to begin syncing patient records, appointments, and invoices.
-        The shard is auto-detected from the key suffix (e.g.{' '}
-        <span className="font-mono" style={{ color: '#3D4451' }}>-uk1</span>).
-      </p>
-      <div className="space-y-2">
-        <label className="text-[8px] uppercase tracking-[0.28em] font-semibold" style={{ color: '#96989B' }}>Cliniko API Key</label>
-        <div className="flex items-center gap-2 px-3 py-3 rounded-xl transition-colors" style={{ border: '1px solid #EBE5FF', backgroundColor: '#F8FAFF' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* API Key input */}
+      <div>
+        <label style={{
+          display: 'block',
+          fontSize: 8,
+          fontWeight: 600,
+          letterSpacing: '0.28em',
+          textTransform: 'uppercase',
+          color: MUTED,
+          marginBottom: 6,
+        }}>
+          Cliniko API Key
+        </label>
+        <div style={{
+          position: 'relative',
+          height: 44,
+          borderRadius: 10,
+          border: focused ? '1.5px solid ' + NAVY : '1.5px solid ' + BORDER,
+          background: BG,
+          transition: 'border-color 0.2s',
+          display: 'flex',
+          alignItems: 'center',
+        }}>
           <input
             type={showKey ? 'text' : 'password'}
             value={apiKey}
             onChange={e => setApiKey(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') handleConnect(); }}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
             placeholder="Paste your Cliniko API key..."
-            className="flex-1 bg-transparent text-[13px] outline-none font-mono"
-            style={{ color: '#1A1035' }}
+            style={{
+              flex: 1,
+              height: '100%',
+              background: 'transparent',
+              border: 'none',
+              outline: 'none',
+              fontSize: 13,
+              color: NAVY,
+              fontFamily: 'monospace',
+              padding: '0 40px 0 12px',
+            }}
           />
-          <button onClick={() => setShowKey(v => !v)} className="transition-colors flex-shrink-0" style={{ color: '#96989B' }}>
+          <button
+            type="button"
+            onClick={() => setShowKey(v => !v)}
+            style={{
+              position: 'absolute',
+              right: 12,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: MUTED,
+              display: 'flex',
+              alignItems: 'center',
+            }}
+          >
             {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
           </button>
         </div>
       </div>
+
+      {/* Shard selector */}
+      <div>
+        <label style={{
+          display: 'block',
+          fontSize: 8,
+          fontWeight: 600,
+          letterSpacing: '0.28em',
+          textTransform: 'uppercase',
+          color: MUTED,
+          marginBottom: 6,
+        }}>
+          Region / Shard
+        </label>
+        <select
+          value={shard}
+          onChange={e => setShard(e.target.value)}
+          style={{
+            width: '100%',
+            height: 44,
+            borderRadius: 10,
+            border: '1.5px solid ' + BORDER,
+            background: BG,
+            color: NAVY,
+            fontSize: 13,
+            padding: '0 12px',
+            outline: 'none',
+            cursor: 'pointer',
+          }}
+        >
+          <option value="uk1">UK (uk1)</option>
+          <option value="au1">Australia (au1)</option>
+          <option value="us1">United States (us1)</option>
+        </select>
+      </div>
+
+      {/* Error message */}
       <AnimatePresence>
         {error && (
-          <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className="flex items-start gap-2.5 px-3 py-2.5 rounded-lg" style={{ backgroundColor: 'rgba(220,38,38,0.05)', border: '1px solid rgba(220,38,38,0.20)' }}>
-            <AlertTriangle size={13} className="mt-0.5 flex-shrink-0" style={{ color: '#DC2626' }} />
-            <p className="text-[12px]" style={{ color: '#DC2626' }}>{error}</p>
+          <motion.div
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 8,
+              padding: '10px 12px',
+              borderRadius: 8,
+              background: RED + '0d',
+              border: '1px solid ' + RED + '30',
+            }}
+          >
+            <AlertCircle size={13} color={RED} style={{ flexShrink: 0, marginTop: 1 }} />
+            <p style={{ fontSize: 12, color: RED, margin: 0 }}>{error}</p>
           </motion.div>
         )}
       </AnimatePresence>
-      <button onClick={handleConnect} disabled={connecting || !apiKey.trim()}
-        className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-[13px] font-semibold transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-        style={{ backgroundColor: 'rgba(0,88,230,0.08)', border: '1px solid rgba(0,88,230,0.25)', color: '#181D23' }}>
-        {connecting ? <><Loader2 size={14} className="animate-spin" /> Connecting…</> : <><Link2 size={14} /> Connect Cliniko</>}
+
+      {/* Connect button */}
+      <button
+        onClick={handleConnect}
+        disabled={connecting || !apiKey.trim()}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 8,
+          height: 44,
+          borderRadius: 10,
+          background: BLUE + '18',
+          border: '1px solid ' + BLUE + '40',
+          color: NAVY,
+          fontSize: 13,
+          fontWeight: 600,
+          cursor: connecting || !apiKey.trim() ? 'not-allowed' : 'pointer',
+          opacity: connecting || !apiKey.trim() ? 0.5 : 1,
+          transition: 'opacity 0.2s',
+        }}
+      >
+        {connecting
+          ? <><Loader2 size={14} className="animate-spin" /> Connecting...</>
+          : <><Link2 size={14} /> Connect Cliniko</>
+        }
       </button>
     </div>
   );
 }
 
 // =============================================================================
-// CLINIKO CONNECTED PANEL
+// CLINIKO — CONNECTED PANEL
 // =============================================================================
 
 function ClinikoConnectedPanel({
-  status, stats, syncLogs, syncing, clearing, syncMsg, onSync, onClearResync, onDisconnect,
+  status,
+  stats,
+  onDisconnect,
+  disconnecting,
 }: {
-  status: ClinikoStatus;
-  stats: ClinikoStats | null;
-  syncLogs: SyncLog[];
-  syncing: boolean;
-  clearing: boolean;
-  syncMsg: SyncMessage | null;
-  onSync: () => void;
-  onClearResync: () => void;
+  status: ClinikoStatusType;
+  stats: ClinikoStatsType | null;
   onDisconnect: () => void;
+  disconnecting: boolean;
 }) {
-  const displayLogs = syncLogs.filter(l => l.status !== 'started').slice(0, 6);
-  const isFirstSync = !stats || stats.patients === 0;
-
   return (
-    <div className="space-y-6">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* Status row */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="relative flex-shrink-0">
-            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#059669' }} />
-            <motion.div className="absolute inset-0 rounded-full" style={{ backgroundColor: '#059669' }}
-              animate={{ scale: [1, 2.5, 1], opacity: [0.5, 0, 0.5] }} transition={{ duration: 2.5, repeat: Infinity }} />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ position: 'relative', width: 8, height: 8, flexShrink: 0 }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: GREEN }} />
+            <motion.div
+              style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: GREEN }}
+              animate={{ scale: [1, 2.5, 1], opacity: [0.5, 0, 0.5] }}
+              transition={{ duration: 2.5, repeat: Infinity }}
+            />
           </div>
           <div>
-            <p className="text-[13px] font-semibold" style={{ color: '#1A1035' }}>Connected</p>
-            <p className="text-[11px]" style={{ color: '#5A6475' }}>
-              Shard: <span className="font-mono">{status.shard ?? 'uk1'}</span>
-              {status.lastSyncAt && <> · Last sync: {timeSince(status.lastSyncAt)}</>}
+            <p style={{ fontSize: 13, fontWeight: 600, color: NAVY, margin: 0 }}>Live connection</p>
+            <p style={{ fontSize: 11, color: TER, margin: 0 }}>
+              Shard: <span style={{ fontFamily: 'monospace' }}>{status.shard ?? 'uk1'}</span>
+              {status.lastSyncAt && <> · Last tested: {timeSince(status.lastSyncAt)}</>}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1.5 text-[11px]" style={{ color: '#96989B' }}>
-            <Activity size={11} /> Auto-sync daily at 2am
-          </div>
-          <button onClick={onDisconnect}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] transition-all"
-            style={{ color: '#DC2626', border: '1px solid rgba(220,38,38,0.20)' }}
-            onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(220,38,38,0.05)')}
-            onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}>
-            <Unplug size={11} /> Disconnect
-          </button>
-        </div>
+
+        <button
+          onClick={onDisconnect}
+          disabled={disconnecting}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '6px 12px',
+            borderRadius: 8,
+            background: RED + '0d',
+            border: '1px solid ' + RED + '30',
+            color: RED,
+            fontSize: 11,
+            fontWeight: 600,
+            cursor: disconnecting ? 'not-allowed' : 'pointer',
+            opacity: disconnecting ? 0.5 : 1,
+            transition: 'opacity 0.2s',
+          }}
+        >
+          {disconnecting ? <Loader2 size={11} className="animate-spin" /> : <Unplug size={11} />}
+          {disconnecting ? 'Disconnecting...' : 'Disconnect'}
+        </button>
       </div>
 
-      {/* First-sync CTA */}
-      {isFirstSync && (
-        <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
-          className="flex items-start gap-4 p-4 rounded-xl" style={{ border: '1px solid #EBE5FF' }}>
-          <Database size={14} className="mt-0.5 flex-shrink-0" style={{ color: '#96989B' }} />
-          <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-semibold" style={{ color: '#1A1035' }}>Ready for first sync</p>
-            <p className="text-[12px] mt-0.5" style={{ color: '#5A6475' }}>
-              Run a full sync to import all patients, appointments, and invoices from Cliniko.
-            </p>
-          </div>
-          <button onClick={onSync} disabled={syncing}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-[12px] font-semibold transition-all disabled:opacity-40 flex-shrink-0"
-            style={{ backgroundColor: 'rgba(0,88,230,0.08)', border: '1px solid rgba(0,88,230,0.25)', color: '#181D23' }}>
-            {syncing ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-            {syncing ? 'Syncing…' : 'Run First Sync'}
-          </button>
-        </motion.div>
-      )}
-
-      {/* Stat tiles */}
-      {stats && stats.patients > 0 && (
-        <div className="grid grid-cols-4 gap-3">
-          <StatTile label="Patients"      value={stats.patients.toLocaleString()}              sub="In Cliniko"   icon={Users}         delay={0.05} />
-          <StatTile label="Upcoming"      value={stats.appointments_upcoming.toLocaleString()} sub="Appointments" icon={Calendar}      delay={0.1}  />
-          <StatTile label="Outstanding"   value={stats.revenue_outstanding > 0 ? formatCurrency(stats.revenue_outstanding) : '£0'} sub={`${stats.invoices} invoices`} icon={PoundSterling} delay={0.15} />
-          <StatTile label="Practitioners" value={stats.practitioners.toLocaleString()}         sub="Active"       icon={Activity}      delay={0.2}  />
+      {/* Stats row */}
+      {stats && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+          {[
+            { label: 'Patients', value: stats.patients.toLocaleString() },
+            { label: 'Appointments', value: stats.appointments.toLocaleString() },
+            { label: 'Practitioners', value: stats.practitioners.toLocaleString() },
+          ].map(({ label, value }) => (
+            <div
+              key={label}
+              style={{
+                padding: '12px 14px',
+                borderRadius: 10,
+                border: '1px solid ' + BORDER,
+                background: 'transparent',
+              }}
+            >
+              <p style={{ fontSize: 8, fontWeight: 600, letterSpacing: '0.28em', textTransform: 'uppercase', color: MUTED, margin: '0 0 6px' }}>
+                {label}
+              </p>
+              <p style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.03em', color: NAVY, margin: 0 }}>
+                {value}
+              </p>
+            </div>
+          ))}
         </div>
       )}
 
-      {/* Sync controls */}
-      {!isFirstSync && (
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-[12px]" style={{ color: '#5A6475' }}>
-            <Clock size={12} />
-            {status.lastSyncAt ? `Last sync: ${timeSince(status.lastSyncAt)}` : 'No sync yet'}
-            {status.lastSyncStatus === 'completed' && <span style={{ color: '#059669' }}> · Success</span>}
-            {status.lastSyncStatus === 'partial'   && <span style={{ color: '#D8A600' }}> · Partial</span>}
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={onSync} disabled={syncing || clearing}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-[12px] font-medium transition-all disabled:opacity-30"
-              style={{ border: '1px solid #EBE5FF', color: '#3D4451' }}
-              onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(0,88,230,0.05)')}
-              onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}>
-              {syncing ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-              {syncing ? 'Syncing…' : 'Sync Now'}
-            </button>
-            <button onClick={onClearResync} disabled={syncing || clearing}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-[12px] font-semibold transition-all disabled:opacity-30"
-              style={{ backgroundColor: 'rgba(0,88,230,0.08)', border: '1px solid rgba(0,88,230,0.25)', color: '#181D23' }}>
-              {clearing ? <Loader2 size={12} className="animate-spin" /> : <Database size={12} />}
-              {clearing ? 'Clearing & syncing…' : 'Clear & Full Sync'}
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Note */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: 8,
+        padding: '10px 12px',
+        borderRadius: 8,
+        background: BLUE + '08',
+        border: '1px solid ' + BLUE + '20',
+      }}>
+        <Shield size={13} color={BLUE} style={{ flexShrink: 0, marginTop: 1 }} />
+        <p style={{ fontSize: 11, color: SEC, margin: 0, lineHeight: 1.5 }}>
+          Agents read patient records, appointments, and practitioner schedules directly from Cliniko in real time — no local cache. All data stays in your Cliniko account.
+        </p>
+      </div>
+    </div>
+  );
+}
 
-      {/* Sync result */}
-      <AnimatePresence>
-        {syncMsg && (
-          <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg"
-            style={{
-              backgroundColor: syncMsg.success ? 'rgba(5,150,105,0.05)' : 'rgba(220,38,38,0.05)',
-              border:          syncMsg.success ? '1px solid rgba(5,150,105,0.20)' : '1px solid rgba(220,38,38,0.20)',
-              color:           syncMsg.success ? '#059669' : '#DC2626',
-            }}>
-            {syncMsg.success ? <CheckCircle2 size={13} className="flex-shrink-0" /> : <AlertTriangle size={13} className="flex-shrink-0" />}
-            <p className="text-[12px]">{syncMsg.message}</p>
-          </motion.div>
-        )}
-      </AnimatePresence>
+// =============================================================================
+// ENV-ONLY CARD (Vapi, Twilio, Stripe)
+// =============================================================================
 
-      {/* Sync log */}
-      {displayLogs.length > 0 && (
-        <div>
-          <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 pb-2 mb-1" style={{ borderBottom: '1px solid #EBE5FF' }}>
-            {['Sync type', 'Status', 'Records', 'Time'].map(h => (
-              <span key={h} className="text-[8px] uppercase tracking-[0.15em] font-semibold" style={{ color: '#96989B' }}>{h}</span>
+interface EnvCardProps {
+  accent: string;
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  description: string;
+  envVars: string[];
+  note?: string;
+}
+
+function EnvCard({ accent, icon, title, subtitle, description, envVars, note }: EnvCardProps) {
+  return (
+    <CardShell
+      accent={accent}
+      icon={icon}
+      title={title}
+      subtitle={subtitle}
+      statusPill={<NotConfiguredPill />}
+      description={description}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {/* Env vars list */}
+        <div style={{
+          padding: '12px 14px',
+          borderRadius: 10,
+          background: accent + '08',
+          border: '1px solid ' + accent + '20',
+        }}>
+          <p style={{ fontSize: 8, fontWeight: 600, letterSpacing: '0.28em', textTransform: 'uppercase', color: MUTED, margin: '0 0 8px' }}>
+            Required env vars
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {envVars.map(v => (
+              <code key={v} style={{ fontSize: 11, fontFamily: 'monospace', color: SEC, display: 'block' }}>
+                {v}
+              </code>
             ))}
           </div>
-          {displayLogs.map(log => <SyncLogRow key={log.id} log={log} />)}
         </div>
-      )}
-    </div>
+
+        {note && (
+          <p style={{ fontSize: 11, color: TER, margin: 0, lineHeight: 1.5 }}>{note}</p>
+        )}
+
+        {/* Ghost button */}
+        <button
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+            height: 36,
+            borderRadius: 8,
+            background: 'transparent',
+            border: '1px solid ' + BORDER,
+            color: SEC,
+            fontSize: 12,
+            fontWeight: 600,
+            cursor: 'pointer',
+            transition: 'border-color 0.2s, color 0.2s',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.borderColor = accent + '60';
+            e.currentTarget.style.color = NAVY;
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.borderColor = BORDER;
+            e.currentTarget.style.color = SEC;
+          }}
+        >
+          <ExternalLink size={12} />
+          View Setup Guide
+        </button>
+      </div>
+    </CardShell>
   );
 }
 
@@ -470,113 +589,64 @@ function ClinikoConnectedPanel({
 
 export default function IntegrationsPage() {
   const router = useRouter();
-  const [profile, setProfile]       = useState<StaffProfile | null>(null);
-  const [userId, setUserId]         = useState<string | null>(null);
-  const [loading, setLoading]       = useState(true);
-  const [clinikoStatus, setClinikoStatus] = useState<ClinikoStatus | null>(null);
-  const [stats, setStats]           = useState<ClinikoStats | null>(null);
-  const [syncLogs, setSyncLogs]     = useState<SyncLog[]>([]);
-  const [syncing, setSyncing]       = useState(false);
-  const [clearing, setClearing]     = useState(false);
-  const [syncMsg, setSyncMsg]       = useState<SyncMessage | null>(null);
+
+  const [profile, setProfile]             = useState<StaffProfile | null>(null);
+  const [userId, setUserId]               = useState<string | null>(null);
+  const [loading, setLoading]             = useState(true);
+  const [clinikoStatus, setClinikoStatus] = useState<ClinikoStatusType | null>(null);
+  const [clinikoStats, setClinikoStats]   = useState<ClinikoStatsType | null>(null);
+  const [disconnecting, setDisconnecting] = useState(false);
+  const [connectSuccess, setConnectSuccess] = useState(false);
 
   // ── Initial load ──
   useEffect(() => {
     (async () => {
-      const [userRes, statusRes] = await Promise.all([
-        getCurrentUser(),
+      const userRes = await getCurrentUser();
+      if (!userRes.success || !userRes.userId) {
+        router.push('/login');
+        return;
+      }
+      setUserId(userRes.userId);
+
+      const [profileRes, statusRes] = await Promise.all([
+        getStaffProfile('clinic', userRes.userId),
         getClinikoStatus(),
       ]);
 
-      if (userRes.success && userRes.userId) {
-        setUserId(userRes.userId);
-        const profileRes = await getStaffProfile('clinic', userRes.userId);
-        if (profileRes.success && profileRes.data) setProfile(profileRes.data.profile);
+      if (profileRes.success && profileRes.data) {
+        setProfile(profileRes.data.profile);
       }
 
       setClinikoStatus(statusRes);
 
       if (statusRes.isConnected) {
-        const [statsRes, logsRes] = await Promise.all([
-          getClinikoStats(),
-          getSyncLogs(10),
-        ]);
-        setStats(statsRes as ClinikoStats);
-        setSyncLogs(logsRes as SyncLog[]);
+        const statsRes = await getClinikoStats();
+        setClinikoStats(statsRes);
       }
 
       setLoading(false);
     })();
-  }, []);
-
-  // ── Refresh Cliniko data after connect / sync ──
-  const refreshCliniko = useCallback(async () => {
-    const [statusRes, statsRes, logsRes] = await Promise.all([
-      getClinikoStatus(),
-      getClinikoStats(),
-      getSyncLogs(10),
-    ]);
-    setClinikoStatus(statusRes);
-    setStats(statsRes as ClinikoStats);
-    setSyncLogs(logsRes as SyncLog[]);
-  }, []);
+  }, [router]);
 
   // ── After successful connect ──
   const handleConnected = useCallback(async () => {
-    await refreshCliniko();
-    setSyncMsg({
-      success: true,
-      message: 'Connected to Cliniko. Run your first sync to import patient data.',
-    });
-  }, [refreshCliniko]);
-
-  // ── Trigger incremental sync ──
-  const handleSync = useCallback(async () => {
-    setSyncing(true);
-    setSyncMsg(null);
-
-    const res = await triggerFullSync();
-    await refreshCliniko();
-
-    setSyncMsg({
-      success: res.success,
-      patients: res.patients,
-      appointments: res.appointments,
-      message: res.success
-        ? `Sync complete — ${res.patients.toLocaleString()} patients · ${res.appointments.toLocaleString()} appointments updated.`
-        : res.error ?? 'Sync failed. Check your connection and try again.',
-    });
-
-    setSyncing(false);
-  }, [refreshCliniko]);
-
-  // ── Clear all cached data + full resync from Cliniko ──
-  const handleClearAndResync = useCallback(async () => {
-    setClearing(true);
-    setSyncMsg(null);
-
-    const res = await clearAndResync();
-    await refreshCliniko();
-
-    setSyncMsg({
-      success: res.success,
-      patients: res.patients,
-      appointments: res.appointments,
-      message: res.success
-        ? `Full sync complete — ${res.patients.toLocaleString()} patients · ${res.appointments.toLocaleString()} appointments · ${res.invoices.toLocaleString()} invoices imported.`
-        : res.error ?? 'Full sync failed. Check your connection and try again.',
-    });
-
-    setClearing(false);
-  }, [refreshCliniko]);
+    const [statusRes, statsRes] = await Promise.all([
+      getClinikoStatus(),
+      getClinikoStats(),
+    ]);
+    setClinikoStatus(statusRes);
+    setClinikoStats(statsRes);
+    setConnectSuccess(true);
+    setTimeout(() => setConnectSuccess(false), 5000);
+  }, []);
 
   // ── Disconnect ──
   const handleDisconnect = useCallback(async () => {
+    setDisconnecting(true);
     await disconnectCliniko();
     setClinikoStatus(prev => prev ? { ...prev, isConnected: false } : null);
-    setStats(null);
-    setSyncLogs([]);
-    setSyncMsg(null);
+    setClinikoStats(null);
+    setDisconnecting(false);
   }, []);
 
   // ── Loading ──
@@ -584,91 +654,159 @@ export default function IntegrationsPage() {
     return <OrbLoader />;
   }
 
-  const brandColor = profile.brandColor ?? '#0058E6';
+  const brandColor = profile.brandColor ?? BLUE;
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#F8FAFF', paddingLeft: 'var(--nav-w, 240px)' }}>
-      <StaffNav profile={profile} userId={userId!} brandColor={brandColor} currentPath="Integrations" />
+    <div style={{ minHeight: '100vh', background: BG }}>
+      <StaffNav
+        profile={profile}
+        userId={userId!}
+        brandColor={brandColor}
+        currentPath="Integrations"
+      />
 
-      <main className="px-8 py-10">
+      <div style={{ paddingLeft: 240 }}>
+        <div style={{ maxWidth: 900, margin: '0 auto', padding: '48px 32px' }}>
 
-        {/* Header */}
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-10">
-          <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-1" style={{ color: '#96989B' }}>System</p>
-          <h1 className="text-[38px] font-black tracking-[-0.035em]" style={{ color: '#1A1035' }}>Integrations</h1>
-          <p className="text-[13px] mt-2 max-w-xl" style={{ color: '#5A6475' }}>
-            Connect external systems to sync patient data, automate workflows, and enrich the intelligence layer.
-          </p>
-        </motion.div>
-
-        {/* Cliniko — primary integration */}
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-          className="rounded-2xl p-6 mb-8" style={{ border: '1px solid #EBE5FF' }}>
-          <div className="flex items-start gap-4 mb-6">
-            <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(0,88,230,0.08)', border: '1px solid #EBE5FF' }}>
-              <Database size={18} style={{ color: '#5A6475' }} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-3 flex-wrap">
-                <h2 className="text-[15px] font-bold" style={{ color: '#1A1035' }}>Cliniko</h2>
-                <span className="text-[8px] uppercase tracking-[0.15em] font-semibold" style={{ color: '#96989B' }}>Patient Management</span>
-                {clinikoStatus?.isConnected && (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: 'rgba(5,150,105,0.10)', border: '1px solid rgba(5,150,105,0.25)', color: '#059669' }}>Live</span>
-                )}
-              </div>
-              <p className="text-[12px] mt-1 max-w-2xl" style={{ color: '#5A6475' }}>
-                Syncs patients, appointments, invoices, and practitioners into the EWC intelligence layer.
-                Powers patient recognition, appointment history, revenue signals, and Komal&apos;s real-time knowledge.
-              </p>
-            </div>
-            {!clinikoStatus?.isConnected && (
-              <div className="flex items-center gap-1.5 text-[11px] flex-shrink-0" style={{ color: '#96989B' }}>
-                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#C5BAF0' }} /> Disconnected
-              </div>
-            )}
+          {/* Header */}
+          <div style={{ marginBottom: 40 }}>
+            <p style={{
+              fontSize: 10,
+              fontWeight: 600,
+              letterSpacing: '0.28em',
+              textTransform: 'uppercase',
+              color: MUTED,
+              marginBottom: 8,
+              margin: '0 0 8px',
+            }}>
+              INTEGRATIONS
+            </p>
+            <h1 style={{
+              fontSize: 32,
+              fontWeight: 900,
+              color: NAVY,
+              letterSpacing: '-0.03em',
+              margin: '0 0 8px',
+            }}>
+              Connected Systems
+            </h1>
+            <p style={{ fontSize: 13, color: SEC, margin: 0 }}>
+              Manage API connections. Cliniko is the patient record system — all agents read and write directly to it in real time.
+            </p>
           </div>
 
-          <div className="mb-6" style={{ borderTop: '1px solid #EBE5FF' }} />
-
-          {clinikoStatus?.isConnected ? (
-            <ClinikoConnectedPanel status={clinikoStatus} stats={stats} syncLogs={syncLogs} syncing={syncing} clearing={clearing} syncMsg={syncMsg} onSync={handleSync} onClearResync={handleClearAndResync} onDisconnect={handleDisconnect} />
-          ) : (
-            <ClinikoConnectForm onConnected={handleConnected} />
-          )}
-        </motion.div>
-
-        {/* Other integrations */}
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}>
-          <div className="flex items-center justify-between mb-5">
-            <p className="text-[8px] uppercase tracking-[0.28em] font-semibold" style={{ color: '#96989B' }}>Other Connections</p>
-            <div className="flex items-center gap-1.5 text-[11px]" style={{ color: '#96989B' }}>
-              <Clock size={11} /> Week 2 roadmap
-            </div>
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            {CATALOG.map((item, i) => (
-              <motion.div key={item.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 + i * 0.04 }}>
-                <CatalogCard item={item} />
+          {/* Connect success banner */}
+          <AnimatePresence>
+            {connectSuccess && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  padding: '12px 16px',
+                  borderRadius: 10,
+                  background: GREEN + '0d',
+                  border: '1px solid ' + GREEN + '30',
+                  marginBottom: 24,
+                }}
+              >
+                <CheckCircle2 size={14} color={GREEN} />
+                <p style={{ fontSize: 13, color: GREEN, fontWeight: 600, margin: 0 }}>
+                  Cliniko connected successfully. Agents now have live access to patient data.
+                </p>
               </motion.div>
-            ))}
-          </div>
-        </motion.div>
+            )}
+          </AnimatePresence>
 
-        {/* Footer */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
-          className="mt-10 pt-8 flex items-center justify-between" style={{ borderTop: '1px solid #EBE5FF' }}>
-          <button onClick={() => router.push('/staff/dashboard')} className="text-[12px] transition-colors"
-            style={{ color: '#96989B' }}
-            onMouseEnter={e => (e.currentTarget.style.color = '#3D4451')}
-            onMouseLeave={e => (e.currentTarget.style.color = '#96989B')}>
-            ← Dashboard
-          </button>
-          <div className="flex items-center gap-1.5 text-[11px]" style={{ color: '#96989B' }}>
-            <ArrowUpRight size={11} /> api.uk1.cliniko.com
-          </div>
-        </motion.div>
+          {/* Grid */}
+          <div className="grid grid-cols-2 gap-6">
 
-      </main>
+            {/* Card 1: Cliniko (full width) */}
+            <CardShell
+              accent={BLUE}
+              icon={<Database size={18} color={BLUE} />}
+              title="Cliniko"
+              subtitle="Practice Management System"
+              statusPill={clinikoStatus?.isConnected ? <ConnectedPill /> : <NotConfiguredPill />}
+              description="Patient records, appointments, and practitioner schedules. Agents access Cliniko directly in real time — no local cache."
+              colSpan2
+            >
+              <AnimatePresence mode="wait">
+                {clinikoStatus?.isConnected ? (
+                  <motion.div key="connected" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                    <ClinikoConnectedPanel
+                      status={clinikoStatus}
+                      stats={clinikoStats}
+                      onDisconnect={handleDisconnect}
+                      disconnecting={disconnecting}
+                    />
+                  </motion.div>
+                ) : (
+                  <motion.div key="disconnected" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                    <ClinikoConnectForm onConnected={handleConnected} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </CardShell>
+
+            {/* Card 2: Vapi.ai */}
+            <EnvCard
+              accent={PURPLE}
+              icon={<Phone size={18} color={PURPLE} />}
+              title="Vapi.ai"
+              subtitle="AI Voice Receptionist"
+              description="Powers Komal — the AI voice receptionist. Handles inbound calls, books appointments, and routes to staff."
+              envVars={['VAPI_PRIVATE_KEY', 'NEXT_PUBLIC_VAPI_PUBLIC_KEY', 'NEXT_PUBLIC_APP_URL']}
+              note="Set these in Vercel environment variables, then provision Komal from the Receptionist page."
+            />
+
+            {/* Card 3: Twilio */}
+            <EnvCard
+              accent={ORANGE}
+              icon={<MessageSquare size={18} color={ORANGE} />}
+              title="Twilio"
+              subtitle="SMS & WhatsApp"
+              description="Patient reminders, follow-up messages, and appointment confirmations via SMS."
+              envVars={['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_PHONE_NUMBER']}
+              note="Set these in Vercel environment variables to enable SMS reminders and follow-up sequences."
+            />
+
+            {/* Card 4: Stripe */}
+            <EnvCard
+              accent={TEAL}
+              icon={<CreditCard size={18} color={TEAL} />}
+              title="Stripe"
+              subtitle="Payments"
+              description="Payment links, invoice collection, and revenue tracking for treatments and packages."
+              envVars={['STRIPE_SECRET_KEY', 'STRIPE_PUBLISHABLE_KEY', 'STRIPE_WEBHOOK_SECRET']}
+              note="Set these in Vercel environment variables to enable payment link generation and invoice collection."
+            />
+
+          </div>
+
+          {/* Footer */}
+          <div style={{
+            marginTop: 48,
+            paddingTop: 24,
+            borderTop: '1px solid ' + BORDER,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}>
+            <p style={{ fontSize: 11, color: MUTED, margin: 0 }}>
+              All API credentials are stored securely in Vercel environment variables and never exposed to the client.
+            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: MUTED }}>
+              <Shield size={11} />
+              End-to-end encrypted
+            </div>
+          </div>
+
+        </div>
+      </div>
     </div>
   );
 }
