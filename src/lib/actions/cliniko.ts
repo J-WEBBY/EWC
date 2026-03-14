@@ -7,7 +7,7 @@
 // =============================================================================
 
 import { createSovereignClient } from '@/lib/supabase/service';
-import { ClinikoClient } from '@/lib/cliniko/client';
+import { ClinikoClient, getClinikoClient } from '@/lib/cliniko/client';
 
 // =============================================================================
 // SAVE API KEY + TEST CONNECTION
@@ -235,6 +235,106 @@ export async function getSyncLogs(_limit = 20): Promise<{
   completed_at: string | null;
 }[]> {
   return [];
+}
+
+// =============================================================================
+// GET UPCOMING APPOINTMENTS — direct Cliniko API, for receptionist page
+// =============================================================================
+
+export interface LiveAppointment {
+  id: string;
+  starts_at: string;
+  ends_at: string;
+  appointment_type: string;
+  patient_name: string;
+  patient_id: string;
+  practitioner_id: string;
+  status: 'booked' | 'arrived' | 'cancelled' | 'did_not_arrive';
+  notes: string | null;
+}
+
+export async function getLiveAppointments(days = 14): Promise<{
+  appointments: LiveAppointment[];
+  clinikoConnected: boolean;
+}> {
+  try {
+    const client = await getClinikoClient();
+    if (!client) return { appointments: [], clinikoConnected: false };
+
+    const now = new Date();
+    const end = new Date(Date.now() + days * 86400000);
+
+    // Fetch all appointments + all patients in parallel
+    const [allAppts, allPatients] = await Promise.all([
+      client.getAppointments(undefined),
+      client.getPatients(undefined),
+    ]);
+
+    // Patient ID → full name lookup
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const patMap = new Map<string, string>((allPatients as any[]).map((p: any) => [
+      String(p.id),
+      [p.first_name, p.last_name].filter(Boolean).join(' '),
+    ]));
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const upcoming = (allAppts as any[])
+      .filter((a: any) => {
+        if (!a.starts_at) return false;
+        const d = new Date(a.starts_at);
+        return d >= now && d <= end && !a.cancelled_at;
+      })
+      .sort((a: any, b: any) => (a.starts_at ?? '').localeCompare(b.starts_at ?? ''))
+      .slice(0, 60);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const appointments: LiveAppointment[] = upcoming.map((a: any) => {
+      const patId   = a.patient_id ?? (a.patient?.links?.self ?? '').match(/\/(\d+)$/)?.[1] ?? '';
+      const practId = a.practitioner_id ?? (a.practitioner?.links?.self ?? '').match(/\/(\d+)$/)?.[1] ?? '';
+      return {
+        id:               String(a.id),
+        starts_at:        a.starts_at,
+        ends_at:          a.ends_at ?? '',
+        appointment_type: a.appointment_type_name ?? (a.appointment_type as { name?: string })?.name ?? 'Appointment',
+        patient_name:     patId ? (patMap.get(patId) ?? 'Patient') : 'Patient',
+        patient_id:       patId,
+        practitioner_id:  practId,
+        status:           a.did_not_arrive ? 'did_not_arrive'
+                        : a.patient_arrived ? 'arrived'
+                        : a.cancelled_at   ? 'cancelled'
+                        : 'booked',
+        notes:            a.notes ?? null,
+      };
+    });
+
+    return { appointments, clinikoConnected: true };
+  } catch (err) {
+    console.error('[cliniko] getLiveAppointments error:', err);
+    return { appointments: [], clinikoConnected: false };
+  }
+}
+
+// =============================================================================
+// SET RECEPTIONIST ACTIVE FLAG
+// =============================================================================
+
+export async function setReceptionistActive(active: boolean): Promise<{ success: boolean }> {
+  const supabase = createSovereignClient();
+  const { data } = await supabase.from('clinic_config').select('settings').single();
+  const current = (data?.settings as Record<string, unknown>) ?? {};
+  await supabase.from('clinic_config').update({
+    settings:   { ...current, vapi_active: active },
+    updated_at: new Date().toISOString(),
+  }).neq('id', '00000000-0000-0000-0000-000000000000');
+  return { success: true };
+}
+
+export async function getReceptionistActive(): Promise<boolean> {
+  const supabase = createSovereignClient();
+  const { data } = await supabase.from('clinic_config').select('settings').single();
+  const s = data?.settings as Record<string, unknown> | null;
+  // Default to true if never set
+  return s?.vapi_active !== false;
 }
 
 // Kept for backward compat — not used in direct-API mode
