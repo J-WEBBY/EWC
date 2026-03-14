@@ -169,11 +169,17 @@ async function getClinicSettings(): Promise<Record<string, unknown>> {
 
 async function patchClinicSettings(patch: Record<string, unknown>): Promise<void> {
   const db = createSovereignClient();
-  const current = await getClinicSettings();
-  await db.from('clinic_config').update({
-    settings:   { ...current, ...patch },
-    updated_at: new Date().toISOString(),
-  }).neq('id', '00000000-0000-0000-0000-000000000000');
+  const { data } = await db.from('clinic_config').select('id, settings').single();
+  const current = (data?.settings as Record<string, unknown>) ?? {};
+  const newSettings = { ...current, ...patch };
+  if (data?.id) {
+    await db.from('clinic_config').update({
+      settings:   newSettings,
+      updated_at: new Date().toISOString(),
+    }).eq('id', data.id);
+  } else {
+    await db.from('clinic_config').insert({ settings: newSettings });
+  }
 }
 
 // =============================================================================

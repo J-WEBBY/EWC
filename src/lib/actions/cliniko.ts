@@ -26,13 +26,19 @@ export async function saveClinikoConfig(
     }
 
     const supabase = createSovereignClient();
-    await supabase.from('cliniko_config').update({
+    const payload = {
       api_key:        apiKey,
       shard,
       is_active:      true,
       last_tested_at: new Date().toISOString(),
       updated_at:     new Date().toISOString(),
-    }).neq('id', '00000000-0000-0000-0000-000000000000');
+    };
+    const { data: existing } = await supabase.from('cliniko_config').select('id').single();
+    if (existing?.id) {
+      await supabase.from('cliniko_config').update(payload).eq('id', existing.id);
+    } else {
+      await supabase.from('cliniko_config').insert(payload);
+    }
 
     return { success: true, practitionerCount: test.practitionerCount };
   } catch (err) {
@@ -72,11 +78,14 @@ export async function getClinikoStatus(): Promise<{
 
 export async function disconnectCliniko(): Promise<{ success: boolean }> {
   const supabase = createSovereignClient();
-  await supabase.from('cliniko_config').update({
-    api_key:    null,
-    is_active:  false,
-    updated_at: new Date().toISOString(),
-  }).neq('id', '00000000-0000-0000-0000-000000000000');
+  const { data } = await supabase.from('cliniko_config').select('id').single();
+  if (data?.id) {
+    await supabase.from('cliniko_config').update({
+      api_key:    null,
+      is_active:  false,
+      updated_at: new Date().toISOString(),
+    }).eq('id', data.id);
+  }
   return { success: true };
 }
 
