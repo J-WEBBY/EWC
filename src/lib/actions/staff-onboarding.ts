@@ -1,6 +1,6 @@
 'use server';
 
-import { createSovereignClient, getSovereignTenantId } from '@/lib/supabase/service';
+import { createSovereignClient } from '@/lib/supabase/service';
 import { getAnthropicClient, ANTHROPIC_MODELS } from '@/lib/ai/anthropic';
 import { getAgentsForTenant } from '@/lib/actions/agent-service';
 import { getStaffSession } from '@/lib/supabase/tenant-context';
@@ -287,24 +287,17 @@ export async function getStaffProfile(
 
   try {
     const sovereign = createSovereignClient();
-    // Use the sovereign DB's own tenant UUID — NOT the platform DB UUID stored
-    // in the session cookie (those differ; sovereign DB is single-tenant).
-    const tenantId = await getSovereignTenantId();
-
-    const userQuery = sovereign
-      .from('users')
-      .select('id, first_name, last_name, email, job_title, department_id, role_id, is_admin, department:departments(id, name), role:roles(name)')
-      .eq('id', userId);
-    if (tenantId) userQuery.eq('tenant_id', tenantId);
-
-    const clinicQuery = sovereign
-      .from('clinic_config')
-      .select('clinic_name, ai_name, brand_color, logo_url');
-    if (tenantId) clinicQuery.eq('tenant_id', tenantId);
 
     const [userResult, clinicResult] = await Promise.all([
-      userQuery.single(),
-      clinicQuery.single(),
+      sovereign
+        .from('users')
+        .select('id, first_name, last_name, email, job_title, department_id, role_id, is_admin, department:departments(id, name), role:roles(name)')
+        .eq('id', userId)
+        .single(),
+      sovereign
+        .from('clinic_config')
+        .select('clinic_name, ai_name, brand_color, logo_url')
+        .single(),
     ]);
 
     const user = userResult.data;
@@ -318,13 +311,11 @@ export async function getStaffProfile(
     // Count teammates
     let teamSize = 0;
     if (user.department_id) {
-      const countQuery = sovereign
+      const { count } = await sovereign
         .from('users')
         .select('id', { count: 'exact', head: true })
         .eq('department_id', user.department_id)
         .neq('id', userId);
-      if (tenantId) countQuery.eq('tenant_id', tenantId);
-      const { count } = await countQuery;
       teamSize = count || 0;
     }
 

@@ -18,17 +18,3 @@ export function createSovereignClient() {
     }
   });
 }
-
-/**
- * getSovereignTenantId
- *
- * The sovereign DB is single-tenant — exactly one row in `tenants`.
- * The session stores the PLATFORM DB tenant UUID which differs from the
- * sovereign DB's own tenant UUID. Use this helper everywhere a sovereign
- * DB query needs to filter by tenant_id.
- */
-export async function getSovereignTenantId(): Promise<string | null> {
-  const db = createSovereignClient();
-  const { data } = await db.from('tenants').select('id').limit(1).single();
-  return data?.id ?? null;
-}

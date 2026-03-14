@@ -1,29 +1,20 @@
 'use server';
 
 // =============================================================================
-// Agent Service — Multi-tenant
-// All queries scoped to tenant_id from staff session.
+// Agent Service — Single-Tenant (no tenant_id)
 // =============================================================================
 
-import { createSovereignClient, getSovereignTenantId } from '@/lib/supabase/service';
-import { getStaffSession } from '@/lib/supabase/tenant-context';
+import { createSovereignClient } from '@/lib/supabase/service';
 import type { Agent } from '@/lib/types/database';
 
-// Backward compat alias — callers that import DBAgent get Agent
+// Backward compat alias
 export type DBAgent = Agent;
 
-// ---------------------------------------------------------------------------
-// getAgentsForTenant — filters by tenantId from session
-// ---------------------------------------------------------------------------
-
 export async function getAgentsForTenant(_tenantId?: string): Promise<Agent[]> {
-  const tenantId = await getSovereignTenantId();
-  if (!tenantId) return [];
   const db = createSovereignClient();
   const { data, error } = await db
     .from('agents')
     .select('*')
-    .eq('tenant_id', tenantId)
     .eq('is_active', true)
     .order('is_catch_all', { ascending: false })
     .order('created_at', { ascending: true });
@@ -35,29 +26,21 @@ export async function getAgentsForTenant(_tenantId?: string): Promise<Agent[]> {
   return (data || []) as Agent[];
 }
 
-// ---------------------------------------------------------------------------
-// getAgentByKey — supports old signature (tenantId, key) and new (key only)
-// ---------------------------------------------------------------------------
-
 export async function getAgentByKey(
   tenantIdOrKey: string,
   key?: string,
 ): Promise<Agent | null> {
   const agentKey = key ?? tenantIdOrKey;
-  const session = await getStaffSession();
-  const tenantId = session?.tenantId;
   const db = createSovereignClient();
-  let query = db.from('agents').select('*').eq('agent_key', agentKey);
-  if (tenantId) query = query.eq('tenant_id', tenantId);
-  const { data, error } = await query.single();
+  const { data, error } = await db
+    .from('agents')
+    .select('*')
+    .eq('agent_key', agentKey)
+    .single();
 
   if (error) return null;
   return data as Agent;
 }
-
-// ---------------------------------------------------------------------------
-// getAgentById
-// ---------------------------------------------------------------------------
 
 export async function getAgentById(agentId: string): Promise<Agent | null> {
   const db = createSovereignClient();
@@ -70,10 +53,6 @@ export async function getAgentById(agentId: string): Promise<Agent | null> {
   if (error) return null;
   return data as Agent;
 }
-
-// ---------------------------------------------------------------------------
-// incrementAgentSignalCount
-// ---------------------------------------------------------------------------
 
 export async function incrementAgentSignalCount(agentId: string): Promise<void> {
   const db = createSovereignClient();
@@ -91,24 +70,10 @@ export async function incrementAgentSignalCount(agentId: string): Promise<void> 
   }
 }
 
-// ---------------------------------------------------------------------------
-// updateAgentConfidence
-// ---------------------------------------------------------------------------
-
-export async function updateAgentConfidence(
-  agentId: string,
-  newScore: number,
-): Promise<void> {
+export async function updateAgentConfidence(agentId: string, newScore: number): Promise<void> {
   const db = createSovereignClient();
-  await db
-    .from('agents')
-    .update({ avg_confidence_score: newScore })
-    .eq('id', agentId);
+  await db.from('agents').update({ avg_confidence_score: newScore }).eq('id', agentId);
 }
-
-// ---------------------------------------------------------------------------
-// getAgentMemoriesByKey — fetch memories for an agent (called from client)
-// ---------------------------------------------------------------------------
 
 export interface AgentMemoryRecord {
   id: string;
@@ -124,17 +89,13 @@ export async function getAgentMemoriesByKey(
   agentKey: string,
   limit = 10,
 ): Promise<AgentMemoryRecord[]> {
-  const session = await getStaffSession();
-  const tenantId = session?.tenantId;
   const db = createSovereignClient();
-  let query = db
+  const { data, error } = await db
     .from('agent_memories')
     .select('*')
     .eq('agent_key', agentKey)
     .order('importance', { ascending: false })
     .limit(limit);
-  if (tenantId) query = query.eq('tenant_id', tenantId);
-  const { data, error } = await query;
 
   if (error) {
     console.error('[agent-service] getAgentMemoriesByKey error:', error);
@@ -142,10 +103,6 @@ export async function getAgentMemoriesByKey(
   }
   return (data || []) as AgentMemoryRecord[];
 }
-
-// ---------------------------------------------------------------------------
-// getAgentActivitySignals — signals created by this agent (for hub Activity tab)
-// ---------------------------------------------------------------------------
 
 export interface AgentSignalSummary {
   id: string;
@@ -162,24 +119,16 @@ export async function getAgentActivitySignals(
   agentKey: string,
   limit = 20,
 ): Promise<AgentSignalSummary[]> {
-  const session = await getStaffSession();
-  const tenantId = session?.tenantId;
   const db = createSovereignClient();
-
-  let agentQuery = db.from('agents').select('id').eq('agent_key', agentKey);
-  if (tenantId) agentQuery = agentQuery.eq('tenant_id', tenantId);
-  const { data: agent } = await agentQuery.single();
-
+  const { data: agent } = await db.from('agents').select('id').eq('agent_key', agentKey).single();
   if (!agent) return [];
 
-  let signalQuery = db
+  const { data, error } = await db
     .from('signals')
     .select('id, title, description, priority, status, signal_type, category, created_at')
     .eq('source_agent_id', agent.id)
     .order('created_at', { ascending: false })
     .limit(limit);
-  if (tenantId) signalQuery = signalQuery.eq('tenant_id', tenantId);
-  const { data, error } = await signalQuery;
 
   if (error) {
     console.error('[agent-service] getAgentActivitySignals error:', error);
@@ -187,10 +136,6 @@ export async function getAgentActivitySignals(
   }
   return (data || []) as AgentSignalSummary[];
 }
-
-// ---------------------------------------------------------------------------
-// getAgentConversations — recent conversations with this agent for a user
-// ---------------------------------------------------------------------------
 
 export interface AgentConversationSummary {
   id: string;
@@ -205,11 +150,8 @@ export async function getAgentConversations(
   userId: string,
   limit = 10,
 ): Promise<AgentConversationSummary[]> {
-  const session = await getStaffSession();
-  const tenantId = session?.tenantId;
   const db = createSovereignClient();
-
-  let query = db
+  const { data, error } = await db
     .from('chat_conversations')
     .select('id, title, message_count, created_at, updated_at')
     .eq('agent_scope', agentKey)
@@ -217,8 +159,6 @@ export async function getAgentConversations(
     .eq('is_archived', false)
     .order('updated_at', { ascending: false })
     .limit(limit);
-  if (tenantId) query = query.eq('tenant_id', tenantId);
-  const { data, error } = await query;
 
   if (error) {
     console.error('[agent-service] getAgentConversations error:', error);
@@ -227,12 +167,7 @@ export async function getAgentConversations(
   return (data || []) as AgentConversationSummary[];
 }
 
-// ---------------------------------------------------------------------------
-// upsertCategory — no-op in new schema (categories are on signals directly)
-// Accepts any args for backward compat with old callers
-// ---------------------------------------------------------------------------
-
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function upsertCategory(..._args: unknown[]): Promise<void> {
-  // No-op — new schema stores category as a text field on signals
+  // No-op — category stored as text on signals
 }
