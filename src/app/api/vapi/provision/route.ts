@@ -17,10 +17,9 @@ import { buildKomalPrompt } from '@/lib/vapi/komal-prompt';
 import { buildKomalToolDefinitions } from '@/lib/vapi/tool-registry';
 import { createSovereignClient } from '@/lib/supabase/service';
 
-const VAPI_BASE   = 'https://api.vapi.ai';
-const PRIVATE_KEY = process.env.VAPI_PRIVATE_KEY ?? '';
-const APP_URL     = (process.env.NEXT_PUBLIC_APP_URL ?? '').trim().replace(/\/$/, '');
-const WEBHOOK_URL = APP_URL ? `${APP_URL}/api/vapi/webhook` : undefined;
+const VAPI_BASE      = 'https://api.vapi.ai';
+const APP_URL        = (process.env.NEXT_PUBLIC_APP_URL ?? '').trim().replace(/\/$/, '');
+const WEBHOOK_URL    = APP_URL ? `${APP_URL}/api/vapi/webhook` : undefined;
 const WEBHOOK_SECRET = process.env.VAPI_WEBHOOK_SECRET ?? '';
 
 // ---------------------------------------------------------------------------
@@ -71,9 +70,9 @@ const DEEPGRAM_TRANSCRIBER = {
 // HTTP helpers
 // ---------------------------------------------------------------------------
 
-async function vapiGet(path: string) {
+async function vapiGet(path: string, key: string) {
   const res = await fetch(`${VAPI_BASE}${path}`, {
-    headers: { Authorization: `Bearer ${PRIVATE_KEY}` },
+    headers: { Authorization: `Bearer ${key}` },
     cache: 'no-store',
   });
   const text = await res.text();
@@ -81,10 +80,10 @@ async function vapiGet(path: string) {
   return JSON.parse(text);
 }
 
-async function vapiPatch(path: string, body: object) {
+async function vapiPatch(path: string, body: object, key: string) {
   const res = await fetch(`${VAPI_BASE}${path}`, {
     method: 'PATCH',
-    headers: { Authorization: `Bearer ${PRIVATE_KEY}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
     cache: 'no-store',
   });
@@ -93,10 +92,10 @@ async function vapiPatch(path: string, body: object) {
   return JSON.parse(text);
 }
 
-async function vapiPost(path: string, body: object) {
+async function vapiPost(path: string, body: object, key: string) {
   const res = await fetch(`${VAPI_BASE}${path}`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${PRIVATE_KEY}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
     cache: 'no-store',
   });
@@ -106,10 +105,10 @@ async function vapiPost(path: string, body: object) {
 }
 
 // Delete a Vapi assistant by ID — 404 is fine (already gone).
-async function vapiDelete(path: string): Promise<void> {
+async function vapiDelete(path: string, key: string): Promise<void> {
   const res = await fetch(`${VAPI_BASE}${path}`, {
     method: 'DELETE',
-    headers: { Authorization: `Bearer ${PRIVATE_KEY}` },
+    headers: { Authorization: `Bearer ${key}` },
     cache: 'no-store',
   });
   if (!res.ok && res.status !== 404) {
@@ -126,10 +125,10 @@ const OLD_ASSISTANT_NAMES = [
 ];
 
 // Remove old Squad assistants if they still exist in the account.
-async function cleanupOldAssistants(list: { id: string; name: string }[]): Promise<number> {
+async function cleanupOldAssistants(list: { id: string; name: string }[], key: string): Promise<number> {
   const stale = list.filter(a => OLD_ASSISTANT_NAMES.includes(a.name));
   if (stale.length === 0) return 0;
-  await Promise.all(stale.map(a => vapiDelete(`/assistant/${a.id}`)));
+  await Promise.all(stale.map(a => vapiDelete(`/assistant/${a.id}`, key)));
   return stale.length;
 }
 
@@ -138,13 +137,14 @@ async function upsertAssistant(
   name: string,
   payload: object,
   existingList: { id: string; name: string }[],
+  key: string,
 ): Promise<string> {
   const existing = existingList.find(a => a.name === name);
   if (existing) {
-    await vapiPatch(`/assistant/${existing.id}`, payload);
+    await vapiPatch(`/assistant/${existing.id}`, payload, key);
     return existing.id;
   }
-  const created = await vapiPost('/assistant', payload) as { id: string };
+  const created = await vapiPost('/assistant', payload, key) as { id: string };
   return created.id;
 }
 
@@ -153,9 +153,6 @@ async function upsertAssistant(
 // ---------------------------------------------------------------------------
 
 export async function POST(req: NextRequest) {
-  if (!PRIVATE_KEY) {
-    return NextResponse.json({ success: false, error: 'VAPI_PRIVATE_KEY not set' }, { status: 500 });
-  }
   if (!APP_URL) {
     return NextResponse.json({ success: false, error: 'NEXT_PUBLIC_APP_URL not set' }, { status: 500 });
   }
@@ -163,22 +160,30 @@ export async function POST(req: NextRequest) {
   await req.json().catch(() => null);
 
   try {
-    // 1. Read identity overrides and clinic name from clinic_config
+    // 1. Read clinic config + Vapi private key from DB
     const db = createSovereignClient();
     const { data: configData } = await db.from('clinic_config').select('clinic_name, settings').single();
     const clinicName = configData?.clinic_name ?? 'the clinic';
-    const savedIdentity = ((configData?.settings as Record<string, unknown>)?.receptionist ?? {}) as {
+    const settings = (configData?.settings as Record<string, unknown>) ?? {};
+    const vapiSettings = (settings.vapi as Record<string, string> | null) ?? {};
+    const privateKey = vapiSettings.private_key || process.env.VAPI_PRIVATE_KEY || '';
+
+    if (!privateKey) {
+      return NextResponse.json({ success: false, error: 'Vapi private key not configured. Go to Integrations → Vapi to add your API key.' }, { status: 500 });
+    }
+
+    const savedIdentity = (settings.receptionist ?? {}) as {
       voiceId?: string; firstMessage?: string; endCallMessage?: string;
     };
 
     // 2. List existing assistants
-    const listData = await vapiGet('/assistant?limit=100');
+    const listData = await vapiGet('/assistant?limit=100', privateKey);
     const assistantList: { id: string; name: string }[] = Array.isArray(listData)
       ? listData
       : Array.isArray(listData.results) ? listData.results : [];
 
     // 2a. Delete old Squad assistants — keeps Vapi account clean
-    const cleaned = await cleanupOldAssistants(assistantList);
+    const cleaned = await cleanupOldAssistants(assistantList, privateKey);
 
     // 3. Komal — single assistant, 8 tools (7 direct + ask_agent)
     // Pass webhook secret so Vapi includes x-vapi-secret on every tool call.
@@ -221,7 +226,7 @@ export async function POST(req: NextRequest) {
     };
 
     // 4. Upsert Komal
-    const komalId = await upsertAssistant('Komal — EWC Receptionist', komalPayload, assistantList);
+    const komalId = await upsertAssistant('Komal — EWC Receptionist', komalPayload, assistantList, privateKey);
 
     const action = assistantList.find(a => a.name === 'Komal — EWC Receptionist') ? 'updated' : 'created';
 
