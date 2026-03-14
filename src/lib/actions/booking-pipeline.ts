@@ -585,6 +585,21 @@ export async function getAvailabilitySummary(
   preferredTime?: string,
 ): Promise<string> {
   try {
+    const db = createSovereignClient();
+
+    // 0. Verify appointments cache is populated before trusting availability
+    const { data: syncConfig } = await db
+      .from('cliniko_config')
+      .select('is_active, last_synced_at')
+      .single();
+
+    const neverSynced = syncConfig?.is_active && !syncConfig?.last_synced_at;
+    if (neverSynced) {
+      // Cache is empty — giving availability would be misleading
+      const practNote = preferredPractitioner ? ` with ${preferredPractitioner}` : '';
+      return `I'd love to get you booked in${practNote}, but I can't verify the exact schedule at this moment. Let me take your details and our team will confirm your appointment within the hour — is that OK?`;
+    }
+
     // 1. Resolve starting date
     let targetDate: string;
     if (preferredDate) {
@@ -595,7 +610,6 @@ export async function getAvailabilitySummary(
     }
 
     // 2. Resolve practitioner (fuzzy match — handles ASR transcription errors)
-    const db = createSovereignClient();
     let practId: string | undefined;
     let practName: string | undefined;
     if (preferredPractitioner) {
@@ -653,12 +667,15 @@ export async function getAvailabilitySummary(
       ? `on ${formatDate(targetDate)}`
       : `— the soonest I have is ${formatDate(firstDate)}`;
 
+    // Prefix with full matched practitioner name so Komal can confirm it with the caller
+    const practConfirm = practName ? `[Practitioner matched: ${practName}] ` : '';
+
     if (results.length === 1 && firstSlots.length <= 2) {
       const times = firstSlots.map(s => formatTimeVoice(s.start_time)).join(' or ');
-      return `We have ${times}${practNote} available${treatNote} ${dayPhrase}. Does either of those suit you?`;
+      return `${practConfirm}We have ${times}${practNote} available${treatNote} ${dayPhrase}. Does either of those suit you?`;
     }
 
-    return `We have slots available${treatNote}${practNote} — I can offer ${offered.join(', or ')}. Which of those works best for you?`;
+    return `${practConfirm}We have slots available${treatNote}${practNote} — I can offer ${offered.join(', or ')}. Which of those works best for you?`;
 
   } catch (err) {
     console.error('[booking-pipeline] getAvailabilitySummary error:', err);
