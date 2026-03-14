@@ -18,9 +18,15 @@ import { buildKomalToolDefinitions } from '@/lib/vapi/tool-definitions';
 import { createSovereignClient } from '@/lib/supabase/service';
 
 const VAPI_BASE      = 'https://api.vapi.ai';
-const APP_URL        = (process.env.NEXT_PUBLIC_APP_URL ?? '').trim().replace(/\/$/, '');
-const WEBHOOK_URL    = APP_URL ? `${APP_URL}/api/vapi/webhook` : undefined;
 const WEBHOOK_SECRET = process.env.VAPI_WEBHOOK_SECRET ?? '';
+
+function resolveAppUrl(req: NextRequest): string {
+  // Prefer explicit env var. Fall back to deriving from the incoming request URL.
+  const envUrl = (process.env.NEXT_PUBLIC_APP_URL ?? '').trim().replace(/\/$/, '');
+  if (envUrl) return envUrl;
+  const { protocol, host } = req.nextUrl;
+  return `${protocol}//${host}`;
+}
 
 // ---------------------------------------------------------------------------
 // Model IDs
@@ -153,9 +159,8 @@ async function upsertAssistant(
 // ---------------------------------------------------------------------------
 
 export async function POST(req: NextRequest) {
-  if (!APP_URL) {
-    return NextResponse.json({ success: false, error: 'NEXT_PUBLIC_APP_URL not set' }, { status: 500 });
-  }
+  const APP_URL    = resolveAppUrl(req);
+  const WEBHOOK_URL = `${APP_URL}/api/vapi/webhook`;
 
   await req.json().catch(() => null);
 
@@ -222,7 +227,8 @@ export async function POST(req: NextRequest) {
         'take care goodbye', 'have a wonderful day goodbye', 'cheers bye',
         'speak soon', 'all the best', 'that\'s all I needed',
       ],
-      ...(WEBHOOK_URL ? { serverUrl: WEBHOOK_URL, serverUrlSecret: WEBHOOK_SECRET } : {}),
+      serverUrl: WEBHOOK_URL,
+      ...(WEBHOOK_SECRET ? { serverUrlSecret: WEBHOOK_SECRET } : {}),
     };
 
     // 4. Upsert Komal
@@ -238,7 +244,7 @@ export async function POST(req: NextRequest) {
       model:         HAIKU_MODEL,
       cleanedUp:     cleaned,
       message:       `Komal ${action} — ${komalTools.length} tools. ${cleaned > 0 ? `${cleaned} old Squad assistant(s) removed. ` : ''}Assign phone number to assistant ID: ${komalId} in Vapi dashboard.`,
-      webhook:       WEBHOOK_URL ?? 'not set',
+      webhook:       WEBHOOK_URL,
       brains:        { orion: 'sales_agent (acquisition)', aria: 'crm_agent (retention)' },
     });
 
