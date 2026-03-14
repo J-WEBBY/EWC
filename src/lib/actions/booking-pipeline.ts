@@ -587,15 +587,21 @@ export async function getAvailabilitySummary(
   try {
     const db = createSovereignClient();
 
-    // 0. Verify appointments cache is populated before trusting availability
-    const { data: syncConfig } = await db
-      .from('cliniko_config')
-      .select('is_active, last_synced_at')
-      .single();
+    // 0. Verify appointments cache is populated before trusting availability.
+    //    Check both: never-synced flag AND whether cliniko_appointments is empty.
+    //    An empty cache means all slots look free — we cannot prevent double-booking.
+    const [syncConfigRes, apptCountRes] = await Promise.all([
+      db.from('cliniko_config').select('is_active, last_synced_at').single(),
+      db.from('cliniko_appointments').select('id', { count: 'exact', head: true }),
+    ]);
 
-    const neverSynced = syncConfig?.is_active && !syncConfig?.last_synced_at;
-    if (neverSynced) {
-      // Cache is empty — giving availability would be misleading
+    const syncConfig    = syncConfigRes.data;
+    const apptCount     = apptCountRes.count ?? 0;
+    const neverSynced   = syncConfig?.is_active && !syncConfig?.last_synced_at;
+    const cacheEmpty    = apptCount === 0;          // no appointments cached at all
+
+    if (neverSynced || cacheEmpty) {
+      // Cache unreliable — cannot confirm or deny availability safely
       const practNote = preferredPractitioner ? ` with ${preferredPractitioner}` : '';
       return `I'd love to get you booked in${practNote}, but I can't verify the exact schedule at this moment. Let me take your details and our team will confirm your appointment within the hour — is that OK?`;
     }

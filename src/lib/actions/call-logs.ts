@@ -55,9 +55,12 @@ export interface CallStats {
 
 export async function getCallLogs(limit = 50): Promise<CallLog[]> {
   const db = createSovereignClient();
+
+  // Two separate queries — avoids aliased FK join failures when Supabase
+  // hasn't auto-detected the booking_request_id → booking_requests relationship.
   const { data, error } = await db
     .from('call_logs')
-    .select('*, booking_req:booking_request_id(status)')
+    .select('*')
     .order('created_at', { ascending: false })
     .limit(limit);
 
@@ -66,14 +69,28 @@ export async function getCallLogs(limit = 50): Promise<CallLog[]> {
     return [];
   }
 
-  // Flatten the joined booking_request status onto the row
-  return ((data ?? []) as (CallLog & { booking_req?: { status?: string } | null })[]).map(row => {
-    const { booking_req, ...rest } = row;
-    return {
-      ...rest,
-      booking_request_status: (booking_req?.status ?? null) as CallLog['booking_request_status'],
-    };
-  });
+  const rows = (data ?? []) as CallLog[];
+
+  // Enrich with booking_request status in a single batch query
+  const bookingIds = rows
+    .map(r => r.booking_request_id)
+    .filter((id): id is string => !!id);
+
+  let statusMap: Record<string, string> = {};
+  if (bookingIds.length > 0) {
+    const { data: bookings } = await db
+      .from('booking_requests')
+      .select('id, status')
+      .in('id', bookingIds);
+    for (const b of (bookings ?? [])) {
+      statusMap[b.id] = b.status;
+    }
+  }
+
+  return rows.map(row => ({
+    ...row,
+    booking_request_status: (statusMap[row.booking_request_id ?? ''] ?? null) as CallLog['booking_request_status'],
+  }));
 }
 
 export async function getCallLogById(id: string): Promise<CallLog | null> {
