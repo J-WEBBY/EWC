@@ -240,10 +240,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'no_business_id' });
     }
 
-    const serviceName = (booking.service ?? '').toLowerCase();
-    const apptType = apptTypes.find(t =>
-      t.name.toLowerCase().includes(serviceName) || serviceName.includes(t.name.toLowerCase()),
-    ) ?? apptTypes[0] ?? null;
+    const svc = (booking.service ?? '').toLowerCase();
+
+    // 1. Full string match
+    let apptType = apptTypes.find(t => t.name.toLowerCase().includes(svc) || svc.includes(t.name.toLowerCase()));
+
+    // 2. Word-by-word match
+    if (!apptType) {
+      const words = svc.split(/\s+/).filter((w: string) => w.length >= 3);
+      for (const word of words) {
+        apptType = apptTypes.find(t => t.name.toLowerCase().includes(word));
+        if (apptType) break;
+      }
+    }
+
+    // 3. Category heuristic
+    if (!apptType) {
+      const isWellness  = /\b(iv|drip|infusion|injection|vitamin|b12|biotin|nad|myers|glutathione|hydration|immunity|energy|fatigue|mental|weight|hormone|folic)\b/i.test(svc);
+      const isAesthetic = /\b(botox|filler|lip|cheek|jaw|nose|hifu|thread|peel|microneedling|prp|coolsculpt|cyst|scar|rf|laser)\b/i.test(svc);
+      if (isWellness) apptType = apptTypes.find(t => /\b(wellness|iv|therapy|drip|injection|vitamin|infusion)\b/i.test(t.name));
+      if (!apptType && isAesthetic) apptType = apptTypes.find(t => /\b(aesthetic|cosmetic|treatment)\b/i.test(t.name));
+    }
+
+    // 4. Last resort
+    apptType = apptType ?? apptTypes[0] ?? null;
 
     const apptTypeId = apptType ? String(apptType.id) : null;
     if (!apptTypeId) {

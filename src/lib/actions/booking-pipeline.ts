@@ -890,12 +890,39 @@ async function resolveAppointmentTypeId(
   if (!cliniko || !service) return null;
   try {
     const types = await cliniko.getAppointmentTypes();
-    const match = types.find(t =>
-      t.name.toLowerCase().includes(service.toLowerCase()) ||
-      service.toLowerCase().includes(t.name.toLowerCase()),
-    );
+    const s     = service.toLowerCase();
+
+    // 1. Full string match (original)
+    let match = types.find(t => t.name.toLowerCase().includes(s) || s.includes(t.name.toLowerCase()));
     if (match) return String(match.id);
-    // Return first type as default
+
+    // 2. Word-by-word match — "Vitamin C IV" → ["vitamin","c","iv"] → matches "IV Therapy"
+    const words = s.split(/\s+/).filter(w => w.length >= 3);
+    for (const word of words) {
+      match = types.find(t => t.name.toLowerCase().includes(word) || word.includes(t.name.toLowerCase()));
+      if (match) return String(match.id);
+    }
+
+    // 3. Category heuristic — map treatment category to a sensible Cliniko type
+    const isWellness  = /\b(iv|drip|infusion|injection|vitamin|b12|biotin|nad|myers|glutathione|hydration|immunity|energy|fatigue|mental|weight|hormone|folic|zinc)\b/i.test(service);
+    const isAesthetic = /\b(botox|filler|lip|cheek|jaw|nose|hifu|thread|peel|microneedling|prp|coolsculpt|cyst|scar|rf|laser)\b/i.test(service);
+    const isConsult   = /\b(consult|consultation|gp|screening|check|review|assessment)\b/i.test(service);
+
+    if (isWellness) {
+      match = types.find(t => /\b(wellness|iv|therapy|drip|injection|vitamin|infusion)\b/i.test(t.name));
+      if (match) return String(match.id);
+    }
+    if (isAesthetic) {
+      match = types.find(t => /\b(aesthetic|cosmetic|treatment|procedure)\b/i.test(t.name));
+      if (match) return String(match.id);
+    }
+    if (isConsult) {
+      match = types.find(t => /\b(consult|consultation|assessment)\b/i.test(t.name));
+      if (match) return String(match.id);
+    }
+
+    // 4. Last resort — first type (better than null so Cliniko write still goes through;
+    //    staff can adjust appointment type directly in Cliniko if wrong)
     return types.length > 0 ? String(types[0].id) : null;
   } catch {
     return null;
