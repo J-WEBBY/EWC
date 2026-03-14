@@ -1,14 +1,12 @@
 // =============================================================================
 // Vapi Tool: create_booking_request
 //
-// Minimal, reliable single-write to booking_requests.
-// No Cliniko queries, no signals insert, no agent_memories — webhook handles those.
-//
-// Must return within 6s (write tool timeout).
-// Return value is a SHORT, NATURAL conversational phrase — Komal speaks it directly.
+// Books directly into Cliniko during the call.
+// Checks availability first to prevent double-booking.
+// Falls back to a pending booking_request if Cliniko is not reachable.
 // =============================================================================
 
-import { createSovereignClient } from '@/lib/supabase/service';
+import { bookKomalAppointment } from '@/lib/actions/booking-pipeline';
 
 export async function createBookingRequest(args: {
   patient_name:            string;
@@ -22,68 +20,29 @@ export async function createBookingRequest(args: {
   referral_source?:        string;
   referral_name?:          string;
   notes?:                  string;
-  vapi_call_id?:           string;  // injected by tool route — links row to call for dedup
+  vapi_call_id?:           string;
 }): Promise<string> {
-  const {
-    patient_name, phone, email, treatment, preferred_date,
-    preferred_time, service_detail, preferred_practitioner,
-    referral_source, referral_name, notes, vapi_call_id,
-  } = args;
-
-  if (!patient_name || !phone || !treatment) {
-    return "I just need your name, phone number, and the treatment you're interested in to complete the booking request.";
+  if (!args.patient_name || !args.phone || !args.treatment) {
+    return "I just need your name, phone number, and the treatment you're interested in to complete the booking.";
   }
-
-  const ref = `BK-${Date.now().toString(36).toUpperCase()}`;
-
-  // Normalise referral_source — Haiku may capitalise or vary casing
-  const VALID_REFERRAL = new Set(['online','client_referral','practitioner_referral','social_media','walk_in','returning','other']);
-  const normReferral = referral_source?.toLowerCase().trim().replace(/\s+/g, '_') ?? '';
-  const safeReferral = VALID_REFERRAL.has(normReferral) ? normReferral : (referral_source ? 'other' : null);
 
   try {
-    const db = createSovereignClient();
-
-    // Dedup: if this call already has a booking row, return the confirmation phrase immediately.
-    // Komal may call this tool twice if the user talks over the confirmation — prevent double-insert.
-    if (vapi_call_id) {
-      const { data: existing } = await db
-        .from('booking_requests')
-        .select('id')
-        .eq('vapi_call_id', vapi_call_id)
-        .maybeSingle();
-      if (existing) {
-        return `Your ${treatment} booking is already confirmed, ${patient_name.split(' ')[0]}. We will be in touch at ${phone}. Was there anything else I can help with today?`;
-      }
-    }
-
-    const { error } = await db.from('booking_requests').insert({
-      caller_name:            patient_name,
-      caller_phone:           phone,
-      caller_email:           email                  ?? null,
-      service:                treatment,
-      service_detail:         service_detail          ?? null,
-      preferred_date:         preferred_date,
-      preferred_time:         preferred_time          ?? null,
-      preferred_practitioner: preferred_practitioner  ?? null,
-      referral_source:        safeReferral,
-      referral_name:          referral_name           ?? null,
-      call_notes:             notes                   ?? null,
-      vapi_call_id:           vapi_call_id            ?? null,
-      status:                 'pending',
+    return await bookKomalAppointment({
+      patient_name:           args.patient_name,
+      phone:                  args.phone,
+      email:                  args.email ?? null,
+      treatment:              args.treatment,
+      preferred_date:         args.preferred_date,
+      preferred_time:         args.preferred_time ?? null,
+      preferred_practitioner: args.preferred_practitioner ?? null,
+      service_detail:         args.service_detail ?? null,
+      referral_source:        args.referral_source ?? null,
+      referral_name:          args.referral_name ?? null,
+      notes:                  args.notes ?? null,
+      vapi_call_id:           args.vapi_call_id ?? null,
     });
-
-    if (error) {
-      // Supabase errors don't throw — must be checked explicitly
-      console.error('[vapi/create-booking] INSERT FAILED — code:', (error as { code?: string }).code, '| msg:', error.message, '| details:', (error as { details?: string }).details);
-      // Fall through to fallback phrase — do NOT expose DB errors to caller
-    } else {
-      return `Brilliant — your ${treatment} booking is in, ${patient_name.split(' ')[0]}. Your reference is ${ref}. We will call you at ${phone} to confirm the appointment. Was there anything else I can help you with today?`;
-    }
-
   } catch (err) {
-    console.error('[vapi/create-booking] Exception:', err);
+    console.error('[vapi/create-booking] Error:', err);
+    return `I've noted your ${args.treatment} request. One of our team will call you at ${args.phone} to confirm. Was there anything else I can help with?`;
   }
-
-  return `I've noted your ${treatment} request, ${patient_name.split(' ')[0]}. Your reference is ${ref}. One of our team will be in touch with you at ${phone} to confirm. Was there anything else I can help with?`;
 }

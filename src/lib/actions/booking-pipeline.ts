@@ -863,6 +863,211 @@ async function resolveAppointmentTypeId(
 }
 
 // =============================================================================
+// BOOK KOMAL APPOINTMENT — direct Cliniko write during voice call
+// Called by the create_booking_request Vapi tool.
+// Checks availability to prevent double-booking, then writes straight to Cliniko.
+// Falls back to pending booking_request if Cliniko is not connected or slot gone.
+// =============================================================================
+
+function parseNaturalTime(text: string): string | null {
+  const t = text.toLowerCase().trim();
+  const colonMatch = t.match(/^(\d{1,2}):(\d{2})$/);
+  if (colonMatch) return `${colonMatch[1].padStart(2, '0')}:${colonMatch[2]}`;
+  const ampmMatch = t.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)$/);
+  if (ampmMatch) {
+    let h = parseInt(ampmMatch[1]);
+    const m = parseInt(ampmMatch[2] || '0');
+    if (ampmMatch[3] === 'pm' && h < 12) h += 12;
+    if (ampmMatch[3] === 'am' && h === 12) h = 0;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  }
+  if (t.includes('morning'))   return '09:00';
+  if (t.includes('afternoon')) return '14:00';
+  if (t.includes('evening'))   return '17:00';
+  if (t.includes('lunch'))     return '12:00';
+  return null;
+}
+
+export async function bookKomalAppointment(params: {
+  patient_name:            string;
+  phone:                   string;
+  email?:                  string | null;
+  treatment:               string;
+  preferred_date:          string;
+  preferred_time?:         string | null;
+  preferred_practitioner?: string | null;
+  service_detail?:         string | null;
+  referral_source?:        string | null;
+  referral_name?:          string | null;
+  notes?:                  string | null;
+  vapi_call_id?:           string | null;
+}): Promise<string> {
+  const ref       = `BK-${Date.now().toString(36).toUpperCase()}`;
+  const db        = createSovereignClient();
+  const firstName = params.patient_name.split(' ')[0];
+
+  // 1. Parse date + time
+  const targetDate = parseNaturalDate(params.preferred_date) ?? getNextWeekday(1);
+  const parsedTime = params.preferred_time ? parseNaturalTime(params.preferred_time) : null;
+
+  // 2. Resolve practitioner from name
+  let practClinikoId: string | null = null;
+  let practName:      string | null = null;
+  if (params.preferred_practitioner) {
+    const { data: practs } = await db
+      .from('cliniko_practitioners')
+      .select('cliniko_id, full_name')
+      .ilike('full_name', `%${params.preferred_practitioner}%`)
+      .limit(1);
+    if (practs?.[0]) { practClinikoId = practs[0].cliniko_id; practName = practs[0].full_name; }
+  }
+
+  // 3. Confirm the slot is still free (double-booking guard)
+  let confirmedSlot: AvailableSlot | null = null;
+  if (parsedTime) {
+    try {
+      const slots = await getAvailableSlots(targetDate, practClinikoId ?? undefined);
+      // exact match first, then ±30 min tolerance
+      confirmedSlot = slots.find(s => s.start_time === parsedTime) ?? null;
+      if (!confirmedSlot) {
+        const tMins = parseInt(parsedTime.split(':')[0]) * 60 + parseInt(parsedTime.split(':')[1]);
+        confirmedSlot = slots.find(s => {
+          const sMins = parseInt(s.start_time.split(':')[0]) * 60 + parseInt(s.start_time.split(':')[1]);
+          return Math.abs(sMins - tMins) <= 30;
+        }) ?? null;
+      }
+      if (confirmedSlot) { practClinikoId = confirmedSlot.practitioner_id; practName = confirmedSlot.practitioner_name; }
+    } catch { /* proceed without slot lock */ }
+
+    if (!confirmedSlot) {
+      // Slot gone — offer alternatives
+      const alt = await getAvailabilitySummary(params.preferred_date, params.preferred_practitioner ?? undefined, params.treatment).catch(() => '');
+      return `I'm sorry, that slot has just been taken, ${firstName}. ${alt || `Could I take your details and have the team call you back with an alternative time today?`}`;
+    }
+  }
+
+  // 4. Try to find existing patient in local cache by phone
+  let clinikoPatientId: string | null = null;
+  if (params.phone) {
+    const { data: cached } = await db.from('cliniko_patients').select('cliniko_id').eq('phone', params.phone).limit(1);
+    if (cached?.[0]) clinikoPatientId = cached[0].cliniko_id;
+  }
+
+  // 5. Dedup — if this call already has a booking row, return confirmation immediately
+  if (params.vapi_call_id) {
+    const { data: existing } = await db.from('booking_requests').select('id, status').eq('vapi_call_id', params.vapi_call_id).maybeSingle();
+    if (existing) {
+      const timeStr = confirmedSlot ? ` for ${formatTimeVoice(confirmedSlot.start_time)} on ${formatDate(targetDate)}` : '';
+      return `Your ${params.treatment} booking is already confirmed, ${firstName}${timeStr}. Was there anything else I can help with today?`;
+    }
+  }
+
+  // 6. Attempt direct Cliniko write
+  const cliniko      = await getClinikoClient();
+  let clinikoApptId: string | null = null;
+  let status         = 'pending';
+
+  if (cliniko && confirmedSlot) {
+    try {
+      // Find or create patient
+      if (!clinikoPatientId) {
+        const nameParts  = params.patient_name.split(' ');
+        const newPatient = await cliniko.createPatient({
+          first_name:    nameParts[0],
+          last_name:     nameParts.slice(1).join(' ') || 'Unknown',
+          email:         params.email ?? undefined,
+          phone_numbers: params.phone ? [{ number: params.phone, phone_type: 'Mobile' }] : undefined,
+        });
+        clinikoPatientId = String(newPatient.id);
+        await db.from('cliniko_patients').upsert({
+          cliniko_id:     clinikoPatientId,
+          first_name:     newPatient.first_name,
+          last_name:      newPatient.last_name,
+          email:          newPatient.email ?? null,
+          phone:          params.phone ?? null,
+          lifecycle_stage: 'Lead',
+        }, { onConflict: 'cliniko_id' });
+      }
+
+      // Resolve appointment type + business
+      const [businessId, apptTypeId] = await Promise.all([
+        cliniko.getBusinessId(),
+        resolveAppointmentTypeId(cliniko, params.treatment),
+      ]);
+
+      const resolvedPractId = practClinikoId ?? await getDefaultPractitionerClinikoId();
+      const isRealId = (id: string | null): id is string => Boolean(id && id !== 'default' && /^\d+$/.test(id.trim()));
+
+      if (businessId && isRealId(resolvedPractId) && apptTypeId && clinikoPatientId) {
+        const startsAt = `${targetDate}T${confirmedSlot.start_time}:00+00:00`;
+        const endsAt   = `${targetDate}T${confirmedSlot.end_time}:00+00:00`;
+
+        const appt = await cliniko.createAppointment({
+          patient_id:          clinikoPatientId,
+          practitioner_id:     resolvedPractId,
+          appointment_type_id: apptTypeId,
+          business_id:         businessId,
+          starts_at:           startsAt,
+          ends_at:             endsAt,
+          notes:               [params.notes, params.service_detail].filter(Boolean).join(' | ') || undefined,
+        });
+
+        clinikoApptId = String(appt.id);
+        status        = 'synced_to_cliniko';
+
+        await db.from('cliniko_appointments').upsert({
+          cliniko_id:              clinikoApptId,
+          cliniko_patient_id:      clinikoPatientId,
+          cliniko_practitioner_id: resolvedPractId,
+          practitioner_name:       practName ?? 'Unknown',
+          appointment_type:        params.treatment,
+          status:                  'Booked',
+          starts_at:               startsAt,
+          ends_at:                 endsAt,
+        }, { onConflict: 'cliniko_id' });
+      }
+    } catch (err) {
+      console.error('[booking-pipeline] bookKomalAppointment Cliniko error:', err);
+      // fall through to pending
+    }
+  }
+
+  // 7. Always write a booking_requests row as a record
+  const VALID_REFERRAL = new Set(['online','client_referral','practitioner_referral','social_media','walk_in','returning','other']);
+  const normRef   = params.referral_source?.toLowerCase().trim().replace(/\s+/g, '_') ?? '';
+  const safeRef   = VALID_REFERRAL.has(normRef) ? normRef : (params.referral_source ? 'other' : null);
+
+  await db.from('booking_requests').insert({
+    caller_name:              params.patient_name,
+    caller_phone:             params.phone,
+    caller_email:             params.email ?? null,
+    service:                  params.treatment,
+    service_detail:           params.service_detail ?? null,
+    preferred_date:           params.preferred_date,
+    preferred_time:           params.preferred_time ?? null,
+    preferred_practitioner:   practName ?? params.preferred_practitioner ?? null,
+    referral_source:          safeRef,
+    referral_name:            params.referral_name ?? null,
+    call_notes:               params.notes ?? null,
+    vapi_call_id:             params.vapi_call_id ?? null,
+    status,
+    cliniko_patient_id:       clinikoPatientId,
+    cliniko_appointment_id:   clinikoApptId,
+    practitioner_cliniko_id:  practClinikoId,
+  }).then(({ error }) => { if (error) console.error('[booking-pipeline] booking_requests insert error:', error.message); });
+
+  // 8. Return spoken confirmation
+  if (status === 'synced_to_cliniko' && confirmedSlot) {
+    const timeStr = `${formatTimeVoice(confirmedSlot.start_time)} on ${formatDate(targetDate)}`;
+    const practStr = practName ? ` with ${practName}` : '';
+    return `Brilliant — your ${params.treatment} appointment is confirmed for ${timeStr}${practStr}, ${firstName}. You will receive a confirmation shortly. Was there anything else I can help you with today?`;
+  }
+
+  // Fallback (Cliniko not connected, no specific slot, or Cliniko error)
+  return `Brilliant — your ${params.treatment} booking is in, ${firstName}. Your reference is ${ref}. One of our team will call you at ${params.phone} to confirm the time. Was there anything else I can help with today?`;
+}
+
+// =============================================================================
 // DEMO DATA (fallback when booking_requests table is empty or not yet migrated)
 // =============================================================================
 
