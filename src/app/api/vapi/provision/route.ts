@@ -14,7 +14,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { buildKomalPrompt } from '@/lib/vapi/komal-prompt';
-import { buildKomalToolDefinitions } from '@/lib/vapi/tool-registry';
+import { buildKomalToolDefinitions } from '@/lib/vapi/tool-definitions';
 import { createSovereignClient } from '@/lib/supabase/service';
 
 const VAPI_BASE      = 'https://api.vapi.ai';
