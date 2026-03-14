@@ -55,20 +55,16 @@ export interface CallStats {
 // =============================================================================
 
 export async function getCallLogs(limit = 50): Promise<CallLog[]> {
-  const session = await getStaffSession();
-  if (!session) return getDemoCallLogs();
-  const { tenantId } = session;
   const db = createSovereignClient();
   const { data, error } = await db
     .from('call_logs')
     .select('*, booking_req:booking_request_id(status)')
-    .eq('tenant_id', tenantId)
     .order('created_at', { ascending: false })
     .limit(limit);
 
   if (error) {
     console.error('[call-logs] getCallLogs error:', error);
-    return getDemoCallLogs();
+    return [];
   }
 
   // Flatten the joined booking_request status onto the row
@@ -110,16 +106,13 @@ export async function getCallLogByVapiCallId(vapiCallId: string): Promise<CallLo
 }
 
 export async function getCallStats(): Promise<CallStats> {
-  const session = await getStaffSession();
-  if (!session) return { total: 0, today: 0, booked: 0, pending_bookings: 0, confirmed_bookings: 0, leads: 0, missed: 0, avg_duration: 0 };
-  const { tenantId } = session;
   const db = createSovereignClient();
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
 
   const [callResult, bookingResult] = await Promise.all([
-    db.from('call_logs').select('created_at, outcome, duration_seconds').eq('tenant_id', tenantId),
-    db.from('booking_requests').select('status').eq('tenant_id', tenantId),
+    db.from('call_logs').select('created_at, outcome, duration_seconds'),
+    db.from('booking_requests').select('status'),
   ]);
 
   if (callResult.error) {

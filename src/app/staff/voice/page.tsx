@@ -14,7 +14,7 @@ import {
   User, Check, X,
   Headphones, Save, Loader2, FileText, Mail,
   Activity, ChevronDown, Radio,
-  ArrowLeft, Cpu,
+  ArrowLeft,
   PhoneIncoming, PhoneOutgoing, Volume2,
   Calendar, MessageSquare, AlertCircle,
   Power, ToggleLeft, ToggleRight,
@@ -29,10 +29,8 @@ import {
   type ReceptionistIdentity, type LiveCall,
 } from '@/lib/actions/vapi';
 import { getCallLogs, getCallStats, type CallLog, type CallStats } from '@/lib/actions/call-logs';
-import {
-  getLiveAppointments, setReceptionistActive, getReceptionistActive,
-  type LiveAppointment,
-} from '@/lib/actions/cliniko';
+import { setReceptionistActive, getReceptionistActive } from '@/lib/actions/cliniko';
+import { getBookingRequests, type BookingRequest } from '@/lib/actions/booking-pipeline';
 
 // =============================================================================
 // DESIGN TOKENS
@@ -92,16 +90,6 @@ function fmtDate(iso?: string | null): string {
   } catch { return '—'; }
 }
 
-function fmtApptDate(iso: string): string {
-  const d = new Date(iso);
-  const today = new Date();
-  const tom   = new Date(today); tom.setDate(today.getDate() + 1);
-  const time  = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-  const datePart = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
-  if (d.toDateString() === today.toDateString()) return `Today · ${time}`;
-  if (d.toDateString() === tom.toDateString())   return `Tomorrow · ${time}`;
-  return `${datePart} · ${time}`;
-}
 
 const OUTCOME_CONFIG: Record<string, { label: string; color: string }> = {
   booked:    { label: 'Booking requested', color: GOLD },
@@ -131,11 +119,13 @@ function toolLabel(t: string): string {
   return m[t] ?? t;
 }
 
-const APPT_STATUS_CFG: Record<string, { label: string; color: string }> = {
-  booked:         { label: 'Booked',     color: BLUE },
-  arrived:        { label: 'Arrived',    color: GREEN },
-  cancelled:      { label: 'Cancelled',  color: MUT },
-  did_not_arrive: { label: 'DNA',        color: ORANGE },
+const BOOKING_STATUS_CFG: Record<string, { label: string; color: string }> = {
+  pending:           { label: 'Pending review', color: ORANGE },
+  confirmed:         { label: 'Confirmed',      color: BLUE },
+  synced_to_cliniko: { label: 'Booked',         color: GREEN },
+  cancelled:         { label: 'Cancelled',      color: MUT },
+  no_show:           { label: 'No show',        color: RED },
+  duplicate:         { label: 'Duplicate',      color: MUT },
 };
 
 // =============================================================================
@@ -478,48 +468,156 @@ function CallHubPanel({ call, onClose }: { call: CallLog; onClose: () => void })
 }
 
 // =============================================================================
-// APPOINTMENT ROW
+// BOOKING ROW
 // =============================================================================
 
-function AppointmentRow({ appt }: { appt: LiveAppointment }) {
-  const cfg = APPT_STATUS_CFG[appt.status] ?? { label: appt.status, color: MUT };
-  const isToday = new Date(appt.starts_at).toDateString() === new Date().toDateString();
-
+function BookingRow({ req, selected, onClick }: { req: BookingRequest; selected: boolean; onClick: () => void }) {
+  const cfg = BOOKING_STATUS_CFG[req.status] ?? { label: req.status, color: MUT };
   return (
-    <motion.div layout initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-      style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 12, border: `1px solid ${isToday ? BLUE + '25' : BORDER}`, background: isToday ? BLUE + '04' : 'transparent', marginBottom: 8 }}>
-      {/* Time block */}
-      <div style={{ width: 56, flexShrink: 0, textAlign: 'center' }}>
-        <div style={{ fontSize: 14, fontWeight: 800, color: isToday ? BLUE : NAVY, letterSpacing: '-0.02em' }}>
-          {new Date(appt.starts_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
-        </div>
-        <div style={{ fontSize: 9, color: MUT, fontWeight: 500, letterSpacing: '0.04em', marginTop: 1 }}>
-          {new Date(appt.starts_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-        </div>
+    <motion.button layout onClick={onClick}
+      className="w-full flex items-center gap-3 p-3.5 rounded-xl text-left transition-all"
+      style={{ backgroundColor: selected ? `${BLUE}08` : 'transparent', border: `1px solid ${selected ? BLUE + '30' : BORDER}`, marginBottom: 6 }}>
+      <div style={{ width: 34, height: 34, borderRadius: 17, flexShrink: 0, background: `${TEAL}10`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Calendar size={13} style={{ color: TEAL }} />
       </div>
-
-      {/* Divider */}
-      <div style={{ width: 1, height: 36, background: isToday ? BLUE + '20' : BORDER, flexShrink: 0 }} />
-
-      {/* Patient + type */}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: NAVY, marginBottom: 2 }}>
-          {appt.patient_name}
+        <p style={{ fontSize: 13, fontWeight: 700, color: NAVY, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {req.caller_name ?? req.caller_phone ?? 'Unknown'}
+        </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
+          <span style={{ fontSize: 11, color: TER }}>{req.service ?? 'Service not specified'}</span>
+          {req.preferred_date && <><span style={{ fontSize: 9, color: MUT }}>·</span><span style={{ fontSize: 11, color: MUT }}>{req.preferred_date}{req.preferred_time ? ` · ${req.preferred_time}` : ''}</span></>}
         </div>
-        <div style={{ fontSize: 11, color: TER }}>{appt.appointment_type}</div>
       </div>
-
-      {/* Status */}
-      <span style={{ fontSize: 10, fontWeight: 600, color: cfg.color, background: cfg.color + '12', border: `1px solid ${cfg.color}25`, padding: '3px 10px', borderRadius: 20, flexShrink: 0 }}>
+      <span style={{ fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: cfg.color, background: cfg.color + '12', border: `1px solid ${cfg.color}25`, padding: '3px 10px', borderRadius: 20, flexShrink: 0 }}>
         {cfg.label}
       </span>
+    </motion.button>
+  );
+}
 
-      {/* Today badge */}
-      {isToday && (
-        <span style={{ fontSize: 9, fontWeight: 700, color: BLUE, background: BLUE + '12', border: `1px solid ${BLUE}25`, padding: '2px 8px', borderRadius: 20, flexShrink: 0, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-          Today
-        </span>
-      )}
+// =============================================================================
+// BOOKING DETAIL PANEL
+// =============================================================================
+
+function BookingDetailPanel({ req, onClose }: { req: BookingRequest; onClose: () => void }) {
+  const cfg = BOOKING_STATUS_CFG[req.status] ?? { label: req.status, color: MUT };
+  const SL: React.CSSProperties = { fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.28em', fontWeight: 600, color: MUT, marginBottom: 8 };
+  return (
+    <motion.div initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 12 }}
+      transition={{ duration: 0.22 }} style={{ backgroundColor: BG, height: '100%', overflowY: 'auto' }}>
+      <div style={{ padding: '24px 32px 20px', borderBottom: `1px solid ${BORDER}` }}>
+        <button onClick={onClose} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 500, color: MUT, background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: 16 }}>
+          <ArrowLeft size={13} /> All bookings
+        </button>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{ width: 48, height: 48, borderRadius: 24, flexShrink: 0, background: `${TEAL}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Calendar size={20} style={{ color: TEAL }} />
+            </div>
+            <div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: NAVY, letterSpacing: '-0.02em' }}>
+                {req.caller_name ?? req.caller_phone ?? 'Unknown caller'}
+              </div>
+              <div style={{ fontSize: 12, color: TER, marginTop: 3 }}>
+                {req.service ?? 'Service not specified'}
+                {req.preferred_date && ` · ${req.preferred_date}${req.preferred_time ? ` at ${req.preferred_time}` : ''}`}
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: cfg.color, background: `${cfg.color}14`, padding: '4px 12px', borderRadius: 20, border: `1px solid ${cfg.color}28` }}>
+              {cfg.label}
+            </span>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUT, padding: 4, display: 'flex', alignItems: 'center' }}>
+              <X size={15} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ padding: '28px 32px', display: 'flex', gap: 28, alignItems: 'flex-start' }}>
+        {/* Left column */}
+        <div style={{ width: 220, flexShrink: 0 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: 16, borderRadius: 12, marginBottom: 20, background: `${BLUE}05`, border: `1px solid ${BORDER}` }}>
+            {[
+              { label: 'Received',    value: new Date(req.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) },
+              { label: 'Time',        value: new Date(req.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) },
+              { label: 'Pref. date',  value: req.preferred_date ?? '—' },
+              { label: 'Pref. time',  value: req.preferred_time ?? '—' },
+            ].map(s => (
+              <div key={s.label}>
+                <div style={SL}>{s.label}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>{s.value}</div>
+              </div>
+            ))}
+          </div>
+
+          {(req.caller_phone || req.caller_email) && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={SL}>Contact</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {req.caller_phone && <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Phone size={12} style={{ color: MUT }} /><span style={{ fontSize: 12, color: SEC }}>{req.caller_phone}</span></div>}
+                {req.caller_email && <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Mail size={12} style={{ color: MUT }} /><span style={{ fontSize: 12, color: SEC, wordBreak: 'break-all' }}>{req.caller_email}</span></div>}
+              </div>
+              <div style={{ height: 1, background: BORDER, margin: '18px 0' }} />
+            </div>
+          )}
+
+          {req.preferred_practitioner && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={SL}>Requested practitioner</div>
+              <p style={{ fontSize: 13, fontWeight: 600, color: NAVY, margin: 0 }}>{req.practitioner_name ?? req.preferred_practitioner}</p>
+              <div style={{ height: 1, background: BORDER, margin: '18px 0' }} />
+            </div>
+          )}
+
+          {req.referral_source && (
+            <div>
+              <div style={SL}>How they found us</div>
+              <p style={{ fontSize: 12, color: TER, margin: 0, textTransform: 'capitalize' }}>{req.referral_source.replace(/_/g, ' ')}{req.referral_name && ` · ${req.referral_name}`}</p>
+            </div>
+          )}
+
+          {req.cliniko_appointment_id && (
+            <div style={{ marginTop: 20 }}>
+              <div style={SL}>Cliniko appointment</div>
+              <p style={{ fontSize: 11, color: GREEN, margin: 0, fontWeight: 600 }}>Synced</p>
+              <p style={{ fontSize: 10, color: MUT, margin: 0, marginTop: 2 }}>ID: {req.cliniko_appointment_id}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Right column */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {(req.service || req.service_detail) && (
+            <div style={{ marginBottom: 28 }}>
+              <div style={{ ...SL, marginBottom: 14 }}>Service requested</div>
+              <div style={{ padding: '16px 20px', borderRadius: 12, background: `${TEAL}06`, border: `1px solid ${BORDER}` }}>
+                <p style={{ fontSize: 14, fontWeight: 700, color: NAVY, margin: 0 }}>{req.service}</p>
+                {req.service_detail && <p style={{ fontSize: 12, color: TER, margin: '6px 0 0', lineHeight: 1.5 }}>{req.service_detail}</p>}
+              </div>
+            </div>
+          )}
+
+          {(req.call_summary || req.call_notes) && (
+            <div style={{ marginBottom: 28 }}>
+              <div style={{ ...SL, marginBottom: 14 }}>Call notes</div>
+              <div style={{ padding: '16px 20px', borderRadius: 12, background: `${TEAL}06`, border: `1px solid ${BORDER}` }}>
+                {req.call_summary && <p style={{ fontSize: 12, color: SEC, lineHeight: 1.6, margin: 0 }}>{req.call_summary}</p>}
+                {req.call_notes && !req.call_summary && <p style={{ fontSize: 12, color: TER, lineHeight: 1.6, margin: 0 }}>{req.call_notes}</p>}
+              </div>
+            </div>
+          )}
+
+          {!req.call_summary && !req.call_notes && !req.service && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '48px 0', borderRadius: 12, border: `1px solid ${BORDER}` }}>
+              <Calendar size={22} style={{ color: MUT }} />
+              <p style={{ fontSize: 12, color: MUT, margin: 0 }}>No additional detail for this booking request.</p>
+            </div>
+          )}
+        </div>
+      </div>
     </motion.div>
   );
 }
@@ -541,7 +639,6 @@ export default function ReceptionistPage() {
   // Komal state
   const [isProvisioned,   setIsProvisioned]   = useState(false);
   const [isActive,        setIsActive]        = useState(true);
-  const [provisioning,    setProvisioning]    = useState(false);
   const [provResult,      setProvResult]      = useState<{ ok: boolean; msg: string } | null>(null);
   const [togglingActive,  setTogglingActive]  = useState(false);
 
@@ -552,11 +649,10 @@ export default function ReceptionistPage() {
   const [liveCalls,   setLiveCalls]   = useState<LiveCall[]>([]);
   const liveRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Appointments
-  const [appointments,      setAppointments]      = useState<LiveAppointment[]>([]);
-  const [apptConnected,     setApptConnected]     = useState(false);
-  const [loadingAppts,      setLoadingAppts]      = useState(false);
-  const [apptFilter,        setApptFilter]        = useState<'upcoming' | 'today'>('upcoming');
+  // Bookings (Komal-captured)
+  const [bookingRequests,   setBookingRequests]   = useState<BookingRequest[]>([]);
+  const [loadingBookings,   setLoadingBookings]   = useState(false);
+  const [selectedBooking,   setSelectedBooking]   = useState<BookingRequest | null>(null);
 
   // Settings / identity
   const [identity,     setIdentity]     = useState<ReceptionistIdentity | null>(null);
@@ -606,18 +702,17 @@ export default function ReceptionistPage() {
     return () => { if (liveRef.current) clearInterval(liveRef.current); };
   }, []);
 
-  // ── Load appointments when tab opens ──
-  const loadAppointments = useCallback(async () => {
-    setLoadingAppts(true);
-    const { appointments: appts, clinikoConnected } = await getLiveAppointments(14);
-    setAppointments(appts);
-    setApptConnected(clinikoConnected);
-    setLoadingAppts(false);
+  // ── Load booking requests when tab opens ──
+  const loadBookings = useCallback(async () => {
+    setLoadingBookings(true);
+    const reqs = await getBookingRequests();
+    setBookingRequests(reqs);
+    setLoadingBookings(false);
   }, []);
 
   useEffect(() => {
-    if (activeTab === 'appointments') loadAppointments();
-  }, [activeTab, loadAppointments]);
+    if (activeTab === 'appointments') void loadBookings();
+  }, [activeTab, loadBookings]);
 
   // ── Toggle active (off → mark inactive, on → provision) ──
   const handleToggleActive = useCallback(async () => {
@@ -648,25 +743,6 @@ export default function ReceptionistPage() {
     setTogglingActive(false);
   }, [isActive]);
 
-  // ── Re-provision (settings tab) ──
-  const handleReprovision = useCallback(async () => {
-    setProvisioning(true);
-    setProvResult(null);
-    try {
-      const res = await fetch('/api/vapi/provision', { method: 'POST' });
-      const json = await res.json() as { success: boolean; message?: string; error?: string };
-      setProvResult({
-        ok:  json.success,
-        msg: json.success ? (json.message ?? 'Komal updated successfully.') : (json.error ?? 'Provision failed.'),
-      });
-      if (json.success) { setIsProvisioned(true); setIsActive(true); await setReceptionistActive(true); }
-    } catch (err) {
-      setProvResult({ ok: false, msg: String(err) });
-    } finally {
-      setProvisioning(false);
-    }
-  }, []);
-
   // ── Save identity ──
   const handleSaveIdentity = useCallback(async () => {
     if (!editIdentity) return;
@@ -681,9 +757,6 @@ export default function ReceptionistPage() {
   const brandColor    = profile.brandColor || BLUE;
   const isOnline      = isProvisioned && isActive;
   const currentVoice  = VOICE_OPTIONS.find(v => v.id === editIdentity?.voiceId) ?? VOICE_OPTIONS[0];
-
-  const todayAppts    = appointments.filter(a => new Date(a.starts_at).toDateString() === new Date().toDateString());
-  const displayAppts  = apptFilter === 'today' ? todayAppts : appointments;
 
   const TABS: { id: Tab; label: string; badge?: number }[] = [
     { id: 'overview',      label: 'Overview' },
@@ -740,19 +813,6 @@ export default function ReceptionistPage() {
               </div>
             )}
 
-            {/* Active toggle */}
-            <button onClick={() => void handleToggleActive()} disabled={togglingActive}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border text-[12px] font-semibold transition-all flex-shrink-0"
-              style={{
-                background: isActive ? GREEN + '10' : RED + '08',
-                borderColor: isActive ? GREEN + '35' : RED + '25',
-                color: isActive ? GREEN : RED,
-                opacity: togglingActive ? 0.6 : 1,
-                cursor: togglingActive ? 'not-allowed' : 'pointer',
-              }}>
-              {togglingActive ? <Loader2 size={14} className="animate-spin" /> : isActive ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
-              {togglingActive ? 'Updating…' : isActive ? 'Active' : 'Inactive'}
-            </button>
           </div>
         </motion.div>
 
@@ -906,56 +966,53 @@ export default function ReceptionistPage() {
           {/* ═══ TAB: APPOINTMENTS ═══ */}
           {activeTab === 'appointments' && (
             <motion.div key="appointments" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-              {/* Toolbar */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: NAVY, margin: 0 }}>
-                    {apptFilter === 'today' ? "Today's appointments" : 'Upcoming — next 14 days'}
-                  </p>
-                  {apptConnected && (
-                    <span style={{ fontSize: 9, fontWeight: 600, color: GREEN, background: GREEN + '12', border: `1px solid ${GREEN}25`, padding: '2px 8px', borderRadius: 20, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                      Live from Cliniko
-                    </span>
-                  )}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  {(['upcoming', 'today'] as const).map(f => (
-                    <button key={f} onClick={() => setApptFilter(f)}
-                      style={{ fontSize: 11, fontWeight: 600, padding: '5px 14px', borderRadius: 8, border: `1px solid ${apptFilter === f ? BLUE + '40' : BORDER}`, background: apptFilter === f ? BLUE + '10' : 'transparent', color: apptFilter === f ? NAVY : TER, cursor: 'pointer', textTransform: 'capitalize' }}>
-                      {f}
-                    </button>
-                  ))}
-                  <button onClick={() => void loadAppointments()} disabled={loadingAppts}
-                    style={{ fontSize: 11, fontWeight: 600, padding: '5px 12px', borderRadius: 8, border: `1px solid ${BORDER}`, background: 'transparent', color: TER, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {loadingAppts ? <Loader2 size={11} className="animate-spin" /> : <Radio size={11} />}
-                    Refresh
-                  </button>
-                </div>
-              </div>
+              <AnimatePresence mode="wait">
+                {selectedBooking ? (
+                  <motion.div key={`bk-${selectedBooking.id}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}
+                    style={{ borderRadius: 16, border: `1px solid ${BORDER}`, overflow: 'hidden' }}>
+                    <BookingDetailPanel req={selectedBooking} onClose={() => setSelectedBooking(null)} />
+                  </motion.div>
+                ) : (
+                  <motion.div key="booking-list" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <p style={{ fontSize: 13, fontWeight: 700, color: NAVY, margin: 0 }}>Bookings via Komal</p>
+                        {bookingRequests.length > 0 && (
+                          <span style={{ fontSize: 9, fontWeight: 600, color: TEAL, background: TEAL + '12', border: `1px solid ${TEAL}25`, padding: '2px 8px', borderRadius: 20 }}>
+                            {bookingRequests.length} request{bookingRequests.length !== 1 ? 's' : ''}
+                          </span>
+                        )}
+                        {bookingRequests.filter(r => r.status === 'pending').length > 0 && (
+                          <span style={{ fontSize: 9, fontWeight: 600, color: ORANGE, background: ORANGE + '10', border: `1px solid ${ORANGE}25`, padding: '2px 8px', borderRadius: 20 }}>
+                            {bookingRequests.filter(r => r.status === 'pending').length} pending review
+                          </span>
+                        )}
+                      </div>
+                      <button onClick={() => void loadBookings()} disabled={loadingBookings}
+                        style={{ fontSize: 11, fontWeight: 600, padding: '5px 12px', borderRadius: 8, border: `1px solid ${BORDER}`, background: 'transparent', color: TER, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {loadingBookings ? <Loader2 size={11} className="animate-spin" /> : <Radio size={11} />}
+                        Refresh
+                      </button>
+                    </div>
 
-              {!apptConnected && !loadingAppts && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', borderRadius: 12, background: GOLD + '08', border: `1px solid ${GOLD}25`, marginBottom: 16 }}>
-                  <AlertCircle size={14} color={GOLD} />
-                  <p style={{ fontSize: 12, color: SEC, margin: 0 }}>Cliniko is not connected — go to <strong>Integrations</strong> to connect your practice management system.</p>
-                </div>
-              )}
-
-              {loadingAppts ? (
-                <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}>
-                  <Loader2 size={22} style={{ color: MUT }} className="animate-spin" />
-                </div>
-              ) : displayAppts.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '48px 0', borderRadius: 16, border: `1px solid ${BORDER}` }}>
-                  <Calendar size={24} style={{ color: MUT, margin: '0 auto 8px' }} />
-                  <p style={{ fontSize: 13, color: MUT }}>
-                    {apptFilter === 'today' ? 'No appointments today.' : 'No upcoming appointments in the next 14 days.'}
-                  </p>
-                </div>
-              ) : (
-                <AnimatePresence mode="popLayout">
-                  {displayAppts.map(appt => <AppointmentRow key={appt.id} appt={appt} />)}
-                </AnimatePresence>
-              )}
+                    {loadingBookings ? (
+                      <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}>
+                        <Loader2 size={22} style={{ color: MUT }} className="animate-spin" />
+                      </div>
+                    ) : bookingRequests.length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '48px 0', borderRadius: 16, border: `1px solid ${BORDER}` }}>
+                        <Calendar size={24} style={{ color: MUT, margin: '0 auto 8px' }} />
+                        <p style={{ fontSize: 13, color: MUT }}>No bookings captured by Komal yet.</p>
+                        <p style={{ fontSize: 11, color: MUT, marginTop: 4 }}>Booking requests will appear here once Komal is active and handling calls.</p>
+                      </div>
+                    ) : (
+                      <div>{bookingRequests.map(req => (
+                        <BookingRow key={req.id} req={req} selected={false} onClick={() => setSelectedBooking(req)} />
+                      ))}</div>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           )}
 
@@ -997,15 +1054,6 @@ export default function ReceptionistPage() {
                     }
                   </button>
                 </div>
-                {isActive && (
-                  <div style={{ borderTop: `1px solid ${BORDER}`, padding: '12px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <p style={{ fontSize: 11, color: TER, margin: 0 }}>After changing voice or greeting, re-provision to apply changes.</p>
-                    <button onClick={() => void handleReprovision()} disabled={provisioning}
-                      style={{ fontSize: 11, fontWeight: 600, padding: '5px 14px', borderRadius: 8, border: `1px solid ${BLUE}35`, background: BLUE + '10', color: NAVY, cursor: provisioning ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 6, opacity: provisioning ? 0.6 : 1 }}>
-                      {provisioning ? <><Loader2 size={11} className="animate-spin" /> Provisioning…</> : <><Cpu size={11} /> Re-provision</>}
-                    </button>
-                  </div>
-                )}
               </div>
 
               {/* ── Identity + Voice side by side ── */}

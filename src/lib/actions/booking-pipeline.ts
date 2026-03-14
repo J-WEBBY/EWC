@@ -89,15 +89,11 @@ export interface AvailableSlot {
 // =============================================================================
 
 export async function getBookingRequests(status?: string): Promise<BookingRequest[]> {
-  const session = await getStaffSession();
-  if (!session) return getDemoBookingRequests();
-  const { tenantId } = session;
   const db = createSovereignClient();
 
   let query = db
     .from('booking_requests')
     .select('*')
-    .eq('tenant_id', tenantId)
     .order('created_at', { ascending: false })
     .limit(100);
 
@@ -108,7 +104,7 @@ export async function getBookingRequests(status?: string): Promise<BookingReques
   const { data, error } = await query;
   if (error) {
     console.error('[booking-pipeline] getBookingRequests error:', error);
-    return getDemoBookingRequests();
+    return [];
   }
 
   return (data ?? []) as BookingRequest[];
