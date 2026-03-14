@@ -164,17 +164,18 @@ export class ClinikoClient {
 
   // Fetch all individual appointments for a single calendar date.
   // Used for real-time conflict detection before booking — avoids stale local cache.
+  // NOTE: URL is built manually (not via URLSearchParams) because URLSearchParams
+  // encodes `[` as `%5B`, which Cliniko's Rails/Rack stack does not decode correctly,
+  // causing 400 errors and silently skipping the conflict check.
   async getAppointmentsForDay(dateStr: string): Promise<ClinikoAppointment[]> {
-    const dayStart = `${dateStr}T00:00:00Z`;
-    const dayEnd   = `${dateStr}T23:59:59Z`;
-    const params: Record<string, string> = {
-      'q[starts_at_gteq]': dayStart,
-      'q[starts_at_lteq]': dayEnd,
-    };
-    const appts = await this.paginate<ClinikoAppointment>(
-      '/individual_appointments', 'individual_appointments', params,
+    const dayStart = encodeURIComponent(`${dateStr}T00:00:00Z`);
+    const dayEnd   = encodeURIComponent(`${dateStr}T23:59:59Z`);
+    // Use raw brackets in key names — Rack parses q[x] as q => { x: value }
+    const startUrl = `${this.baseUrl}/individual_appointments?per_page=100&q[starts_at_gteq]=${dayStart}&q[starts_at_lteq]=${dayEnd}`;
+    const { results } = await this.paginateWithBudget<ClinikoAppointment>(
+      '/individual_appointments', 'individual_appointments', {}, startUrl,
     );
-    return appts.map(a => ({
+    return results.map(a => ({
       ...a,
       patient_id:      idFromLink(a.patient?.links?.self ?? ''),
       practitioner_id: idFromLink(a.practitioner?.links?.self ?? ''),

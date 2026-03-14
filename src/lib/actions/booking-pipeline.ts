@@ -896,20 +896,22 @@ async function resolveAppointmentTypeId(
     let match = types.find(t => t.name.toLowerCase().includes(s) || s.includes(t.name.toLowerCase()));
     if (match) return String(match.id);
 
-    // 2. Word-by-word match — "Vitamin C IV" → ["vitamin","c","iv"] → matches "IV Therapy"
-    const words = s.split(/\s+/).filter(w => w.length >= 3);
+    // 2. Word-by-word match — min length 2 so "iv" is included (e.g. "Vitamin C IV" → "IV Therapy")
+    const words = s.split(/\s+/).filter(w => w.length >= 2);
     for (const word of words) {
       match = types.find(t => t.name.toLowerCase().includes(word) || word.includes(t.name.toLowerCase()));
       if (match) return String(match.id);
     }
 
     // 3. Category heuristic — map treatment category to a sensible Cliniko type
+    // NOTE: "infusion" intentionally excluded from type-name regex — "Iron Infusion Consultation"
+    // is a specific medical procedure, not a general IV/wellness catch-all type.
     const isWellness  = /\b(iv|drip|infusion|injection|vitamin|b12|biotin|nad|myers|glutathione|hydration|immunity|energy|fatigue|mental|weight|hormone|folic|zinc)\b/i.test(service);
     const isAesthetic = /\b(botox|filler|lip|cheek|jaw|nose|hifu|thread|peel|microneedling|prp|coolsculpt|cyst|scar|rf|laser)\b/i.test(service);
     const isConsult   = /\b(consult|consultation|gp|screening|check|review|assessment)\b/i.test(service);
 
     if (isWellness) {
-      match = types.find(t => /\b(wellness|iv|therapy|drip|injection|vitamin|infusion)\b/i.test(t.name));
+      match = types.find(t => /\b(wellness|iv|therapy|drip|injection|vitamin)\b/i.test(t.name));
       if (match) return String(match.id);
     }
     if (isAesthetic) {
@@ -1248,6 +1250,13 @@ export async function bookKomalAppointment(params: {
         const startsAt = `${targetDate}T${confirmedSlot.start_time}:00+00:00`;
         const endsAt   = `${targetDate}T${confirmedSlot.end_time}:00+00:00`;
 
+        const notesParts = [
+          params.service_detail,
+          params.notes,
+          params.phone    ? `Tel: ${params.phone}`   : null,
+          params.email    ? `Email: ${params.email}` : null,
+          params.referral_source ? `Source: ${params.referral_source}` : null,
+        ].filter(Boolean);
         const appt = await cliniko.createAppointment({
           patient_id:          clinikoPatientId,
           practitioner_id:     resolvedPractId,
@@ -1255,7 +1264,7 @@ export async function bookKomalAppointment(params: {
           business_id:         businessId,
           starts_at:           startsAt,
           ends_at:             endsAt,
-          notes:               [params.notes, params.service_detail].filter(Boolean).join(' | ') || undefined,
+          notes:               notesParts.join(' | ') || undefined,
         });
 
         clinikoApptId = String(appt.id);

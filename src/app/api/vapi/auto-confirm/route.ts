@@ -245,9 +245,9 @@ export async function POST(req: NextRequest) {
     // 1. Full string match
     let apptType = apptTypes.find(t => t.name.toLowerCase().includes(svc) || svc.includes(t.name.toLowerCase()));
 
-    // 2. Word-by-word match
+    // 2. Word-by-word match — min 2 chars so "iv" is included ("Vitamin C IV" → "IV Therapy")
     if (!apptType) {
-      const words = svc.split(/\s+/).filter((w: string) => w.length >= 3);
+      const words = svc.split(/\s+/).filter((w: string) => w.length >= 2);
       for (const word of words) {
         apptType = apptTypes.find(t => t.name.toLowerCase().includes(word));
         if (apptType) break;
@@ -255,10 +255,11 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Category heuristic
+    // "infusion" excluded from type-name regex — avoids matching "Iron Infusion Consultation"
     if (!apptType) {
       const isWellness  = /\b(iv|drip|infusion|injection|vitamin|b12|biotin|nad|myers|glutathione|hydration|immunity|energy|fatigue|mental|weight|hormone|folic)\b/i.test(svc);
       const isAesthetic = /\b(botox|filler|lip|cheek|jaw|nose|hifu|thread|peel|microneedling|prp|coolsculpt|cyst|scar|rf|laser)\b/i.test(svc);
-      if (isWellness) apptType = apptTypes.find(t => /\b(wellness|iv|therapy|drip|injection|vitamin|infusion)\b/i.test(t.name));
+      if (isWellness) apptType = apptTypes.find(t => /\b(wellness|iv|therapy|drip|injection|vitamin)\b/i.test(t.name));
       if (!apptType && isAesthetic) apptType = apptTypes.find(t => /\b(aesthetic|cosmetic|treatment)\b/i.test(t.name));
     }
 
