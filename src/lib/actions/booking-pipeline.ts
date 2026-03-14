@@ -244,7 +244,7 @@ export async function confirmBookingRequest(
             last_name:     newPatient.last_name,
             email:         newPatient.email ?? null,
             phone:         booking.caller_phone ?? null,
-            lifecycle_stage: 'Lead',
+            lifecycle_stage: 'lead',
           }, { onConflict: 'cliniko_id' });
         }
 
@@ -1123,7 +1123,7 @@ export async function bookKomalAppointment(params: {
           last_name:      newPatient.last_name,
           email:          newPatient.email ?? null,
           phone:          params.phone ?? null,
-          lifecycle_stage: 'Lead',
+          lifecycle_stage: 'lead',
         }, { onConflict: 'cliniko_id' });
       }
 
@@ -1133,7 +1133,33 @@ export async function bookKomalAppointment(params: {
         resolveAppointmentTypeId(cliniko, params.treatment),
       ]);
 
-      const resolvedPractId = practClinikoId ?? await getDefaultPractitionerClinikoId();
+      // Resolve practitioner: DB cache first, then live Cliniko API (handles empty cache after first deploy)
+      let resolvedPractId = practClinikoId ?? await getDefaultPractitionerClinikoId();
+      if (!resolvedPractId) {
+        // Cache empty — fetch live from Cliniko and populate cache for next time
+        try {
+          const livePracts = await cliniko.getPractitioners();
+          if (livePracts.length > 0) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const first = livePracts[0] as any;
+            resolvedPractId = String(first.id);
+            practName = practName ?? (`${first.first_name ?? ''} ${first.last_name ?? ''}`.trim() || 'Practitioner');
+            // Seed cache so next call finds it
+            void db.from('cliniko_practitioners').upsert(
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              livePracts.slice(0, 20).map((p: any) => ({
+                cliniko_id:    String(p.id),
+                first_name:    p.first_name ?? '',
+                last_name:     p.last_name  ?? '',
+                is_active:     p.active !== false,
+                raw_data:      p,
+                last_synced_at: new Date().toISOString(),
+              })),
+              { onConflict: 'cliniko_id' },
+            );
+          }
+        } catch { /* non-fatal — fall through to pending */ }
+      }
       const isRealId = (id: string | null): id is string => Boolean(id && id !== 'default' && /^\d+$/.test(id.trim()));
 
       if (businessId && isRealId(resolvedPractId) && apptTypeId && clinikoPatientId) {
