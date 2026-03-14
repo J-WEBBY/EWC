@@ -9,7 +9,6 @@
 // =============================================================================
 
 import { createSovereignClient } from '@/lib/supabase/service';
-import { getStaffSession } from '@/lib/supabase/tenant-context';
 
 // =============================================================================
 // TYPES
@@ -78,29 +77,21 @@ export async function getCallLogs(limit = 50): Promise<CallLog[]> {
 }
 
 export async function getCallLogById(id: string): Promise<CallLog | null> {
-  const session = await getStaffSession();
-  if (!session) return null;
-  const { tenantId } = session;
   const db = createSovereignClient();
   const { data } = await db
     .from('call_logs')
     .select('*')
     .eq('id', id)
-    .eq('tenant_id', tenantId)
     .single();
   return (data as CallLog) ?? null;
 }
 
 export async function getCallLogByVapiCallId(vapiCallId: string): Promise<CallLog | null> {
-  const session = await getStaffSession();
-  if (!session) return null;
-  const { tenantId } = session;
   const db = createSovereignClient();
   const { data } = await db
     .from('call_logs')
     .select('*')
     .eq('vapi_call_id', vapiCallId)
-    .eq('tenant_id', tenantId)
     .single();
   return (data as CallLog) ?? null;
 }
@@ -163,14 +154,10 @@ export async function createCallLog(params: {
   transcript?: string;
 }): Promise<{ success: boolean; id?: string; error?: string }> {
   try {
-    const session = await getStaffSession();
-    if (!session) return { success: false, error: 'UNAUTHORIZED' };
-    const { tenantId } = session;
     const db = createSovereignClient();
     const { data, error } = await db
       .from('call_logs')
       .insert({
-        tenant_id:          tenantId,
         vapi_call_id:       params.vapi_call_id       ?? null,
         caller_name:        params.caller_name         ?? null,
         caller_phone:       params.caller_phone        ?? null,
@@ -205,15 +192,11 @@ export async function linkCallLogToBooking(
   callLogId: string,
   bookingRequestId: string,
 ): Promise<void> {
-  const session = await getStaffSession();
-  if (!session) return;
-  const { tenantId } = session;
   const db = createSovereignClient();
   await db
     .from('call_logs')
     .update({ booking_request_id: bookingRequestId })
-    .eq('id', callLogId)
-    .eq('tenant_id', tenantId);
+    .eq('id', callLogId);
 }
 
 // =============================================================================
