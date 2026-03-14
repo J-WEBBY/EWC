@@ -154,3 +154,173 @@ export async function disconnectIntegration(
   // TODO: Remove from DB when integrations are live
   return { success: true };
 }
+
+// =============================================================================
+// CLINIC CONFIG SETTINGS HELPERS (for Vapi / Twilio / Stripe)
+// =============================================================================
+
+import { createSovereignClient } from '@/lib/supabase/service';
+
+async function getClinicSettings(): Promise<Record<string, unknown>> {
+  const db = createSovereignClient();
+  const { data } = await db.from('clinic_config').select('settings').single();
+  return (data?.settings as Record<string, unknown>) ?? {};
+}
+
+async function patchClinicSettings(patch: Record<string, unknown>): Promise<void> {
+  const db = createSovereignClient();
+  const current = await getClinicSettings();
+  await db.from('clinic_config').update({
+    settings:   { ...current, ...patch },
+    updated_at: new Date().toISOString(),
+  }).neq('id', '00000000-0000-0000-0000-000000000000');
+}
+
+// =============================================================================
+// VAPI
+// =============================================================================
+
+export async function getVapiConfig(): Promise<{
+  isConnected: boolean;
+  publicKey: string | null;
+  lastTestedAt: string | null;
+}> {
+  const s = await getClinicSettings();
+  const v = s.vapi as Record<string, string> | null;
+  return {
+    isConnected:  !!(v?.private_key),
+    publicKey:    v?.public_key ?? null,
+    lastTestedAt: v?.last_tested_at ?? null,
+  };
+}
+
+export async function saveVapiConfig(
+  privateKey: string,
+  publicKey: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch('https://api.vapi.ai/assistant?limit=1', {
+      headers: { Authorization: `Bearer ${privateKey}` },
+    });
+    if (!res.ok) {
+      return { success: false, error: 'Invalid API key — could not connect to Vapi. Check your Private API Key and try again.' };
+    }
+    await patchClinicSettings({
+      vapi: {
+        private_key:    privateKey,
+        public_key:     publicKey || null,
+        last_tested_at: new Date().toISOString(),
+      },
+    });
+    return { success: true };
+  } catch {
+    return { success: false, error: 'Could not reach Vapi. Check your internet connection and try again.' };
+  }
+}
+
+export async function disconnectVapi(): Promise<{ success: boolean }> {
+  await patchClinicSettings({ vapi: null });
+  return { success: true };
+}
+
+// =============================================================================
+// TWILIO
+// =============================================================================
+
+export async function getTwilioConfig(): Promise<{
+  isConnected: boolean;
+  phoneNumber: string | null;
+  lastTestedAt: string | null;
+}> {
+  const s = await getClinicSettings();
+  const t = s.twilio as Record<string, string> | null;
+  return {
+    isConnected:  !!(t?.account_sid && t?.auth_token),
+    phoneNumber:  t?.phone_number ?? null,
+    lastTestedAt: t?.last_tested_at ?? null,
+  };
+}
+
+export async function saveTwilioConfig(
+  accountSid: string,
+  authToken: string,
+  phoneNumber: string,
+): Promise<{ success: boolean; friendlyName?: string; error?: string }> {
+  try {
+    const creds = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
+    const res = await fetch(
+      `https://api.twilio.com/2010-04-01/Accounts/${accountSid}.json`,
+      { headers: { Authorization: `Basic ${creds}` } },
+    );
+    if (!res.ok) {
+      return { success: false, error: 'Could not verify your Twilio credentials. Check your Account SID and Authentication Token.' };
+    }
+    const json = await res.json() as { friendly_name?: string };
+    await patchClinicSettings({
+      twilio: {
+        account_sid:    accountSid,
+        auth_token:     authToken,
+        phone_number:   phoneNumber || null,
+        last_tested_at: new Date().toISOString(),
+      },
+    });
+    return { success: true, friendlyName: json.friendly_name };
+  } catch {
+    return { success: false, error: 'Could not reach Twilio. Check your internet connection and try again.' };
+  }
+}
+
+export async function disconnectTwilio(): Promise<{ success: boolean }> {
+  await patchClinicSettings({ twilio: null });
+  return { success: true };
+}
+
+// =============================================================================
+// STRIPE
+// =============================================================================
+
+export async function getStripeConfig(): Promise<{
+  isConnected: boolean;
+  accountName: string | null;
+  lastTestedAt: string | null;
+}> {
+  const s = await getClinicSettings();
+  const st = s.stripe as Record<string, string> | null;
+  return {
+    isConnected:  !!(st?.secret_key),
+    accountName:  st?.account_name ?? null,
+    lastTestedAt: st?.last_tested_at ?? null,
+  };
+}
+
+export async function saveStripeConfig(
+  publishableKey: string,
+  secretKey: string,
+): Promise<{ success: boolean; accountName?: string; error?: string }> {
+  try {
+    const res = await fetch('https://api.stripe.com/v1/account', {
+      headers: { Authorization: `Bearer ${secretKey}` },
+    });
+    if (!res.ok) {
+      return { success: false, error: 'Invalid Stripe Secret Key — could not connect. Check your key and try again.' };
+    }
+    const json = await res.json() as { business_profile?: { name?: string }; email?: string };
+    const accountName = json.business_profile?.name ?? json.email ?? 'Stripe account';
+    await patchClinicSettings({
+      stripe: {
+        publishable_key: publishableKey || null,
+        secret_key:      secretKey,
+        account_name:    accountName,
+        last_tested_at:  new Date().toISOString(),
+      },
+    });
+    return { success: true, accountName };
+  } catch {
+    return { success: false, error: 'Could not reach Stripe. Check your internet connection and try again.' };
+  }
+}
+
+export async function disconnectStripe(): Promise<{ success: boolean }> {
+  await patchClinicSettings({ stripe: null });
+  return { success: true };
+}

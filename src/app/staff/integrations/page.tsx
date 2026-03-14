@@ -1,8 +1,9 @@
 'use client';
 
 // =============================================================================
-// Integrations Page — Connected Systems
-// Design system: #F8FAFF base, EWC brand colours, no white panels.
+// Integrations Page — Cliniko, Vapi, Twilio, Stripe
+// Per-integration panels with user-friendly forms, live connection status,
+// and management controls. No technical jargon.
 // =============================================================================
 
 import { useState, useEffect, useCallback } from 'react';
@@ -18,11 +19,11 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
-  ExternalLink,
   Link2,
   Unplug,
-  RefreshCw,
   Shield,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import OrbLoader from '@/components/orb-loader';
 import { StaffNav } from '@/components/staff-nav';
@@ -37,6 +38,17 @@ import {
   disconnectCliniko,
   getClinikoStats,
 } from '@/lib/actions/cliniko';
+import {
+  getVapiConfig,
+  saveVapiConfig,
+  disconnectVapi,
+  getTwilioConfig,
+  saveTwilioConfig,
+  disconnectTwilio,
+  getStripeConfig,
+  saveStripeConfig,
+  disconnectStripe,
+} from '@/lib/actions/integrations';
 
 // =============================================================================
 // DESIGN TOKENS
@@ -53,30 +65,7 @@ const GOLD   = '#D8A600';
 const TEAL   = '#00A693';
 const PURPLE = '#7C3AED';
 const GREEN  = '#059669';
-const ORANGE = '#EA580C';
 const RED    = '#DC2626';
-
-// =============================================================================
-// TYPES
-// =============================================================================
-
-interface ClinikoStatusType {
-  isConnected: boolean;
-  shard: string | null;
-  lastSyncAt: string | null;
-  lastSyncStatus: string | null;
-  syncError: string | null;
-}
-
-interface ClinikoStatsType {
-  patients: number;
-  appointments: number;
-  appointments_upcoming: number;
-  appointments_this_month: number;
-  invoices: number;
-  revenue_outstanding: number;
-  practitioners: number;
-}
 
 // =============================================================================
 // HELPERS
@@ -94,10 +83,25 @@ function timeSince(ts: string | null): string {
 }
 
 // =============================================================================
-// STATUS PILL
+// SHARED COMPONENTS
 // =============================================================================
 
-function ConnectedPill() {
+function StatusDot({ active }: { active: boolean }) {
+  return (
+    <div style={{ position: 'relative', width: 8, height: 8, flexShrink: 0 }}>
+      <div style={{ width: 8, height: 8, borderRadius: '50%', background: active ? GREEN : MUTED }} />
+      {active && (
+        <motion.div
+          style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: GREEN }}
+          animate={{ scale: [1, 2.5, 1], opacity: [0.5, 0, 0.5] }}
+          transition={{ duration: 2.5, repeat: Infinity }}
+        />
+      )}
+    </div>
+  );
+}
+
+function StatusPill({ active }: { active: boolean }) {
   return (
     <span style={{
       display: 'inline-flex',
@@ -107,186 +111,82 @@ function ConnectedPill() {
       borderRadius: 999,
       fontSize: 10,
       fontWeight: 600,
-      background: GREEN + '18',
-      border: '1px solid ' + GREEN + '30',
-      color: GREEN,
+      background: active ? GREEN + '18' : MUTED + '18',
+      border: '1px solid ' + (active ? GREEN + '30' : MUTED + '30'),
+      color: active ? GREEN : MUTED,
     }}>
-      <span style={{ width: 5, height: 5, borderRadius: '50%', background: GREEN, display: 'inline-block' }} />
-      Connected
+      <span style={{ width: 5, height: 5, borderRadius: '50%', background: active ? GREEN : MUTED }} />
+      {active ? 'Connected' : 'Not connected'}
     </span>
   );
 }
 
-function NotConfiguredPill() {
-  return (
-    <span style={{
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: 4,
-      padding: '2px 8px',
-      borderRadius: 999,
-      fontSize: 10,
-      fontWeight: 600,
-      background: MUTED + '18',
-      border: '1px solid ' + MUTED + '30',
-      color: MUTED,
-    }}>
-      Not configured
-    </span>
-  );
+interface FieldProps {
+  label: string;
+  hint?: string;
+  type?: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  monospace?: boolean;
+  showToggle?: boolean;
 }
 
-// =============================================================================
-// INTEGRATION CARD SHELL
-// =============================================================================
+function Field({ label, hint, type = 'text', value, onChange, placeholder, monospace, showToggle }: FieldProps) {
+  const [show, setShow] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const isPassword = type === 'password';
+  const inputType = isPassword && showToggle ? (show ? 'text' : 'password') : type;
 
-interface CardShellProps {
-  accent: string;
-  icon: React.ReactNode;
-  title: string;
-  subtitle: string;
-  statusPill: React.ReactNode;
-  description: string;
-  children: React.ReactNode;
-  colSpan2?: boolean;
-}
-
-function CardShell({ accent, icon, title, subtitle, statusPill, description, children, colSpan2 }: CardShellProps) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      style={{
-        background: 'transparent',
-        border: '1px solid ' + BORDER,
-        borderRadius: 16,
-        padding: 24,
-        position: 'relative',
-        overflow: 'hidden',
-        gridColumn: colSpan2 ? 'span 2' : undefined,
-      }}
-    >
-      {/* Left accent strip */}
+    <div>
+      <label style={{
+        display: 'block',
+        fontSize: 8,
+        fontWeight: 600,
+        letterSpacing: '0.28em',
+        textTransform: 'uppercase',
+        color: MUTED,
+        marginBottom: 4,
+      }}>
+        {label}
+      </label>
+      {hint && (
+        <p style={{ fontSize: 11, color: TER, margin: '0 0 6px', lineHeight: 1.4 }}>{hint}</p>
+      )}
       <div style={{
-        position: 'absolute',
-        left: 0,
-        top: 0,
-        bottom: 0,
-        width: 3,
-        background: accent,
-        borderRadius: '16px 0 0 16px',
-      }} />
-
-      {/* Header row */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 16 }}>
-        <div style={{
-          width: 40,
-          height: 40,
-          borderRadius: 10,
-          background: accent + '18',
-          border: '1px solid ' + accent + '30',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-        }}>
-          {icon}
-        </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 15, fontWeight: 700, color: NAVY }}>{title}</span>
-            {statusPill}
-          </div>
-          <span style={{ fontSize: 11, color: MUTED }}>{subtitle}</span>
-        </div>
-      </div>
-
-      <p style={{ fontSize: 12, color: SEC, lineHeight: 1.6, marginBottom: 20 }}>{description}</p>
-
-      {children}
-    </motion.div>
-  );
-}
-
-// =============================================================================
-// CLINIKO — CONNECT FORM
-// =============================================================================
-
-function ClinikoConnectForm({ onConnected }: { onConnected: () => void }) {
-  const [apiKey, setApiKey]       = useState('');
-  const [shard, setShard]         = useState('uk1');
-  const [showKey, setShowKey]     = useState(false);
-  const [connecting, setConnecting] = useState(false);
-  const [error, setError]         = useState<string | null>(null);
-  const [focused, setFocused]     = useState(false);
-
-  const handleConnect = useCallback(async () => {
-    if (!apiKey.trim()) { setError('API key is required'); return; }
-    setConnecting(true);
-    setError(null);
-
-    // Auto-detect shard from key suffix if possible
-    const match = apiKey.trim().match(/-([a-z]{2}\d+)$/);
-    const detectedShard = match ? match[1] : shard;
-
-    const res = await saveClinikoConfig(apiKey.trim(), detectedShard);
-    setConnecting(false);
-
-    if (res.success) {
-      onConnected();
-    } else {
-      setError(res.error ?? 'Connection failed. Check your API key and try again.');
-    }
-  }, [apiKey, shard, onConnected]);
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* API Key input */}
-      <div>
-        <label style={{
-          display: 'block',
-          fontSize: 8,
-          fontWeight: 600,
-          letterSpacing: '0.28em',
-          textTransform: 'uppercase',
-          color: MUTED,
-          marginBottom: 6,
-        }}>
-          Cliniko API Key
-        </label>
-        <div style={{
-          position: 'relative',
-          height: 44,
-          borderRadius: 10,
-          border: focused ? '1.5px solid ' + NAVY : '1.5px solid ' + BORDER,
-          background: BG,
-          transition: 'border-color 0.2s',
-          display: 'flex',
-          alignItems: 'center',
-        }}>
-          <input
-            type={showKey ? 'text' : 'password'}
-            value={apiKey}
-            onChange={e => setApiKey(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') handleConnect(); }}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-            placeholder="Paste your Cliniko API key..."
-            style={{
-              flex: 1,
-              height: '100%',
-              background: 'transparent',
-              border: 'none',
-              outline: 'none',
-              fontSize: 13,
-              color: NAVY,
-              fontFamily: 'monospace',
-              padding: '0 40px 0 12px',
-            }}
-          />
+        position: 'relative',
+        height: 44,
+        borderRadius: 10,
+        border: `1.5px solid ${focused ? NAVY : BORDER}`,
+        background: BG,
+        transition: 'border-color 0.2s',
+        display: 'flex',
+        alignItems: 'center',
+      }}>
+        <input
+          type={inputType}
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          placeholder={placeholder}
+          style={{
+            flex: 1,
+            height: '100%',
+            background: 'transparent',
+            border: 'none',
+            outline: 'none',
+            fontSize: 13,
+            color: NAVY,
+            fontFamily: monospace ? 'monospace' : 'inherit',
+            padding: showToggle ? '0 40px 0 12px' : '0 12px',
+          }}
+        />
+        {showToggle && (
           <button
             type="button"
-            onClick={() => setShowKey(v => !v)}
+            onClick={() => setShow(v => !v)}
             style={{
               position: 'absolute',
               right: 12,
@@ -300,286 +200,662 @@ function ClinikoConnectForm({ onConnected }: { onConnected: () => void }) {
               alignItems: 'center',
             }}
           >
-            {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
+            {show ? <EyeOff size={14} /> : <Eye size={14} />}
           </button>
-        </div>
-      </div>
-
-      {/* Shard selector */}
-      <div>
-        <label style={{
-          display: 'block',
-          fontSize: 8,
-          fontWeight: 600,
-          letterSpacing: '0.28em',
-          textTransform: 'uppercase',
-          color: MUTED,
-          marginBottom: 6,
-        }}>
-          Region / Shard
-        </label>
-        <select
-          value={shard}
-          onChange={e => setShard(e.target.value)}
-          style={{
-            width: '100%',
-            height: 44,
-            borderRadius: 10,
-            border: '1.5px solid ' + BORDER,
-            background: BG,
-            color: NAVY,
-            fontSize: 13,
-            padding: '0 12px',
-            outline: 'none',
-            cursor: 'pointer',
-          }}
-        >
-          <option value="uk1">UK (uk1)</option>
-          <option value="au1">Australia (au1)</option>
-          <option value="us1">United States (us1)</option>
-        </select>
-      </div>
-
-      {/* Error message */}
-      <AnimatePresence>
-        {error && (
-          <motion.div
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: 8,
-              padding: '10px 12px',
-              borderRadius: 8,
-              background: RED + '0d',
-              border: '1px solid ' + RED + '30',
-            }}
-          >
-            <AlertCircle size={13} color={RED} style={{ flexShrink: 0, marginTop: 1 }} />
-            <p style={{ fontSize: 12, color: RED, margin: 0 }}>{error}</p>
-          </motion.div>
         )}
-      </AnimatePresence>
-
-      {/* Connect button */}
-      <button
-        onClick={handleConnect}
-        disabled={connecting || !apiKey.trim()}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 8,
-          height: 44,
-          borderRadius: 10,
-          background: BLUE + '18',
-          border: '1px solid ' + BLUE + '40',
-          color: NAVY,
-          fontSize: 13,
-          fontWeight: 600,
-          cursor: connecting || !apiKey.trim() ? 'not-allowed' : 'pointer',
-          opacity: connecting || !apiKey.trim() ? 0.5 : 1,
-          transition: 'opacity 0.2s',
-        }}
-      >
-        {connecting
-          ? <><Loader2 size={14} className="animate-spin" /> Connecting...</>
-          : <><Link2 size={14} /> Connect Cliniko</>
-        }
-      </button>
+      </div>
     </div>
   );
 }
 
-// =============================================================================
-// CLINIKO — CONNECTED PANEL
-// =============================================================================
+function ErrorBox({ message }: { message: string }) {
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'flex-start',
+      gap: 8,
+      padding: '10px 12px',
+      borderRadius: 8,
+      background: RED + '0d',
+      border: '1px solid ' + RED + '30',
+    }}>
+      <AlertCircle size={13} color={RED} style={{ flexShrink: 0, marginTop: 1 }} />
+      <p style={{ fontSize: 12, color: RED, margin: 0, lineHeight: 1.5 }}>{message}</p>
+    </div>
+  );
+}
 
-function ClinikoConnectedPanel({
-  status,
-  stats,
-  onDisconnect,
-  disconnecting,
+function ConnectButton({
+  label,
+  loading,
+  disabled,
+  onClick,
+  accent,
 }: {
-  status: ClinikoStatusType;
-  stats: ClinikoStatsType | null;
-  onDisconnect: () => void;
-  disconnecting: boolean;
+  label: string;
+  loading: boolean;
+  disabled: boolean;
+  onClick: () => void;
+  accent: string;
 }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* Status row */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ position: 'relative', width: 8, height: 8, flexShrink: 0 }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: GREEN }} />
-            <motion.div
-              style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: GREEN }}
-              animate={{ scale: [1, 2.5, 1], opacity: [0.5, 0, 0.5] }}
-              transition={{ duration: 2.5, repeat: Infinity }}
-            />
-          </div>
-          <div>
-            <p style={{ fontSize: 13, fontWeight: 600, color: NAVY, margin: 0 }}>Live connection</p>
-            <p style={{ fontSize: 11, color: TER, margin: 0 }}>
-              Shard: <span style={{ fontFamily: 'monospace' }}>{status.shard ?? 'uk1'}</span>
-              {status.lastSyncAt && <> · Last tested: {timeSince(status.lastSyncAt)}</>}
-            </p>
-          </div>
-        </div>
-
-        <button
-          onClick={onDisconnect}
-          disabled={disconnecting}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            padding: '6px 12px',
-            borderRadius: 8,
-            background: RED + '0d',
-            border: '1px solid ' + RED + '30',
-            color: RED,
-            fontSize: 11,
-            fontWeight: 600,
-            cursor: disconnecting ? 'not-allowed' : 'pointer',
-            opacity: disconnecting ? 0.5 : 1,
-            transition: 'opacity 0.2s',
-          }}
-        >
-          {disconnecting ? <Loader2 size={11} className="animate-spin" /> : <Unplug size={11} />}
-          {disconnecting ? 'Disconnecting...' : 'Disconnect'}
-        </button>
-      </div>
-
-      {/* Stats row */}
-      {stats && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-          {[
-            { label: 'Patients', value: stats.patients.toLocaleString() },
-            { label: 'Appointments', value: stats.appointments.toLocaleString() },
-            { label: 'Practitioners', value: stats.practitioners.toLocaleString() },
-          ].map(({ label, value }) => (
-            <div
-              key={label}
-              style={{
-                padding: '12px 14px',
-                borderRadius: 10,
-                border: '1px solid ' + BORDER,
-                background: 'transparent',
-              }}
-            >
-              <p style={{ fontSize: 8, fontWeight: 600, letterSpacing: '0.28em', textTransform: 'uppercase', color: MUTED, margin: '0 0 6px' }}>
-                {label}
-              </p>
-              <p style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.03em', color: NAVY, margin: 0 }}>
-                {value}
-              </p>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Note */}
-      <div style={{
+    <button
+      onClick={onClick}
+      disabled={loading || disabled}
+      style={{
         display: 'flex',
-        alignItems: 'flex-start',
+        alignItems: 'center',
+        justifyContent: 'center',
         gap: 8,
-        padding: '10px 12px',
+        height: 44,
+        borderRadius: 10,
+        background: accent + '18',
+        border: '1px solid ' + accent + '40',
+        color: NAVY,
+        fontSize: 13,
+        fontWeight: 600,
+        cursor: (loading || disabled) ? 'not-allowed' : 'pointer',
+        opacity: (loading || disabled) ? 0.5 : 1,
+        transition: 'opacity 0.2s',
+        width: '100%',
+      }}
+    >
+      {loading
+        ? <><Loader2 size={14} className="animate-spin" /> Connecting...</>
+        : <><Link2 size={14} /> {label}</>
+      }
+    </button>
+  );
+}
+
+function DisconnectButton({ onClick, loading }: { onClick: () => void; loading: boolean }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={loading}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        padding: '6px 14px',
         borderRadius: 8,
-        background: BLUE + '08',
-        border: '1px solid ' + BLUE + '20',
-      }}>
-        <Shield size={13} color={BLUE} style={{ flexShrink: 0, marginTop: 1 }} />
-        <p style={{ fontSize: 11, color: SEC, margin: 0, lineHeight: 1.5 }}>
-          Agents read patient records, appointments, and practitioner schedules directly from Cliniko in real time — no local cache. All data stays in your Cliniko account.
-        </p>
-      </div>
-    </div>
+        background: RED + '0d',
+        border: '1px solid ' + RED + '30',
+        color: RED,
+        fontSize: 11,
+        fontWeight: 600,
+        cursor: loading ? 'not-allowed' : 'pointer',
+        opacity: loading ? 0.5 : 1,
+        transition: 'opacity 0.2s',
+      }}
+    >
+      {loading ? <Loader2 size={11} className="animate-spin" /> : <Unplug size={11} />}
+      {loading ? 'Disconnecting...' : 'Disconnect'}
+    </button>
   );
 }
 
 // =============================================================================
-// ENV-ONLY CARD (Vapi, Twilio, Stripe)
+// INTEGRATION PANEL SHELL
 // =============================================================================
 
-interface EnvCardProps {
+interface PanelProps {
   accent: string;
   icon: React.ReactNode;
   title: string;
-  subtitle: string;
+  category: string;
   description: string;
-  envVars: string[];
-  note?: string;
+  isConnected: boolean;
+  children: React.ReactNode;
 }
 
-function EnvCard({ accent, icon, title, subtitle, description, envVars, note }: EnvCardProps) {
+function IntegrationPanel({ accent, icon, title, category, description, isConnected, children }: PanelProps) {
+  const [open, setOpen] = useState(false);
+
+  // Auto-open disconnected panels on first render
+  useEffect(() => {
+    if (!isConnected) setOpen(true);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
-    <CardShell
-      accent={accent}
-      icon={icon}
-      title={title}
-      subtitle={subtitle}
-      statusPill={<NotConfiguredPill />}
-      description={description}
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      style={{
+        background: 'transparent',
+        border: '1px solid ' + BORDER,
+        borderRadius: 16,
+        overflow: 'hidden',
+        position: 'relative',
+      }}
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {/* Env vars list */}
+      {/* Left accent strip */}
+      <div style={{
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        bottom: 0,
+        width: 3,
+        background: accent,
+      }} />
+
+      {/* Header — always visible */}
+      <button
+        onClick={() => setOpen(v => !v)}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 14,
+          width: '100%',
+          padding: '20px 20px 20px 24px',
+          background: 'transparent',
+          border: 'none',
+          cursor: 'pointer',
+          textAlign: 'left',
+        }}
+      >
+        {/* Icon */}
         <div style={{
-          padding: '12px 14px',
-          borderRadius: 10,
-          background: accent + '08',
-          border: '1px solid ' + accent + '20',
+          width: 44,
+          height: 44,
+          borderRadius: 12,
+          background: accent + '18',
+          border: '1px solid ' + accent + '30',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
         }}>
-          <p style={{ fontSize: 8, fontWeight: 600, letterSpacing: '0.28em', textTransform: 'uppercase', color: MUTED, margin: '0 0 8px' }}>
-            Required env vars
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {envVars.map(v => (
-              <code key={v} style={{ fontSize: 11, fontFamily: 'monospace', color: SEC, display: 'block' }}>
-                {v}
-              </code>
-            ))}
-          </div>
+          {icon}
         </div>
 
-        {note && (
-          <p style={{ fontSize: 11, color: TER, margin: 0, lineHeight: 1.5 }}>{note}</p>
-        )}
+        {/* Title + meta */}
+        <div style={{ flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+            <span style={{ fontSize: 15, fontWeight: 700, color: NAVY }}>{title}</span>
+            <StatusPill active={isConnected} />
+          </div>
+          <span style={{ fontSize: 11, color: TER }}>{category}</span>
+        </div>
 
-        {/* Ghost button */}
-        <button
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 6,
-            height: 36,
-            borderRadius: 8,
-            background: 'transparent',
-            border: '1px solid ' + BORDER,
-            color: SEC,
-            fontSize: 12,
-            fontWeight: 600,
-            cursor: 'pointer',
-            transition: 'border-color 0.2s, color 0.2s',
-          }}
-          onMouseEnter={e => {
-            e.currentTarget.style.borderColor = accent + '60';
-            e.currentTarget.style.color = NAVY;
-          }}
-          onMouseLeave={e => {
-            e.currentTarget.style.borderColor = BORDER;
-            e.currentTarget.style.color = SEC;
-          }}
-        >
-          <ExternalLink size={12} />
-          View Setup Guide
-        </button>
-      </div>
-    </CardShell>
+        {/* Connected indicator + chevron */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+          {isConnected && <StatusDot active />}
+          {open ? <ChevronUp size={16} color={MUTED} /> : <ChevronDown size={16} color={MUTED} />}
+        </div>
+      </button>
+
+      {/* Expanded body */}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22 }}
+            style={{ overflow: 'hidden' }}
+          >
+            <div style={{
+              padding: '0 24px 24px',
+              borderTop: '1px solid ' + BORDER,
+            }}>
+              <p style={{ fontSize: 13, color: SEC, lineHeight: 1.6, margin: '16px 0 20px' }}>
+                {description}
+              </p>
+              {children}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
+// =============================================================================
+// CLINIKO PANEL
+// =============================================================================
+
+function ClinikoPanel() {
+  const [status, setStatus] = useState<{
+    isConnected: boolean; shard: string | null; lastSyncAt: string | null;
+  } | null>(null);
+  const [stats, setStats]   = useState<{
+    patients: number; appointments: number; practitioners: number;
+  } | null>(null);
+
+  const [apiKey, setApiKey]     = useState('');
+  const [shard, setShard]       = useState('uk1');
+  const [connecting, setConnecting] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+  const [error, setError]       = useState<string | null>(null);
+  const [success, setSuccess]   = useState(false);
+
+  const load = useCallback(async () => {
+    const [s, st] = await Promise.all([getClinikoStatus(), getClinikoStats()]);
+    setStatus(s);
+    if (s.isConnected) setStats({ patients: st.patients, appointments: st.appointments, practitioners: st.practitioners });
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleConnect = async () => {
+    if (!apiKey.trim()) { setError('Please enter your Cliniko API key.'); return; }
+    setConnecting(true); setError(null);
+    const match = apiKey.trim().match(/-([a-z]{2}\d+)$/);
+    const detectedShard = match ? match[1] : shard;
+    const res = await saveClinikoConfig(apiKey.trim(), detectedShard);
+    setConnecting(false);
+    if (res.success) { setSuccess(true); setTimeout(() => setSuccess(false), 5000); await load(); }
+    else setError(res.error ?? 'Connection failed. Check your API key and try again.');
+  };
+
+  const handleDisconnect = async () => {
+    setDisconnecting(true);
+    await disconnectCliniko();
+    setStats(null);
+    await load();
+    setDisconnecting(false);
+  };
+
+  const isConnected = status?.isConnected ?? false;
+
+  return (
+    <IntegrationPanel
+      accent={BLUE}
+      icon={<Database size={20} color={BLUE} />}
+      title="Cliniko"
+      category="Practice Management System"
+      description="Connect your Cliniko account so your AI agents can view patient records, check appointments, and book or cancel sessions — all in real time."
+      isConnected={isConnected}
+    >
+      <AnimatePresence mode="wait">
+        {isConnected ? (
+          <motion.div key="connected" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+            {/* Live status row */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 12,
+              padding: '14px 16px',
+              borderRadius: 10,
+              background: GREEN + '08',
+              border: '1px solid ' + GREEN + '20',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <StatusDot active />
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: NAVY, margin: 0 }}>Live — reading data in real time</p>
+                  <p style={{ fontSize: 11, color: TER, margin: 0 }}>
+                    Region: {status?.shard ?? 'uk1'}
+                    {status?.lastSyncAt && <> · Last checked: {timeSince(status.lastSyncAt)}</>}
+                  </p>
+                </div>
+              </div>
+              <DisconnectButton onClick={handleDisconnect} loading={disconnecting} />
+            </div>
+
+            {/* Stats */}
+            {stats && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+                {[
+                  { label: 'Patients', value: stats.patients.toLocaleString() },
+                  { label: 'Appointments', value: stats.appointments.toLocaleString() },
+                  { label: 'Practitioners', value: stats.practitioners.toLocaleString() },
+                ].map(({ label, value }) => (
+                  <div key={label} style={{ padding: '12px 14px', borderRadius: 10, border: '1px solid ' + BORDER }}>
+                    <p style={{ fontSize: 8, fontWeight: 600, letterSpacing: '0.28em', textTransform: 'uppercase', color: MUTED, margin: '0 0 6px' }}>{label}</p>
+                    <p style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.03em', color: NAVY, margin: 0 }}>{value}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 12px', borderRadius: 8, background: BLUE + '08', border: '1px solid ' + BLUE + '20' }}>
+              <Shield size={13} color={BLUE} style={{ flexShrink: 0, marginTop: 1 }} />
+              <p style={{ fontSize: 11, color: SEC, margin: 0, lineHeight: 1.5 }}>
+                Your agents read and write patient data directly from Cliniko — nothing is stored locally. Data stays in your Cliniko account.
+              </p>
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+            {success && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 8, background: GREEN + '0d', border: '1px solid ' + GREEN + '30' }}>
+                <CheckCircle2 size={13} color={GREEN} />
+                <p style={{ fontSize: 12, color: GREEN, fontWeight: 600, margin: 0 }}>Cliniko connected. Agents now have live access to patient data.</p>
+              </div>
+            )}
+
+            <Field
+              label="Cliniko API Key"
+              hint="Find this in Cliniko: My Info → Integrations → API Keys. Generate a new key if needed."
+              type="password"
+              value={apiKey}
+              onChange={setApiKey}
+              placeholder="Paste your API key here..."
+              monospace
+              showToggle
+            />
+
+            <div>
+              <label style={{ display: 'block', fontSize: 8, fontWeight: 600, letterSpacing: '0.28em', textTransform: 'uppercase', color: MUTED, marginBottom: 4 }}>
+                Clinic Region
+              </label>
+              <p style={{ fontSize: 11, color: TER, margin: '0 0 6px', lineHeight: 1.4 }}>Select the region your Cliniko account is based in.</p>
+              <select
+                value={shard}
+                onChange={e => setShard(e.target.value)}
+                style={{ width: '100%', height: 44, borderRadius: 10, border: '1.5px solid ' + BORDER, background: BG, color: NAVY, fontSize: 13, padding: '0 12px', outline: 'none', cursor: 'pointer' }}
+              >
+                <option value="uk1">United Kingdom</option>
+                <option value="au1">Australia</option>
+                <option value="us1">United States</option>
+              </select>
+            </div>
+
+            {error && <ErrorBox message={error} />}
+
+            <ConnectButton
+              label="Connect Cliniko"
+              loading={connecting}
+              disabled={!apiKey.trim()}
+              onClick={handleConnect}
+              accent={BLUE}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </IntegrationPanel>
+  );
+}
+
+// =============================================================================
+// VAPI PANEL
+// =============================================================================
+
+function VapiPanel() {
+  const [cfg, setCfg]     = useState<{ isConnected: boolean; publicKey: string | null; lastTestedAt: string | null } | null>(null);
+  const [privateKey, setPrivateKey] = useState('');
+  const [publicKey, setPublicKey]   = useState('');
+  const [saving, setSaving]         = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+  const [error, setError]           = useState<string | null>(null);
+
+  const load = useCallback(async () => { setCfg(await getVapiConfig()); }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const handleSave = async () => {
+    if (!privateKey.trim()) { setError('Please enter your Vapi Private API Key.'); return; }
+    setSaving(true); setError(null);
+    const res = await saveVapiConfig(privateKey.trim(), publicKey.trim());
+    setSaving(false);
+    if (res.success) await load();
+    else setError(res.error ?? 'Connection failed. Please check your keys.');
+  };
+
+  const handleDisconnect = async () => {
+    setDisconnecting(true);
+    await disconnectVapi();
+    await load();
+    setDisconnecting(false);
+  };
+
+  const isConnected = cfg?.isConnected ?? false;
+
+  return (
+    <IntegrationPanel
+      accent={PURPLE}
+      icon={<Phone size={20} color={PURPLE} />}
+      title="Vapi"
+      category="AI Voice Receptionist"
+      description="Connect your Vapi account to power your AI voice receptionist. Once connected, you can provision and manage your phone receptionist from the Receptionist page."
+      isConnected={isConnected}
+    >
+      <AnimatePresence mode="wait">
+        {isConnected ? (
+          <motion.div key="connected" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, padding: '14px 16px', borderRadius: 10, background: GREEN + '08', border: '1px solid ' + GREEN + '20' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <StatusDot active />
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: NAVY, margin: 0 }}>Vapi account connected</p>
+                  {cfg?.lastTestedAt && <p style={{ fontSize: 11, color: TER, margin: 0 }}>Last verified: {timeSince(cfg.lastTestedAt)}</p>}
+                </div>
+              </div>
+              <DisconnectButton onClick={handleDisconnect} loading={disconnecting} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 12px', borderRadius: 8, background: PURPLE + '08', border: '1px solid ' + PURPLE + '20' }}>
+              <Shield size={13} color={PURPLE} style={{ flexShrink: 0, marginTop: 1 }} />
+              <p style={{ fontSize: 11, color: SEC, margin: 0, lineHeight: 1.5 }}>
+                Go to the <strong>Receptionist</strong> page to provision your AI voice assistant and assign a phone number.
+              </p>
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <Field
+              label="Private API Key"
+              hint="Found in your Vapi dashboard under Account → API Keys. Keep this secret."
+              type="password"
+              value={privateKey}
+              onChange={setPrivateKey}
+              placeholder="vapi_..."
+              monospace
+              showToggle
+            />
+            <Field
+              label="Public API Key"
+              hint="Also found in Vapi API Keys. Used for client-side calls — safe to share."
+              type="text"
+              value={publicKey}
+              onChange={setPublicKey}
+              placeholder="vapi_pub_..."
+              monospace
+            />
+            {error && <ErrorBox message={error} />}
+            <ConnectButton label="Connect Vapi" loading={saving} disabled={!privateKey.trim()} onClick={handleSave} accent={PURPLE} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </IntegrationPanel>
+  );
+}
+
+// =============================================================================
+// TWILIO PANEL
+// =============================================================================
+
+function TwilioPanel() {
+  const [cfg, setCfg]   = useState<{ isConnected: boolean; phoneNumber: string | null; lastTestedAt: string | null } | null>(null);
+  const [accountSid, setAccountSid]   = useState('');
+  const [authToken, setAuthToken]     = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [saving, setSaving]           = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+  const [error, setError]             = useState<string | null>(null);
+  const [friendlyName, setFriendlyName] = useState<string | null>(null);
+
+  const load = useCallback(async () => { setCfg(await getTwilioConfig()); }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const handleSave = async () => {
+    if (!accountSid.trim() || !authToken.trim()) { setError('Account SID and Authentication Token are both required.'); return; }
+    setSaving(true); setError(null);
+    const res = await saveTwilioConfig(accountSid.trim(), authToken.trim(), phoneNumber.trim());
+    setSaving(false);
+    if (res.success) { setFriendlyName(res.friendlyName ?? null); await load(); }
+    else setError(res.error ?? 'Connection failed. Please check your credentials.');
+  };
+
+  const handleDisconnect = async () => {
+    setDisconnecting(true);
+    await disconnectTwilio();
+    await load();
+    setDisconnecting(false);
+  };
+
+  const isConnected = cfg?.isConnected ?? false;
+
+  return (
+    <IntegrationPanel
+      accent={GOLD}
+      icon={<MessageSquare size={20} color={GOLD} />}
+      title="Twilio"
+      category="SMS & Messaging"
+      description="Connect Twilio to send patients SMS appointment reminders, follow-up messages, and payment links directly from your system."
+      isConnected={isConnected}
+    >
+      <AnimatePresence mode="wait">
+        {isConnected ? (
+          <motion.div key="connected" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, padding: '14px 16px', borderRadius: 10, background: GREEN + '08', border: '1px solid ' + GREEN + '20' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <StatusDot active />
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: NAVY, margin: 0 }}>
+                    {friendlyName ?? 'Twilio account connected'}
+                  </p>
+                  <p style={{ fontSize: 11, color: TER, margin: 0 }}>
+                    {cfg?.phoneNumber ? `SMS from ${cfg.phoneNumber}` : 'No SMS number saved'}
+                    {cfg?.lastTestedAt && <> · Verified {timeSince(cfg.lastTestedAt)}</>}
+                  </p>
+                </div>
+              </div>
+              <DisconnectButton onClick={handleDisconnect} loading={disconnecting} />
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <Field
+              label="Account SID"
+              hint="Your Twilio Account SID starts with 'AC'. Found on your Twilio Console homepage."
+              value={accountSid}
+              onChange={setAccountSid}
+              placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              monospace
+            />
+            <Field
+              label="Authentication Token"
+              hint="Found next to your Account SID on the Twilio Console. Keep this secret."
+              type="password"
+              value={authToken}
+              onChange={setAuthToken}
+              placeholder="Your auth token..."
+              monospace
+              showToggle
+            />
+            <Field
+              label="SMS Phone Number (optional)"
+              hint="Your Twilio phone number for sending SMS — e.g. +44 7700 900000. Can be added later."
+              value={phoneNumber}
+              onChange={setPhoneNumber}
+              placeholder="+44..."
+            />
+            {error && <ErrorBox message={error} />}
+            <ConnectButton label="Connect Twilio" loading={saving} disabled={!accountSid.trim() || !authToken.trim()} onClick={handleSave} accent={GOLD} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </IntegrationPanel>
+  );
+}
+
+// =============================================================================
+// STRIPE PANEL
+// =============================================================================
+
+function StripePanel() {
+  const [cfg, setCfg]     = useState<{ isConnected: boolean; accountName: string | null; lastTestedAt: string | null } | null>(null);
+  const [publishableKey, setPublishableKey] = useState('');
+  const [secretKey, setSecretKey]           = useState('');
+  const [saving, setSaving]                 = useState(false);
+  const [disconnecting, setDisconnecting]   = useState(false);
+  const [error, setError]                   = useState<string | null>(null);
+
+  const load = useCallback(async () => { setCfg(await getStripeConfig()); }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const handleSave = async () => {
+    if (!secretKey.trim()) { setError('Secret Key is required to verify your Stripe account.'); return; }
+    setSaving(true); setError(null);
+    const res = await saveStripeConfig(publishableKey.trim(), secretKey.trim());
+    setSaving(false);
+    if (res.success) await load();
+    else setError(res.error ?? 'Connection failed. Please check your keys.');
+  };
+
+  const handleDisconnect = async () => {
+    setDisconnecting(true);
+    await disconnectStripe();
+    await load();
+    setDisconnecting(false);
+  };
+
+  const isConnected = cfg?.isConnected ?? false;
+
+  return (
+    <IntegrationPanel
+      accent={TEAL}
+      icon={<CreditCard size={20} color={TEAL} />}
+      title="Stripe"
+      category="Payments"
+      description="Connect Stripe to generate payment links, collect invoices, and track outstanding revenue from patient treatments and packages."
+      isConnected={isConnected}
+    >
+      <AnimatePresence mode="wait">
+        {isConnected ? (
+          <motion.div key="connected" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, padding: '14px 16px', borderRadius: 10, background: GREEN + '08', border: '1px solid ' + GREEN + '20' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <StatusDot active />
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: NAVY, margin: 0 }}>
+                    {cfg?.accountName ?? 'Stripe account connected'}
+                  </p>
+                  {cfg?.lastTestedAt && <p style={{ fontSize: 11, color: TER, margin: 0 }}>Verified {timeSince(cfg.lastTestedAt)}</p>}
+                </div>
+              </div>
+              <DisconnectButton onClick={handleDisconnect} loading={disconnecting} />
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <Field
+              label="Publishable Key"
+              hint="Starts with 'pk_live_' or 'pk_test_'. Found in your Stripe Dashboard → Developers → API Keys."
+              value={publishableKey}
+              onChange={setPublishableKey}
+              placeholder="pk_live_..."
+              monospace
+            />
+            <Field
+              label="Secret Key"
+              hint="Starts with 'sk_live_' or 'sk_test_'. Keep this private — it gives full access to your account."
+              type="password"
+              value={secretKey}
+              onChange={setSecretKey}
+              placeholder="sk_live_..."
+              monospace
+              showToggle
+            />
+            {error && <ErrorBox message={error} />}
+            <ConnectButton label="Connect Stripe" loading={saving} disabled={!secretKey.trim()} onClick={handleSave} accent={TEAL} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </IntegrationPanel>
   );
 }
 
@@ -589,202 +865,51 @@ function EnvCard({ accent, icon, title, subtitle, description, envVars, note }: 
 
 export default function IntegrationsPage() {
   const router = useRouter();
+  const [profile, setProfile] = useState<StaffProfile | null>(null);
+  const [userId, setUserId]   = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const [profile, setProfile]             = useState<StaffProfile | null>(null);
-  const [userId, setUserId]               = useState<string | null>(null);
-  const [loading, setLoading]             = useState(true);
-  const [clinikoStatus, setClinikoStatus] = useState<ClinikoStatusType | null>(null);
-  const [clinikoStats, setClinikoStats]   = useState<ClinikoStatsType | null>(null);
-  const [disconnecting, setDisconnecting] = useState(false);
-  const [connectSuccess, setConnectSuccess] = useState(false);
-
-  // ── Initial load ──
   useEffect(() => {
     (async () => {
       const userRes = await getCurrentUser();
-      if (!userRes.success || !userRes.userId) {
-        router.push('/login');
-        return;
-      }
+      if (!userRes.success || !userRes.userId) { router.push('/login'); return; }
       setUserId(userRes.userId);
-
-      const [profileRes, statusRes] = await Promise.all([
-        getStaffProfile('clinic', userRes.userId),
-        getClinikoStatus(),
-      ]);
-
-      if (profileRes.success && profileRes.data) {
-        setProfile(profileRes.data.profile);
-      }
-
-      setClinikoStatus(statusRes);
-
-      if (statusRes.isConnected) {
-        const statsRes = await getClinikoStats();
-        setClinikoStats(statsRes);
-      }
-
+      const profileRes = await getStaffProfile('clinic', userRes.userId);
+      if (profileRes.success && profileRes.data) setProfile(profileRes.data.profile);
       setLoading(false);
     })();
   }, [router]);
 
-  // ── After successful connect ──
-  const handleConnected = useCallback(async () => {
-    const [statusRes, statsRes] = await Promise.all([
-      getClinikoStatus(),
-      getClinikoStats(),
-    ]);
-    setClinikoStatus(statusRes);
-    setClinikoStats(statsRes);
-    setConnectSuccess(true);
-    setTimeout(() => setConnectSuccess(false), 5000);
-  }, []);
-
-  // ── Disconnect ──
-  const handleDisconnect = useCallback(async () => {
-    setDisconnecting(true);
-    await disconnectCliniko();
-    setClinikoStatus(prev => prev ? { ...prev, isConnected: false } : null);
-    setClinikoStats(null);
-    setDisconnecting(false);
-  }, []);
-
-  // ── Loading ──
-  if (loading || !profile) {
-    return <OrbLoader />;
-  }
+  if (loading || !profile) return <OrbLoader />;
 
   const brandColor = profile.brandColor ?? BLUE;
 
   return (
     <div style={{ minHeight: '100vh', background: BG }}>
-      <StaffNav
-        profile={profile}
-        userId={userId!}
-        brandColor={brandColor}
-        currentPath="Integrations"
-      />
+      <StaffNav profile={profile} userId={userId!} brandColor={brandColor} currentPath="Integrations" />
 
       <div style={{ paddingLeft: 240 }}>
-        <div style={{ maxWidth: 900, margin: '0 auto', padding: '48px 32px' }}>
+        <div style={{ maxWidth: 860, margin: '0 auto', padding: '48px 32px' }}>
 
           {/* Header */}
           <div style={{ marginBottom: 40 }}>
-            <p style={{
-              fontSize: 10,
-              fontWeight: 600,
-              letterSpacing: '0.28em',
-              textTransform: 'uppercase',
-              color: MUTED,
-              marginBottom: 8,
-              margin: '0 0 8px',
-            }}>
+            <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.28em', textTransform: 'uppercase', color: MUTED, marginBottom: 8, margin: '0 0 8px' }}>
               INTEGRATIONS
             </p>
-            <h1 style={{
-              fontSize: 32,
-              fontWeight: 900,
-              color: NAVY,
-              letterSpacing: '-0.03em',
-              margin: '0 0 8px',
-            }}>
+            <h1 style={{ fontSize: 32, fontWeight: 900, color: NAVY, letterSpacing: '-0.03em', margin: '0 0 8px' }}>
               Connected Systems
             </h1>
             <p style={{ fontSize: 13, color: SEC, margin: 0 }}>
-              Manage API connections. Cliniko is the patient record system — all agents read and write directly to it in real time.
+              Connect the tools your clinic uses. Your agents and receptionist will use these connections to manage patients, send messages, and process payments.
             </p>
           </div>
 
-          {/* Connect success banner */}
-          <AnimatePresence>
-            {connectSuccess && (
-              <motion.div
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  padding: '12px 16px',
-                  borderRadius: 10,
-                  background: GREEN + '0d',
-                  border: '1px solid ' + GREEN + '30',
-                  marginBottom: 24,
-                }}
-              >
-                <CheckCircle2 size={14} color={GREEN} />
-                <p style={{ fontSize: 13, color: GREEN, fontWeight: 600, margin: 0 }}>
-                  Cliniko connected successfully. Agents now have live access to patient data.
-                </p>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Grid */}
-          <div className="grid grid-cols-2 gap-6">
-
-            {/* Card 1: Cliniko (full width) */}
-            <CardShell
-              accent={BLUE}
-              icon={<Database size={18} color={BLUE} />}
-              title="Cliniko"
-              subtitle="Practice Management System"
-              statusPill={clinikoStatus?.isConnected ? <ConnectedPill /> : <NotConfiguredPill />}
-              description="Patient records, appointments, and practitioner schedules. Agents access Cliniko directly in real time — no local cache."
-              colSpan2
-            >
-              <AnimatePresence mode="wait">
-                {clinikoStatus?.isConnected ? (
-                  <motion.div key="connected" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                    <ClinikoConnectedPanel
-                      status={clinikoStatus}
-                      stats={clinikoStats}
-                      onDisconnect={handleDisconnect}
-                      disconnecting={disconnecting}
-                    />
-                  </motion.div>
-                ) : (
-                  <motion.div key="disconnected" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                    <ClinikoConnectForm onConnected={handleConnected} />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </CardShell>
-
-            {/* Card 2: Vapi.ai */}
-            <EnvCard
-              accent={PURPLE}
-              icon={<Phone size={18} color={PURPLE} />}
-              title="Vapi.ai"
-              subtitle="AI Voice Receptionist"
-              description="Powers Komal — the AI voice receptionist. Handles inbound calls, books appointments, and routes to staff."
-              envVars={['VAPI_PRIVATE_KEY', 'NEXT_PUBLIC_VAPI_PUBLIC_KEY', 'NEXT_PUBLIC_APP_URL']}
-              note="Set these in Vercel environment variables, then provision Komal from the Receptionist page."
-            />
-
-            {/* Card 3: Twilio */}
-            <EnvCard
-              accent={ORANGE}
-              icon={<MessageSquare size={18} color={ORANGE} />}
-              title="Twilio"
-              subtitle="SMS & WhatsApp"
-              description="Patient reminders, follow-up messages, and appointment confirmations via SMS."
-              envVars={['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_PHONE_NUMBER']}
-              note="Set these in Vercel environment variables to enable SMS reminders and follow-up sequences."
-            />
-
-            {/* Card 4: Stripe */}
-            <EnvCard
-              accent={TEAL}
-              icon={<CreditCard size={18} color={TEAL} />}
-              title="Stripe"
-              subtitle="Payments"
-              description="Payment links, invoice collection, and revenue tracking for treatments and packages."
-              envVars={['STRIPE_SECRET_KEY', 'STRIPE_PUBLISHABLE_KEY', 'STRIPE_WEBHOOK_SECRET']}
-              note="Set these in Vercel environment variables to enable payment link generation and invoice collection."
-            />
-
+          {/* Integration panels */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <ClinikoPanel />
+            <VapiPanel />
+            <TwilioPanel />
+            <StripePanel />
           </div>
 
           {/* Footer */}
@@ -797,11 +922,11 @@ export default function IntegrationsPage() {
             justifyContent: 'space-between',
           }}>
             <p style={{ fontSize: 11, color: MUTED, margin: 0 }}>
-              All API credentials are stored securely in Vercel environment variables and never exposed to the client.
+              All credentials are encrypted and stored securely. They are never shared or visible once saved.
             </p>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: MUTED }}>
               <Shield size={11} />
-              End-to-end encrypted
+              Secured
             </div>
           </div>
 
