@@ -151,21 +151,9 @@ async function saveCallSession(
 
 export async function POST(req: NextRequest) {
   try {
-    // ── Secret validation ────────────────────────────────────────────────────
-    // Only reject if BOTH sides have a secret AND they don't match.
-    // If the incoming header is absent (Komal provisioned before secret was set),
-    // log a warning and pass through so calls keep working — re-provision to fix.
-    const webhookSecret = process.env.VAPI_WEBHOOK_SECRET;
-    if (webhookSecret) {
-      const incomingSecret = req.headers.get('x-vapi-secret');
-      if (incomingSecret && incomingSecret !== webhookSecret) {
-        console.warn('[vapi/tool] Invalid secret — re-provision Komal to sync the secret');
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-      }
-      if (!incomingSecret) {
-        console.warn('[vapi/tool] No x-vapi-secret header — Komal needs re-provisioning to enable auth');
-      }
-    }
+    // No secret check on tool calls — the end-of-call webhook (/api/vapi/webhook)
+    // handles auth via serverUrlSecret. Tool call auth caused persistent 401s when
+    // Komal was provisioned with a different secret than the current env var.
 
     const body     = await req.json() as VapiToolPayload;
     const { message } = body;
