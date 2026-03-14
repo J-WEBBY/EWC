@@ -94,7 +94,7 @@ export async function verifyLogin(identifier: string, password: string, tenantId
       .select(`
         id, email, first_name, last_name, display_name,
         is_admin, must_change_password,
-        temp_password_hash, password_hash,
+        password_hash,
         status, staff_onboarding_completed,
         role_id
       `)
@@ -110,20 +110,10 @@ export async function verifyLogin(identifier: string, password: string, tenantId
     }
 
     let isValid = false;
-    let isTempPassword = false;
-
-    // Check temp password first (bcrypt)
-    if (user.temp_password_hash) {
-      try {
-        isValid = await bcrypt.compare(password, user.temp_password_hash);
-        if (isValid) isTempPassword = true;
-      } catch {
-        // not a bcrypt hash — skip
-      }
-    }
+    const isTempPassword = false;
 
     // Check permanent password (bcrypt)
-    if (!isValid && user.password_hash) {
+    if (user.password_hash) {
       try {
         isValid = await bcrypt.compare(password, user.password_hash);
       } catch {
@@ -212,10 +202,9 @@ export async function changePassword(userId: string, newPassword: string, _tenan
       .from('users')
       .update({
         password_hash: passwordHash,
-        temp_password_hash: null,
         must_change_password: false,
-        password_changed_at: new Date().toISOString(),
         status: 'active',
+        updated_at: new Date().toISOString(),
       })
       .eq('id', userId);
 
