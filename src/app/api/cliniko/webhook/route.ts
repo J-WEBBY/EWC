@@ -15,6 +15,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createSovereignClient } from '@/lib/supabase/service';
+import { sendSMS, sendWhatsApp, logCommunication, isTwilioConfigured, normalizeUKPhone } from '@/lib/twilio/client';
+import { AUTOMATION_REGISTRY } from '@/lib/automations/registry';
 
 const CLINIKO_WEBHOOK_SECRET = process.env.CLINIKO_WEBHOOK_SECRET ?? '';
 
@@ -66,6 +68,111 @@ function resolveStatus(appt: ClinikoAppointmentData): string {
   if (appt.cancelled_at) return 'Cancelled';
   if (appt.did_not_arrive) return 'Did Not Arrive';
   return appt.status ?? 'Booked';
+}
+
+// =============================================================================
+// sendBookingConfirmation
+// Fires after appointment.created if the booking_confirmation automation is active
+// and Twilio is configured. Non-fatal — errors are logged, not thrown.
+// =============================================================================
+
+async function sendBookingConfirmation(
+  db: ReturnType<typeof createSovereignClient>,
+  params: {
+    clinikoId:       string;
+    patientId:       string | null;
+    appointmentType: string;
+    practitionerName: string | null;
+    appt:            ClinikoAppointmentData;
+  },
+): Promise<void> {
+  try {
+    // Check automation is enabled
+    const automationConfig = AUTOMATION_REGISTRY.find(a => a.id === 'booking_confirmation');
+    if (!automationConfig?.is_active) {
+      console.log('[booking-confirmation] Automation is inactive — skipping');
+      return;
+    }
+    if (!isTwilioConfigured()) {
+      console.log('[booking-confirmation] Twilio not configured — skipping');
+      return;
+    }
+    if (!params.patientId) {
+      console.log('[booking-confirmation] No patient ID — skipping');
+      return;
+    }
+
+    // Look up patient phone from local cache
+    const { data: patient } = await db
+      .from('cliniko_patients')
+      .select('first_name, last_name, phone')
+      .eq('cliniko_id', params.patientId)
+      .single();
+
+    if (!patient?.phone) {
+      console.log(`[booking-confirmation] No phone for patient ${params.patientId} — skipping`);
+      return;
+    }
+
+    const firstName    = patient.first_name ?? 'there';
+    const patientName  = [patient.first_name, patient.last_name].filter(Boolean).join(' ') || 'Patient';
+    const practitioner = params.practitionerName ?? 'our team';
+
+    // Format date/time from starts_at
+    let dateLabel = 'your upcoming appointment';
+    let timeLabel = '';
+    if (params.appt.starts_at) {
+      const d = new Date(params.appt.starts_at);
+      dateLabel = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+      timeLabel = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+    }
+
+    const message = timeLabel
+      ? `Hi ${firstName}, your ${params.appointmentType} appointment at Edgbaston Wellness Clinic is confirmed for ${dateLabel} at ${timeLabel} with ${practitioner}. We look forward to seeing you. — EWC Team`
+      : `Hi ${firstName}, your ${params.appointmentType} appointment at Edgbaston Wellness Clinic is confirmed for ${dateLabel} with ${practitioner}. We look forward to seeing you. — EWC Team`;
+
+    const phone = normalizeUKPhone(patient.phone);
+
+    // Try WhatsApp first, fall back to SMS
+    let sid    = '';
+    let channel: 'WhatsApp' | 'SMS' = 'SMS';
+    let sendStatus: 'sent' | 'failed' = 'sent';
+    let errorMsg: string | undefined;
+
+    try {
+      const result = await sendWhatsApp(phone, message);
+      sid     = result.sid;
+      channel = 'WhatsApp';
+      console.log(`[booking-confirmation] WhatsApp sent to ${patientName} — ${sid}`);
+    } catch (whatsappErr) {
+      console.warn('[booking-confirmation] WhatsApp failed, falling back to SMS:', whatsappErr);
+      try {
+        const result = await sendSMS(phone, message);
+        sid     = result.sid;
+        channel = 'SMS';
+        console.log(`[booking-confirmation] SMS sent to ${patientName} — ${sid}`);
+      } catch (smsErr) {
+        console.error('[booking-confirmation] SMS also failed:', smsErr);
+        sendStatus = 'failed';
+        errorMsg   = String(smsErr);
+      }
+    }
+
+    // Log to automation_communications
+    await logCommunication({
+      automation_id:   'booking_confirmation',
+      automation_name: 'Booking Confirmation',
+      patient_name:    patientName,
+      channel,
+      message,
+      status:          sendStatus,
+      provider_id:     sid || undefined,
+      error_message:   errorMsg,
+    });
+
+  } catch (err) {
+    console.error('[booking-confirmation] Unexpected error:', err);
+  }
 }
 
 // Health check
@@ -130,6 +237,11 @@ export async function POST(req: NextRequest) {
         }, { onConflict: 'cliniko_id' });
 
         console.log(`[cliniko-webhook] Upserted appointment ${clinikoId} (${status})`);
+
+        // ── Booking Confirmation automation ───────────────────────────────────
+        if (event === 'appointment.created') {
+          void sendBookingConfirmation(db, { clinikoId, patientId, appointmentType, practitionerName, appt });
+        }
 
       } else if (event === 'appointment.cancelled' || event === 'appointment.deleted') {
         await db

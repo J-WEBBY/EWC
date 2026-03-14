@@ -134,109 +134,6 @@ export interface AutomationCommunication {
   sent_at: string;
 }
 
-const DEMO_COMMUNICATIONS: AutomationCommunication[] = [
-  {
-    id: 'c1',
-    automation_id: 'booking_reminder',
-    automation_name: 'Booking Reminder',
-    patient_name: 'Sarah Mitchell',
-    channel: 'WhatsApp',
-    message: 'Hi Sarah, just a reminder about your Botox appointment tomorrow at 10:30 AM with Dr Ganata. Please arrive 5 minutes early.',
-    status: 'delivered',
-    sent_at: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'c2',
-    automation_id: 'booking_confirmation',
-    automation_name: 'Booking Confirmation',
-    patient_name: 'James Okafor',
-    channel: 'SMS',
-    message: 'Your appointment at Edgbaston Wellness Clinic is confirmed for 18 Mar at 2:00 PM — Dermal Filler with Dr Ganata.',
-    status: 'delivered',
-    sent_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'c3',
-    automation_id: 'no_show_followup',
-    automation_name: 'No-show Follow-up',
-    patient_name: 'Priya Sharma',
-    channel: 'Voice',
-    message: 'AI outbound call — missed appointment rebook attempt. Call connected, patient rebooked for next Tuesday.',
-    status: 'delivered',
-    sent_at: new Date(Date.now() - 3.5 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'c4',
-    automation_id: 'booking_reminder',
-    automation_name: 'Booking Reminder',
-    patient_name: 'Tom Whitfield',
-    channel: 'WhatsApp',
-    message: 'Hi Tom, your CoolSculpting session is in 2 hours at 3:00 PM today. See you soon at Edgbaston Wellness Clinic.',
-    status: 'sent',
-    sent_at: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'c5',
-    automation_id: 're_engagement',
-    automation_name: 'Re-engagement Sweep',
-    patient_name: 'Claire Donnelly',
-    channel: 'WhatsApp',
-    message: 'Hi Claire, it\'s been a while since your last IV therapy session. Many patients find monthly treatments keep energy levels consistently high.',
-    status: 'delivered',
-    sent_at: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'c6',
-    automation_id: 'overdue_payment_reminder',
-    automation_name: 'Overdue Payment Reminder',
-    patient_name: 'Marcus Bell',
-    channel: 'SMS',
-    message: 'Hi Marcus, your invoice of £180 from your 4 Mar appointment is now 7 days overdue. Please pay at ewc.co.uk/pay or call us.',
-    status: 'failed',
-    sent_at: new Date(Date.now() - 10 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'c7',
-    automation_id: 'patient_care',
-    automation_name: 'Patient Care',
-    patient_name: 'Helen Tran',
-    channel: 'WhatsApp',
-    message: 'Hi Helen, your last Botox treatment was 4 months ago — results typically begin fading around now. Ready to refresh? Book at ewc.co.uk.',
-    status: 'delivered',
-    sent_at: new Date(Date.now() - 22 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'c8',
-    automation_id: 'after_appointment_followup',
-    automation_name: 'After Appointment Follow-up',
-    patient_name: 'David Park',
-    channel: 'WhatsApp',
-    message: 'Hi David, following your filler treatment yesterday — please avoid alcohol and extreme heat for the next 48 hours. Any questions, reply here.',
-    status: 'delivered',
-    sent_at: new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'c9',
-    automation_id: 'no_show_followup',
-    automation_name: 'No-show Follow-up',
-    patient_name: 'Anya Patel',
-    channel: 'WhatsApp',
-    message: 'Hi Anya, we missed you at your appointment today. We\'d love to rebook — click here to choose a new time: ewc.co.uk/book',
-    status: 'pending',
-    sent_at: new Date(Date.now() - 30 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'c10',
-    automation_id: 're_engagement',
-    automation_name: 'Re-engagement Sweep',
-    patient_name: 'Robert Hughes',
-    channel: 'Voice',
-    message: 'AI outbound call — re-engagement follow-up. No answer — WhatsApp message queued.',
-    status: 'sent',
-    sent_at: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
-  },
-];
-
 export async function getAutomationCommunications(limit = 50): Promise<{
   success: boolean;
   communications?: AutomationCommunication[];
@@ -254,14 +151,15 @@ export async function getAutomationCommunications(limit = 50): Promise<{
       .order('sent_at', { ascending: false })
       .limit(limit);
 
-    if (error || !rows || rows.length === 0) {
-      // Table may not exist yet — return demo data
-      return { success: true, communications: DEMO_COMMUNICATIONS };
+    if (error) {
+      console.error('[automations] getAutomationCommunications error:', error);
+      return { success: true, communications: [] };
     }
 
-    return { success: true, communications: rows as AutomationCommunication[] };
-  } catch {
-    return { success: true, communications: DEMO_COMMUNICATIONS };
+    return { success: true, communications: (rows ?? []) as AutomationCommunication[] };
+  } catch (err) {
+    console.error('[automations] getAutomationCommunications threw:', err);
+    return { success: true, communications: [] };
   }
 }
 
