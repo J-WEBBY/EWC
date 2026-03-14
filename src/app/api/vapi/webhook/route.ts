@@ -96,6 +96,19 @@ async function insertBookingRequest(
 }
 
 // ---------------------------------------------------------------------------
+// Auto-confirm helper — fires POST /api/vapi/auto-confirm non-blocking
+// ---------------------------------------------------------------------------
+
+function triggerAutoConfirm(bookingId: string): void {
+  const base = process.env.NEXT_PUBLIC_APP_URL ?? `https://${process.env.VERCEL_URL ?? 'localhost:3000'}`;
+  fetch(`${base}/api/vapi/auto-confirm`, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ id: bookingId }),
+  }).catch(err => console.error('[vapi-webhook] auto-confirm fire error:', err));
+}
+
+// ---------------------------------------------------------------------------
 // Vapi payload types
 // ---------------------------------------------------------------------------
 
@@ -335,6 +348,15 @@ export async function POST(req: NextRequest) {
             .update({ call_summary: summary || null })
             .eq('id', bookingId);
           console.log('[vapi-webhook] booking_requests row enriched:', bookingId);
+          // Re-check if it's still pending — if so, trigger auto-confirm
+          const { data: bRow } = await supabase
+            .from('booking_requests')
+            .select('status')
+            .eq('id', bookingId)
+            .single();
+          if (bRow?.status === 'pending' && bookingId) {
+            void triggerAutoConfirm(bookingId);
+          }
         } else if (toolsUsed.includes('create_booking_request') || enriched.name) {
           // Tool fired (or we have caller data) but DB write failed silently —
           // insert a fallback row so the booking is not lost.
@@ -377,6 +399,8 @@ export async function POST(req: NextRequest) {
 
             bookingId = fallback.id ?? null;
             console.log('[vapi-webhook] booking_requests fallback row inserted:', bookingId);
+            // Immediately attempt Cliniko write for this new pending row
+            if (bookingId) void triggerAutoConfirm(bookingId);
           }
         }
       } catch (bookingErr) {

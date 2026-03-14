@@ -17,7 +17,7 @@ import {
   ArrowLeft,
   PhoneIncoming, PhoneOutgoing, Volume2,
   Calendar, MessageSquare, AlertCircle,
-  Power, ToggleLeft, ToggleRight, RefreshCw,
+  Power, ToggleLeft, ToggleRight, RefreshCw, Send,
 } from 'lucide-react';
 import { StaffNav } from '@/components/staff-nav';
 import OrbLoader from '@/components/orb-loader';
@@ -499,9 +499,30 @@ function BookingRow({ req, selected, onClick }: { req: BookingRequest; selected:
 // BOOKING DETAIL PANEL
 // =============================================================================
 
-function BookingDetailPanel({ req, onClose }: { req: BookingRequest; onClose: () => void }) {
+function BookingDetailPanel({ req, onClose, onUpdate }: { req: BookingRequest; onClose: () => void; onUpdate?: () => void }) {
   const cfg = BOOKING_STATUS_CFG[req.status] ?? { label: req.status, color: MUT };
   const SL: React.CSSProperties = { fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.28em', fontWeight: 600, color: MUT, marginBottom: 8 };
+  const [confirming, setConfirming] = useState(false);
+  const [confirmMsg, setConfirmMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const handleSendToCliniko = async () => {
+    setConfirming(true); setConfirmMsg(null);
+    try {
+      const res  = await fetch('/api/vapi/auto-confirm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: req.id }) });
+      const json = await res.json() as { ok: boolean; cliniko_appointment_id?: string; error?: string; skipped?: boolean };
+      if (json.ok && !json.skipped) {
+        setConfirmMsg({ ok: true, text: `Booked in Cliniko — appointment ID ${json.cliniko_appointment_id ?? ''}` });
+        onUpdate?.();
+      } else if (json.skipped) {
+        setConfirmMsg({ ok: true, text: 'Already synced to Cliniko.' });
+      } else {
+        setConfirmMsg({ ok: false, text: json.error ?? 'Could not book — check Cliniko is connected and appointment data is complete.' });
+      }
+    } catch {
+      setConfirmMsg({ ok: false, text: 'Network error — please try again.' });
+    }
+    setConfirming(false);
+  };
   return (
     <motion.div initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 12 }}
       transition={{ duration: 0.22 }} style={{ backgroundColor: BG, height: '100%', overflowY: 'auto' }}>
@@ -583,6 +604,31 @@ function BookingDetailPanel({ req, onClose }: { req: BookingRequest; onClose: ()
               <div style={SL}>Cliniko appointment</div>
               <p style={{ fontSize: 11, color: GREEN, margin: 0, fontWeight: 600 }}>Synced</p>
               <p style={{ fontSize: 10, color: MUT, margin: 0, marginTop: 2 }}>ID: {req.cliniko_appointment_id}</p>
+            </div>
+          )}
+
+          {req.cliniko_error && !req.cliniko_appointment_id && (
+            <div style={{ marginTop: 20, padding: '10px 12px', borderRadius: 8, background: RED + '0d', border: `1px solid ${RED}25` }}>
+              <div style={SL}>Cliniko error</div>
+              <p style={{ fontSize: 11, color: RED, margin: 0, lineHeight: 1.5 }}>{req.cliniko_error}</p>
+            </div>
+          )}
+
+          {req.status === 'pending' && (
+            <div style={{ marginTop: 20 }}>
+              <button
+                onClick={() => void handleSendToCliniko()}
+                disabled={confirming}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', padding: '10px 0', borderRadius: 10, background: TEAL + '18', border: `1px solid ${TEAL}40`, color: NAVY, fontSize: 12, fontWeight: 700, cursor: confirming ? 'not-allowed' : 'pointer', opacity: confirming ? 0.6 : 1 }}
+              >
+                {confirming ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} color={TEAL} />}
+                {confirming ? 'Sending to Cliniko…' : 'Send to Cliniko'}
+              </button>
+              {confirmMsg && (
+                <p style={{ fontSize: 11, fontWeight: 600, color: confirmMsg.ok ? GREEN : RED, margin: '8px 0 0', textAlign: 'center' }}>
+                  {confirmMsg.text}
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -1010,7 +1056,7 @@ export default function ReceptionistPage() {
                 {selectedBooking ? (
                   <motion.div key={`bk-${selectedBooking.id}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}
                     style={{ borderRadius: 16, border: `1px solid ${BORDER}`, overflow: 'hidden' }}>
-                    <BookingDetailPanel req={selectedBooking} onClose={() => setSelectedBooking(null)} />
+                    <BookingDetailPanel req={selectedBooking} onClose={() => setSelectedBooking(null)} onUpdate={() => void loadBookings()} />
                   </motion.div>
                 ) : (
                   <motion.div key="booking-list" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}>
