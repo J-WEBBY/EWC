@@ -732,12 +732,12 @@ export default function ReceptionistPage() {
           await setReceptionistActive(true);
           setIsActive(true);
           setIsProvisioned(true);
-          setProvResult({ ok: true, msg: json.message ?? 'Komal is now active.' });
+          setProvResult({ ok: true, msg: 'Komal activated successfully.' });
         } else {
-          setProvResult({ ok: false, msg: json.error ?? 'Activation failed.' });
+          setProvResult({ ok: false, msg: 'Activation failed. Check your Vapi API key in Integrations.' });
         }
-      } catch (err) {
-        setProvResult({ ok: false, msg: String(err) });
+      } catch {
+        setProvResult({ ok: false, msg: 'Activation failed. Please try again.' });
       }
     }
     setTogglingActive(false);
