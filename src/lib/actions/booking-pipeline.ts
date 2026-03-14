@@ -1161,6 +1161,32 @@ export async function bookKomalAppointment(params: {
   let clinikoApptId: string | null = null;
   let status         = 'pending';
 
+  // 6a. Live Cliniko conflict check — prevents double-booking when local cache is stale
+  // (e.g. an appointment booked via the Cliniko UI hasn't synced to our cache yet)
+  if (cliniko && confirmedSlot && confirmedSlot.practitioner_id && targetDate) {
+    try {
+      const liveAppts = await cliniko.getAppointmentsForDay(targetDate);
+      const reqStart  = new Date(`${targetDate}T${confirmedSlot.start_time}:00Z`).getTime();
+      const reqEnd    = new Date(`${targetDate}T${confirmedSlot.end_time}:00Z`).getTime();
+
+      const liveConflict = liveAppts.find(a => {
+        if (a.practitioner_id !== confirmedSlot!.practitioner_id) return false;
+        const aStart = new Date(a.starts_at).getTime();
+        const aEnd   = a.ends_at ? new Date(a.ends_at).getTime() : aStart + 30 * 60 * 1000;
+        return reqStart < aEnd && reqEnd > aStart;
+      });
+
+      if (liveConflict) {
+        console.log('[booking-pipeline] Live Cliniko conflict on', confirmedSlot.start_time, 'for pract', confirmedSlot.practitioner_id);
+        const alt = await getAvailabilitySummary(params.preferred_date, practName ?? params.preferred_practitioner ?? undefined, params.treatment).catch(() => '');
+        return `I'm sorry, that slot has just been taken, ${firstName}. ${alt || `Could I take your details and have the team call you back with an alternative time today?`}`;
+      }
+    } catch (liveCheckErr) {
+      // Non-fatal — if live check fails (network, rate-limit), fall back to local cache result
+      console.warn('[booking-pipeline] Live Cliniko conflict check failed (non-fatal):', liveCheckErr);
+    }
+  }
+
   if (cliniko && confirmedSlot) {
     try {
       // Find or create patient

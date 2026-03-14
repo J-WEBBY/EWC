@@ -162,6 +162,25 @@ export class ClinikoClient {
   // READ — Appointments
   // ---------------------------------------------------------------------------
 
+  // Fetch all individual appointments for a single calendar date.
+  // Used for real-time conflict detection before booking — avoids stale local cache.
+  async getAppointmentsForDay(dateStr: string): Promise<ClinikoAppointment[]> {
+    const dayStart = `${dateStr}T00:00:00Z`;
+    const dayEnd   = `${dateStr}T23:59:59Z`;
+    const params: Record<string, string> = {
+      'q[starts_at_gteq]': dayStart,
+      'q[starts_at_lteq]': dayEnd,
+    };
+    const appts = await this.paginate<ClinikoAppointment>(
+      '/individual_appointments', 'individual_appointments', params,
+    );
+    return appts.map(a => ({
+      ...a,
+      patient_id:      idFromLink(a.patient?.links?.self ?? ''),
+      practitioner_id: idFromLink(a.practitioner?.links?.self ?? ''),
+    }));
+  }
+
   async getAppointments(updatedSince?: string): Promise<ClinikoAppointment[]> {
     const params: Record<string, string> = updatedSince ? { updated_since: updatedSince } : {};
     // /individual_appointments always embeds patient.links.self + appointment_type_name.
