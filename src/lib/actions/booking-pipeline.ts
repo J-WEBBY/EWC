@@ -624,6 +624,20 @@ export async function getAvailabilitySummary(
       if (found) {
         practId   = found.cliniko_id;
         practName = `${found.first_name} ${found.last_name}`.trim();
+      } else {
+        // Requested practitioner not in our system — return available names so Komal can offer alternatives
+        const names = allPracts
+          .map(p => `${p.first_name} ${p.last_name}`.trim())
+          .filter(Boolean);
+        const list = names.length === 0
+          ? ''
+          : names.length === 1
+            ? names[0]
+            : `${names.slice(0, -1).join(', ')} or ${names[names.length - 1]}`;
+        if (list) {
+          return `[Practitioner not found: ${preferredPractitioner}] I'm not finding anyone by that name on our team — our practitioners are ${list}. Would any of them suit you, or are you happy with whoever is free?`;
+        }
+        return `[Practitioner not found: ${preferredPractitioner}] I'm not finding that name on our team. Let me take your details and have the team confirm a practitioner for you — is that OK?`;
       }
     }
 
@@ -673,8 +687,17 @@ export async function getAvailabilitySummary(
       ? `on ${formatDate(targetDate)}`
       : `— the soonest I have is ${formatDate(firstDate)}`;
 
-    // Prefix with full matched practitioner name so Komal can confirm it with the caller
-    const practConfirm = practName ? `[Practitioner matched: ${practName}] ` : '';
+    // Practitioner prefix:
+    //   - Named + matched → [Practitioner matched: X] — Komal confirms with caller
+    //   - No preference   → [Practitioner assigned: X] — Komal announces who they'll see
+    const assignedPract = !practName && firstSlots[0]?.practitioner_name
+      ? firstSlots[0].practitioner_name
+      : null;
+    const practConfirm = practName
+      ? `[Practitioner matched: ${practName}] `
+      : assignedPract
+        ? `[Practitioner assigned: ${assignedPract}] `
+        : '';
 
     if (results.length === 1 && firstSlots.length <= 2) {
       const times = firstSlots.map(s => formatTimeVoice(s.start_time)).join(' or ');

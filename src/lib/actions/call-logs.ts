@@ -76,7 +76,7 @@ export async function getCallLogs(limit = 50): Promise<CallLog[]> {
     .map(r => r.booking_request_id)
     .filter((id): id is string => !!id);
 
-  let statusMap: Record<string, string> = {};
+  const statusMap: Record<string, string> = {};
   if (bookingIds.length > 0) {
     const { data: bookings } = await db
       .from('booking_requests')

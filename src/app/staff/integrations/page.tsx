@@ -417,10 +417,19 @@ function IntegrationPanel({ accent, icon, title, category, description, isConnec
 // CLINIKO PANEL
 // =============================================================================
 
+const CLINIKO_CACHE_KEY = 'ewc_cliniko_connected';
+
 function ClinikoPanel() {
+  // Initialise from localStorage so the header never flashes "Not connected" on refresh
   const [status, setStatus] = useState<{
     isConnected: boolean; shard: string | null; lastSyncAt: string | null;
-  } | null>(null);
+  } | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const cached = localStorage.getItem(CLINIKO_CACHE_KEY);
+    if (cached === 'true') return { isConnected: true, shard: null, lastSyncAt: null };
+    if (cached === 'false') return { isConnected: false, shard: null, lastSyncAt: null };
+    return null; // first ever load — show skeleton until fetch completes
+  });
   const [stats, setStats]   = useState<{
     patients: number; appointments: number; practitioners: number;
   } | null>(null);
@@ -437,10 +446,22 @@ function ClinikoPanel() {
   const load = useCallback(async () => {
     const [s, st] = await Promise.all([getClinikoStatus(), getClinikoStats()]);
     setStatus(s);
+    // Persist connection flag so next page load renders the correct state immediately
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(CLINIKO_CACHE_KEY, String(s.isConnected));
+    }
     if (s.isConnected) setStats({ patients: st.patients, appointments: st.appointments, practitioners: st.practitioners });
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const triggerSyncNow = useCallback(async () => {
+    try {
+      const res = await fetch('/api/cliniko/sync-now', { method: 'POST' });
+      const json = await res.json() as { success: boolean; appointments?: number };
+      if (json.success) await load();
+    } catch { /* non-fatal — sync will run on next cron */ }
+  }, [load]);
 
   const handleConnect = async () => {
     if (!apiKey.trim()) { setError('Please enter your Cliniko API key.'); return; }
@@ -449,14 +470,22 @@ function ClinikoPanel() {
     const detectedShard = match ? match[1] : shard;
     const res = await saveClinikoConfig(apiKey.trim(), detectedShard);
     setConnecting(false);
-    if (res.success) { setSuccess(true); setTimeout(() => setSuccess(false), 5000); await load(); }
-    else setError(res.error ?? 'Connection failed. Check your API key and try again.');
+    if (res.success) {
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 5000);
+      await load();
+      // Auto-sync immediately so practitioners + appointments cache is populated
+      void triggerSyncNow();
+    } else {
+      setError(res.error ?? 'Connection failed. Check your API key and try again.');
+    }
   };
 
   const handleDisconnect = async () => {
     setDisconnecting(true);
     await disconnectCliniko();
     setStats(null);
+    if (typeof window !== 'undefined') localStorage.removeItem(CLINIKO_CACHE_KEY);
     await load();
     setDisconnecting(false);
   };
@@ -617,15 +646,27 @@ function ClinikoPanel() {
 // VAPI PANEL
 // =============================================================================
 
+const VAPI_CACHE_KEY = 'ewc_vapi_connected';
+
 function VapiPanel() {
-  const [cfg, setCfg]     = useState<{ isConnected: boolean; publicKey: string | null; lastTestedAt: string | null } | null>(null);
+  const [cfg, setCfg] = useState<{ isConnected: boolean; publicKey: string | null; lastTestedAt: string | null } | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const cached = localStorage.getItem(VAPI_CACHE_KEY);
+    if (cached === 'true') return { isConnected: true, publicKey: null, lastTestedAt: null };
+    if (cached === 'false') return { isConnected: false, publicKey: null, lastTestedAt: null };
+    return null;
+  });
   const [privateKey, setPrivateKey] = useState('');
   const [publicKey, setPublicKey]   = useState('');
   const [saving, setSaving]         = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [error, setError]           = useState<string | null>(null);
 
-  const load = useCallback(async () => { setCfg(await getVapiConfig()); }, []);
+  const load = useCallback(async () => {
+    const c = await getVapiConfig();
+    setCfg(c);
+    if (typeof window !== 'undefined') localStorage.setItem(VAPI_CACHE_KEY, String(c.isConnected));
+  }, []);
   useEffect(() => { load(); }, [load]);
 
   const handleSave = async () => {
@@ -640,6 +681,7 @@ function VapiPanel() {
   const handleDisconnect = async () => {
     setDisconnecting(true);
     await disconnectVapi();
+    if (typeof window !== 'undefined') localStorage.removeItem(VAPI_CACHE_KEY);
     await load();
     setDisconnecting(false);
   };
