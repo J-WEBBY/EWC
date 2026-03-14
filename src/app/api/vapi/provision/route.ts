@@ -194,7 +194,7 @@ export async function POST(req: NextRequest) {
     // Pass webhook secret so Vapi includes x-vapi-secret on every tool call.
     const komalTools = buildKomalToolDefinitions(APP_URL, WEBHOOK_SECRET || undefined);
     const komalPayload = {
-      name:           `Komal — ${clinicName} Receptionist`,
+      name:           'Komal — EWC Receptionist',
       firstMessage:   savedIdentity.firstMessage ?? `Hello, thank you for calling ${clinicName}. This call may be recorded for quality and training purposes. My name is Komal — how can I help you today?`,
       endCallMessage: savedIdentity.endCallMessage ?? `Thank you for calling ${clinicName}. Have a wonderful day. Goodbye!`,
       model: {
