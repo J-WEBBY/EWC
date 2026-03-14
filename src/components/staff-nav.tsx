@@ -7,7 +7,6 @@ import {
   LayoutDashboard,
   Bot,
   Mic,
-  UserCircle,
   LogOut,
   BarChart2,
   ChevronLeft,
@@ -15,7 +14,7 @@ import {
   BookOpen,
   Zap,
   Link2,
-  MessageSquare,
+  Settings,
 } from 'lucide-react';
 import type { StaffProfile } from '@/lib/actions/staff-onboarding';
 
@@ -70,28 +69,27 @@ export function StaffNav({
 
   const sections: NavSection[] = [
     {
-      title: 'Core',
+      title: 'Operations',
       items: [
-        { label: 'Dashboard',        href: `/staff/dashboard?userId=${userId}${tidParam}`,    icon: LayoutDashboard },
-        { label: 'KPIs',             href: `/staff/kpis?userId=${userId}${tidParam}`,         icon: BarChart2 },
-        { label: 'Agents',           href: `/staff/agents?userId=${userId}${tidParam}`,       icon: Bot },
-        { label: 'Chat',             href: `/staff/chat?userId=${userId}${tidParam}`,         icon: MessageSquare },
-        { label: 'Automations',      href: `/staff/automations?userId=${userId}${tidParam}`,  icon: Zap },
-        { label: 'Judgement Engine', href: `/staff/judgement?userId=${userId}${tidParam}`,    icon: Brain },
+        { label: 'Dashboard',     href: `/staff/dashboard?userId=${userId}${tidParam}`,   icon: LayoutDashboard },
+        { label: 'KPIs',          href: `/staff/kpis?userId=${userId}${tidParam}`,        icon: BarChart2 },
+        { label: 'Knowledge Base',href: `/staff/knowledge?userId=${userId}${tidParam}`,   icon: BookOpen },
       ],
     },
     {
-      title: 'System',
+      title: 'Intelligence',
       items: [
-        { label: 'Receptionist',  href: `/staff/voice?userId=${userId}${tidParam}`,         icon: Mic },
-        { label: 'Knowledge Base',href: `/staff/knowledge?userId=${userId}${tidParam}`,     icon: BookOpen },
-        { label: 'Integrations',  href: `/staff/integrations?userId=${userId}${tidParam}`,  icon: Link2 },
+        { label: 'Receptionist',     href: `/staff/voice?userId=${userId}${tidParam}`,         icon: Mic },
+        { label: 'Agents',           href: `/staff/agents?userId=${userId}${tidParam}`,        icon: Bot },
+        { label: 'Automations',      href: `/staff/automations?userId=${userId}${tidParam}`,   icon: Zap },
+        { label: 'Judgement Engine', href: `/staff/judgement?userId=${userId}${tidParam}`,     icon: Brain },
+        { label: 'Integrations',     href: `/staff/integrations?userId=${userId}${tidParam}`,  icon: Link2 },
       ],
     },
   ];
 
   const bottomItems: NavItem[] = [
-    { label: 'Account', href: `/staff/account?userId=${userId}${tidParam}`, icon: UserCircle },
+    { label: 'Settings', href: `/staff/settings?userId=${userId}${tidParam}`, icon: Settings },
   ];
 
   return (
@@ -106,32 +104,24 @@ export function StaffNav({
         className="flex items-center h-[64px] flex-shrink-0 px-[18px]"
         style={{ borderBottom: '1px solid rgba(255,255,255,0.10)' }}
       >
-        <motion.div
-          className="flex-shrink-0"
-          animate={{ opacity: [0.88, 1, 0.88] }}
-          transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/ewc-logo.png"
-            alt="EWC"
-            style={{ width: collapsed ? 28 : 30, height: collapsed ? 28 : 30, objectFit: 'contain', filter: 'brightness(0) invert(1)' }}
-          />
-        </motion.div>
-        <AnimatePresence>
-          {!collapsed && (
-            <motion.div
-              className="ml-2.5 overflow-hidden"
-              initial={{ opacity: 0, width: 0 }}
-              animate={{ opacity: 1, width: 'auto' }}
-              exit={{ opacity: 0, width: 0 }}
-              transition={{ duration: 0.2 }}
-            >
-              <p className="text-[13px] font-semibold leading-tight whitespace-nowrap" style={{ color: '#ffffff' }}>EWC</p>
-              <p className="text-[9px] leading-tight whitespace-nowrap" style={{ color: 'rgba(214,165,0,0.80)' }}>Operational Intelligence</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Collapsed: show "E" monogram */}
+        {collapsed ? (
+          <div style={{
+            width: 30, height: 30, borderRadius: 6, background: 'rgba(255,255,255,0.10)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}>
+            <span style={{ fontSize: 14, fontWeight: 900, color: '#ffffff', letterSpacing: '-0.02em' }}>E</span>
+          </div>
+        ) : (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.2 }}
+          >
+            <p style={{ fontSize: 15, fontWeight: 800, color: '#ffffff', lineHeight: 1, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>EWC</p>
+            <p style={{ fontSize: 9, color: 'rgba(216,166,0,0.85)', letterSpacing: '0.18em', textTransform: 'uppercase', whiteSpace: 'nowrap', marginTop: 2 }}>Operational Intelligence</p>
+          </motion.div>
+        )}
       </div>
 
       {/* Nav sections */}
