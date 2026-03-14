@@ -34,10 +34,10 @@ export async function getStaffSession(): Promise<StaffSession | null> {
     const raw = cookieStore.get('staff_session')?.value;
     if (!raw) return null;
     const session = JSON.parse(raw) as Partial<StaffSession>;
-    if (!session.userId || !session.tenantId) return null;
+    if (!session.userId) return null;
     return {
       userId:     session.userId,
-      tenantId:   session.tenantId,
+      tenantId:   session.tenantId || 'clinic',
       tenantSlug: session.tenantSlug ?? '',
     };
   } catch {

@@ -142,7 +142,7 @@ export async function verifyLogin(identifier: string, password: string, tenantId
         is_admin: user.is_admin,
         staff_onboarding_completed: user.staff_onboarding_completed,
         role_id: user.role_id as string | null,
-        tenant_id: tenantId,
+        tenant_id: tenantId || 'clinic',
       },
       requiresPasswordChange: isTempPassword || user.must_change_password,
     };
