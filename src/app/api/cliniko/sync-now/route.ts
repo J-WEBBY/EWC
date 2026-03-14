@@ -21,22 +21,22 @@ export async function POST() {
     const supabase = createSovereignClient();
     const { data: config } = await supabase
       .from('cliniko_config')
-      .select('api_key_encrypted, shard, is_connected, last_sync_at')
+      .select('api_key, shard, is_active, last_synced_at')
       .single();
 
-    if (!config?.api_key_encrypted || !config.is_connected) {
+    if (!config?.api_key || !config.is_active) {
       return NextResponse.json(
         { success: false, appointments: 0, error: 'Cliniko not connected. Go to Integrations to connect.' },
         { status: 400 },
       );
     }
 
-    const client = new ClinikoClient(config.api_key_encrypted, config.shard ?? 'uk1');
+    const client = new ClinikoClient(config.api_key, config.shard ?? 'uk1');
     const now = new Date().toISOString();
 
     // 48h window keeps Cliniko API calls to 1-3 pages (~1-2s).
     const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
-    const updatedSince = config.last_sync_at ?? fortyEightHoursAgo;
+    const updatedSince = config.last_synced_at ?? fortyEightHoursAgo;
 
     // ── 1. Fetch data with budget — budget-based so we never exceed 100s ────────
     // 90s budget for Cliniko fetches leaves 30s for DB upserts.
@@ -60,9 +60,7 @@ export async function POST() {
       // If auth failure, mark as disconnected so page shows banner correctly
       if (msg.includes('401') || msg.includes('403') || msg.includes('Unauthorized')) {
         await supabase.from('cliniko_config').update({
-          is_connected:     false,
-          last_sync_status: 'failed',
-          sync_error:       msg,
+          is_active: false,
         }).neq('id', '00000000-0000-0000-0000-000000000000');
       }
       return NextResponse.json(
@@ -172,11 +170,9 @@ export async function POST() {
       }
     }
 
-    // Update last_sync_at
+    // Update last_synced_at
     await supabase.from('cliniko_config').update({
-      last_sync_at:     now,
-      last_sync_status: 'completed',
-      sync_error:       null,
+      last_synced_at: now,
     }).neq('id', '00000000-0000-0000-0000-000000000000');
 
     return NextResponse.json({ success: true, appointments: synced });

@@ -24,6 +24,7 @@ import {
   Shield,
   ChevronDown,
   ChevronUp,
+  RefreshCw,
 } from 'lucide-react';
 import OrbLoader from '@/components/orb-loader';
 import { StaffNav } from '@/components/staff-nav';
@@ -428,8 +429,10 @@ function ClinikoPanel() {
   const [shard, setShard]       = useState('uk1');
   const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
-  const [error, setError]       = useState<string | null>(null);
-  const [success, setSuccess]   = useState(false);
+  const [syncing, setSyncing]     = useState(false);
+  const [syncMsg, setSyncMsg]     = useState<{ ok: boolean; text: string } | null>(null);
+  const [error, setError]         = useState<string | null>(null);
+  const [success, setSuccess]     = useState(false);
 
   const load = useCallback(async () => {
     const [s, st] = await Promise.all([getClinikoStatus(), getClinikoStats()]);
@@ -456,6 +459,24 @@ function ClinikoPanel() {
     setStats(null);
     await load();
     setDisconnecting(false);
+  };
+
+  const handleSyncNow = async () => {
+    setSyncing(true);
+    setSyncMsg(null);
+    try {
+      const res = await fetch('/api/cliniko/sync-now', { method: 'POST' });
+      const json = await res.json() as { success: boolean; appointments?: number; error?: string };
+      if (json.success) {
+        setSyncMsg({ ok: true, text: `Sync complete — ${json.appointments ?? 0} appointments updated.` });
+        await load();
+      } else {
+        setSyncMsg({ ok: false, text: json.error ?? 'Sync failed.' });
+      }
+    } catch {
+      setSyncMsg({ ok: false, text: 'Sync failed — check your connection.' });
+    }
+    setSyncing(false);
   };
 
   const isConnected = status?.isConnected ?? false;
@@ -515,6 +536,21 @@ function ClinikoPanel() {
                 ))}
               </div>
             )}
+
+            {/* Sync Now */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <button onClick={handleSyncNow} disabled={syncing}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: '1px solid ' + BORDER, background: 'transparent', color: NAVY, fontSize: 12, fontWeight: 600, cursor: syncing ? 'not-allowed' : 'pointer', opacity: syncing ? 0.6 : 1 }}>
+                {syncing ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <RefreshCw size={13} />}
+                {syncing ? 'Syncing…' : 'Sync Now'}
+              </button>
+              {syncMsg && (
+                <p style={{ fontSize: 11, fontWeight: 600, color: syncMsg.ok ? GREEN : RED, margin: 0 }}>
+                  {syncMsg.text}
+                </p>
+              )}
+              <p style={{ fontSize: 11, color: MUTED, margin: 0, marginLeft: 'auto' }}>Auto-syncs every 5 min</p>
+            </div>
 
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 12px', borderRadius: 8, background: BLUE + '08', border: '1px solid ' + BLUE + '20' }}>
               <Shield size={13} color={BLUE} style={{ flexShrink: 0, marginTop: 1 }} />

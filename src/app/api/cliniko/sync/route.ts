@@ -26,14 +26,14 @@ async function loadClientAndConfig() {
   const supabase = createSovereignClient();
   const { data: config } = await supabase
     .from('cliniko_config')
-    .select('api_key_encrypted, shard, is_connected, last_sync_at')
+    .select('api_key, shard, is_active, last_synced_at')
     .single();
 
-  if (!config?.api_key_encrypted || !config.is_connected) {
+  if (!config?.api_key || !config.is_active) {
     return { client: null, config, error: 'Cliniko not configured or not connected' };
   }
 
-  const client = new ClinikoClient(config.api_key_encrypted, config.shard ?? 'uk1');
+  const client = new ClinikoClient(config.api_key, config.shard ?? 'uk1');
   return { client, config, error: null };
 }
 
@@ -54,7 +54,7 @@ export async function GET(_req: NextRequest) {
 
   try {
     // Incremental: only records changed since last sync
-    const updatedSince = config?.last_sync_at ?? undefined;
+    const updatedSince = config?.last_synced_at ?? undefined;
     const { results, success } = await syncAll(client, updatedSince, false);
 
     return NextResponse.json({
@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
 
   try {
     // If force_full, ignore last_sync_at so ALL Cliniko records are re-fetched.
-    const updatedSince = forceFull ? undefined : (config?.last_sync_at ?? undefined);
+    const updatedSince = forceFull ? undefined : (config?.last_synced_at ?? undefined);
 
     if (type === 'full') {
       const { results, success } = await syncAll(client, updatedSince, forceFull);
