@@ -488,8 +488,9 @@ export async function getAvailableSlots(
   const slots: AvailableSlot[] = [];
 
   for (const wh of workingHours as WorkingHours[]) {
+    // Always filter booked appointments by THIS practitioner to avoid cross-contamination
     const practBooked = (booked ?? []).filter(
-      b => !practitionerId || b.cliniko_practitioner_id === wh.practitioner_id,
+      b => b.cliniko_practitioner_id === wh.practitioner_id,
     );
 
     // Generate all possible slots in the working day
@@ -927,23 +928,40 @@ export async function bookKomalAppointment(params: {
   if (parsedTime) {
     try {
       const slots = await getAvailableSlots(targetDate, practClinikoId ?? undefined);
-      // exact match first, then ±30 min tolerance
-      confirmedSlot = slots.find(s => s.start_time === parsedTime) ?? null;
-      if (!confirmedSlot) {
-        const tMins = parseInt(parsedTime.split(':')[0]) * 60 + parseInt(parsedTime.split(':')[1]);
-        confirmedSlot = slots.find(s => {
-          const sMins = parseInt(s.start_time.split(':')[0]) * 60 + parseInt(s.start_time.split(':')[1]);
-          return Math.abs(sMins - tMins) <= 30;
-        }) ?? null;
-      }
-      if (confirmedSlot) { practClinikoId = confirmedSlot.practitioner_id; practName = confirmedSlot.practitioner_name; }
-    } catch { /* proceed without slot lock */ }
+      const hasWorkingHours = slots.length > 0;
 
-    if (!confirmedSlot) {
-      // Slot gone — offer alternatives
-      const alt = await getAvailabilitySummary(params.preferred_date, params.preferred_practitioner ?? undefined, params.treatment).catch(() => '');
-      return `I'm sorry, that slot has just been taken, ${firstName}. ${alt || `Could I take your details and have the team call you back with an alternative time today?`}`;
-    }
+      if (hasWorkingHours) {
+        // Working hours configured — validate the specific slot
+        confirmedSlot = slots.find(s => s.start_time === parsedTime) ?? null;
+        if (!confirmedSlot) {
+          const tMins = parseInt(parsedTime.split(':')[0]) * 60 + parseInt(parsedTime.split(':')[1]);
+          confirmedSlot = slots.find(s => {
+            const sMins = parseInt(s.start_time.split(':')[0]) * 60 + parseInt(s.start_time.split(':')[1]);
+            return Math.abs(sMins - tMins) <= 30;
+          }) ?? null;
+        }
+        if (confirmedSlot) { practClinikoId = confirmedSlot.practitioner_id; practName = confirmedSlot.practitioner_name; }
+
+        if (!confirmedSlot) {
+          // Slot confirmed taken — offer alternatives
+          const alt = await getAvailabilitySummary(params.preferred_date, params.preferred_practitioner ?? undefined, params.treatment).catch(() => '');
+          return `I'm sorry, that slot has just been taken, ${firstName}. ${alt || `Could I take your details and have the team call you back with an alternative time today?`}`;
+        }
+      } else {
+        // No working hours configured — cannot validate, proceed with given time
+        // Build a synthetic slot so Cliniko write is still attempted
+        const tMins = parseInt(parsedTime.split(':')[0]) * 60 + parseInt(parsedTime.split(':')[1]);
+        confirmedSlot = {
+          practitioner_id:   practClinikoId ?? '',
+          practitioner_name: practName ?? '',
+          date:              targetDate,
+          start_time:        parsedTime,
+          end_time:          minutesToTime(tMins + 30),
+          iso_start:         `${targetDate}T${parsedTime}:00`,
+          iso_end:           `${targetDate}T${minutesToTime(tMins + 30)}:00`,
+        };
+      }
+    } catch { /* proceed without slot lock */ }
   }
 
   // 4. Try to find existing patient in local cache by phone
