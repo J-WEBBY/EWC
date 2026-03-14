@@ -950,30 +950,54 @@ export async function bookKomalAppointment(params: {
       } else {
         // No working hours configured — check cliniko_appointments cache for conflicts
         const tMins = parseInt(parsedTime.split(':')[0]) * 60 + parseInt(parsedTime.split(':')[1]);
+        const reqEndMins = tMins + 30;
 
-        const { data: cachedAppts } = await db
-          .from('cliniko_appointments')
-          .select('starts_at, ends_at, practitioner_name, cliniko_practitioner_id, appointment_type')
-          .gte('starts_at', `${targetDate}T00:00:00`)
-          .lt('starts_at', `${targetDate}T24:00:00`)
-          .neq('status', 'Cancelled');
+        const [{ data: cachedAppts }, { data: allPracts }] = await Promise.all([
+          db.from('cliniko_appointments')
+            .select('starts_at, ends_at, cliniko_practitioner_id')
+            .gte('starts_at', `${targetDate}T00:00:00`)
+            .lt('starts_at', `${targetDate}T24:00:00`)
+            .neq('status', 'Cancelled'),
+          db.from('cliniko_practitioners').select('cliniko_id, full_name').eq('is_active', true),
+        ]);
 
-        const conflict = (cachedAppts ?? []).find(appt => {
-          // Only check same practitioner if one was requested
-          if (practClinikoId && appt.cliniko_practitioner_id && appt.cliniko_practitioner_id !== practClinikoId) return false;
-          const apptStart = appt.starts_at ? new Date(appt.starts_at) : null;
-          const apptEnd   = appt.ends_at   ? new Date(appt.ends_at)   : null;
-          if (!apptStart) return false;
+        // Helper: does an appointment overlap the requested time window?
+        const overlaps = (appt: { starts_at: string; ends_at: string | null }) => {
+          const apptStart = new Date(appt.starts_at);
+          const apptEnd   = appt.ends_at ? new Date(appt.ends_at) : null;
           const apptStartMins = apptStart.getUTCHours() * 60 + apptStart.getUTCMinutes();
           const apptEndMins   = apptEnd ? apptEnd.getUTCHours() * 60 + apptEnd.getUTCMinutes() : apptStartMins + 30;
-          const reqEndMins    = tMins + 30;
-          // Overlap: request starts before appt ends AND request ends after appt starts
           return tMins < apptEndMins && reqEndMins > apptStartMins;
-        });
+        };
 
-        if (conflict) {
-          const alt = await getAvailabilitySummary(params.preferred_date, params.preferred_practitioner ?? undefined, params.treatment).catch(() => '');
-          return `I'm sorry, that slot is already taken, ${firstName}. ${alt || `Could I take your details and have the team call you back to arrange an alternative time?`}`;
+        if (practClinikoId) {
+          // Specific practitioner requested — check only their calendar
+          const conflict = (cachedAppts ?? []).find(
+            a => a.cliniko_practitioner_id === practClinikoId && overlaps(a),
+          );
+          if (conflict) {
+            const alt = await getAvailabilitySummary(params.preferred_date, params.preferred_practitioner ?? undefined, params.treatment).catch(() => '');
+            return `I'm sorry, that slot is already taken with ${practName ?? 'that practitioner'}, ${firstName}. ${alt || `Could I take your details and have the team call you back to arrange an alternative time?`}`;
+          }
+        } else {
+          // No practitioner requested — find any free practitioner at this time
+          const practitioners = allPracts ?? [];
+          const bookedPractIds = new Set(
+            (cachedAppts ?? []).filter(overlaps).map(a => a.cliniko_practitioner_id).filter(Boolean),
+          );
+          const freePract = practitioners.find(p => !bookedPractIds.has(p.cliniko_id));
+
+          if (!freePract && practitioners.length > 0) {
+            // All practitioners are booked at this time
+            const alt = await getAvailabilitySummary(params.preferred_date, undefined, params.treatment).catch(() => '');
+            return `I'm sorry, all of our practitioners are fully booked at that time, ${firstName}. ${alt || `Could I take your details and have the team call you back to arrange an alternative time?`}`;
+          }
+
+          // Assign the free practitioner so the Cliniko write goes to a real person
+          if (freePract) {
+            practClinikoId = freePract.cliniko_id;
+            practName      = freePract.full_name;
+          }
         }
 
         // No conflict — build a synthetic slot and let Cliniko validate on write
@@ -982,9 +1006,9 @@ export async function bookKomalAppointment(params: {
           practitioner_name: practName ?? '',
           date:              targetDate,
           start_time:        parsedTime,
-          end_time:          minutesToTime(tMins + 30),
+          end_time:          minutesToTime(reqEndMins),
           iso_start:         `${targetDate}T${parsedTime}:00`,
-          iso_end:           `${targetDate}T${minutesToTime(tMins + 30)}:00`,
+          iso_end:           `${targetDate}T${minutesToTime(reqEndMins)}:00`,
         };
       }
     } catch { /* proceed without slot lock */ }
