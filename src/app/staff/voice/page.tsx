@@ -17,7 +17,7 @@ import {
   ArrowLeft,
   PhoneIncoming, PhoneOutgoing, Volume2,
   Calendar, MessageSquare, AlertCircle,
-  Power, ToggleLeft, ToggleRight,
+  Power, ToggleLeft, ToggleRight, RefreshCw,
 } from 'lucide-react';
 import { StaffNav } from '@/components/staff-nav';
 import OrbLoader from '@/components/orb-loader';
@@ -640,6 +640,7 @@ export default function ReceptionistPage() {
   const [isActive,        setIsActive]        = useState(true);
   const [provResult,      setProvResult]      = useState<{ ok: boolean; msg: string } | null>(null);
   const [togglingActive,  setTogglingActive]  = useState(false);
+  const [reprovisioning,  setReprovisioning]  = useState(false);
 
   // Calls
   const [callLogs,    setCallLogs]    = useState<CallLog[]>([]);
@@ -764,6 +765,25 @@ export default function ReceptionistPage() {
     setSaving(false);
   }, [editIdentity, isProvisioned, isActive]);
 
+  // ── Standalone re-provision ───────────────────────────────────────────────
+  const handleReprovision = useCallback(async () => {
+    setReprovisioning(true);
+    setProvResult(null);
+    try {
+      const res = await fetch('/api/vapi/provision', { method: 'POST' });
+      const json = await res.json() as { success: boolean; message?: string; error?: string };
+      if (json.success) {
+        setIsProvisioned(true);
+        setProvResult({ ok: true, msg: 'Komal re-provisioned — tool secrets synced.' });
+      } else {
+        setProvResult({ ok: false, msg: json.error ?? 'Re-provision failed. Check your Vapi API key.' });
+      }
+    } catch {
+      setProvResult({ ok: false, msg: 'Re-provision failed. Please try again.' });
+    }
+    setReprovisioning(false);
+  }, []);
+
   if (loading || !profile) return <OrbLoader />;
 
   const brandColor    = profile.brandColor || BLUE;
@@ -824,6 +844,14 @@ export default function ReceptionistPage() {
                 ))}
               </div>
             )}
+
+            {/* Re-provision button */}
+            <button onClick={handleReprovision} disabled={reprovisioning}
+              className="flex items-center gap-2 transition-all"
+              style={{ padding: '8px 14px', borderRadius: 10, border: `1px solid ${BORDER}`, background: 'transparent', color: SEC, fontSize: 12, fontWeight: 600, cursor: reprovisioning ? 'not-allowed' : 'pointer', opacity: reprovisioning ? 0.6 : 1, flexShrink: 0 }}>
+              {reprovisioning ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+              {reprovisioning ? 'Provisioning…' : 'Re-provision'}
+            </button>
 
           </div>
         </motion.div>
