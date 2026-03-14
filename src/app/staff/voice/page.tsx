@@ -60,10 +60,9 @@ type Tab = 'overview' | 'calls' | 'appointments' | 'settings';
 // =============================================================================
 
 const VOICE_OPTIONS = [
-  { id: 'GDzHdQOi6jjf8zaXhCYD', name: 'Komal (Default)', description: 'Warm, professional British female.' },
-  { id: 'EXAVITQu4vr4xnSDxMaL', name: 'Sarah',           description: 'Soft and gentle — ideal for sensitive conversations.' },
-  { id: 'pFZP5JQG7iQjIQuC4Bku', name: 'Lily',            description: 'Clear and articulate — great for complex enquiries.' },
-  { id: 'N2lVS1w4EtoT3dr4eOWO', name: 'Callum',          description: 'Calm and measured — premium patient experience.' },
+  { id: 'h8eW5xfRUGVJrZhAFxqK', name: 'Isla (Default)', description: 'Scottish female — warm, clear, trustworthy.' },
+  { id: 'Yg7C1g7suzNt5TisIqkZ', name: 'Jude',           description: 'British male — calm, measured, professional.' },
+  { id: 'lcMyyd2HUfFzxdCaC4Ta', name: 'Lucy',           description: 'British female — friendly, bright, approachable.' },
 ];
 
 // =============================================================================
@@ -743,14 +742,27 @@ export default function ReceptionistPage() {
     setTogglingActive(false);
   }, [isActive]);
 
-  // ── Save identity ──
+  // ── Save identity + re-provision so voice/greeting changes apply immediately ──
   const handleSaveIdentity = useCallback(async () => {
     if (!editIdentity) return;
     setSaving(true);
     await saveReceptionistIdentity(editIdentity);
     setIdentity(editIdentity);
+    // Re-provision Komal so new voice/greeting goes live on Vapi immediately
+    if (isProvisioned || isActive) {
+      try {
+        const res = await fetch('/api/vapi/provision', { method: 'POST' });
+        const json = await res.json() as { success: boolean };
+        if (json.success) setProvResult({ ok: true, msg: 'Settings saved and applied.' });
+        else setProvResult({ ok: false, msg: 'Settings saved but could not update Komal. Try re-activating.' });
+      } catch {
+        setProvResult({ ok: false, msg: 'Settings saved but could not update Komal. Try re-activating.' });
+      }
+    } else {
+      setProvResult({ ok: true, msg: 'Settings saved.' });
+    }
     setSaving(false);
-  }, [editIdentity]);
+  }, [editIdentity, isProvisioned, isActive]);
 
   if (loading || !profile) return <OrbLoader />;
 

@@ -39,11 +39,11 @@ const HAIKU_MODEL = 'claude-haiku-4-5-20251001';  // Komal — fast, voice laten
 // eleven_turbo_v2_5 is ElevenLabs' lowest-latency model (~60ms TTFB).
 // ---------------------------------------------------------------------------
 
-const RAQUEL_VOICE_ID = 'GDzHdQOi6jjf8zaXhCYD'; // Komal voice — 11labs
+const ISLA_VOICE_ID = 'h8eW5xfRUGVJrZhAFxqK'; // Isla — Scottish female, default Komal voice
 
 const KOMAL_VOICE = {
   provider:         '11labs',
-  voiceId:          RAQUEL_VOICE_ID,
+  voiceId:          ISLA_VOICE_ID,
   model:            'eleven_turbo_v2_5',
   stability:        0.5,
   similarityBoost:  0.8,
