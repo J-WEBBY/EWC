@@ -18,7 +18,7 @@ import type {
 
 const USER_AGENT = 'EWC-Intelligence/1.0 (admin@edgbastonwellness.co.uk)';
 const PER_PAGE   = 100;
-const RATE_DELAY = 350; // ms between paginated requests (~170 req/min, safe under 200 limit)
+const RATE_DELAY = 500; // ms between paginated requests (~120 req/min, well under 200 limit)
 
 // Extract ID string from a Cliniko self-link: ".../patients/12345" → "12345"
 // Must return string — Cliniko IDs exceed JS float64 precision (parseInt loses last digits)
@@ -53,6 +53,7 @@ export class ClinikoClient {
   private async request<T>(
     path: string,
     options: RequestInit = {},
+    _retries = 3,
   ): Promise<T> {
     const url = path.startsWith('http') ? path : `${this.baseUrl}${path}`;
 
@@ -66,6 +67,15 @@ export class ClinikoClient {
         ...(options.headers ?? {}),
       },
     });
+
+    // 429 Too Many Requests — respect Retry-After and retry
+    if (res.status === 429 && _retries > 0) {
+      const retryAfter = parseInt(res.headers.get('Retry-After') ?? '10', 10);
+      const waitMs = (isNaN(retryAfter) ? 10 : Math.min(retryAfter, 60)) * 1000;
+      console.warn(`[cliniko] 429 rate limit on ${path} — waiting ${waitMs}ms then retrying (${_retries} left)`);
+      await delay(waitMs);
+      return this.request<T>(path, options, _retries - 1);
+    }
 
     if (!res.ok) {
       const body = await res.text().catch(() => '');

@@ -47,14 +47,12 @@ export async function POST() {
     let rawPractitioners: import('@/lib/cliniko/types').ClinikoPractitioner[];
     let rawAppointments: import('@/lib/cliniko/types').ClinikoAppointment[];
     try {
-      const [practResult, apptPage] = await Promise.all([
-        client.getPractitioners(),
-        client.paginateWithBudget<import('@/lib/cliniko/types').ClinikoAppointment>(
-          '/individual_appointments', 'individual_appointments', params, null, BUDGET_MS,
-        ),
-      ]);
-      rawPractitioners = practResult;
-      rawAppointments  = apptPage.results;
+      // Sequential — not parallel — to avoid burst rate limiting (429)
+      rawPractitioners = await client.getPractitioners();
+      const apptPage = await client.paginateWithBudget<import('@/lib/cliniko/types').ClinikoAppointment>(
+        '/individual_appointments', 'individual_appointments', params, null, BUDGET_MS,
+      );
+      rawAppointments = apptPage.results;
     } catch (clinikoErr) {
       const msg = String(clinikoErr);
       // If auth failure, mark as disconnected so page shows banner correctly
