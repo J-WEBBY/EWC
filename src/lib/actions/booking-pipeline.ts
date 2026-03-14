@@ -948,9 +948,35 @@ export async function bookKomalAppointment(params: {
           return `I'm sorry, that slot has just been taken, ${firstName}. ${alt || `Could I take your details and have the team call you back with an alternative time today?`}`;
         }
       } else {
-        // No working hours configured — cannot validate, proceed with given time
-        // Build a synthetic slot so Cliniko write is still attempted
+        // No working hours configured — check cliniko_appointments cache for conflicts
         const tMins = parseInt(parsedTime.split(':')[0]) * 60 + parseInt(parsedTime.split(':')[1]);
+
+        const { data: cachedAppts } = await db
+          .from('cliniko_appointments')
+          .select('starts_at, ends_at, practitioner_name, cliniko_practitioner_id, appointment_type')
+          .gte('starts_at', `${targetDate}T00:00:00`)
+          .lt('starts_at', `${targetDate}T24:00:00`)
+          .neq('status', 'Cancelled');
+
+        const conflict = (cachedAppts ?? []).find(appt => {
+          // Only check same practitioner if one was requested
+          if (practClinikoId && appt.cliniko_practitioner_id && appt.cliniko_practitioner_id !== practClinikoId) return false;
+          const apptStart = appt.starts_at ? new Date(appt.starts_at) : null;
+          const apptEnd   = appt.ends_at   ? new Date(appt.ends_at)   : null;
+          if (!apptStart) return false;
+          const apptStartMins = apptStart.getUTCHours() * 60 + apptStart.getUTCMinutes();
+          const apptEndMins   = apptEnd ? apptEnd.getUTCHours() * 60 + apptEnd.getUTCMinutes() : apptStartMins + 30;
+          const reqEndMins    = tMins + 30;
+          // Overlap: request starts before appt ends AND request ends after appt starts
+          return tMins < apptEndMins && reqEndMins > apptStartMins;
+        });
+
+        if (conflict) {
+          const alt = await getAvailabilitySummary(params.preferred_date, params.preferred_practitioner ?? undefined, params.treatment).catch(() => '');
+          return `I'm sorry, that slot is already taken, ${firstName}. ${alt || `Could I take your details and have the team call you back to arrange an alternative time?`}`;
+        }
+
+        // No conflict — build a synthetic slot and let Cliniko validate on write
         confirmedSlot = {
           practitioner_id:   practClinikoId ?? '',
           practitioner_name: practName ?? '',

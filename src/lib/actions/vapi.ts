@@ -21,7 +21,7 @@ const PRIVATE_KEY = process.env.VAPI_PRIVATE_KEY ?? '';
 // Assistant name constants (used for lookup — do not change without migrating)
 // ---------------------------------------------------------------------------
 const ASSISTANT_NAMES = {
-  KOMAL: 'Komal — AI Receptionist',
+  KOMAL: 'Komal — EWC Receptionist',
   EWC:   'EWC — Inbound Receptionist',
   ORION: 'Orion — Outbound Sales',
   ARIA:  'Aria — Patient Retention',
@@ -182,6 +182,20 @@ function buildSystemPrompts(clinicName: string): Record<AssistantKey, string> {
 // Helpers
 // ---------------------------------------------------------------------------
 
+// Read Vapi private key: env var first, then DB (matches provision route logic).
+async function resolveVapiKey(): Promise<string> {
+  if (PRIVATE_KEY) return PRIVATE_KEY;
+  try {
+    const db = createSovereignClient();
+    const { data } = await db.from('clinic_config').select('settings').single();
+    const settings = (data?.settings as Record<string, unknown>) ?? {};
+    const vapiSettings = (settings.vapi as Record<string, string> | null) ?? {};
+    return vapiSettings.private_key || '';
+  } catch {
+    return '';
+  }
+}
+
 async function vapiRequest(path: string, options: RequestInit = {}) {
   const res = await fetch(`${VAPI_BASE}${path}`, {
     ...options,
@@ -304,7 +318,9 @@ export async function getAllAssistantStatuses(): Promise<{
   assistants: Record<AssistantKey, { id?: string; name: string; provisioned: boolean }>;
   error?: string;
 }> {
-  if (!PRIVATE_KEY) {
+  const key = await resolveVapiKey();
+
+  if (!key) {
     return {
       connected: false,
       assistants: {
@@ -313,13 +329,23 @@ export async function getAllAssistantStatuses(): Promise<{
         ORION: { name: ASSISTANT_NAMES.ORION, provisioned: false },
         ARIA:  { name: ASSISTANT_NAMES.ARIA,  provisioned: false },
       },
-      error: 'VAPI_PRIVATE_KEY not set',
+      error: 'Vapi private key not configured',
     };
   }
 
   try {
-    const list = await listAssistants();
-    const find = (key: AssistantKey) => list.find(a => a.name === ASSISTANT_NAMES[key]);
+    // Use resolved key for this request (may differ from module-level PRIVATE_KEY)
+    const res = await fetch(`${VAPI_BASE}/assistant?limit=100`, {
+      headers: { Authorization: `Bearer ${key}` },
+      cache: 'no-store',
+    });
+    if (!res.ok) throw new Error(`Vapi ${res.status}`);
+    const data = await res.json();
+    const list: { id: string; name: string }[] = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.results) ? data.results : [];
+
+    const find = (k: AssistantKey) => list.find(a => a.name === ASSISTANT_NAMES[k]);
 
     return {
       connected: true,

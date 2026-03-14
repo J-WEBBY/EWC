@@ -123,11 +123,12 @@ async function vapiDelete(path: string, key: string): Promise<void> {
   }
 }
 
-// Old Squad assistant names — deleted automatically on every provision run.
+// Old assistant names — deleted automatically on every provision run.
 const OLD_ASSISTANT_NAMES = [
   'Orion — EWC Sales',
   'Aria — EWC Retention',
   'EWC — Operations',
+  'Komal — AI Receptionist',  // old name before rename to 'Komal — EWC Receptionist'
 ];
 
 // Remove old Squad assistants if they still exist in the account.

@@ -306,16 +306,17 @@ interface PanelProps {
   category: string;
   description: string;
   isConnected: boolean;
+  loading?: boolean;
   children: React.ReactNode;
 }
 
-function IntegrationPanel({ accent, icon, title, category, description, isConnected, children }: PanelProps) {
+function IntegrationPanel({ accent, icon, title, category, description, isConnected, loading, children }: PanelProps) {
   const [open, setOpen] = useState(false);
 
-  // Auto-open disconnected panels on first render
+  // Auto-open disconnected panels only once data has loaded (avoids false open during null→loaded transition)
   useEffect(() => {
-    if (!isConnected) setOpen(true);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!loading && !isConnected) setOpen(true);
+  }, [loading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <motion.div
@@ -467,6 +468,7 @@ function ClinikoPanel() {
       category="Practice Management System"
       description="Connect your Cliniko account so your AI agents can view patient records, check appointments, and book or cancel sessions — all in real time."
       isConnected={isConnected}
+      loading={status === null}
     >
       <AnimatePresence mode="wait">
         {isConnected ? (
@@ -616,6 +618,7 @@ function VapiPanel() {
       category="AI Voice Receptionist"
       description="Connect your Vapi account to power your AI voice receptionist. Once connected, you can provision and manage your phone receptionist from the Receptionist page."
       isConnected={isConnected}
+      loading={cfg === null}
     >
       <AnimatePresence mode="wait">
         {isConnected ? (
@@ -711,6 +714,7 @@ function TwilioPanel() {
       title="Twilio"
       category="SMS & Messaging"
       description="Connect Twilio to send patients SMS appointment reminders, follow-up messages, and payment links directly from your system."
+      loading={cfg === null}
       isConnected={isConnected}
     >
       <AnimatePresence mode="wait">
@@ -811,6 +815,7 @@ function StripePanel() {
       category="Payments"
       description="Connect Stripe to generate payment links, collect invoices, and track outstanding revenue from patient treatments and packages."
       isConnected={isConnected}
+      loading={cfg === null}
     >
       <AnimatePresence mode="wait">
         {isConnected ? (
