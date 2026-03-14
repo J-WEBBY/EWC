@@ -67,7 +67,6 @@ export interface ClinikoPractitionerRow {
   cliniko_id: string;
   first_name: string;
   last_name: string;
-  full_name: string;
   title: string | null;
   designation: string | null;
   email: string | null;
@@ -389,16 +388,13 @@ export async function syncPractitioners(): Promise<{ success: boolean; count: nu
 
     for (const p of practitioners) {
       await db.from('cliniko_practitioners').upsert({
-        cliniko_id:         String(p.id),
-        first_name:         p.first_name,
-        last_name:          p.last_name,
-        title:              p.title ?? null,
-        designation:        p.designation ?? null,
-        email:              p.email ?? null,
-        active:             p.active,
-        cliniko_created_at: p.created_at,
-        cliniko_updated_at: p.updated_at,
-        synced_at:          new Date().toISOString(),
+        cliniko_id:     String(p.id),
+        first_name:     p.first_name,
+        last_name:      p.last_name ?? '',
+        title:          p.title ?? null,
+        email:          p.email ?? null,
+        is_active:      p.active ?? true,
+        last_synced_at: new Date().toISOString(),
       }, { onConflict: 'cliniko_id' });
     }
 
@@ -598,19 +594,16 @@ export async function getAvailabilitySummary(
       targetDate = getNextWeekday(1);
     }
 
-    // 2. Resolve practitioner
+    // 2. Resolve practitioner (fuzzy match — handles ASR transcription errors)
     const db = createSovereignClient();
     let practId: string | undefined;
     let practName: string | undefined;
     if (preferredPractitioner) {
-      const { data: practs } = await db
-        .from('cliniko_practitioners')
-        .select('cliniko_id, full_name')
-        .ilike('full_name', `%${preferredPractitioner}%`)
-        .limit(1);
-      if (practs?.[0]) {
-        practId   = practs[0].cliniko_id;
-        practName = practs[0].full_name;
+      const allPracts = await loadActivePractitioners(db);
+      const found = fuzzyFindPractitioner(preferredPractitioner, allPracts);
+      if (found) {
+        practId   = found.cliniko_id;
+        practName = `${found.first_name} ${found.last_name}`.trim();
       }
     }
 
@@ -870,6 +863,71 @@ async function resolveAppointmentTypeId(
 // Falls back to pending booking_request if Cliniko is not connected or slot gone.
 // =============================================================================
 
+// Levenshtein distance — used for fuzzy practitioner name matching
+function levenshtein(a: string, b: string): number {
+  const m = a.length, n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, (_, i) => [i]);
+  for (let j = 1; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1]
+        ? dp[i - 1][j - 1]
+        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+  return dp[m][n];
+}
+
+// Fuzzy practitioner match — handles ASR/TTS transcription errors (e.g. "Nokita" → "Nikita")
+// Priority: 1. Substring match 2. Word-level match 3. Levenshtein ≤ 2
+function fuzzyFindPractitioner(
+  search: string,
+  practitioners: { cliniko_id: string; first_name: string; last_name: string }[],
+): { cliniko_id: string; first_name: string; last_name: string } | null {
+  if (!search || practitioners.length === 0) return null;
+  const s = search.toLowerCase().trim();
+
+  // 1. Substring match on combined name
+  let match = practitioners.find(p =>
+    `${p.first_name} ${p.last_name}`.toLowerCase().includes(s),
+  );
+  if (match) return match;
+
+  // 2. Each word in search against each name part (handles "Nikita Patel" → "Nikita")
+  const words = s.split(/\s+/).filter(w => w.length >= 3);
+  for (const word of words) {
+    match = practitioners.find(p =>
+      p.first_name.toLowerCase().includes(word) ||
+      p.last_name.toLowerCase().includes(word),
+    );
+    if (match) return match;
+  }
+
+  // 3. Levenshtein ≤ 2 on any individual name word (catches "Nokita" → "Nikita")
+  const searchWord = words[0] ?? s;
+  let best: (typeof practitioners)[number] | null = null;
+  let bestDist = Infinity;
+  for (const p of practitioners) {
+    for (const part of [p.first_name, p.last_name]) {
+      if (!part) continue;
+      const dist = levenshtein(searchWord, part.toLowerCase());
+      if (dist < bestDist && dist <= 2) { bestDist = dist; best = p; }
+    }
+  }
+  return best;
+}
+
+// Load all active practitioners from local cache
+async function loadActivePractitioners(
+  db: ReturnType<typeof createSovereignClient>,
+): Promise<{ cliniko_id: string; first_name: string; last_name: string }[]> {
+  const { data } = await db
+    .from('cliniko_practitioners')
+    .select('cliniko_id, first_name, last_name')
+    .eq('is_active', true);
+  return data ?? [];
+}
+
 function parseNaturalTime(text: string): string | null {
   const t = text.toLowerCase().trim();
   const colonMatch = t.match(/^(\d{1,2}):(\d{2})$/);
@@ -911,16 +969,13 @@ export async function bookKomalAppointment(params: {
   const targetDate = parseNaturalDate(params.preferred_date) ?? getNextWeekday(1);
   const parsedTime = params.preferred_time ? parseNaturalTime(params.preferred_time) : null;
 
-  // 2. Resolve practitioner from name
+  // 2. Resolve practitioner from name — fuzzy match handles ASR errors ("Nokita" → "Nikita")
+  const allPracts = await loadActivePractitioners(db);
   let practClinikoId: string | null = null;
   let practName:      string | null = null;
   if (params.preferred_practitioner) {
-    const { data: practs } = await db
-      .from('cliniko_practitioners')
-      .select('cliniko_id, full_name')
-      .ilike('full_name', `%${params.preferred_practitioner}%`)
-      .limit(1);
-    if (practs?.[0]) { practClinikoId = practs[0].cliniko_id; practName = practs[0].full_name; }
+    const found = fuzzyFindPractitioner(params.preferred_practitioner, allPracts);
+    if (found) { practClinikoId = found.cliniko_id; practName = `${found.first_name} ${found.last_name}`.trim(); }
   }
 
   // 3. Confirm the slot is still free (double-booking guard)
@@ -952,14 +1007,12 @@ export async function bookKomalAppointment(params: {
         const tMins = parseInt(parsedTime.split(':')[0]) * 60 + parseInt(parsedTime.split(':')[1]);
         const reqEndMins = tMins + 30;
 
-        const [{ data: cachedAppts }, { data: allPracts }] = await Promise.all([
-          db.from('cliniko_appointments')
-            .select('starts_at, ends_at, cliniko_practitioner_id')
-            .gte('starts_at', `${targetDate}T00:00:00`)
-            .lt('starts_at', `${targetDate}T24:00:00`)
-            .neq('status', 'Cancelled'),
-          db.from('cliniko_practitioners').select('cliniko_id, full_name').eq('is_active', true),
-        ]);
+        const { data: cachedAppts } = await db
+          .from('cliniko_appointments')
+          .select('starts_at, ends_at, cliniko_practitioner_id')
+          .gte('starts_at', `${targetDate}T00:00:00`)
+          .lt('starts_at', `${targetDate}T24:00:00`)
+          .neq('status', 'Cancelled');
 
         // Helper: does an appointment overlap the requested time window?
         const overlaps = (appt: { starts_at: string; ends_at: string | null }) => {
@@ -976,12 +1029,12 @@ export async function bookKomalAppointment(params: {
             a => a.cliniko_practitioner_id === practClinikoId && overlaps(a),
           );
           if (conflict) {
-            const alt = await getAvailabilitySummary(params.preferred_date, params.preferred_practitioner ?? undefined, params.treatment).catch(() => '');
+            const alt = await getAvailabilitySummary(params.preferred_date, practName ?? params.preferred_practitioner ?? undefined, params.treatment).catch(() => '');
             return `I'm sorry, that slot is already taken with ${practName ?? 'that practitioner'}, ${firstName}. ${alt || `Could I take your details and have the team call you back to arrange an alternative time?`}`;
           }
         } else {
           // No practitioner requested — find any free practitioner at this time
-          const practitioners = allPracts ?? [];
+          const practitioners = allPracts; // already loaded above
           const bookedPractIds = new Set(
             (cachedAppts ?? []).filter(overlaps).map(a => a.cliniko_practitioner_id).filter(Boolean),
           );
@@ -996,7 +1049,7 @@ export async function bookKomalAppointment(params: {
           // Assign the free practitioner so the Cliniko write goes to a real person
           if (freePract) {
             practClinikoId = freePract.cliniko_id;
-            practName      = freePract.full_name;
+            practName      = `${freePract.first_name} ${freePract.last_name}`.trim();
           }
         }
 
