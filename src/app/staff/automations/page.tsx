@@ -292,8 +292,9 @@ export default function AutomationsPage() {
   const [stats,   setStats]   = useState<{ active: number; total: number; ran_today: number } | null>(null);
   const [filter,  setFilter]  = useState<FilterTab>('all');
   const [comms,   setComms]   = useState<AutomationCommunication[]>([]);
-  const [commChannel, setCommChannel] = useState<CommChannel>('all');
-  const [commLimit,   setCommLimit]   = useState(10);
+  const [commChannel,    setCommChannel]    = useState<CommChannel>('all');
+  const [commLimit,      setCommLimit]      = useState(10);
+  const [expandedCommId, setExpandedCommId] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -523,6 +524,7 @@ export default function AutomationsPage() {
                           const autoMeta  = CATEGORY_META[
                             AUTOMATION_REGISTRY.find(a => a.id === c.automation_id)?.category ?? 'patient_care'
                           ];
+                          const isExpanded = expandedCommId === c.id;
                           return (
                             <motion.div
                               key={c.id}
@@ -531,60 +533,101 @@ export default function AutomationsPage() {
                               animate={{ opacity: 1 }}
                               exit={{ opacity: 0 }}
                               transition={{ delay: i * 0.02 }}
-                              className="grid gap-4 px-5 py-3.5 items-center"
                               style={{
-                                gridTemplateColumns: '1fr 160px 100px 80px 80px',
                                 borderBottom: i < filtered_comms.length - 1 ? `1px solid ${BORDER}` : 'none',
+                                cursor: 'pointer',
                               }}
+                              onClick={() => setExpandedCommId(isExpanded ? null : c.id)}
                             >
-                              {/* Patient + message */}
-                              <div className="min-w-0">
-                                <p className="text-[12px] font-medium mb-0.5" style={{ color: NAVY }}>
-                                  {c.patient_name}
-                                </p>
-                                <p
-                                  className="text-[11px] leading-relaxed"
-                                  style={{ color: TER, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
-                                >
-                                  {c.message}
-                                </p>
+                              {/* Row */}
+                              <div
+                                className="grid gap-4 px-5 py-3.5 items-center"
+                                style={{ gridTemplateColumns: '1fr 160px 100px 80px 80px' }}
+                              >
+                                {/* Patient + message */}
+                                <div className="min-w-0">
+                                  <p className="text-[12px] font-medium mb-0.5" style={{ color: NAVY }}>
+                                    {c.patient_name}
+                                  </p>
+                                  <p
+                                    className="text-[11px] leading-relaxed"
+                                    style={{ color: TER, display: '-webkit-box', WebkitLineClamp: isExpanded ? undefined : 2, WebkitBoxOrient: 'vertical', overflow: isExpanded ? 'visible' : 'hidden' }}
+                                  >
+                                    {c.message}
+                                  </p>
+                                </div>
+
+                                {/* Automation name */}
+                                <div className="min-w-0">
+                                  <span
+                                    className="text-[10px] font-medium px-2 py-0.5 rounded-full truncate block max-w-fit"
+                                    style={{ backgroundColor: `${autoMeta.color}10`, color: autoMeta.color }}
+                                  >
+                                    {c.automation_name}
+                                  </span>
+                                </div>
+
+                                {/* Channel */}
+                                <div>
+                                  <span
+                                    className="flex items-center gap-1 text-[10px] font-medium w-fit"
+                                    style={{ color: chMeta?.color ?? MUT }}
+                                  >
+                                    <ChanIcon size={10} />
+                                    {c.channel}
+                                  </span>
+                                </div>
+
+                                {/* Status */}
+                                <div>
+                                  <span
+                                    className="text-[10px] font-medium px-2 py-0.5 rounded-full"
+                                    style={{ backgroundColor: st.bg, color: st.color }}
+                                  >
+                                    {st.label}
+                                  </span>
+                                </div>
+
+                                {/* Time */}
+                                <div className="text-right">
+                                  <p className="text-[10px]" style={{ color: MUT }}>{relativeTime(c.sent_at)}</p>
+                                </div>
                               </div>
 
-                              {/* Automation name */}
-                              <div className="min-w-0">
-                                <span
-                                  className="text-[10px] font-medium px-2 py-0.5 rounded-full truncate block max-w-fit"
-                                  style={{ backgroundColor: `${autoMeta.color}10`, color: autoMeta.color }}
+                              {/* Expanded detail */}
+                              {isExpanded && (
+                                <div
+                                  className="px-5 pb-4 pt-0"
+                                  style={{ backgroundColor: `${BORDER}30` }}
+                                  onClick={e => e.stopPropagation()}
                                 >
-                                  {c.automation_name}
-                                </span>
-                              </div>
-
-                              {/* Channel */}
-                              <div>
-                                <span
-                                  className="flex items-center gap-1 text-[10px] font-medium w-fit"
-                                  style={{ color: chMeta?.color ?? MUT }}
-                                >
-                                  <ChanIcon size={10} />
-                                  {c.channel}
-                                </span>
-                              </div>
-
-                              {/* Status */}
-                              <div>
-                                <span
-                                  className="text-[10px] font-medium px-2 py-0.5 rounded-full"
-                                  style={{ backgroundColor: st.bg, color: st.color }}
-                                >
-                                  {st.label}
-                                </span>
-                              </div>
-
-                              {/* Time */}
-                              <div className="text-right">
-                                <p className="text-[10px]" style={{ color: MUT }}>{relativeTime(c.sent_at)}</p>
-                              </div>
+                                  <div
+                                    className="rounded-xl p-4"
+                                    style={{ backgroundColor: BG, border: `1px solid ${BORDER}` }}
+                                  >
+                                    <p className="text-[9px] uppercase tracking-[0.18em] font-semibold mb-2" style={{ color: MUT }}>Full Message</p>
+                                    <p className="text-[12px] leading-relaxed whitespace-pre-wrap" style={{ color: NAVY }}>{c.message}</p>
+                                    {c.error_message && (
+                                      <div className="mt-3 pt-3" style={{ borderTop: `1px solid ${BORDER}` }}>
+                                        <p className="text-[9px] uppercase tracking-[0.18em] font-semibold mb-1" style={{ color: '#DC2626' }}>Error</p>
+                                        <p className="text-[11px]" style={{ color: '#DC2626' }}>{c.error_message}</p>
+                                      </div>
+                                    )}
+                                    <div className="mt-3 pt-3 flex gap-6" style={{ borderTop: `1px solid ${BORDER}` }}>
+                                      <div>
+                                        <p className="text-[9px] uppercase tracking-[0.18em] font-semibold mb-0.5" style={{ color: MUT }}>Sent</p>
+                                        <p className="text-[11px]" style={{ color: TER }}>{new Date(c.sent_at).toLocaleString('en-GB')}</p>
+                                      </div>
+                                      {c.provider_id && (
+                                        <div>
+                                          <p className="text-[9px] uppercase tracking-[0.18em] font-semibold mb-0.5" style={{ color: MUT }}>Provider ID</p>
+                                          <p className="text-[11px] font-mono" style={{ color: TER }}>{c.provider_id}</p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
                             </motion.div>
                           );
                         })}

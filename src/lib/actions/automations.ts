@@ -132,6 +132,8 @@ export interface AutomationCommunication {
   message: string;
   status: 'sent' | 'delivered' | 'failed' | 'pending';
   sent_at: string;
+  provider_id?: string | null;
+  error_message?: string | null;
 }
 
 export async function getAutomationCommunications(limit = 50): Promise<{
