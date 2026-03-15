@@ -17,6 +17,8 @@
 import { createSovereignClient } from '@/lib/supabase/service';
 import { getStaffSession } from '@/lib/supabase/tenant-context';
 import { getClinikoClient } from '@/lib/cliniko/client';
+import { sendWhatsApp, sendSMS, logCommunication, isTwilioConfigured, normalizeUKPhone } from '@/lib/twilio/client';
+import { AUTOMATION_REGISTRY } from '@/lib/automations/registry';
 
 // =============================================================================
 // TYPES
@@ -184,6 +186,78 @@ export async function createBookingRequest(params: {
 // BOOKING REQUESTS — CONFIRM (staff action → Cliniko write)
 // =============================================================================
 
+// =============================================================================
+// fireBookingConfirmation
+// Shared helper — fires after any successful Cliniko appointment creation.
+// Checks automation is active + Twilio configured, then sends WhatsApp/SMS.
+// Non-fatal: all errors are caught and logged internally.
+// =============================================================================
+
+async function fireBookingConfirmation(params: {
+  patientName:      string;
+  firstName:        string;
+  phone:            string | null | undefined;
+  appointmentType:  string;
+  practitionerName: string | null | undefined;
+  startsAt:         string;   // ISO8601
+}): Promise<void> {
+  try {
+    const automationConfig = AUTOMATION_REGISTRY.find(a => a.id === 'booking_confirmation');
+    if (!automationConfig?.is_active) return;
+    if (!isTwilioConfigured())         return;
+    if (!params.phone)                 return;
+
+    const practitioner = params.practitionerName ?? 'our team';
+    const d = new Date(params.startsAt);
+    const dateLabel = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+    const timeLabel = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+    const message =
+      `Hi ${params.firstName}, your ${params.appointmentType} appointment at Edgbaston Wellness Clinic ` +
+      `is confirmed for ${dateLabel} at ${timeLabel} with ${practitioner}. ` +
+      `We look forward to seeing you. — EWC Team`;
+
+    const phone = normalizeUKPhone(params.phone);
+
+    let sid         = '';
+    let channel: 'WhatsApp' | 'SMS' = 'SMS';
+    let sendStatus: 'sent' | 'failed' = 'sent';
+    let errorMsg: string | undefined;
+
+    try {
+      const result = await sendWhatsApp(phone, message);
+      sid     = result.sid;
+      channel = 'WhatsApp';
+    } catch {
+      try {
+        const result = await sendSMS(phone, message);
+        sid     = result.sid;
+        channel = 'SMS';
+      } catch (smsErr) {
+        sendStatus = 'failed';
+        errorMsg   = String(smsErr);
+      }
+    }
+
+    await logCommunication({
+      automation_id:   'booking_confirmation',
+      automation_name: 'Booking Confirmation',
+      patient_name:    params.patientName,
+      channel,
+      message,
+      status:          sendStatus,
+      provider_id:     sid || undefined,
+      error_message:   errorMsg,
+    });
+
+    console.log(`[booking-confirmation] ${channel} → ${params.patientName} — ${sendStatus}`);
+  } catch (err) {
+    console.error('[booking-confirmation] Unexpected error:', err);
+  }
+}
+
+// =============================================================================
+
 export async function confirmBookingRequest(
   bookingId: string,
   overrides?: {
@@ -286,6 +360,16 @@ export async function confirmBookingRequest(
                 });
 
                 clinikoAppointmentId = String(appt.id);
+
+                // Booking Confirmation automation — fire & forget
+                void fireBookingConfirmation({
+                  patientName:      [booking.caller_name].filter(Boolean).join(' ') || 'Patient',
+                  firstName:        booking.caller_name?.split(' ')[0] ?? 'there',
+                  phone:            booking.caller_phone,
+                  appointmentType:  booking.service ?? 'Appointment',
+                  practitionerName: booking.practitioner_name,
+                  startsAt,
+                });
 
                 // Upsert to local appointments cache
                 await db.from('cliniko_appointments').upsert({
@@ -1269,6 +1353,16 @@ export async function bookKomalAppointment(params: {
 
         clinikoApptId = String(appt.id);
         status        = 'synced_to_cliniko';
+
+        // Booking Confirmation automation — fire & forget
+        void fireBookingConfirmation({
+          patientName:      params.patient_name ?? 'Patient',
+          firstName:        params.patient_name?.split(' ')[0] ?? 'there',
+          phone:            params.phone,
+          appointmentType:  params.treatment ?? 'Appointment',
+          practitionerName: practName,
+          startsAt,
+        });
 
         await db.from('cliniko_appointments').upsert({
           cliniko_id:              clinikoApptId,
