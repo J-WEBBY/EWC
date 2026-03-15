@@ -1,22 +1,22 @@
 // =============================================================================
 // Vapi Tool Registry — Hybrid Architecture
 // Komal (Haiku, single assistant) routes via two paths:
-//   Tier 1: Direct tools (150-300ms) — DB queries, static facts, actions
-//   Tier 2: ask_agent (400-600ms) — Orion (acquisition) or Aria (retention)
+//   Tier 1: Direct tools (150–300ms) — DB queries, static facts, actions
+//   Tier 2: ask_agent (400–600ms) — Orion (acquisition) or Aria (retention)
 // Handler registry used by /api/vapi/tool route.
 // Tool definitions (JSON schemas for Vapi) live in tool-definitions.ts.
 // =============================================================================
 
-import { identifyCaller }        from '@/lib/vapi/tools/identify-caller';
-import { getClinicInfo }         from '@/lib/vapi/tools/get-clinic-info';
-import { searchKnowledgeBase }   from '@/lib/vapi/tools/search-knowledge-base';
-import { getPatientHistory }     from '@/lib/vapi/tools/get-patient-history';
-import { checkAvailability }     from '@/lib/vapi/tools/check-availability';
-import { captureLead }           from '@/lib/vapi/tools/capture-lead';
-import { createBookingRequest }  from '@/lib/vapi/tools/create-booking';
-import { logCallConcern }        from '@/lib/vapi/tools/log-concern';
-import { escalateToHuman }       from '@/lib/vapi/tools/escalate';
-import { askAgent }              from '@/lib/vapi/tools/ask-agent';
+import { identifyCaller }       from '@/lib/vapi/tools/identify-caller';
+import { getClinicInfo }        from '@/lib/vapi/tools/get-clinic-info';
+import { searchKnowledgeBase }  from '@/lib/vapi/tools/search-knowledge-base';
+import { getPatientHistory }    from '@/lib/vapi/tools/get-patient-history';
+import { checkAvailability }    from '@/lib/vapi/tools/check-availability';
+import { captureLead }          from '@/lib/vapi/tools/capture-lead';
+import { createBookingRequest } from '@/lib/vapi/tools/create-booking';
+import { logCallConcern }       from '@/lib/vapi/tools/log-concern';
+import { escalateToHuman }      from '@/lib/vapi/tools/escalate';
+import { askAgent }             from '@/lib/vapi/tools/ask-agent';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ToolHandler = (args: any) => Promise<string>;
