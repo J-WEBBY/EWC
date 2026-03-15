@@ -383,17 +383,6 @@ export async function confirmBookingRequest(
 
                 clinikoAppointmentId = String(appt.id);
 
-                // Booking Confirmation automation — fire & forget
-                void fireBookingConfirmation({
-                  patientName:      [booking.caller_name].filter(Boolean).join(' ') || 'Patient',
-                  firstName:        booking.caller_name?.split(' ')[0] ?? 'there',
-                  phone:            booking.caller_phone,
-                  email:            booking.caller_email,
-                  appointmentType:  booking.service ?? 'Appointment',
-                  practitionerName: booking.practitioner_name,
-                  startsAt,
-                });
-
                 // Upsert to local appointments cache
                 await db.from('cliniko_appointments').upsert({
                   cliniko_id:            String(appt.id),
@@ -406,6 +395,17 @@ export async function confirmBookingRequest(
                   ends_at:               endDt,
                 }, { onConflict: 'cliniko_id' });
               }
+
+              // Booking Confirmation — fire regardless of Cliniko type resolution
+              void fireBookingConfirmation({
+                patientName:      [booking.caller_name].filter(Boolean).join(' ') || 'Patient',
+                firstName:        booking.caller_name?.split(' ')[0] ?? 'there',
+                phone:            booking.caller_phone,
+                email:            booking.caller_email,
+                appointmentType:  booking.service ?? 'Appointment',
+                practitionerName: booking.practitioner_name,
+                startsAt,
+              });
             }
           }
         }
@@ -1368,10 +1368,10 @@ export async function bookKomalAppointment(params: {
       }
       const isRealId = (id: string | null): id is string => Boolean(id && id !== 'default' && /^\d+$/.test(id.trim()));
 
-      if (businessId && isRealId(resolvedPractId) && apptTypeId && clinikoPatientId) {
-        const startsAt = `${targetDate}T${confirmedSlot.start_time}:00+00:00`;
-        const endsAt   = `${targetDate}T${confirmedSlot.end_time}:00+00:00`;
+      const startsAt = `${targetDate}T${confirmedSlot.start_time}:00+00:00`;
+      const endsAt   = `${targetDate}T${confirmedSlot.end_time}:00+00:00`;
 
+      if (businessId && isRealId(resolvedPractId) && apptTypeId && clinikoPatientId) {
         const notesParts = [
           params.service_detail,
           params.notes,
@@ -1392,17 +1392,6 @@ export async function bookKomalAppointment(params: {
         clinikoApptId = String(appt.id);
         status        = 'synced_to_cliniko';
 
-        // Booking Confirmation automation — fire & forget
-        void fireBookingConfirmation({
-          patientName:      params.patient_name ?? 'Patient',
-          firstName:        params.patient_name?.split(' ')[0] ?? 'there',
-          phone:            params.phone,
-          email:            params.email,
-          appointmentType:  params.treatment ?? 'Appointment',
-          practitionerName: practName,
-          startsAt,
-        });
-
         await db.from('cliniko_appointments').upsert({
           cliniko_id:              clinikoApptId,
           cliniko_patient_id:      clinikoPatientId,
@@ -1414,6 +1403,17 @@ export async function bookKomalAppointment(params: {
           ends_at:                 endsAt,
         }, { onConflict: 'cliniko_id' });
       }
+
+      // Booking Confirmation — fire regardless of whether Cliniko type resolved
+      void fireBookingConfirmation({
+        patientName:      params.patient_name ?? 'Patient',
+        firstName:        params.patient_name?.split(' ')[0] ?? 'there',
+        phone:            params.phone,
+        email:            params.email,
+        appointmentType:  params.treatment ?? 'Appointment',
+        practitionerName: practName,
+        startsAt,
+      });
     } catch (err) {
       console.error('[booking-pipeline] bookKomalAppointment Cliniko error:', err);
       // fall through to pending
