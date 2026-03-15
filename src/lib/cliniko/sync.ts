@@ -83,7 +83,7 @@ export async function syncPractitioners(
       const { error } = await supabase
         .from('cliniko_practitioners')
         .upsert({
-          cliniko_id:   p.id,
+          cliniko_id:   p.links?.self?.match(/\/(\d+)$/)?.[1] ?? String(p.id),
           first_name:   p.first_name,
           last_name:    p.last_name,
           title:        p.title,

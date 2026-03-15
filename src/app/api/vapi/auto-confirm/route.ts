@@ -194,52 +194,61 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'unparseable_datetime' });
     }
 
-    // 4. Resolve practitioner from local cache
-    const { data: practRows } = await db
-      .from('cliniko_practitioners')
-      .select('cliniko_id, first_name, last_name')
-      .eq('is_active', true);
+    // 4. Resolve practitioner — always fetch live from Cliniko.
+    // Cliniko IDs are 64-bit integers that exceed JS float64 precision; cached IDs (stored via
+    // JSON.parse → String(p.id)) may have lost the last digits (e.g. 6741262368640512 stored as
+    // 6741262368640000). The live API URL contains the exact string, extracted via regex.
+    // Using the wrong ID means conflict checks silently skip all of that practitioner's appointments.
+    let practClinikoId: string | null = null;
+    let practName: string | null = null;
 
-    const practs = practRows ?? [];
+    try {
+      const livePracts = await cliniko.getPractitioners();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const liveMapped = livePracts.map((pr: any) => ({
+        cliniko_id: (pr.links?.self as string | undefined)?.match(/\/(\d+)$/)?.[1] ?? String(pr.id),
+        first_name: (pr.first_name ?? '') as string,
+        last_name:  (pr.last_name  ?? '') as string,
+      }));
 
-    let practClinikoId: string | null = booking.practitioner_cliniko_id ?? null;
-    let practName: string | null = booking.practitioner_name ?? null;
+      const preferred = booking.preferred_practitioner as string | null | undefined;
+      const found = preferred ? fuzzyFindPract(preferred, liveMapped) : null;
+      const chosen = found ?? liveMapped[0] ?? null;
 
-    if (!isRealId(practClinikoId) && booking.preferred_practitioner) {
-      const found = fuzzyFindPract(booking.preferred_practitioner, practs);
-      if (found) { practClinikoId = found.cliniko_id; practName = `${found.first_name} ${found.last_name}`.trim(); }
-    }
+      if (chosen) {
+        practClinikoId = chosen.cliniko_id;
+        practName      = `${chosen.first_name} ${chosen.last_name}`.trim() || 'Practitioner';
+      }
 
-    // If still no practitioner, use first available
-    if (!isRealId(practClinikoId) && practs.length > 0) {
-      practClinikoId = practs[0].cliniko_id;
-      practName = `${practs[0].first_name} ${practs[0].last_name}`.trim();
-    }
-
-    // If nothing in cache, fetch live from Cliniko
-    if (!isRealId(practClinikoId)) {
-      try {
-        const live = await cliniko.getPractitioners();
-        if (live.length > 0) {
+      // Refresh cache with precision-correct IDs (fire-and-forget)
+      if (liveMapped.length > 0) {
+        void db.from('cliniko_practitioners').upsert(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const p = live[0] as any;
-          practClinikoId = String(p.id);
-          practName = `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim() || 'Practitioner';
-          // Seed cache
-          void db.from('cliniko_practitioners').upsert(
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            live.slice(0, 20).map((pr: any) => ({
-              cliniko_id:     String(pr.id),
-              first_name:     pr.first_name ?? '',
-              last_name:      pr.last_name  ?? '',
-              is_active:      pr.active !== false,
-              raw_data:       pr,
-              last_synced_at: new Date().toISOString(),
-            })),
-            { onConflict: 'cliniko_id' },
-          );
-        }
-      } catch { /* non-fatal */ }
+          livePracts.slice(0, 20).map((pr: any) => ({
+            cliniko_id:     (pr.links?.self as string | undefined)?.match(/\/(\d+)$/)?.[1] ?? String(pr.id),
+            first_name:     pr.first_name ?? '',
+            last_name:      pr.last_name  ?? '',
+            is_active:      pr.active !== false,
+            raw_data:       pr,
+            last_synced_at: new Date().toISOString(),
+          })),
+          { onConflict: 'cliniko_id' },
+        );
+      }
+    } catch (practErr) {
+      // Live fetch failed — fall back to cache (less reliable for ID precision)
+      console.warn('[auto-confirm] Live practitioner fetch failed, falling back to cache:', practErr);
+      const { data: practRows } = await db
+        .from('cliniko_practitioners')
+        .select('cliniko_id, first_name, last_name')
+        .eq('is_active', true);
+      const practs = practRows ?? [];
+      const preferred = booking.preferred_practitioner as string | null | undefined;
+      const found = preferred ? fuzzyFindPract(preferred, practs) : practs[0] ?? null;
+      if (found) {
+        practClinikoId = found.cliniko_id;
+        practName      = `${found.first_name} ${found.last_name}`.trim();
+      }
     }
 
     if (!isRealId(practClinikoId)) {
