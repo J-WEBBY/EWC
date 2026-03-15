@@ -34,14 +34,16 @@ export async function POST() {
     const client = new ClinikoClient(config.api_key, config.shard ?? 'uk1');
     const now = new Date().toISOString();
 
-    // 48h window keeps Cliniko API calls to 1-3 pages (~1-2s).
+    // First sync (last_synced_at null): full pull — no date filter, get all records.
+    // Subsequent syncs: 48h window to keep Cliniko API calls fast (~1-3 pages).
     const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
-    const updatedSince = config.last_synced_at ?? fortyEightHoursAgo;
+    const isFirstSync = !config.last_synced_at;
+    const updatedSince = isFirstSync ? undefined : (config.last_synced_at ?? fortyEightHoursAgo);
 
     // ── 1. Fetch data with budget — budget-based so we never exceed 100s ────────
     // 90s budget for Cliniko fetches leaves 30s for DB upserts.
     const BUDGET_MS = 90_000;
-    const params: Record<string, string> = { updated_since: updatedSince };
+    const params: Record<string, string> = updatedSince ? { updated_since: updatedSince } : {};
 
     // Wrap Cliniko API calls separately — auth/network failures return 502, not 500
     let rawPractitioners: import('@/lib/cliniko/types').ClinikoPractitioner[];
@@ -125,45 +127,59 @@ export async function POST() {
       }
     }
 
-    // ── 3. Enrich patient names for newly synced appointments ─────────────────
-    const patientIds = Array.from(
-      new Set(rawAppointments
-        .map(a => (a.patient?.links?.self ?? '').match(/\/(\d+)$/)?.[1])
-        .filter((id): id is string => !!id))
-    );
-
-    if (patientIds.length > 0 && patientIds.length <= 20) {
-      const { data: existing } = await supabase
-        .from('cliniko_patients')
-        .select('cliniko_id')
-        .in('cliniko_id', patientIds);
-      const have = new Set((existing ?? []).map(p => p.cliniko_id));
-      const toFetch = patientIds.filter(id => !have.has(id));
-
-      if (toFetch.length > 0) {
-        const results = await Promise.allSettled(
-          toFetch.map(id => client.getPatient(Number(id)))
-        );
-        const patientRows = results
-          .filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof client.getPatient>>> =>
-            r.status === 'fulfilled')
-          .map(r => {
-            const p = r.value;
-            const clinikoId = (p.links?.self ?? '').split('/').pop() ?? String(p.id);
-            return {
-              cliniko_id:     clinikoId,
-              first_name:     p.first_name,
-              last_name:      p.last_name ?? '',
-              email:          p.email ?? null,
-              phone:          p.phone_numbers?.[0]?.number ?? null,
-              date_of_birth:  p.date_of_birth ?? null,
-              last_synced_at: now,
-            };
-          });
-        if (patientRows.length > 0) {
-          await supabase
-            .from('cliniko_patients')
-            .upsert(patientRows, { onConflict: 'cliniko_id' });
+    // ── 3. Sync patients ──────────────────────────────────────────────────────
+    // First sync: bulk pull all patients from Cliniko (needed for Komal caller ID).
+    // Subsequent syncs: only enrich patients referenced by new appointments.
+    let patientsSynced = 0;
+    if (isFirstSync) {
+      try {
+        const rawPatients = await client.getPatients();
+        if (rawPatients.length > 0) {
+          const CHUNK = 50;
+          for (let i = 0; i < rawPatients.length; i += CHUNK) {
+            const chunk = rawPatients.slice(i, i + CHUNK);
+            const rows = chunk.map(p => {
+              const clinikoId = (p.links?.self ?? '').split('/').pop() ?? String(p.id);
+              return {
+                cliniko_id:     clinikoId,
+                first_name:     p.first_name,
+                last_name:      p.last_name ?? '',
+                email:          p.email ?? null,
+                phone:          p.phone_numbers?.[0]?.number ?? null,
+                date_of_birth:  p.date_of_birth ?? null,
+                last_synced_at: now,
+              };
+            });
+            const { error } = await supabase.from('cliniko_patients').upsert(rows, { onConflict: 'cliniko_id' });
+            if (!error) patientsSynced += chunk.length;
+          }
+        }
+      } catch { /* non-fatal — patients synced on next run */ }
+    } else {
+      // Incremental: enrich only patients referenced by newly synced appointments
+      const patientIds = Array.from(
+        new Set(rawAppointments
+          .map(a => (a.patient?.links?.self ?? '').match(/\/(\d+)$/)?.[1])
+          .filter((id): id is string => !!id))
+      );
+      if (patientIds.length > 0 && patientIds.length <= 20) {
+        const { data: existing } = await supabase
+          .from('cliniko_patients').select('cliniko_id').in('cliniko_id', patientIds);
+        const have = new Set((existing ?? []).map(p => p.cliniko_id));
+        const toFetch = patientIds.filter(id => !have.has(id));
+        if (toFetch.length > 0) {
+          const results = await Promise.allSettled(toFetch.map(id => client.getPatient(Number(id))));
+          const patientRows = results
+            .filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof client.getPatient>>> => r.status === 'fulfilled')
+            .map(r => {
+              const p = r.value;
+              const clinikoId = (p.links?.self ?? '').split('/').pop() ?? String(p.id);
+              return { cliniko_id: clinikoId, first_name: p.first_name, last_name: p.last_name ?? '', email: p.email ?? null, phone: p.phone_numbers?.[0]?.number ?? null, date_of_birth: p.date_of_birth ?? null, last_synced_at: now };
+            });
+          if (patientRows.length > 0) {
+            await supabase.from('cliniko_patients').upsert(patientRows, { onConflict: 'cliniko_id' });
+            patientsSynced = patientRows.length;
+          }
         }
       }
     }
@@ -173,7 +189,7 @@ export async function POST() {
       last_synced_at: now,
     }).neq('id', '00000000-0000-0000-0000-000000000000');
 
-    return NextResponse.json({ success: true, appointments: synced });
+    return NextResponse.json({ success: true, appointments: synced, patients: patientsSynced, full: isFirstSync });
   } catch (err) {
     return NextResponse.json({ success: false, appointments: 0, error: String(err) }, { status: 500 });
   }

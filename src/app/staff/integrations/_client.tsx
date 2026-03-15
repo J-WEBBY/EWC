@@ -198,8 +198,12 @@ function ClinikoBody({ initial }: { initial: ClinikoInitial }) {
     setSyncing(true); setSyncMsg(null);
     try {
       const res  = await fetch('/api/cliniko/sync-now', { method: 'POST' });
-      const json = await res.json() as { success: boolean; appointments?: number; error?: string };
-      if (json.success) { setSyncMsg({ ok: true, text: `Sync complete — ${json.appointments ?? 0} appointments updated.` }); await reload(); }
+      const json = await res.json() as { success: boolean; appointments?: number; patients?: number; full?: boolean; error?: string };
+      if (json.success) {
+        const label = json.full ? 'Full sync complete' : 'Sync complete';
+        const parts = [`${json.appointments ?? 0} appointments`, json.patients ? `${json.patients} patients` : ''].filter(Boolean).join(', ');
+        setSyncMsg({ ok: true, text: `${label} — ${parts} updated.` }); await reload();
+      }
       else setSyncMsg({ ok: false, text: json.error ?? 'Sync failed.' });
     } catch { setSyncMsg({ ok: false, text: 'Sync failed — check your connection.' }); }
     setSyncing(false);
@@ -243,7 +247,7 @@ function ClinikoBody({ initial }: { initial: ClinikoInitial }) {
           <RefreshCw size={12} style={syncing ? { animation: 'spin 1s linear infinite' } : {}} /> {syncing ? 'Syncing…' : 'Sync Now'}
         </button>
         {syncMsg && <p style={{ fontSize: 11, fontWeight: 600, color: syncMsg.ok ? GREEN : RED, margin: 0 }}>{syncMsg.text}</p>}
-        <p style={{ fontSize: 11, color: MUTED, margin: 0, marginLeft: 'auto' }}>Auto-syncs every 5 min</p>
+        <p style={{ fontSize: 11, color: MUTED, margin: 0, marginLeft: 'auto' }}>Manual sync only</p>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 12px', borderRadius: 8, background: BLUE + '08', border: '1px solid ' + BLUE + '20' }}>
