@@ -18,9 +18,8 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 // ---------------------------------------------------------------------------
 
 export async function getClinicInfo(tenantId?: string) {
-  const sovereign = createSovereignClient();
-
   try {
+    const sovereign = createSovereignClient();
     let query = sovereign
       .from('clinic_config')
       .select('clinic_name, ai_name, brand_color, logo_url, tone, tagline, manifesto, ai_persona, neural_contract');
@@ -80,8 +79,6 @@ export async function getClinicInfo(tenantId?: string) {
 // ---------------------------------------------------------------------------
 
 export async function verifyLogin(identifier: string, password: string, tenantId: string) {
-  const sovereign = createSovereignClient();
-
   const identifierClean = identifier?.toLowerCase().trim();
 
   if (!identifierClean || !password) {
@@ -89,6 +86,7 @@ export async function verifyLogin(identifier: string, password: string, tenantId
   }
 
   try {
+    const sovereign = createSovereignClient();
     const { data: user, error } = await sovereign
       .from('users')
       .select(`
