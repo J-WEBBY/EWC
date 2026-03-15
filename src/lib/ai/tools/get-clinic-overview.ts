@@ -67,7 +67,7 @@ async function handler(
       .join('\n');
 
     // Live Cliniko data (today's appointments + patient count)
-    let totalPatients    = 0;
+    const totalPatients  = 0;
     let appointmentsToday = 0;
     let appointmentsWeek  = 0;
     let dnaThisMonth      = 0;
