@@ -246,6 +246,41 @@ export class ClinikoClient {
   // WRITE — Patient (create new patient in Cliniko from EWC lead)
   // ---------------------------------------------------------------------------
 
+  // ---------------------------------------------------------------------------
+  // SEARCH — Patients by phone number (Cliniko filter API)
+  // Avoids paginating all 9K+ patients — Cliniko's q[] filter runs server-side.
+  // ---------------------------------------------------------------------------
+
+  async searchPatientsByPhone(phone: string): Promise<ClinikoPatient[]> {
+    // Try both the normalised E.164 form and the raw digits
+    const digits = phone.replace(/[\s\-().+]/g, '');
+    return this.paginate<ClinikoPatient>('/patients', 'patients', {
+      'q[phone_numbers_number_cont]': digits.slice(-9), // last 9 digits — matches any prefix variant
+    });
+  }
+
+  async searchPatientsByName(name: string): Promise<ClinikoPatient[]> {
+    return this.paginate<ClinikoPatient>('/patients', 'patients', {
+      'q[first_name_or_last_name_cont]': name.trim(),
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // READ — Appointments for a specific patient (Cliniko filter API)
+  // ---------------------------------------------------------------------------
+
+  async getPatientAppointments(patientId: string): Promise<ClinikoAppointment[]> {
+    const appts = await this.paginate<ClinikoAppointment>(
+      '/individual_appointments', 'individual_appointments',
+      { 'q[patient_id_eq]': patientId },
+    );
+    return appts.map(a => ({
+      ...a,
+      patient_id:      idFromLink(a.patient?.links?.self ?? '') ?? patientId,
+      practitioner_id: idFromLink(a.practitioner?.links?.self ?? ''),
+    }));
+  }
+
   async createPatient(body: ClinikoPatientCreate): Promise<ClinikoPatient> {
     return this.request<ClinikoPatient>('/patients', {
       method: 'POST',

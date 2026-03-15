@@ -1,7 +1,7 @@
 // =============================================================================
 // Vapi Tool: identify_caller
-// Identifies inbound caller using local cliniko_patients DB cache (fast, ~10ms).
-// Falls back to Cliniko API only if not found in cache.
+// Identifies inbound caller via Cliniko API directly — no local patient cache.
+// Patient data stays in Cliniko; EWC queries on-demand.
 // Also checks agent_memories for prior call notes on this number.
 // Called at the start of every inbound call or as soon as phone/full name known.
 // =============================================================================
@@ -11,7 +11,6 @@ import { getClinikoClient }      from '@/lib/cliniko/client';
 
 // ---------------------------------------------------------------------------
 // Phone normalisation
-// Strips formatting and converts UK mobile 07xxx → +447xxx for comparison.
 // ---------------------------------------------------------------------------
 function normalisePhone(raw: string): string {
   const digits = raw.replace(/[\s\-().+]/g, '');
@@ -42,187 +41,109 @@ export async function identifyCaller(args: {
     return 'No phone number or name provided — treating as new caller.';
   }
 
+  const db = createSovereignClient();
+
   try {
-    const db = createSovereignClient();
-
-    // ── 1. Attempt local cache lookup via cliniko_patients ──────────────────
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let cachedPatient: any = null;
-
-    if (phone) {
-      const norm = normalisePhone(phone);
-
-      // Try exact match first
-      const { data: exactMatch } = await db
-        .from('cliniko_patients')
-        .select('*')
-        .eq('phone', norm)
-        .limit(1)
-        .maybeSingle();
-
-      if (exactMatch) {
-        cachedPatient = exactMatch;
-      } else {
-        // Try partial/alternate format match
-        const { data: fuzzyMatch } = await db
-          .from('cliniko_patients')
-          .select('*')
-          .ilike('phone', `%${norm.slice(-9)}%`)   // last 9 digits to handle prefix variants
-          .limit(1)
-          .maybeSingle();
-
-        if (fuzzyMatch) cachedPatient = fuzzyMatch;
-      }
-    }
-
-    if (!cachedPatient && name) {
-      const { data: nameMatch } = await db
-        .from('cliniko_patients')
-        .select('*')
-        .ilike('full_name', `%${name.trim()}%`)
-        .limit(1)
-        .maybeSingle();
-
-      if (nameMatch) cachedPatient = nameMatch;
-    }
-
-    // ── 2. If cache hit — enrich with appointments from local cache ─────────
-    if (cachedPatient) {
-      const clinikoId = String(cachedPatient.cliniko_id ?? cachedPatient.id ?? '');
-      const fullName  = cachedPatient.full_name
-        ?? [cachedPatient.first_name, cachedPatient.last_name].filter(Boolean).join(' ')
-        ?? 'Unknown';
-
-      const now = new Date().toISOString();
-
-      // Upcoming appointment (next one only)
-      const { data: upcomingRows } = await db
-        .from('cliniko_appointments')
-        .select('starts_at, appointment_type, practitioner_name')
-        .eq('cliniko_patient_id', clinikoId)
-        .gte('starts_at', now)
-        .order('starts_at', { ascending: true })
-        .limit(1);
-
-      // Last past appointment
-      const { data: pastRows } = await db
-        .from('cliniko_appointments')
-        .select('starts_at, appointment_type, practitioner_name')
-        .eq('cliniko_patient_id', clinikoId)
-        .lt('starts_at', now)
-        .order('starts_at', { ascending: false })
-        .limit(1);
-
-      // Agent memories for this phone/caller
-      const searchPhone = phone ? normalisePhone(phone) : (cachedPatient.phone ?? '');
-      const { data: mems } = await db
-        .from('agent_memories')
-        .select('content')
-        .ilike('content', `%${searchPhone}%`)
-        .order('importance', { ascending: false })
-        .limit(1);
-
-      const parts: string[] = [
-        `Existing patient: ${fullName} (Cliniko ID: ${clinikoId}).`,
-      ];
-
-      if (pastRows?.[0]) {
-        const typeName = pastRows[0].appointment_type ?? 'treatment';
-        parts.push(`Last treatment: ${typeName} on ${formatDate(pastRows[0].starts_at)}.`);
-      }
-
-      if (upcomingRows?.[0]) {
-        const typeName = upcomingRows[0].appointment_type ?? 'appointment';
-        parts.push(`Upcoming: ${typeName} on ${formatDateTime(upcomingRows[0].starts_at)}.`);
-      } else {
-        parts.push('No upcoming appointment — may be due for a rebook.');
-      }
-
-      if (cachedPatient.referral_source) {
-        parts.push(`Referred via: ${cachedPatient.referral_source}.`);
-      }
-
-      if (mems?.[0]) {
-        parts.push(`Previous call note: ${mems[0].content.slice(0, 200)}`);
-      }
-
-      return parts.join(' ');
-    }
-
-    // ── 3. No local cache hit — fall back to Cliniko API ────────────────────
     const client = await getClinikoClient();
 
-    if (!client) {
-      // No API access either — check memories and return new caller
-      if (phone) {
-        const norm = normalisePhone(phone);
-        const { data: mems } = await db
-          .from('agent_memories')
-          .select('content')
-          .ilike('content', `%${norm}%`)
-          .order('importance', { ascending: false })
-          .limit(1);
-
-        if (mems?.[0]) {
-          return `Not found in records. Previous call note: ${mems[0].content.slice(0, 200)}`;
-        }
-      }
-      return 'New caller — not found in patient records.';
-    }
-
-    // Cliniko API search
-    const allPatients = await client.getPatients(undefined);
+    // ── 1. Search Cliniko API ────────────────────────────────────────────────
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let apiPatient: any = null;
 
-    if (phone) {
-      const norm = normalisePhone(phone);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      apiPatient = allPatients.find((p: any) =>
-        (p.phone_numbers ?? []).some((ph: { number?: string }) => {
-          const phNorm = normalisePhone(ph.number ?? '');
-          return phNorm === norm || phNorm.slice(-9) === norm.slice(-9);
-        }),
-      );
-    } else if (name) {
-      const lower = name.toLowerCase().trim();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      apiPatient = allPatients.find((p: any) =>
-        `${p.first_name ?? ''} ${p.last_name ?? ''}`.toLowerCase().includes(lower),
-      );
-    }
-
-    if (!apiPatient) {
-      // Check memories before giving up
+    if (client) {
       if (phone) {
         const norm = normalisePhone(phone);
-        const { data: mems } = await db
+        const results = await client.searchPatientsByPhone(norm);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        apiPatient = results.find((p: any) =>
+          (p.phone_numbers ?? []).some((ph: { number?: string }) => {
+            const phNorm = normalisePhone(ph.number ?? '');
+            return phNorm === norm || phNorm.slice(-9) === norm.slice(-9);
+          }),
+        ) ?? results[0] ?? null;
+      }
+
+      if (!apiPatient && name) {
+        const results = await client.searchPatientsByName(name);
+        const lower = name.toLowerCase().trim();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        apiPatient = results.find((p: any) =>
+          `${p.first_name ?? ''} ${p.last_name ?? ''}`.toLowerCase().includes(lower),
+        ) ?? null;
+      }
+    }
+
+    // ── 2. Check agent_memories for any prior call note on this number ───────
+    const searchPhone = phone ? normalisePhone(phone) : '';
+    const { data: mems } = searchPhone
+      ? await db
           .from('agent_memories')
           .select('content')
-          .ilike('content', `%${norm}%`)
+          .ilike('content', `%${searchPhone}%`)
           .order('importance', { ascending: false })
-          .limit(1);
+          .limit(1)
+      : { data: null };
 
-        if (mems?.[0]) {
-          return `New caller (not in Cliniko). Previous call note: ${mems[0].content.slice(0, 200)}`;
-        }
+    // ── 3. No patient found → new caller ────────────────────────────────────
+    if (!apiPatient) {
+      if (!client) return 'Cliniko not connected — treating as new caller.';
+      if (mems?.[0]) {
+        return `New caller (not in Cliniko). Previous call note: ${mems[0].content.slice(0, 200)}`;
       }
       return 'New caller — not found in patient records.';
     }
 
-    // Cliniko API patient found — build summary without appointments (API-only fallback)
-    const fullName  = [apiPatient.first_name, apiPatient.last_name].filter(Boolean).join(' ');
-    const patientId = String(apiPatient.id);
+    // ── 4. Patient found — build summary ────────────────────────────────────
+    const fullName  = [apiPatient.first_name, apiPatient.last_name].filter(Boolean).join(' ') || 'Unknown';
+    const patientId = String(apiPatient.links?.self?.match(/\/(\d+)$/)?.[1] ?? apiPatient.id ?? '');
 
     const parts: string[] = [
       `Existing patient: ${fullName} (Cliniko ID: ${patientId}).`,
     ];
 
+    // Fetch appointment history for this patient
+    if (client && patientId) {
+      try {
+        const allAppts = await client.getPatientAppointments(patientId);
+        const now = new Date().toISOString();
+
+        const upcoming = allAppts
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .filter((a: any) => a.starts_at && a.starts_at >= now && !a.cancelled_at)
+          .sort((a, b) => (a.starts_at ?? '').localeCompare(b.starts_at ?? ''));
+
+        const past = allAppts
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .filter((a: any) => a.starts_at && a.starts_at < now)
+          .sort((a, b) => (b.starts_at ?? '').localeCompare(a.starts_at ?? ''));
+
+        if (past[0]) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const p = past[0] as any;
+          const typeName = p.appointment_type_name ?? p.appointment_type?.name ?? 'treatment';
+          parts.push(`Last treatment: ${typeName} on ${formatDate(p.starts_at)}.`);
+        }
+
+        if (upcoming[0]) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const u = upcoming[0] as any;
+          const typeName = u.appointment_type_name ?? u.appointment_type?.name ?? 'appointment';
+          parts.push(`Upcoming: ${typeName} on ${formatDateTime(u.starts_at)}.`);
+        } else {
+          parts.push('No upcoming appointment — may be due for a rebook.');
+        }
+      } catch {
+        parts.push('Appointment history unavailable — call get_patient_history for details.');
+      }
+    }
+
     if (apiPatient.referral_source) {
       parts.push(`Referred via: ${apiPatient.referral_source}.`);
     }
 
-    parts.push('Appointment history not cached — call get_patient_history for full details.');
+    if (mems?.[0]) {
+      parts.push(`Previous call note: ${mems[0].content.slice(0, 200)}`);
+    }
 
     return parts.join(' ');
 

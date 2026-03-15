@@ -1,11 +1,11 @@
 // =============================================================================
 // Vapi Tool: get_patient_history
-// Returns a patient's upcoming and past appointments from the local
-// cliniko_appointments cache. Fast local DB only — no Cliniko API call.
+// Returns a patient's upcoming and past appointments via Cliniko API directly.
+// No local DB cache — patient data stays in Cliniko.
 // Called after identify_caller confirms an existing patient.
 // =============================================================================
 
-import { createSovereignClient } from '@/lib/supabase/service';
+import { getClinikoClient } from '@/lib/cliniko/client';
 
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString('en-GB', {
@@ -27,61 +27,53 @@ export async function getPatientHistory(args: {
   if (!patientId) return 'No patient ID provided.';
 
   try {
-    const db  = createSovereignClient();
+    const client = await getClinikoClient();
+    if (!client) return 'Cliniko not connected — cannot retrieve appointment history.';
+
+    const allAppts = await client.getPatientAppointments(patientId);
     const now = new Date().toISOString();
 
-    // Upcoming appointments (up to 2, chronological)
-    const { data: upcomingRows, error: upcomingErr } = await db
-      .from('cliniko_appointments')
-      .select('starts_at, appointment_type, practitioner_name')
-      .eq('cliniko_patient_id', patientId)
-      .gte('starts_at', now)
-      .order('starts_at', { ascending: true })
-      .limit(2);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const upcoming = (allAppts as any[])
+      .filter((a: any) => a.starts_at && a.starts_at >= now && !a.cancelled_at)
+      .sort((a: any, b: any) => (a.starts_at ?? '').localeCompare(b.starts_at ?? ''))
+      .slice(0, 2);
 
-    if (upcomingErr) {
-      console.error('[vapi/get-patient-history] Upcoming query error:', upcomingErr.message);
-    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const past = (allAppts as any[])
+      .filter((a: any) => a.starts_at && a.starts_at < now)
+      .sort((a: any, b: any) => (b.starts_at ?? '').localeCompare(a.starts_at ?? ''))
+      .slice(0, 4);
 
-    // Past appointments (most recent 4, reverse chronological)
-    const { data: pastRows, error: pastErr } = await db
-      .from('cliniko_appointments')
-      .select('starts_at, appointment_type, practitioner_name')
-      .eq('cliniko_patient_id', patientId)
-      .lt('starts_at', now)
-      .order('starts_at', { ascending: false })
-      .limit(4);
-
-    if (pastErr) {
-      console.error('[vapi/get-patient-history] Past query error:', pastErr.message);
-    }
-
-    const hasUpcoming = upcomingRows && upcomingRows.length > 0;
-    const hasPast     = pastRows && pastRows.length > 0;
-
-    if (!hasUpcoming && !hasPast) {
-      return 'No appointment history found for this patient in the local cache. They may be a very new patient or their records may not have synced yet.';
+    if (upcoming.length === 0 && past.length === 0) {
+      return 'No appointment history found for this patient in Cliniko.';
     }
 
     const lines: string[] = [];
 
-    if (hasUpcoming) {
+    if (upcoming.length > 0) {
       lines.push('UPCOMING:');
-      for (const a of upcomingRows!) {
-        const typeName  = a.appointment_type ?? 'Appointment';
-        const practPart = a.practitioner_name ? ` with ${a.practitioner_name}` : '';
-        lines.push(`• ${typeName} — ${formatDateTime(a.starts_at)}${practPart}`);
+      for (const a of upcoming) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const typeName  = (a as any).appointment_type_name ?? (a as any).appointment_type?.name ?? 'Appointment';
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const practName = (a as any).practitioner?.display_name ?? '';
+        const practPart = practName ? ` with ${practName}` : '';
+        lines.push(`• ${typeName} — ${formatDateTime(a.starts_at!)}${practPart}`);
       }
     } else {
       lines.push('UPCOMING: None booked — patient may be due for a rebook.');
     }
 
-    if (hasPast) {
+    if (past.length > 0) {
       lines.push('PREVIOUS:');
-      for (const a of pastRows!) {
-        const typeName  = a.appointment_type ?? 'Appointment';
-        const practPart = a.practitioner_name ? ` with ${a.practitioner_name}` : '';
-        lines.push(`• ${typeName} — ${formatDate(a.starts_at)}${practPart}`);
+      for (const a of past) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const typeName  = (a as any).appointment_type_name ?? (a as any).appointment_type?.name ?? 'Appointment';
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const practName = (a as any).practitioner?.display_name ?? '';
+        const practPart = practName ? ` with ${practName}` : '';
+        lines.push(`• ${typeName} — ${formatDate(a.starts_at!)}${practPart}`);
       }
     }
 
