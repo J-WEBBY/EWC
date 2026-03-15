@@ -520,7 +520,7 @@ export async function syncPractitioners(): Promise<{ success: boolean; count: nu
 
     for (const p of practitioners) {
       await db.from('cliniko_practitioners').upsert({
-        cliniko_id:     String(p.id),
+        cliniko_id:     (p.links?.self as string | undefined)?.match(/\/(\d+)$/)?.[1] ?? String(p.id),
         first_name:     p.first_name,
         last_name:      p.last_name ?? '',
         title:          p.title ?? null,
@@ -1192,13 +1192,46 @@ export async function bookKomalAppointment(params: {
   const targetDate = parseNaturalDate(params.preferred_date) ?? getNextWeekday(1);
   const parsedTime = params.preferred_time ? parseNaturalTime(params.preferred_time) : null;
 
-  // 2. Resolve practitioner from name — fuzzy match handles ASR errors ("Nokita" → "Nikita")
-  const allPracts = await loadActivePractitioners(db);
+  // 2. Resolve practitioner from name — always fetch live to get precision-correct IDs.
+  // Cliniko IDs exceed JS float64; URL extraction preserves all digits. Cache IDs may be wrong.
   let practClinikoId: string | null = null;
   let practName:      string | null = null;
-  if (params.preferred_practitioner) {
-    const found = fuzzyFindPractitioner(params.preferred_practitioner, allPracts);
-    if (found) { practClinikoId = found.cliniko_id; practName = `${found.first_name} ${found.last_name}`.trim(); }
+  try {
+    const clinikoForPract = await getClinikoClient();
+    if (clinikoForPract) {
+      const livePracts = await clinikoForPract.getPractitioners();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const mapped = livePracts.map((p: any) => ({
+        cliniko_id: (p.links?.self as string | undefined)?.match(/\/(\d+)$/)?.[1] ?? String(p.id),
+        first_name: (p.first_name ?? '') as string,
+        last_name:  (p.last_name  ?? '') as string,
+      }));
+      const preferred = params.preferred_practitioner ?? null;
+      const found = preferred ? fuzzyFindPractitioner(preferred, mapped) : mapped[0] ?? null;
+      if (found) { practClinikoId = found.cliniko_id; practName = `${found.first_name} ${found.last_name}`.trim(); }
+      // Refresh cache with precision-correct IDs
+      if (mapped.length > 0) {
+        void db.from('cliniko_practitioners').upsert(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          livePracts.slice(0, 20).map((p: any) => ({
+            cliniko_id:     (p.links?.self as string | undefined)?.match(/\/(\d+)$/)?.[1] ?? String(p.id),
+            first_name:     p.first_name ?? '',
+            last_name:      p.last_name  ?? '',
+            is_active:      p.active !== false,
+            raw_data:       p,
+            last_synced_at: new Date().toISOString(),
+          })),
+          { onConflict: 'cliniko_id' },
+        );
+      }
+    }
+  } catch {
+    // Live fetch failed — fall back to cache
+    const allPracts = await loadActivePractitioners(db);
+    if (params.preferred_practitioner) {
+      const found = fuzzyFindPractitioner(params.preferred_practitioner, allPracts);
+      if (found) { practClinikoId = found.cliniko_id; practName = `${found.first_name} ${found.last_name}`.trim(); }
+    }
   }
 
   // 3. Confirm the slot is still free (double-booking guard)
@@ -1257,7 +1290,7 @@ export async function bookKomalAppointment(params: {
           }
         } else {
           // No practitioner requested — find any free practitioner at this time
-          const practitioners = allPracts; // already loaded above
+          const practitioners = await loadActivePractitioners(db);
           const bookedPractIds = new Set(
             (cachedAppts ?? []).filter(overlaps).map(a => a.cliniko_practitioner_id).filter(Boolean),
           );
@@ -1375,13 +1408,13 @@ export async function bookKomalAppointment(params: {
           if (livePracts.length > 0) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const first = livePracts[0] as any;
-            resolvedPractId = String(first.id);
+            resolvedPractId = (first.links?.self as string | undefined)?.match(/\/(\d+)$/)?.[1] ?? String(first.id);
             practName = practName ?? (`${first.first_name ?? ''} ${first.last_name ?? ''}`.trim() || 'Practitioner');
             // Seed cache so next call finds it
             void db.from('cliniko_practitioners').upsert(
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               livePracts.slice(0, 20).map((p: any) => ({
-                cliniko_id:    String(p.id),
+                cliniko_id:    (p.links?.self as string | undefined)?.match(/\/(\d+)$/)?.[1] ?? String(p.id),
                 first_name:    p.first_name ?? '',
                 last_name:     p.last_name  ?? '',
                 is_active:     p.active !== false,
