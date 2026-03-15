@@ -13,7 +13,7 @@ import {
   CheckCircle2, XCircle, AlertCircle,
   PhoneOff, CreditCard, RotateCcw,
   BookOpen, Bell, CalendarCheck, Heart,
-  MessageCircle, Phone, MessageSquare,
+  MessageCircle, Phone, MessageSquare, Mail,
   type LucideIcon,
 } from 'lucide-react';
 import { getStaffProfile, getCurrentUser, type StaffProfile } from '@/lib/actions/staff-onboarding';
@@ -50,16 +50,18 @@ const ICON_MAP: Record<string, LucideIcon> = {
 
 // Channel icon + color map
 const CHANNEL_META: Record<string, { icon: LucideIcon; color: string; bg: string }> = {
-  WhatsApp: { icon: MessageCircle, color: '#059669', bg: '#05966912' },
+  WhatsApp: { icon: MessageCircle, color: '#059669', bg: '#05966912'  },
   SMS:      { icon: MessageSquare, color: GOLD,      bg: `${GOLD}12`  },
   Voice:    { icon: Phone,         color: BLUE,      bg: `${BLUE}10`  },
+  Email:    { icon: Mail,          color: '#7C3AED', bg: '#7C3AED10'  },
 };
 
 // =============================================================================
 // TYPES
 // =============================================================================
 
-type FilterTab = AutomationCategory | 'all' | 'active';
+type CommChannel = 'all' | 'WhatsApp' | 'SMS' | 'Email' | 'Voice';
+type FilterTab   = AutomationCategory | 'all' | 'active';
 
 // =============================================================================
 // CONSTANTS
@@ -290,7 +292,7 @@ export default function AutomationsPage() {
   const [stats,   setStats]   = useState<{ active: number; total: number; ran_today: number } | null>(null);
   const [filter,  setFilter]  = useState<FilterTab>('all');
   const [comms,   setComms]   = useState<AutomationCommunication[]>([]);
-  const [commChannel, setCommChannel] = useState<'all' | 'WhatsApp' | 'SMS' | 'Voice'>('all');
+  const [commChannel, setCommChannel] = useState<CommChannel>('all');
   const [commLimit,   setCommLimit]   = useState(10);
 
   useEffect(() => {
@@ -449,7 +451,7 @@ export default function AutomationsPage() {
 
             {/* Channel filter chips */}
             <div className="flex items-center gap-1.5">
-              {(['all', 'WhatsApp', 'SMS', 'Voice'] as const).map(ch => {
+              {(['all', 'WhatsApp', 'SMS', 'Email', 'Voice'] as const).map(ch => {
                 const meta = ch === 'all' ? null : CHANNEL_META[ch];
                 const isActive = commChannel === ch;
                 return (

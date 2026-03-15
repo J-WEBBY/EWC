@@ -128,7 +128,7 @@ export interface AutomationCommunication {
   automation_id: string;
   automation_name: string;
   patient_name: string;
-  channel: 'WhatsApp' | 'SMS' | 'Voice';
+  channel: 'WhatsApp' | 'SMS' | 'Voice' | 'Email';
   message: string;
   status: 'sent' | 'delivered' | 'failed' | 'pending';
   sent_at: string;

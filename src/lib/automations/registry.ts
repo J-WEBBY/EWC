@@ -16,7 +16,7 @@ export interface AutomationConfig {
   category: AutomationCategory;
   is_active: boolean;
   icon: string;
-  channels: string[];  // e.g. ['WhatsApp', 'SMS', 'Voice']
+  channels: string[];  // e.g. ['WhatsApp', 'SMS', 'Email', 'Voice']
 }
 
 export interface AutomationRun {
@@ -44,7 +44,7 @@ export const AUTOMATION_REGISTRY: AutomationConfig[] = [
     category: 'patient_care',
     is_active: true,
     icon: 'Bell',
-    channels: ['WhatsApp', 'SMS'],
+    channels: ['WhatsApp', 'SMS', 'Email'],
   },
   {
     id: 'booking_confirmation',
@@ -55,7 +55,7 @@ export const AUTOMATION_REGISTRY: AutomationConfig[] = [
     category: 'patient_care',
     is_active: true,
     icon: 'CalendarCheck',
-    channels: ['WhatsApp', 'SMS'],
+    channels: ['WhatsApp', 'SMS', 'Email'],
   },
   {
     id: 'after_appointment_followup',
@@ -66,7 +66,7 @@ export const AUTOMATION_REGISTRY: AutomationConfig[] = [
     category: 'patient_care',
     is_active: false,
     icon: 'BookOpen',
-    channels: ['WhatsApp'],
+    channels: ['WhatsApp', 'Email'],
   },
   {
     id: 'patient_care',
@@ -124,6 +124,6 @@ export const AUTOMATION_REGISTRY: AutomationConfig[] = [
     category: 'revenue',
     is_active: false,
     icon: 'AlertCircle',
-    channels: ['SMS', 'WhatsApp', 'Voice'],
+    channels: ['SMS', 'WhatsApp', 'Email', 'Voice'],
   },
 ];

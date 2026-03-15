@@ -82,7 +82,7 @@ export async function logCommunication(params: {
   automation_id:   string;
   automation_name: string;
   patient_name:    string;
-  channel:         'SMS' | 'WhatsApp' | 'Voice';
+  channel:         'SMS' | 'WhatsApp' | 'Email' | 'Voice';
   message:         string;
   status:          'sent' | 'delivered' | 'failed' | 'pending';
   provider_id?:    string;

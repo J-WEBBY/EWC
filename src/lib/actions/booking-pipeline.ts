@@ -18,6 +18,7 @@ import { createSovereignClient } from '@/lib/supabase/service';
 import { getStaffSession } from '@/lib/supabase/tenant-context';
 import { getClinikoClient } from '@/lib/cliniko/client';
 import { sendWhatsApp, sendSMS, logCommunication, isTwilioConfigured, normalizeUKPhone } from '@/lib/twilio/client';
+import { sendEmail, isEmailConfigured, bookingConfirmationEmail } from '@/lib/email/client';
 import { AUTOMATION_REGISTRY } from '@/lib/automations/registry';
 
 // =============================================================================
@@ -197,6 +198,7 @@ async function fireBookingConfirmation(params: {
   patientName:      string;
   firstName:        string;
   phone:            string | null | undefined;
+  email:            string | null | undefined;
   appointmentType:  string;
   practitionerName: string | null | undefined;
   startsAt:         string;   // ISO8601
@@ -204,53 +206,73 @@ async function fireBookingConfirmation(params: {
   try {
     const automationConfig = AUTOMATION_REGISTRY.find(a => a.id === 'booking_confirmation');
     if (!automationConfig?.is_active) return;
-    if (!isTwilioConfigured())         return;
-    if (!params.phone)                 return;
 
     const practitioner = params.practitionerName ?? 'our team';
     const d = new Date(params.startsAt);
     const dateLabel = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
     const timeLabel = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
 
-    const message =
+    const textMessage =
       `Hi ${params.firstName}, your ${params.appointmentType} appointment at Edgbaston Wellness Clinic ` +
       `is confirmed for ${dateLabel} at ${timeLabel} with ${practitioner}. ` +
       `We look forward to seeing you. — EWC Team`;
 
-    const phone = normalizeUKPhone(params.phone);
+    // ── SMS / WhatsApp ────────────────────────────────────────────────────────
+    if (params.phone && isTwilioConfigured()) {
+      const phone = normalizeUKPhone(params.phone);
+      let sid         = '';
+      let channel: 'WhatsApp' | 'SMS' = 'SMS';
+      let sendStatus: 'sent' | 'failed' = 'sent';
+      let errorMsg: string | undefined;
 
-    let sid         = '';
-    let channel: 'WhatsApp' | 'SMS' = 'SMS';
-    let sendStatus: 'sent' | 'failed' = 'sent';
-    let errorMsg: string | undefined;
-
-    try {
-      const result = await sendWhatsApp(phone, message);
-      sid     = result.sid;
-      channel = 'WhatsApp';
-    } catch {
       try {
-        const result = await sendSMS(phone, message);
-        sid     = result.sid;
-        channel = 'SMS';
-      } catch (smsErr) {
-        sendStatus = 'failed';
-        errorMsg   = String(smsErr);
+        const result = await sendWhatsApp(phone, textMessage);
+        sid = result.sid; channel = 'WhatsApp';
+      } catch {
+        try {
+          const result = await sendSMS(phone, textMessage);
+          sid = result.sid; channel = 'SMS';
+        } catch (smsErr) {
+          sendStatus = 'failed'; errorMsg = String(smsErr);
+        }
       }
+
+      await logCommunication({
+        automation_id: 'booking_confirmation', automation_name: 'Booking Confirmation',
+        patient_name: params.patientName, channel, message: textMessage,
+        status: sendStatus, provider_id: sid || undefined, error_message: errorMsg,
+      });
+      console.log(`[booking-confirmation] ${channel} → ${params.patientName} — ${sendStatus}`);
     }
 
-    await logCommunication({
-      automation_id:   'booking_confirmation',
-      automation_name: 'Booking Confirmation',
-      patient_name:    params.patientName,
-      channel,
-      message,
-      status:          sendStatus,
-      provider_id:     sid || undefined,
-      error_message:   errorMsg,
-    });
+    // ── Email ─────────────────────────────────────────────────────────────────
+    if (params.email && isEmailConfigured()) {
+      let emailStatus: 'sent' | 'failed' = 'sent';
+      let emailProvider = '';
+      let emailError: string | undefined;
 
-    console.log(`[booking-confirmation] ${channel} → ${params.patientName} — ${sendStatus}`);
+      try {
+        const { subject, text, html } = bookingConfirmationEmail({
+          firstName:        params.firstName,
+          appointmentType:  params.appointmentType,
+          dateLabel,
+          timeLabel,
+          practitionerName: practitioner,
+        });
+        const result = await sendEmail({ to: params.email, subject, text, html });
+        emailProvider = result.id;
+      } catch (emailErr) {
+        emailStatus = 'failed'; emailError = String(emailErr);
+      }
+
+      await logCommunication({
+        automation_id: 'booking_confirmation', automation_name: 'Booking Confirmation',
+        patient_name: params.patientName, channel: 'Email', message: textMessage,
+        status: emailStatus, provider_id: emailProvider || undefined, error_message: emailError,
+      });
+      console.log(`[booking-confirmation] Email → ${params.patientName} — ${emailStatus}`);
+    }
+
   } catch (err) {
     console.error('[booking-confirmation] Unexpected error:', err);
   }
@@ -366,6 +388,7 @@ export async function confirmBookingRequest(
                   patientName:      [booking.caller_name].filter(Boolean).join(' ') || 'Patient',
                   firstName:        booking.caller_name?.split(' ')[0] ?? 'there',
                   phone:            booking.caller_phone,
+                  email:            booking.caller_email,
                   appointmentType:  booking.service ?? 'Appointment',
                   practitionerName: booking.practitioner_name,
                   startsAt,
@@ -1359,6 +1382,7 @@ export async function bookKomalAppointment(params: {
           patientName:      params.patient_name ?? 'Patient',
           firstName:        params.patient_name?.split(' ')[0] ?? 'there',
           phone:            params.phone,
+          email:            params.email,
           appointmentType:  params.treatment ?? 'Appointment',
           practitionerName: practName,
           startsAt,
