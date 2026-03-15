@@ -4,6 +4,10 @@
     {
       "path": "/api/automations/booking-reminder",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/automations/no-show-followup",
+      "schedule": "*/15 * * * *"
     }
   ]
 }
