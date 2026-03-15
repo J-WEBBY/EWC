@@ -33,7 +33,7 @@ export async function getPatientHistory(args: {
     // Upcoming appointments (up to 2, chronological)
     const { data: upcomingRows, error: upcomingErr } = await db
       .from('cliniko_appointments')
-      .select('starts_at, appointment_type_name, practitioner_name')
+      .select('starts_at, appointment_type, practitioner_name')
       .eq('cliniko_patient_id', patientId)
       .gte('starts_at', now)
       .order('starts_at', { ascending: true })
@@ -46,7 +46,7 @@ export async function getPatientHistory(args: {
     // Past appointments (most recent 4, reverse chronological)
     const { data: pastRows, error: pastErr } = await db
       .from('cliniko_appointments')
-      .select('starts_at, appointment_type_name, practitioner_name')
+      .select('starts_at, appointment_type, practitioner_name')
       .eq('cliniko_patient_id', patientId)
       .lt('starts_at', now)
       .order('starts_at', { ascending: false })
@@ -68,7 +68,7 @@ export async function getPatientHistory(args: {
     if (hasUpcoming) {
       lines.push('UPCOMING:');
       for (const a of upcomingRows!) {
-        const typeName  = a.appointment_type_name ?? 'Appointment';
+        const typeName  = a.appointment_type ?? 'Appointment';
         const practPart = a.practitioner_name ? ` with ${a.practitioner_name}` : '';
         lines.push(`• ${typeName} — ${formatDateTime(a.starts_at)}${practPart}`);
       }
@@ -79,7 +79,7 @@ export async function getPatientHistory(args: {
     if (hasPast) {
       lines.push('PREVIOUS:');
       for (const a of pastRows!) {
-        const typeName  = a.appointment_type_name ?? 'Appointment';
+        const typeName  = a.appointment_type ?? 'Appointment';
         const practPart = a.practitioner_name ? ` with ${a.practitioner_name}` : '';
         lines.push(`• ${typeName} — ${formatDate(a.starts_at)}${practPart}`);
       }

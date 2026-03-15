@@ -98,7 +98,7 @@ export async function identifyCaller(args: {
       // Upcoming appointment (next one only)
       const { data: upcomingRows } = await db
         .from('cliniko_appointments')
-        .select('starts_at, appointment_type_name, practitioner_name')
+        .select('starts_at, appointment_type, practitioner_name')
         .eq('cliniko_patient_id', clinikoId)
         .gte('starts_at', now)
         .order('starts_at', { ascending: true })
@@ -107,7 +107,7 @@ export async function identifyCaller(args: {
       // Last past appointment
       const { data: pastRows } = await db
         .from('cliniko_appointments')
-        .select('starts_at, appointment_type_name, practitioner_name')
+        .select('starts_at, appointment_type, practitioner_name')
         .eq('cliniko_patient_id', clinikoId)
         .lt('starts_at', now)
         .order('starts_at', { ascending: false })
@@ -127,12 +127,12 @@ export async function identifyCaller(args: {
       ];
 
       if (pastRows?.[0]) {
-        const typeName = pastRows[0].appointment_type_name ?? 'treatment';
+        const typeName = pastRows[0].appointment_type ?? 'treatment';
         parts.push(`Last treatment: ${typeName} on ${formatDate(pastRows[0].starts_at)}.`);
       }
 
       if (upcomingRows?.[0]) {
-        const typeName = upcomingRows[0].appointment_type_name ?? 'appointment';
+        const typeName = upcomingRows[0].appointment_type ?? 'appointment';
         parts.push(`Upcoming: ${typeName} on ${formatDateTime(upcomingRows[0].starts_at)}.`);
       } else {
         parts.push('No upcoming appointment — may be due for a rebook.');
