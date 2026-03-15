@@ -263,11 +263,14 @@ export async function POST(req: NextRequest) {
       if (!apptType && isAesthetic) apptType = apptTypes.find(t => /\b(aesthetic|cosmetic|treatment)\b/i.test(t.name));
     }
 
-    // 4. Last resort
-    apptType = apptType ?? apptTypes[0] ?? null;
-
+    // 4. No match — return null (do NOT fall back to types[0], that books the wrong treatment)
     const apptTypeId = apptType ? String(apptType.id) : null;
     if (!apptTypeId) {
+      console.warn('[auto-confirm] No appointment type match for service:', booking.service,
+        '| Available:', apptTypes.map((t: { id: string | number; name: string }) => `${t.id}:${t.name}`).join(' | '));
+      await db.from('booking_requests').update({
+        cliniko_error: `No matching appointment type for "${booking.service ?? 'unknown service'}". Available: ${apptTypes.map((t: { name: string }) => t.name).join(', ')}`,
+      }).eq('id', bookingId);
       return NextResponse.json({ ok: false, error: 'no_appointment_type' });
     }
 
@@ -308,10 +311,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'no_patient_id' });
     }
 
-    // 7. Create appointment in Cliniko
+    // 7. Conflict check — block if practitioner already booked at this slot
     const startsAt = `${targetDate}T${parsedTime}:00+00:00`;
     const endsAt   = addMinutes(startsAt, booking.duration_minutes ?? 30);
-    const notes    = [booking.call_notes, booking.service_detail]
+
+    const { data: conflicts } = await db
+      .from('cliniko_appointments')
+      .select('appointment_type, starts_at, ends_at')
+      .eq('cliniko_practitioner_id', practClinikoId)
+      .lt('starts_at', endsAt)
+      .gt('ends_at', startsAt)
+      .not('status', 'eq', 'Cancelled')
+      .limit(1);
+
+    if (conflicts && conflicts.length > 0) {
+      const c = conflicts[0];
+      const conflictMsg = `${practName ?? 'Practitioner'} is already booked at this time (${c.appointment_type ?? 'another appointment'} at ${new Date(c.starts_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })})`;
+      await db.from('booking_requests').update({ cliniko_error: conflictMsg }).eq('id', bookingId);
+      console.warn('[auto-confirm] Conflict detected:', conflictMsg);
+      return NextResponse.json({ ok: false, error: 'practitioner_conflict', message: conflictMsg });
+    }
+
+    // 8. Create appointment in Cliniko
+    const notes = [booking.call_notes, booking.service_detail]
       .filter(Boolean).join(' | ') || undefined;
 
     const appt = await cliniko.createAppointment({

@@ -369,7 +369,25 @@ export async function confirmBookingRequest(
               const apptTypeId = overrides.appointment_type_id ??
                 await resolveAppointmentTypeId(cliniko, booking.service as string);
 
-              if (apptTypeId) {
+              // Conflict check — block double-booking before hitting Cliniko
+              const { data: conflicts } = await db
+                .from('cliniko_appointments')
+                .select('appointment_type, starts_at, ends_at')
+                .eq('cliniko_practitioner_id', practitionerId)
+                .lt('starts_at', endDt)
+                .gt('ends_at', startsAt)
+                .not('status', 'eq', 'Cancelled')
+                .limit(1);
+
+              let hasConflict = false;
+              if (conflicts && conflicts.length > 0) {
+                hasConflict = true;
+                const c = conflicts[0];
+                const practLabel = booking.practitioner_name ?? 'Practitioner';
+                const timeLabel = new Date(c.starts_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+                clinikoError = `${practLabel} is already booked at this time (${c.appointment_type ?? 'another appointment'} at ${timeLabel})`;
+                console.warn('[booking-pipeline] Conflict detected:', clinikoError);
+              } else if (apptTypeId) {
                 const appt = await cliniko.createAppointment({
                   patient_id:          clinikoPatientId,
                   practitioner_id:     practitionerId,
@@ -396,8 +414,8 @@ export async function confirmBookingRequest(
                 }, { onConflict: 'cliniko_id' });
               }
 
-              // Booking Confirmation — fire regardless of Cliniko type resolution
-              void fireBookingConfirmation({
+              // Booking Confirmation — only fire if no conflict (don't confirm a blocked booking)
+              if (!hasConflict) void fireBookingConfirmation({
                 patientName:      [booking.caller_name].filter(Boolean).join(' ') || 'Patient',
                 firstName:        booking.caller_name?.split(' ')[0] ?? 'there',
                 phone:            booking.caller_phone,
@@ -417,7 +435,14 @@ export async function confirmBookingRequest(
     }
 
     // 3. Update booking_request status
-    const newStatus = clinikoAppointmentId ? 'synced_to_cliniko' : 'confirmed';
+    // conflict → stays pending (needs staff to reschedule)
+    // synced   → 'synced_to_cliniko'
+    // partial  → 'confirmed' (patient created, appt type missing — staff handles manually)
+    const newStatus = clinikoAppointmentId
+      ? 'synced_to_cliniko'
+      : clinikoError?.includes('already booked')
+        ? 'pending'
+        : 'confirmed';
     await db
       .from('booking_requests')
       .update({

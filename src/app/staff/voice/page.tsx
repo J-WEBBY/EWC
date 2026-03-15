@@ -509,14 +509,16 @@ function BookingDetailPanel({ req, onClose, onUpdate }: { req: BookingRequest; o
     setConfirming(true); setConfirmMsg(null);
     try {
       const res  = await fetch('/api/vapi/auto-confirm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: req.id }) });
-      const json = await res.json() as { ok: boolean; cliniko_appointment_id?: string; error?: string; skipped?: boolean };
+      const json = await res.json() as { ok: boolean; cliniko_appointment_id?: string; error?: string; message?: string; skipped?: boolean };
       if (json.ok && !json.skipped) {
         setConfirmMsg({ ok: true, text: `Booked in Cliniko — appointment ID ${json.cliniko_appointment_id ?? ''}` });
         onUpdate?.();
       } else if (json.skipped) {
         setConfirmMsg({ ok: true, text: 'Already synced to Cliniko.' });
       } else {
-        setConfirmMsg({ ok: false, text: json.error ?? 'Could not book — check Cliniko is connected and appointment data is complete.' });
+        const msg = json.message ?? (json.error === 'practitioner_conflict' ? 'Scheduling conflict — practitioner already booked at this time.' : json.error) ?? 'Could not book — check Cliniko is connected and appointment data is complete.';
+        setConfirmMsg({ ok: false, text: msg });
+        onUpdate?.();
       }
     } catch {
       setConfirmMsg({ ok: false, text: 'Network error — please try again.' });
