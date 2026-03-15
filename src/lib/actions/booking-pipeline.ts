@@ -1018,11 +1018,11 @@ async function resolveAppointmentTypeId(
     const isConsult   = /\b(consult|consultation|gp|screening|check|review|assessment)\b/i.test(service);
 
     if (isWellness) {
-      match = types.find(t => /\b(wellness|iv|therapy|drip|injection|vitamin)\b/i.test(t.name));
+      match = types.find(t => /\b(wellness|iv|therapy|drip|injection|vitamin|infusion|treatment)\b/i.test(t.name));
       if (match) return String(match.id);
     }
     if (isAesthetic) {
-      match = types.find(t => /\b(aesthetic|cosmetic|treatment|procedure)\b/i.test(t.name));
+      match = types.find(t => /\b(aesthetic|cosmetic|treatment|procedure|botox|filler)\b/i.test(t.name));
       if (match) return String(match.id);
     }
     if (isConsult) {
@@ -1030,9 +1030,24 @@ async function resolveAppointmentTypeId(
       if (match) return String(match.id);
     }
 
-    // 4. Last resort — first type (better than null so Cliniko write still goes through;
-    //    staff can adjust appointment type directly in Cliniko if wrong)
-    return types.length > 0 ? String(types[0].id) : null;
+    // 4. Broadest word overlap — score each type by how many service words appear in its name
+    const serviceWords = s.split(/\s+/).filter(w => w.length >= 2);
+    let bestScore = 0;
+    let bestMatch: (typeof types)[number] | undefined;
+    for (const t of types) {
+      const tl = t.name.toLowerCase();
+      const score = serviceWords.filter(w => tl.includes(w)).length;
+      if (score > bestScore) { bestScore = score; bestMatch = t; }
+    }
+    if (bestScore > 0 && bestMatch) return String(bestMatch.id);
+
+    // 5. No confident match — return null so staff can handle manually rather than
+    //    writing a wrong appointment type to Cliniko.
+    console.warn(
+      '[resolveAppointmentTypeId] No match for service:', JSON.stringify(service),
+      '| Available types:', types.map(t => `${t.id}:${t.name}`).join(' | '),
+    );
+    return null;
   } catch {
     return null;
   }
