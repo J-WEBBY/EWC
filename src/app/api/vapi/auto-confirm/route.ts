@@ -352,7 +352,7 @@ export async function POST(req: NextRequest) {
     // 7a. Local cache check (fast, ~10ms)
     const { data: cacheConflicts } = await db
       .from('cliniko_appointments')
-      .select('appointment_type_name, starts_at, ends_at')
+      .select('appointment_type, starts_at, ends_at')
       .eq('cliniko_practitioner_id', practClinikoId)
       .lt('starts_at', endsAt)
       .not('status', 'eq', 'Cancelled')
@@ -366,7 +366,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (cacheConflict) {
-      const conflictMsg = `${practName ?? 'Practitioner'} is already booked at this time (${cacheConflict.appointment_type_name ?? 'another appointment'} at ${new Date(cacheConflict.starts_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })})`;
+      const conflictMsg = `${practName ?? 'Practitioner'} is already booked at this time (${cacheConflict.appointment_type ?? 'another appointment'} at ${new Date(cacheConflict.starts_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })})`;
       await db.from('booking_requests').update({ cliniko_error: conflictMsg }).eq('id', bookingId);
       console.warn('[auto-confirm] Cache conflict detected:', conflictMsg);
       return NextResponse.json({ ok: false, error: 'practitioner_conflict', message: conflictMsg });
