@@ -1028,10 +1028,11 @@ async function resolveAppointmentTypeId(
     let match = types.find(t => t.name.toLowerCase().includes(s) || s.includes(t.name.toLowerCase()));
     if (match) return String(match.id);
 
-    // 2. Word-by-word match — min length 2 so "iv" is included (e.g. "Vitamin C IV" → "IV Therapy")
+    // 2. Word-by-word match — word-boundary aware so "iv" does NOT match "pr-iv-ate"
     const words = s.split(/\s+/).filter(w => w.length >= 2);
     for (const word of words) {
-      match = types.find(t => t.name.toLowerCase().includes(word) || word.includes(t.name.toLowerCase()));
+      const re = new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+      match = types.find(t => re.test(t.name) || word.includes(t.name.toLowerCase()));
       if (match) return String(match.id);
     }
 
@@ -1341,11 +1342,12 @@ export async function bookKomalAppointment(params: {
       // Find or create patient
       if (!clinikoPatientId) {
         const nameParts  = params.patient_name.split(' ');
+        const phoneForCliniko = params.phone ? normalizeUKPhone(params.phone) : undefined;
         const newPatient = await cliniko.createPatient({
           first_name:    nameParts[0],
           last_name:     nameParts.slice(1).join(' ') || 'Unknown',
           email:         params.email ?? undefined,
-          phone_numbers: params.phone ? [{ number: params.phone, phone_type: 'Mobile' }] : undefined,
+          phone_numbers: phoneForCliniko ? [{ number: phoneForCliniko, phone_type: 'Mobile' }] : undefined,
         });
         clinikoPatientId = String(newPatient.id);
         await db.from('cliniko_patients').upsert({

@@ -65,7 +65,7 @@ function parseNaturalDate(text: string): string | null {
 
 function parseNaturalTime(text: string): string | null {
   const t = text.toLowerCase().trim();
-  const colon = t.match(/^(\d{1,2}):(\d{2})$/);
+  const colon = t.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
   if (colon) return `${colon[1].padStart(2,'0')}:${colon[2]}`;
   const ampm = t.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)$/);
   if (ampm) {
@@ -127,6 +127,23 @@ function fuzzyFindPract(
 
 const isRealId = (id: string | null | undefined): id is string =>
   Boolean(id && id !== 'default' && /^\d+$/.test(id.trim()));
+
+// Normalise UK mobile: 07xxx → +447xxx. Other formats returned unchanged.
+function normalisePhone(raw: string): string {
+  const digits = raw.replace(/[\s\-().+]/g, '');
+  if (digits.startsWith('07') && digits.length === 11) return `+44${digits.slice(1)}`;
+  if (digits.startsWith('447') && digits.length === 12) return `+${digits}`;
+  return raw; // return original if format unknown
+}
+
+// Word-boundary-safe match: checks whether `word` appears as a whole word in `phrase`
+function hasWordBoundaryMatch(phrase: string, word: string): boolean {
+  try {
+    return new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(phrase);
+  } catch {
+    return phrase.toLowerCase().includes(word.toLowerCase());
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Handler
@@ -242,20 +259,20 @@ export async function POST(req: NextRequest) {
 
     const svc = (booking.service ?? '').toLowerCase();
 
-    // 1. Full string match
+    // 1. Full string match (exact containment both ways)
     let apptType = apptTypes.find(t => t.name.toLowerCase().includes(svc) || svc.includes(t.name.toLowerCase()));
 
-    // 2. Word-by-word match — min 2 chars so "iv" is included ("Vitamin C IV" → "IV Therapy")
+    // 2. Word-by-word match — word boundary aware so "iv" does NOT match "private"
     if (!apptType) {
       const words = svc.split(/\s+/).filter((w: string) => w.length >= 2);
       for (const word of words) {
-        apptType = apptTypes.find(t => t.name.toLowerCase().includes(word));
+        // Use word-boundary regex: \biv\b matches "IV Therapy" but NOT "Private"
+        apptType = apptTypes.find(t => hasWordBoundaryMatch(t.name, word));
         if (apptType) break;
       }
     }
 
     // 3. Category heuristic
-    // "infusion" excluded from type-name regex — avoids matching "Iron Infusion Consultation"
     if (!apptType) {
       const isWellness  = /\b(iv|drip|infusion|injection|vitamin|b12|biotin|nad|myers|glutathione|hydration|immunity|energy|fatigue|mental|weight|hormone|folic)\b/i.test(svc);
       const isAesthetic = /\b(botox|filler|lip|cheek|jaw|nose|hifu|thread|peel|microneedling|prp|coolsculpt|cyst|scar|rf|laser)\b/i.test(svc);
@@ -263,7 +280,20 @@ export async function POST(req: NextRequest) {
       if (!apptType && isAesthetic) apptType = apptTypes.find(t => /\b(aesthetic|cosmetic|treatment)\b/i.test(t.name));
     }
 
-    // 4. No match — return null (do NOT fall back to types[0], that books the wrong treatment)
+    // 4. Word overlap score (fallback — no word-boundary risk since we score, not substring)
+    if (!apptType) {
+      const serviceWords = svc.split(/\s+/).filter((w: string) => w.length >= 2);
+      let bestScore = 0;
+      let bestMatch: (typeof apptTypes)[number] | undefined;
+      for (const t of apptTypes) {
+        const tWords = t.name.toLowerCase().split(/\s+/);
+        const score = serviceWords.filter((w: string) => tWords.includes(w)).length;
+        if (score > bestScore) { bestScore = score; bestMatch = t; }
+      }
+      if (bestScore > 0 && bestMatch) apptType = bestMatch;
+    }
+
+    // 5. No match — return null (do NOT fall back to types[0], that books the wrong treatment)
     const apptTypeId = apptType ? String(apptType.id) : null;
     if (!apptTypeId) {
       console.warn('[auto-confirm] No appointment type match for service:', booking.service,
@@ -288,12 +318,13 @@ export async function POST(req: NextRequest) {
 
     if (!clinikoPatientId && booking.caller_name) {
       const nameParts = (booking.caller_name as string).split(' ');
+      const phoneForCliniko = booking.caller_phone ? normalisePhone(booking.caller_phone as string) : undefined;
       const newPat = await cliniko.createPatient({
         first_name: nameParts[0],
         last_name:  nameParts.slice(1).join(' ') || 'Unknown',
         email:      booking.caller_email ?? undefined,
-        phone_numbers: booking.caller_phone
-          ? [{ number: booking.caller_phone as string, phone_type: 'Mobile' as const }]
+        phone_numbers: phoneForCliniko
+          ? [{ number: phoneForCliniko, phone_type: 'Mobile' as const }]
           : undefined,
       });
       clinikoPatientId = String(newPat.id);
@@ -312,24 +343,60 @@ export async function POST(req: NextRequest) {
     }
 
     // 7. Conflict check — block if practitioner already booked at this slot
-    const startsAt = `${targetDate}T${parsedTime}:00+00:00`;
-    const endsAt   = addMinutes(startsAt, booking.duration_minutes ?? 30);
+    const startsAt  = `${targetDate}T${parsedTime}:00+00:00`;
+    const durationMins = booking.duration_minutes ?? 30;
+    const endsAt    = addMinutes(startsAt, durationMins);
+    const reqStart  = new Date(startsAt).getTime();
+    const reqEnd    = new Date(endsAt).getTime();
 
-    const { data: conflicts } = await db
+    // 7a. Local cache check (fast, ~10ms)
+    const { data: cacheConflicts } = await db
       .from('cliniko_appointments')
-      .select('appointment_type, starts_at, ends_at')
+      .select('appointment_type_name, starts_at, ends_at')
       .eq('cliniko_practitioner_id', practClinikoId)
       .lt('starts_at', endsAt)
-      .gt('ends_at', startsAt)
       .not('status', 'eq', 'Cancelled')
-      .limit(1);
+      .gte('starts_at', `${targetDate}T00:00:00+00:00`)
+      .lte('starts_at', `${targetDate}T23:59:59+00:00`);
 
-    if (conflicts && conflicts.length > 0) {
-      const c = conflicts[0];
-      const conflictMsg = `${practName ?? 'Practitioner'} is already booked at this time (${c.appointment_type ?? 'another appointment'} at ${new Date(c.starts_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })})`;
+    const cacheConflict = (cacheConflicts ?? []).find(c => {
+      const cStart = new Date(c.starts_at).getTime();
+      const cEnd   = c.ends_at ? new Date(c.ends_at).getTime() : cStart + 30 * 60 * 1000;
+      return reqStart < cEnd && reqEnd > cStart;
+    });
+
+    if (cacheConflict) {
+      const conflictMsg = `${practName ?? 'Practitioner'} is already booked at this time (${cacheConflict.appointment_type_name ?? 'another appointment'} at ${new Date(cacheConflict.starts_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })})`;
       await db.from('booking_requests').update({ cliniko_error: conflictMsg }).eq('id', bookingId);
-      console.warn('[auto-confirm] Conflict detected:', conflictMsg);
+      console.warn('[auto-confirm] Cache conflict detected:', conflictMsg);
       return NextResponse.json({ ok: false, error: 'practitioner_conflict', message: conflictMsg });
+    }
+
+    // 7b. Live Cliniko conflict check — catches bookings made in Cliniko UI that haven't synced yet
+    try {
+      const liveAppts = await cliniko.getAppointmentsForDay(targetDate);
+      const liveConflict = liveAppts.find(a => {
+        if (String(a.practitioner_id) !== String(practClinikoId)) return false;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const aStatus = (a as any).status ?? '';
+        if (aStatus === 'Cancelled') return false;
+        const aStart = new Date(a.starts_at).getTime();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const aEnd   = (a as any).ends_at ? new Date((a as any).ends_at).getTime() : aStart + 30 * 60 * 1000;
+        return reqStart < aEnd && reqEnd > aStart;
+      });
+
+      if (liveConflict) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const conflictTime = new Date(liveConflict.starts_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+        const conflictMsg  = `${practName ?? 'Practitioner'} is already booked at this time in Cliniko (appointment at ${conflictTime})`;
+        await db.from('booking_requests').update({ cliniko_error: conflictMsg }).eq('id', bookingId);
+        console.warn('[auto-confirm] Live Cliniko conflict detected:', conflictMsg);
+        return NextResponse.json({ ok: false, error: 'practitioner_conflict', message: conflictMsg });
+      }
+    } catch (liveErr) {
+      // Non-fatal — if live check fails, proceed (local cache was clean)
+      console.warn('[auto-confirm] Live conflict check failed (non-fatal):', liveErr);
     }
 
     // 8. Create appointment in Cliniko
