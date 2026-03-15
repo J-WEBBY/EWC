@@ -194,7 +194,7 @@ export async function createBookingRequest(params: {
 // Non-fatal: all errors are caught and logged internally.
 // =============================================================================
 
-async function fireBookingConfirmation(params: {
+export async function fireBookingConfirmation(params: {
   patientName:      string;
   firstName:        string;
   phone:            string | null | undefined;
