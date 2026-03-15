@@ -104,10 +104,13 @@ export default function LoginClient({ initialClinicName, tenantId, tenantSlug }:
   useEffect(() => {
     // Only fetch from EWC sovereign DB if NOT on a tenant subdomain
     if (initialClinicName) return;
+    // Safety timeout — if getClinicInfo hangs, unblock the login form after 4s
+    const timeout = setTimeout(() => setReady(true), 4000);
     getClinicInfo()
       .then(r => { if (r.success && r.data) setClinicName(r.data.clinic_name); })
       .catch(() => {})
-      .finally(() => setReady(true));
+      .finally(() => { clearTimeout(timeout); setReady(true); });
+    return () => clearTimeout(timeout);
   }, [initialClinicName]);
 
   const checks = {
@@ -130,18 +133,23 @@ export default function LoginClient({ initialClinicName, tenantId, tenantSlug }:
     e.preventDefault();
     if (!pw) return;
     setError(''); setLoading(true);
-    const res = await verifyLogin(identifier, pw, tenantId ?? '');
-    if (res.success && res.user) {
-      setUser(res.user);
-      if (res.requiresPasswordChange) {
-        setStep('change-password'); setLoading(false);
+    try {
+      const res = await verifyLogin(identifier, pw, tenantId ?? '');
+      if (res.success && res.user) {
+        setUser(res.user);
+        if (res.requiresPasswordChange) {
+          setStep('change-password'); setLoading(false);
+        } else {
+          await setSession(res.user.id, tenantId ?? res.user.tenant_id, tenantSlug ?? '');
+          setStep('authenticated');
+          setTimeout(() => router.push('/staff/dashboard'), 1800);
+        }
       } else {
-        await setSession(res.user.id, tenantId ?? res.user.tenant_id, tenantSlug ?? '');
-        setStep('authenticated');
-        setTimeout(() => router.push('/staff/dashboard'), 1800);
+        setError(res.error === 'ACCOUNT_DISABLED' ? 'Account suspended.' : 'Incorrect credentials.');
+        setLoading(false);
       }
-    } else {
-      setError(res.error === 'ACCOUNT_DISABLED' ? 'Account suspended.' : 'Incorrect credentials.');
+    } catch {
+      setError('Unable to connect. Please try again.');
       setLoading(false);
     }
   }, [identifier, pw, tenantId, tenantSlug, router]);
@@ -150,13 +158,18 @@ export default function LoginClient({ initialClinicName, tenantId, tenantSlug }:
     e.preventDefault();
     if (!user || !pwReady) return;
     setError(''); setLoading(true);
-    const res = await changePassword(user.id, newPw, tenantId ?? user.tenant_id);
-    if (res.success) {
-      await setSession(user.id, tenantId ?? user.tenant_id, tenantSlug ?? '');
-      setStep('authenticated');
-      setTimeout(() => router.push('/staff/dashboard'), 1800);
-    } else {
-      setError('Failed to update password.'); setLoading(false);
+    try {
+      const res = await changePassword(user.id, newPw, tenantId ?? user.tenant_id);
+      if (res.success) {
+        await setSession(user.id, tenantId ?? user.tenant_id, tenantSlug ?? '');
+        setStep('authenticated');
+        setTimeout(() => router.push('/staff/dashboard'), 1800);
+      } else {
+        setError('Failed to update password.'); setLoading(false);
+      }
+    } catch {
+      setError('Unable to connect. Please try again.');
+      setLoading(false);
     }
   }, [user, newPw, pwReady, tenantId, tenantSlug, router]);
 
