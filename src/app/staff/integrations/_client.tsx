@@ -5,11 +5,11 @@
 // =============================================================================
 
 import { useState, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   Database, Phone, MessageSquare, CreditCard,
   Eye, EyeOff, CheckCircle2, AlertCircle, Loader2,
-  Unplug, Shield, RefreshCw, ChevronRight, X,
+  Unplug, Shield, RefreshCw, X,
   Zap, CheckCheck,
 } from 'lucide-react';
 import { StaffNav } from '@/components/staff-nav';
@@ -403,7 +403,7 @@ function TwilioBody({ initial }: { initial: TwilioInitial }) {
 // =============================================================================
 
 function StripeBody({ initial }: { initial: StripeInitial }) {
-  const [cfg, setCfg]                     = useState(initial);
+  const [cfg, setCfg]                       = useState(initial);
   const [publishableKey, setPublishableKey] = useState('');
   const [secretKey, setSecretKey]           = useState('');
   const [saving, setSaving]               = useState(false);
@@ -455,7 +455,7 @@ function StripeBody({ initial }: { initial: StripeInitial }) {
 }
 
 // =============================================================================
-// INTEGRATION ROW
+// INTEGRATION CARD
 // =============================================================================
 
 interface IntRow {
@@ -469,66 +469,38 @@ interface IntRow {
   body:        React.ReactNode;
 }
 
-function IntegrationRow({ row, isLast }: { row: IntRow; isLast: boolean }) {
-  const [open, setOpen] = useState(!row.isConnected); // pre-open if not connected
-
+function IntegrationCard({ row }: { row: IntRow }) {
   return (
-    <div style={{ borderBottom: isLast ? 'none' : '1px solid ' + BORDER }}>
-      {/* Row header */}
-      <button
-        onClick={() => setOpen(v => !v)}
-        style={{ display: 'flex', alignItems: 'center', gap: 16, width: '100%', padding: '18px 24px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left' }}
-      >
-        {/* Color bar */}
-        <div style={{ width: 3, height: 36, borderRadius: 2, background: row.accent, flexShrink: 0 }} />
-
-        {/* Icon */}
-        <div style={{ width: 40, height: 40, borderRadius: 10, background: row.accent + '18', border: '1px solid ' + row.accent + '30', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          {row.icon}
-        </div>
-
-        {/* Name + category */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-            <span style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>{row.title}</span>
-            {/* Status badge */}
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 999, fontSize: 10, fontWeight: 600, background: row.isConnected ? GREEN + '18' : MUTED + '18', border: '1px solid ' + (row.isConnected ? GREEN + '30' : MUTED + '30'), color: row.isConnected ? GREEN : MUTED }}>
-              <span style={{ width: 5, height: 5, borderRadius: '50%', background: row.isConnected ? GREEN : MUTED, flexShrink: 0 }} />
-              {row.isConnected ? 'Connected' : 'Not connected'}
-            </span>
+    <div style={{
+      border: '1px solid ' + BORDER,
+      borderLeft: '3px solid ' + row.accent,
+      borderRadius: 16,
+      overflow: 'hidden',
+      background: 'transparent',
+    }}>
+      {/* Card header */}
+      <div style={{ padding: '20px 24px 0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 10, background: row.accent + '18', border: '1px solid ' + row.accent + '30', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            {row.icon}
           </div>
-          <span style={{ fontSize: 11, color: TER }}>{row.category}</span>
-        </div>
-
-        {/* Description (hidden on small) */}
-        <p style={{ fontSize: 12, color: MUTED, margin: 0, flex: '0 0 280px', lineHeight: 1.5, display: 'none' }} className="desc-col">
-          {row.description}
-        </p>
-
-        {/* Chevron */}
-        <motion.div animate={{ rotate: open ? 90 : 0 }} transition={{ duration: 0.18 }} style={{ flexShrink: 0, color: MUTED }}>
-          <ChevronRight size={16} />
-        </motion.div>
-      </button>
-
-      {/* Expandable body */}
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div
-            key="body"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.22 }}
-            style={{ overflow: 'hidden' }}
-          >
-            <div style={{ padding: '0 24px 24px 83px', borderTop: '1px solid ' + BORDER }}>
-              <p style={{ fontSize: 13, color: SEC, lineHeight: 1.6, margin: '16px 0 18px' }}>{row.description}</p>
-              {row.body}
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>{row.title}</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 999, fontSize: 10, fontWeight: 600, background: row.isConnected ? GREEN + '18' : MUTED + '18', border: '1px solid ' + (row.isConnected ? GREEN + '30' : MUTED + '30'), color: row.isConnected ? GREEN : MUTED }}>
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: row.isConnected ? GREEN : MUTED }} />
+                {row.isConnected ? 'Connected' : 'Not connected'}
+              </span>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            <span style={{ fontSize: 11, color: TER }}>{row.category}</span>
+          </div>
+        </div>
+        <p style={{ fontSize: 12, color: SEC, lineHeight: 1.6, margin: '0 0 20px' }}>{row.description}</p>
+      </div>
+      {/* Card body — form or connected state */}
+      <div style={{ padding: '0 24px 24px' }}>
+        {row.body}
+      </div>
     </div>
   );
 }
@@ -595,7 +567,7 @@ export default function IntegrationsClient({ profile, userId, initialCliniko, in
       <StaffNav profile={profile} userId={userId} brandColor={brandColor} currentPath="Integrations" />
 
       <div style={{ paddingLeft: 240 }}>
-        <div style={{ maxWidth: 860, margin: '0 auto', padding: '48px 32px' }}>
+        <div style={{ maxWidth: 1020, margin: '0 auto', padding: '48px 32px' }}>
 
           {/* Header */}
           <div style={{ marginBottom: 36 }}>
@@ -622,11 +594,9 @@ export default function IntegrationsClient({ profile, userId, initialCliniko, in
             </div>
           </div>
 
-          {/* Integrations table */}
-          <div style={{ border: '1px solid ' + BORDER, borderRadius: 16, overflow: 'hidden' }}>
-            {integrations.map((row, i) => (
-              <IntegrationRow key={row.id} row={row} isLast={i === integrations.length - 1} />
-            ))}
+          {/* 2-column card grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 20 }}>
+            {integrations.map(row => <IntegrationCard key={row.id} row={row} />)}
           </div>
 
           {/* Footer */}
