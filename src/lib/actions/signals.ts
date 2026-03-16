@@ -207,13 +207,11 @@ export async function getSignalFeed(
   try {
     const session = await getStaffSession();
     if (!session) return { success: false, error: 'Not authenticated' };
-    const { tenantId } = session;
     const sovereign = createSovereignClient();
 
     let query = sovereign
       .from('signals')
       .select('*')
-      .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
       .limit(50);
 
@@ -281,13 +279,11 @@ export async function getSignalStats(
   try {
     const session = await getStaffSession();
     if (!session) return { success: false, error: 'Not authenticated' };
-    const { tenantId } = session;
     const sovereign = createSovereignClient();
 
     const { data: allSignals, error } = await sovereign
       .from('signals')
       .select('id, priority, status, source_type, category, created_at')
-      .eq('tenant_id', tenantId)
       .limit(500);
 
     if (error) {
@@ -387,8 +383,8 @@ export async function askSignalAI(
     const tenantId = session?.tenantId;
     const db = createSovereignClient();
     let clinicName = 'Your Clinic';
-    if (tenantId) {
-      const { data: cfg } = await db.from('clinic_config').select('clinic_name').eq('tenant_id', tenantId).single();
+    {
+      const { data: cfg } = await db.from('clinic_config').select('clinic_name').single();
       if (cfg?.clinic_name) clinicName = cfg.clinic_name;
     }
     const client = getAnthropicClient();
@@ -484,7 +480,6 @@ export async function getPendingSignals(
     const { data: rows, error } = await sovereign
       .from('signals')
       .select('id, title, description, priority, signal_type, category, tags, created_at')
-      .eq('tenant_id', tenantId)
       .eq('status', 'pending_approval')
       .order('created_at', { ascending: false })
       .limit(20);
@@ -528,7 +523,6 @@ export async function approveSignal(
       .from('signals')
       .update({ status: 'new' })
       .eq('id', signalId)
-      .eq('tenant_id', tenantId)
       .eq('status', 'pending_approval');
 
     if (error) {
@@ -558,7 +552,6 @@ export async function rejectSignal(
       .from('signals')
       .update({ status: 'archived' })
       .eq('id', signalId)
-      .eq('tenant_id', tenantId)
       .eq('status', 'pending_approval');
 
     if (error) {
@@ -594,7 +587,6 @@ export async function logSignalAction(
       .from('signals')
       .select('action_log')
       .eq('id', signalId)
-      .eq('tenant_id', tenantId)
       .single();
 
     if (fetchErr) return { success: false, error: fetchErr.message };
@@ -605,7 +597,6 @@ export async function logSignalAction(
       .from('signals')
       .update({ action_log: log, last_action_at: entry.timestamp, updated_at: new Date().toISOString() })
       .eq('id', signalId)
-      .eq('tenant_id', tenantId);
 
     return error ? { success: false, error: error.message } : { success: true };
   } catch (err) {
@@ -634,7 +625,6 @@ export async function resolveSignal(
       .from('signals')
       .select('action_log')
       .eq('id', signalId)
-      .eq('tenant_id', tenantId)
       .single();
 
     if (fetchErr) return { success: false, error: fetchErr.message };
@@ -648,7 +638,6 @@ export async function resolveSignal(
       .from('signals')
       .update({ status: 'resolved', resolved_at: now, last_action_at: now, action_log: log, updated_at: now })
       .eq('id', signalId)
-      .eq('tenant_id', tenantId);
 
     return error ? { success: false, error: error.message } : { success: true };
   } catch (err) {
@@ -676,7 +665,6 @@ export async function dismissSignal(
       .from('signals')
       .select('action_log')
       .eq('id', signalId)
-      .eq('tenant_id', tenantId)
       .single();
 
     if (fetchErr) return { success: false, error: fetchErr.message };
@@ -690,7 +678,6 @@ export async function dismissSignal(
       .from('signals')
       .update({ status: 'archived', last_action_at: now, action_log: log, updated_at: now })
       .eq('id', signalId)
-      .eq('tenant_id', tenantId);
 
     return error ? { success: false, error: error.message } : { success: true };
   } catch (err) {
@@ -721,7 +708,6 @@ export async function updateSignalStatus(
         .from('signals')
         .select('action_log')
         .eq('id', signalId)
-        .eq('tenant_id', tenantId)
         .single();
 
       const log: ActionLogEntry[] = [
@@ -731,7 +717,7 @@ export async function updateSignalStatus(
       updates.action_log = log;
     }
 
-    const { error } = await sovereign.from('signals').update(updates).eq('id', signalId).eq('tenant_id', tenantId);
+    const { error } = await sovereign.from('signals').update(updates).eq('id', signalId);
     return error ? { success: false, error: error.message } : { success: true };
   } catch (err) {
     console.error('[signals] updateSignalStatus threw:', err);

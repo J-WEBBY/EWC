@@ -102,54 +102,58 @@ export async function getClinikoStats(): Promise<{
   revenue_outstanding: number;
   practitioners: number;
 }> {
+  // Reads from LOCAL CACHE (cliniko_* tables) — never hits the live Cliniko API.
+  // This prevents 429 rate limits on every dashboard load/poll.
   const ZERO = {
     patients: 0, appointments: 0, appointments_upcoming: 0,
     appointments_this_month: 0, invoices: 0, revenue_outstanding: 0, practitioners: 0,
   };
 
   try {
-    const supabase = createSovereignClient();
-    const { data: config } = await supabase
-      .from('cliniko_config')
-      .select('api_key, shard, is_active')
-      .single();
-
-    if (!config?.api_key || !config.is_active) return ZERO;
-
-    const client = new ClinikoClient(config.api_key, config.shard ?? 'uk1');
-
+    const db  = createSovereignClient();
     const now = new Date();
-    const nowIso = now.toISOString();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
+    const nowIso        = now.toISOString();
+    const startOfMonth  = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const endOfMonth    = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
 
-    const [practitioners, patients, appointments, appointmentTypes] = await Promise.allSettled([
-      client.getPractitioners(),
-      client.getPatients(),
-      client.getAppointments(),
-      client.getAppointmentTypes(),
+    const [patRes, apptRes, apptUpRes, apptMonRes, invRes, practRes] = await Promise.allSettled([
+      // Total patients in cache
+      db.from('cliniko_patients').select('id', { count: 'exact', head: true }),
+      // Total appointments in cache
+      db.from('cliniko_appointments').select('id', { count: 'exact', head: true }),
+      // Upcoming appointments
+      db.from('cliniko_appointments').select('id', { count: 'exact', head: true }).gte('starts_at', nowIso),
+      // This month's appointments
+      db.from('cliniko_appointments').select('id', { count: 'exact', head: true })
+        .gte('starts_at', startOfMonth).lt('starts_at', endOfMonth),
+      // Outstanding invoices total
+      db.from('cliniko_invoices').select('amount_due')
+        .in('status', ['outstanding', 'partial']),
+      // Practitioners
+      db.from('cliniko_practitioners').select('id', { count: 'exact', head: true }).eq('active', true),
     ]);
 
-    const apptList = appointmentTypes.status === 'rejected' || appointments.status === 'rejected'
-      ? [] : (appointments as PromiseFulfilledResult<Parameters<typeof client.getAppointments> extends [] ? Awaited<ReturnType<typeof client.getAppointments>> : never>).value ?? [];
+    const patients               = patRes.status     === 'fulfilled' ? (patRes.value.count ?? 0)     : 0;
+    const appointments           = apptRes.status    === 'fulfilled' ? (apptRes.value.count ?? 0)    : 0;
+    const appointments_upcoming  = apptUpRes.status  === 'fulfilled' ? (apptUpRes.value.count ?? 0)  : 0;
+    const appointments_this_month = apptMonRes.status === 'fulfilled' ? (apptMonRes.value.count ?? 0) : 0;
+    const practitioners          = practRes.status   === 'fulfilled' ? (practRes.value.count ?? 0)   : 0;
 
-    const apptData = appointments.status === 'fulfilled' ? appointments.value : [];
-    const practData = practitioners.status === 'fulfilled' ? practitioners.value : [];
-    const patData = patients.status === 'fulfilled' ? patients.value : [];
-
-    const upcoming = apptData.filter((a: { starts_at?: string }) => a.starts_at && a.starts_at >= nowIso).length;
-    const thisMonth = apptData.filter((a: { starts_at?: string }) =>
-      a.starts_at && a.starts_at >= startOfMonth && a.starts_at < endOfMonth
-    ).length;
+    let revenue_outstanding = 0;
+    if (invRes.status === 'fulfilled' && invRes.value.data) {
+      revenue_outstanding = invRes.value.data.reduce(
+        (sum: number, r: { amount_due: number | null }) => sum + (r.amount_due ?? 0), 0,
+      );
+    }
 
     return {
-      patients:                patData.length,
-      appointments:            apptData.length,
-      appointments_upcoming:   upcoming,
-      appointments_this_month: thisMonth,
-      invoices:                0,
-      revenue_outstanding:     0,
-      practitioners:           practData.filter((p: { active?: boolean }) => p.active !== false).length,
+      patients,
+      appointments,
+      appointments_upcoming,
+      appointments_this_month,
+      invoices: 0,
+      revenue_outstanding,
+      practitioners,
     };
   } catch {
     return ZERO;
