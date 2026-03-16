@@ -70,12 +70,14 @@ interface CQCEditForm {
   action_required?: string;
   target_date?: string;
   remind_days?: string;
+  answered_by?: string;
 }
 interface CalEditForm {
   last_completed_date?: string;
   next_due_date?: string;
   notes?: string;
   remind_days?: string;
+  responsible_user_id?: string;
 }
 
 // =============================================================================
@@ -515,12 +517,13 @@ export default function KPIPage() {
     const notes = cqcForm.remind_days && cqcForm.remind_days !== '0'
       ? `[remind:${cqcForm.remind_days}] ${baseNotes}`
       : baseNotes;
+    const completedBy = cqcForm.answered_by ?? q.answered_by ?? userId;
     await saveCQCAnswer(q.question_number, {
       answer:          q.answer,
       evidence_notes:  notes,
       action_required: cqcForm.action_required ?? q.action_required ?? undefined,
       target_date:     cqcForm.target_date ?? q.target_date ?? undefined,
-      answered_by:     userId,
+      answered_by:     completedBy,
     });
     await load(userId);
     setEditingCQC(null);
@@ -536,11 +539,15 @@ export default function KPIPage() {
     const notes = calForm.remind_days && calForm.remind_days !== '0'
       ? `[remind:${calForm.remind_days}] ${baseNotes}`
       : baseNotes;
+    const respUser = calForm.responsible_user_id !== undefined
+      ? calForm.responsible_user_id
+      : task.responsible_user_id ?? undefined;
     await updateCalendarTask(task.id, {
-      last_completed_date: calForm.last_completed_date ?? task.last_completed_date ?? undefined,
-      next_due_date:       calForm.next_due_date       ?? task.next_due_date       ?? undefined,
+      last_completed_date:  calForm.last_completed_date ?? task.last_completed_date ?? undefined,
+      next_due_date:        calForm.next_due_date       ?? task.next_due_date       ?? undefined,
+      responsible_user_id:  respUser ?? null,
       notes,
-      assigned_by:         userId,
+      assigned_by:          userId,
     });
     await load(userId);
     setEditingCal(null);
@@ -784,23 +791,38 @@ export default function KPIPage() {
               </div>
             </div>
 
-            {/* Sub-view toggle */}
-            <div className="flex items-center gap-2 mb-5">
-              {([
-                { id: 'cqc'      as ComplianceView, label: `CQC Audit (${cqcItems.length})` },
-                { id: 'calendar' as ComplianceView, label: `Calendar Tasks (${calTasks.length})` },
-              ] as { id: ComplianceView; label: string }[]).map(v => (
-                <button key={v.id}
-                  onClick={() => setCompView(v.id)}
-                  className="px-4 py-2 rounded-xl text-[11px] font-semibold transition-all"
-                  style={{
-                    background: compView === v.id ? BLUE + '12' : 'transparent',
-                    border: `1px solid ${compView === v.id ? BLUE + '40' : BORDER}`,
-                    color: compView === v.id ? BLUE : TER,
-                  }}>
-                  {v.label}
-                </button>
-              ))}
+            {/* Sub-view toggle + evidence pack button */}
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2">
+                {([
+                  { id: 'cqc'      as ComplianceView, label: `CQC Audit (${cqcItems.length})` },
+                  { id: 'calendar' as ComplianceView, label: `Calendar Tasks (${calTasks.length})` },
+                ] as { id: ComplianceView; label: string }[]).map(v => (
+                  <button key={v.id}
+                    onClick={() => setCompView(v.id)}
+                    className="px-4 py-2 rounded-xl text-[11px] font-semibold transition-all"
+                    style={{
+                      background: compView === v.id ? BLUE + '12' : 'transparent',
+                      border: `1px solid ${compView === v.id ? BLUE + '40' : BORDER}`,
+                      color: compView === v.id ? BLUE : TER,
+                    }}>
+                    {v.label}
+                  </button>
+                ))}
+              </div>
+              <a
+                href="/api/compliance/evidence-pack"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-semibold transition-all"
+                style={{
+                  background: GOLD + '14',
+                  border: `1px solid ${GOLD}40`,
+                  color: NAVY,
+                  textDecoration: 'none',
+                }}>
+                <ShieldCheck size={12} style={{ color: GOLD }} /> Generate Evidence Pack
+              </a>
             </div>
 
             {/* ── CQC AUDIT VIEW ── */}
@@ -906,6 +928,12 @@ export default function KPIPage() {
                                               {q.evidence_notes.replace(/^\[remind:\d+\]\s*/, '')}
                                             </p>
                                           )}
+                                          {q.answered_by && (
+                                            <p className="text-[9px] mt-0.5" style={{ color: MUTED }}>
+                                              Completed by: {users.find(u => u.id === q.answered_by)?.full_name ?? 'Unknown'}
+                                              {q.audit_date ? ` · ${new Date(q.audit_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}
+                                            </p>
+                                          )}
                                         </div>
                                         <div className="flex items-center gap-1 flex-shrink-0">
                                           {(['yes', 'partial', 'no', 'na'] as CQCAnswer['answer'][]).map(ans => (
@@ -963,7 +991,7 @@ export default function KPIPage() {
                                                     style={{ ...inputStyle, fontSize: 11 }} />
                                                 </FormField>
                                               </div>
-                                              <div className="grid grid-cols-2 gap-3">
+                                              <div className="grid grid-cols-3 gap-3">
                                                 <FormField label="Target date">
                                                   <input type="date"
                                                     value={cqcForm.target_date ?? ''}
@@ -983,6 +1011,18 @@ export default function KPIPage() {
                                                     <option value="7">7 days before</option>
                                                     <option value="14">14 days before</option>
                                                     <option value="30">30 days before</option>
+                                                  </select>
+                                                </FormField>
+                                                <FormField label="Completed by">
+                                                  <select
+                                                    value={cqcForm.answered_by ?? q.answered_by ?? userId ?? ''}
+                                                    onChange={e => setCqcForm(f => ({ ...f, answered_by: e.target.value }))}
+                                                    className={inputClass}
+                                                    style={{ ...inputStyle, fontSize: 11 }}>
+                                                    <option value="">— Select staff —</option>
+                                                    {users.map(u => (
+                                                      <option key={u.id} value={u.id}>{u.full_name}</option>
+                                                    ))}
                                                   </select>
                                                 </FormField>
                                               </div>
@@ -1116,7 +1156,19 @@ export default function KPIPage() {
                                     style={{ ...inputStyle, fontSize: 11 }} />
                                 </FormField>
                               </div>
-                              <div className="grid grid-cols-2 gap-3">
+                              <div className="grid grid-cols-3 gap-3">
+                                <FormField label="Assign to">
+                                  <select
+                                    value={calForm.responsible_user_id !== undefined ? calForm.responsible_user_id : (task.responsible_user_id ?? '')}
+                                    onChange={e => setCalForm(f => ({ ...f, responsible_user_id: e.target.value || undefined }))}
+                                    className={inputClass}
+                                    style={{ ...inputStyle, fontSize: 11 }}>
+                                    <option value="">— Unassigned —</option>
+                                    {users.map(u => (
+                                      <option key={u.id} value={u.id}>{u.full_name}</option>
+                                    ))}
+                                  </select>
+                                </FormField>
                                 <FormField label="Notes">
                                   <input
                                     value={calForm.notes ?? ''}
