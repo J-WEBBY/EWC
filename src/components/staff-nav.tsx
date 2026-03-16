@@ -15,6 +15,7 @@ import {
   Zap,
   Link2,
   Settings,
+  ShieldCheck,
 } from 'lucide-react';
 import type { StaffProfile } from '@/lib/actions/staff-onboarding';
 
@@ -73,6 +74,7 @@ export function StaffNav({
       items: [
         { label: 'Dashboard',     href: `/staff/dashboard?userId=${userId}${tidParam}`,   icon: LayoutDashboard },
         { label: 'KPIs',          href: `/staff/kpis?userId=${userId}${tidParam}`,        icon: BarChart2 },
+        { label: 'Compliance',    href: `/staff/compliance?userId=${userId}${tidParam}`,  icon: ShieldCheck },
         { label: 'Knowledge Base',href: `/staff/knowledge?userId=${userId}${tidParam}`,   icon: BookOpen },
       ],
     },
