@@ -361,7 +361,7 @@ export async function upsertHRRecord(
     const db = createSovereignClient();
     const { error } = await db
       .from('compliance_hr_records')
-      .upsert({ tenant_id: tenantId, user_id: userId, ...data }, { onConflict: 'user_id' });
+      .upsert({ tenant_id: tenantId, user_id: userId, ...data }, { onConflict: 'tenant_id,user_id' });
     if (error) return { success: false, error: error.message };
     return { success: true };
   } catch (e) { return { success: false, error: String(e) }; }
