@@ -63,14 +63,14 @@ export const listAutomationsTool: AgentTool = {
 
 // Map automation IDs to their API route paths
 const AUTOMATION_ROUTES: Record<string, string> = {
-  booking_reminder:        '/api/automations/booking-reminder',
-  no_show_followup:        '/api/automations/no-show-followup',
-  booking_confirmation:    '/api/automations/booking-reminder',   // shares reminder infra
-  after_appointment_followup: '/api/automations/no-show-followup', // post-appt followup
-  patient_care:            '/api/automations/booking-reminder',
-  re_engagement:           '/api/automations/no-show-followup',
-  appointment_payment_link:   '/api/automations/booking-reminder',
-  overdue_payment_reminder:   '/api/automations/no-show-followup',
+  booking_reminder:           '/api/automations/booking-reminder',
+  no_show_followup:           '/api/automations/no-show-followup',
+  booking_confirmation:       '/api/automations/booking-reminder',   // shares reminder infra
+  after_appointment_followup: '/api/automations/after-appointment-followup',
+  patient_care:               '/api/automations/patient-care',
+  re_engagement:              '/api/automations/re-engagement',
+  appointment_payment_link:   '/api/automations/appointment-payment-link',
+  overdue_payment_reminder:   '/api/automations/overdue-payment-reminder',
 };
 
 async function triggerAutomationHandler(

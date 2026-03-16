@@ -8,6 +8,26 @@
     {
       "path": "/api/automations/no-show-followup",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/automations/after-appointment-followup",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/automations/patient-care",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/automations/re-engagement",
+      "schedule": "0 8 * * 1"
+    },
+    {
+      "path": "/api/automations/appointment-payment-link",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/automations/overdue-payment-reminder",
+      "schedule": "0 8 * * *"
     }
   ]
 }
