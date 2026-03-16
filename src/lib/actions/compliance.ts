@@ -356,9 +356,12 @@ export async function upsertHRRecord(
 ): Promise<{ success: boolean; error?: string }> {
   const session = await getStaffSession();
   if (!session) return { success: false, error: 'UNAUTHORIZED' };
-  const { tenantId } = session;
   try {
     const db = createSovereignClient();
+    // Look up the real tenant_id UUID from the target user row (session.tenantId may fall back to 'clinic')
+    const { data: userRow } = await db.from('users').select('tenant_id').eq('id', userId).single();
+    const tenantId = userRow?.tenant_id as string | undefined;
+    if (!tenantId) return { success: false, error: 'User not found' };
     const { error } = await db
       .from('compliance_hr_records')
       .upsert({ tenant_id: tenantId, user_id: userId, ...data }, { onConflict: 'tenant_id,user_id' });
