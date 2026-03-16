@@ -697,6 +697,24 @@ export async function updateGovernanceEntry(
   } catch (e) { return { success: false, error: String(e) }; }
 }
 
+export async function deleteGovernanceEntry(
+  id: string
+): Promise<{ success: boolean; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
+  const { tenantId } = session;
+  try {
+    const db = createSovereignClient();
+    const { error } = await db
+      .from('compliance_governance_log')
+      .delete()
+      .eq('id', id)
+      .eq('tenant_id', tenantId);
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (e) { return { success: false, error: String(e) }; }
+}
+
 // =============================================================================
 // COMPLIANCE CALENDAR
 // =============================================================================
