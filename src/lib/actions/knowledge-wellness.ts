@@ -272,3 +272,168 @@ export async function getKnowledgeCategories(): Promise<{
     return { success: false, error: 'FETCH_FAILED' };
   }
 }
+
+// =============================================================================
+// processDocumentUpload — chunk + store an uploaded document
+// =============================================================================
+
+function chunkByWords(text: string, wordsPerChunk = 400, overlapWords = 50): string[] {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return [];
+
+  const chunks: string[] = [];
+  let start = 0;
+
+  while (start < words.length) {
+    const end = Math.min(start + wordsPerChunk, words.length);
+    chunks.push(words.slice(start, end).join(' '));
+    if (end >= words.length) break;
+    start = end - overlapWords;
+  }
+
+  return chunks;
+}
+
+export async function processDocumentUpload(data: {
+  title: string;
+  content: string;
+  category_id?: string | null;
+  file_name: string;
+  file_type: string;
+  file_size_bytes?: number;
+  tags?: string[];
+  description?: string;
+  uploaded_by_user_id?: string | null;
+  tenant_id: string;
+}): Promise<{ success: boolean; document_id?: string; chunk_count?: number; error?: string }> {
+  const {
+    title, content, category_id, file_name, file_type,
+    file_size_bytes, tags = [], description, uploaded_by_user_id, tenant_id,
+  } = data;
+
+  if (!title?.trim()) return { success: false, error: 'MISSING_TITLE' };
+  if (!content?.trim()) return { success: false, error: 'MISSING_CONTENT' };
+  if (!tenant_id) return { success: false, error: 'MISSING_TENANT_ID' };
+
+  const sovereign = createSovereignClient();
+
+  // 1. Insert document with processing status
+  const { data: doc, error: docErr } = await sovereign
+    .from('knowledge_documents')
+    .insert({
+      tenant_id,
+      category_id: category_id || null,
+      uploaded_by_user_id: uploaded_by_user_id || null,
+      file_name: file_name || `${title.toLowerCase().replace(/\s+/g, '-')}.txt`,
+      file_type: file_type || 'text/plain',
+      file_size_bytes: file_size_bytes || new TextEncoder().encode(content).length,
+      title: title.trim(),
+      description: description?.trim() || null,
+      tags: JSON.stringify(tags),
+      processing_status: 'processing',
+      chunk_count: 0,
+      visibility: 'internal',
+    })
+    .select('id')
+    .single();
+
+  if (docErr || !doc) {
+    console.error('[knowledge-wellness] processDocumentUpload insert failed:', docErr?.message);
+    return { success: false, error: 'INSERT_FAILED' };
+  }
+
+  const document_id = doc.id as string;
+
+  try {
+    // 2. Split into ~400-word chunks with 50-word overlap
+    const chunks = chunkByWords(content, 400, 50);
+
+    if (chunks.length > 0) {
+      const chunkRows = chunks.map((text, i) => ({
+        tenant_id,
+        document_id,
+        chunk_index: i,
+        content: text,
+        section_title: null,
+        page_number: null,
+      }));
+
+      const { error: chunkErr } = await sovereign.from('knowledge_chunks').insert(chunkRows);
+      if (chunkErr) {
+        console.error('[knowledge-wellness] chunk insert failed:', chunkErr.message);
+        await sovereign
+          .from('knowledge_documents')
+          .update({ processing_status: 'failed' })
+          .eq('id', document_id);
+        return { success: false, error: 'CHUNK_INSERT_FAILED' };
+      }
+    }
+
+    // 3. Mark completed
+    await sovereign
+      .from('knowledge_documents')
+      .update({
+        processing_status: 'completed',
+        chunk_count: chunks.length,
+        processed_at: new Date().toISOString(),
+      })
+      .eq('id', document_id);
+
+    return { success: true, document_id, chunk_count: chunks.length };
+  } catch (err) {
+    console.error('[knowledge-wellness] processDocumentUpload threw:', err);
+    await sovereign
+      .from('knowledge_documents')
+      .update({ processing_status: 'failed' })
+      .eq('id', document_id);
+    return { success: false, error: 'UNEXPECTED_ERROR' };
+  }
+}
+
+// =============================================================================
+// searchKnowledgeChunks — simple ilike search with doc join
+// =============================================================================
+
+export async function searchKnowledgeChunks(
+  tenant_id: string,
+  query: string,
+  limit = 5,
+): Promise<{ chunk_id: string; document_id: string; content: string; document_title: string; category_name: string | null }[]> {
+  if (!query?.trim()) return [];
+
+  try {
+    const sovereign = createSovereignClient();
+
+    const { data, error } = await sovereign
+      .from('knowledge_chunks')
+      .select(`
+        id,
+        document_id,
+        content,
+        knowledge_documents!inner(title, knowledge_categories(name))
+      `)
+      .eq('tenant_id', tenant_id)
+      .ilike('content', `%${query.trim()}%`)
+      .limit(limit);
+
+    if (error) {
+      console.error('[knowledge-wellness] searchKnowledgeChunks failed:', error.message);
+      return [];
+    }
+
+    return (data || []).map((row: Record<string, unknown>) => {
+      const docRow = row.knowledge_documents as Record<string, unknown> | null;
+      const catRow = docRow?.knowledge_categories as Record<string, unknown> | null;
+      return {
+        chunk_id: row.id as string,
+        document_id: row.document_id as string,
+        content: row.content as string,
+        document_title: (docRow?.title as string) ?? 'Unknown',
+        category_name: (catRow?.name as string) ?? null,
+      };
+    });
+  } catch (err) {
+    console.error('[knowledge-wellness] searchKnowledgeChunks threw:', err);
+    return [];
+  }
+}

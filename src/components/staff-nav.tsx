@@ -84,7 +84,7 @@ export function StaffNav({
         { label: 'Receptionist',     href: `/staff/voice?userId=${userId}${tidParam}`,         icon: Mic },
         { label: 'Agents',           href: `/staff/agents?userId=${userId}${tidParam}`,        icon: Bot },
         { label: 'Automations',      href: `/staff/automations?userId=${userId}${tidParam}`,   icon: Zap },
-        { label: 'Judgement Engine', href: `/staff/judgement?userId=${userId}${tidParam}`,     icon: Brain },
+        { label: 'Guardrails',        href: `/staff/judgement?userId=${userId}${tidParam}`,     icon: Brain },
         { label: 'Integrations',     href: `/staff/integrations?userId=${userId}${tidParam}`,  icon: Link2 },
       ],
     },

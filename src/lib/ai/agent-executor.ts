@@ -4,6 +4,7 @@
 // =============================================================================
 
 import { getAnthropicClient } from '@/lib/ai/anthropic';
+import { getActiveGuardrailsForAgent } from '@/lib/actions/guardrails';
 import type {
   AgentContext,
   AgentResponse,
@@ -72,6 +73,17 @@ export async function runAgentLoop(
     input_schema: t.input_schema as Anthropic.Tool['input_schema'],
   }));
 
+  // Inject guardrails into system prompt (non-fatal if load fails)
+  let systemPromptWithGuardrails = ctx.systemPrompt;
+  try {
+    const guardrailsBlock = await getActiveGuardrailsForAgent(ctx.tenantId, ctx.agentKey ?? '');
+    if (guardrailsBlock) {
+      systemPromptWithGuardrails = guardrailsBlock + '\n\n' + ctx.systemPrompt;
+    }
+  } catch {
+    // guardrails load failure is non-fatal — continue without
+  }
+
   const messages: MessageParam[] = [
     ...history,
     { role: 'user', content: userMessage },
@@ -88,7 +100,7 @@ export async function runAgentLoop(
         model: ctx.model,
         max_tokens: ctx.maxTokens,
         temperature: ctx.temperature,
-        system: ctx.systemPrompt,
+        system: systemPromptWithGuardrails,
         tools: toolDefs,
         messages,
       }),
@@ -200,6 +212,17 @@ export async function* runAgentLoopStreaming(
     input_schema: t.input_schema as Anthropic.Tool['input_schema'],
   }));
 
+  // Inject guardrails into system prompt (non-fatal if load fails)
+  let systemPromptWithGuardrails = ctx.systemPrompt;
+  try {
+    const guardrailsBlock = await getActiveGuardrailsForAgent(ctx.tenantId, ctx.agentKey ?? '');
+    if (guardrailsBlock) {
+      systemPromptWithGuardrails = guardrailsBlock + '\n\n' + ctx.systemPrompt;
+    }
+  } catch {
+    // guardrails load failure is non-fatal — continue without
+  }
+
   const messages: MessageParam[] = [
     ...history,
     { role: 'user', content: userMessage },
@@ -225,7 +248,7 @@ export async function* runAgentLoopStreaming(
           model: ctx.model,
           max_tokens: ctx.maxTokens,
           temperature: ctx.temperature,
-          system: ctx.systemPrompt,
+          system: systemPromptWithGuardrails,
           tools: toolDefs,
           messages,
         }),
