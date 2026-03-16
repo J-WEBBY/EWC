@@ -23,7 +23,7 @@ import {
   type EquipmentItem, type CQCAnswer, type GovernanceEntry,
   type CalendarTask, type ComplianceDashboard,
 } from '@/lib/actions/compliance';
-import { TRAINING_MODULES } from '@/lib/constants/compliance-constants';
+import { TRAINING_MODULES, MODULE_FREQ_LABEL } from '@/lib/constants/compliance-constants';
 
 // ─── Design tokens ───────────────────────────────────────────────────────────
 const BG     = '#F8FAFF';
@@ -106,10 +106,10 @@ function BtnGhost({ onClick, children }: { onClick?: () => void; children: React
 const MODULE_LABELS: Record<string, string> = {
   fire_safety: 'Fire Safety', manual_handling: 'Manual Handling',
   safeguarding_adults: 'Safeguarding Adults', safeguarding_children: 'Safeguarding Children',
-  basic_life_support: 'BLS', infection_control: 'Infection Control',
-  information_governance: 'Info Governance', conflict_resolution: 'Conflict Resolution',
-  equality_diversity: 'Equality & Diversity', mental_capacity_act: 'Mental Capacity',
-  medicines_management: 'Medicines Mgmt', food_hygiene: 'Food Hygiene',
+  basic_life_support: 'Basic Life Support', infection_control: 'Infection Control',
+  information_governance: 'Information Governance', conflict_resolution: 'Conflict Resolution',
+  equality_diversity: 'Equality & Diversity', mental_capacity_act: 'Mental Capacity Act',
+  medicines_management: 'Medicines Management', food_hygiene: 'Food Hygiene',
   health_safety: 'Health & Safety', coshh: 'COSHH',
   lone_working: 'Lone Working', dementia_awareness: 'Dementia Awareness',
   cqc_awareness: 'CQC Awareness',
@@ -1036,40 +1036,48 @@ function HRTrackerTab({ records, users, currentUserId, onRefresh }: {
 // ═══════════════════════════════════════════════════════════════════════════════
 // TAB: Training Matrix
 // ═══════════════════════════════════════════════════════════════════════════════
-function trainingCellStyle(status: string | undefined): React.CSSProperties {
-  if (!status || status === 'not_recorded') return { background: '#F5F7FA' };
-  if (status === 'compliant') return { background: '#ECFDF5' };
-  if (status === 'due_soon') return { background: '#FFF7ED' };
-  if (status === 'overdue') return { background: '#FEF2F2' };
-  return { background: '#F5F7FA' };
-}
 
 interface TrainingCellTarget {
   userId: string;
   fullName: string;
   module: string;
-  entry: { completed_date: string | null; notes: string | null } | null;
+  entry: { completed_date: string | null; expiry_date: string | null; certificate_url: string | null; notes: string | null } | null;
+}
+
+function trainingCellColors(status: string | undefined) {
+  if (status === 'compliant')    return { bg: `${BLUE}10`,   text: BLUE,   border: `${BLUE}28`   };
+  if (status === 'due_soon')     return { bg: `${ORANGE}10`, text: ORANGE, border: `${ORANGE}28` };
+  if (status === 'overdue')      return { bg: `${RED}10`,    text: RED,    border: `${RED}28`    };
+  return { bg: '#F5F7FA', text: MUTED, border: BORDER };
 }
 
 function TrainingModal({ userId, fullName, module, entry, currentUserId, onClose, onSave }: {
   userId: string;
   fullName: string;
   module: string;
-  entry: { completed_date: string | null; notes: string | null } | null;
+  entry: { completed_date: string | null; expiry_date: string | null; certificate_url: string | null; notes: string | null } | null;
   currentUserId: string;
   onClose: () => void;
   onSave: () => void;
 }) {
   const [completedDate, setCompletedDate] = useState(entry?.completed_date ?? '');
+  const [certRef, setCertRef] = useState(entry?.certificate_url ?? '');
   const [notes, setNotes] = useState(entry?.notes ?? '');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
 
+  const freqLabel = MODULE_FREQ_LABEL[module] ?? '—';
+  const previewExpiry = completedDate
+    ? (() => { const d = new Date(completedDate); const m = { fire_safety: 12, manual_handling: 12, safeguarding_adults: 60, safeguarding_children: 60, basic_life_support: 12, infection_control: 12, information_governance: 12, conflict_resolution: 12, equality_diversity: 60, mental_capacity_act: 12, medicines_management: 12, food_hygiene: 12, health_safety: 12, coshh: 12, lone_working: 36, dementia_awareness: 36, cqc_awareness: 12 } as Record<string,number>; d.setMonth(d.getMonth() + (m[module] ?? 12)); return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); })()
+    : null;
+
   async function handleSave() {
+    if (!completedDate) { setErr('Completion date is required.'); return; }
     setSaving(true);
     setErr('');
     const res = await upsertTrainingEntry(userId, module, {
-      completed_date: completedDate || undefined,
+      completed_date: completedDate,
+      certificate_url: certRef || undefined,
       notes: notes || undefined,
       assigned_by: currentUserId,
     });
@@ -1087,25 +1095,58 @@ function TrainingModal({ userId, fullName, module, entry, currentUserId, onClose
         className="w-full max-w-sm rounded-2xl p-6"
         style={{ background: BG, border: `1px solid ${BORDER}` }}
       >
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-start justify-between mb-5">
           <div>
             <p className="text-[8px] uppercase tracking-[0.22em] font-semibold mb-0.5" style={{ color: MUTED }}>Training Record</p>
-            <h3 className="text-[14px] font-bold" style={{ color: NAVY }}>{MODULE_LABELS[module] ?? module}</h3>
-            <p className="text-[11px]" style={{ color: MUTED }}>{fullName}</p>
+            <h3 className="text-[15px] font-bold" style={{ color: NAVY }}>{MODULE_LABELS[module] ?? module}</h3>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-[10px] font-medium" style={{ color: MUTED }}>{fullName}</span>
+              <span className="text-[9px] font-semibold px-2 py-0.5 rounded-lg"
+                style={{ background: `${BLUE}12`, color: BLUE }}>
+                {freqLabel}
+              </span>
+            </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[#F0F4FF]">
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[#F0F4FF] flex-shrink-0">
             <X size={16} color={MUTED} />
           </button>
         </div>
 
         <div className="space-y-3">
           <div>
-            <Lbl>Completion Date</Lbl>
+            <Lbl>Completion Date *</Lbl>
             <input type="date" value={completedDate} onChange={e => setCompletedDate(e.target.value)} className={INP} style={INP_STYLE} />
           </div>
+
+          {previewExpiry && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: `${BLUE}08`, border: `1px solid ${BLUE}20` }}>
+              <span className="text-[10px]" style={{ color: MUTED }}>Expires:</span>
+              <span className="text-[10px] font-semibold" style={{ color: BLUE }}>{previewExpiry}</span>
+            </div>
+          )}
+
+          <div>
+            <Lbl>Certificate Reference / Provider</Lbl>
+            <input
+              type="text"
+              value={certRef}
+              onChange={e => setCertRef(e.target.value)}
+              placeholder="e.g. St John Ambulance, e-learning ref..."
+              className={INP}
+              style={INP_STYLE}
+            />
+          </div>
+
           <div>
             <Lbl>Notes</Lbl>
-            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} className="w-full rounded-xl px-3 py-2 text-[12px] focus:outline-none" style={TA_STYLE} />
+            <textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              rows={2}
+              placeholder="Any additional context..."
+              className="w-full rounded-xl px-3 py-2 text-[12px] focus:outline-none"
+              style={TA_STYLE}
+            />
           </div>
         </div>
 
@@ -1114,7 +1155,7 @@ function TrainingModal({ userId, fullName, module, entry, currentUserId, onClose
         <div className="flex items-center gap-2 mt-4">
           <BtnPrimary onClick={handleSave} disabled={saving}>
             <Save size={12} />
-            {saving ? 'Saving...' : 'Save'}
+            {saving ? 'Saving...' : 'Save Record'}
           </BtnPrimary>
           <BtnGhost onClick={onClose}>Cancel</BtnGhost>
         </div>
@@ -1130,71 +1171,145 @@ function TrainingMatrixTab({ matrix, currentUserId, onRefresh }: {
 }) {
   const [cell, setCell] = useState<TrainingCellTarget | null>(null);
 
+  // Summary stats
+  const totalCells = matrix.length * TRAINING_MODULES.length;
+  let compliant = 0, dueSoon = 0, overdue = 0, notRecorded = 0;
+  for (const row of matrix) {
+    for (const m of TRAINING_MODULES) {
+      const s = row.modules[m]?.status ?? 'not_recorded';
+      if (s === 'compliant') compliant++;
+      else if (s === 'due_soon') dueSoon++;
+      else if (s === 'overdue') overdue++;
+      else notRecorded++;
+    }
+  }
+  const pctComplete = totalCells > 0 ? Math.round((compliant / totalCells) * 100) : 0;
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-4 px-1">
+      {/* Stats strip */}
+      <div className="grid grid-cols-4 gap-3 mb-5">
+        {[
+          { label: 'Overall Compliance', value: `${pctComplete}%`, color: BLUE },
+          { label: 'Compliant',          value: compliant,          color: BLUE   },
+          { label: 'Due / Expiring',     value: dueSoon,            color: ORANGE },
+          { label: 'Overdue / Gaps',     value: overdue + notRecorded, color: RED },
+        ].map(s => (
+          <div key={s.label} className="rounded-2xl p-4" style={{ border: `1px solid ${BORDER}` }}>
+            <p className="text-[8px] uppercase tracking-[0.22em] font-semibold mb-1" style={{ color: MUTED }}>{s.label}</p>
+            <p className="text-[24px] font-black tracking-[-0.04em]" style={{ color: s.color }}>{s.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Legend + instruction */}
+      <div className="flex items-center justify-between mb-3 px-1">
         <div className="flex items-center gap-4">
           {[
-            { label: 'Compliant', bg: '#ECFDF5', color: GREEN },
-            { label: 'Due soon', bg: '#FFF7ED', color: ORANGE },
-            { label: 'Overdue', bg: '#FEF2F2', color: RED },
-            { label: 'Not recorded', bg: '#F5F7FA', color: MUTED },
+            { label: 'Compliant', color: BLUE },
+            { label: 'Due soon',  color: ORANGE },
+            { label: 'Overdue',   color: RED },
+            { label: 'Not recorded', color: MUTED },
           ].map(l => (
             <span key={l.label} className="flex items-center gap-1.5 text-[10px]" style={{ color: l.color }}>
-              <span className="w-3 h-3 rounded" style={{ background: l.bg, border: `1px solid ${BORDER}` }} />
+              <span className="w-2 h-2 rounded-full" style={{ background: l.color }} />
               {l.label}
             </span>
           ))}
         </div>
-        <span className="text-[10px]" style={{ color: MUTED }}>Click any cell to record or update training</span>
+        <span className="text-[10px]" style={{ color: MUTED }}>Click any cell to record or update</span>
       </div>
 
+      {/* Matrix table */}
       <div className="overflow-auto rounded-2xl" style={{ border: `1px solid ${BORDER}` }}>
-        <table className="text-[10px]">
+        <table style={{ borderCollapse: 'collapse', width: 'max-content', minWidth: '100%' }}>
           <thead>
-            <tr style={{ borderBottom: `1px solid ${BORDER}` }}>
-              <th className="sticky left-0 z-10 text-left px-4 py-3 text-[8px] uppercase tracking-[0.22em] font-semibold whitespace-nowrap min-w-[140px]"
-                style={{ background: BG, color: MUTED, borderRight: `1px solid ${BORDER}` }}>
-                Staff
+            {/* Title row */}
+            <tr>
+              <th colSpan={2}
+                className="px-4 py-3 text-left text-[11px] font-bold whitespace-nowrap"
+                style={{ background: NAVY, color: '#fff', position: 'sticky', left: 0, zIndex: 20, borderRight: `1px solid rgba(255,255,255,0.1)` }}>
+                MANDATORY TRAINING MATRIX
               </th>
               {TRAINING_MODULES.map(m => (
-                <th key={m} className="px-2 py-3 text-[8px] uppercase tracking-[0.18em] font-semibold whitespace-nowrap"
-                  style={{ color: MUTED, minWidth: 72 }}>
-                  {MODULE_LABELS[m] ?? m}
+                <th key={m}
+                  className="px-2 py-2 text-center"
+                  style={{ background: NAVY, borderLeft: `1px solid rgba(255,255,255,0.08)`, minWidth: 84, maxWidth: 84 }}>
+                  <div className="text-[9px] font-semibold leading-tight" style={{ color: '#fff' }}>
+                    {MODULE_LABELS[m]}
+                  </div>
+                  <div className="text-[8px] mt-0.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                    ({MODULE_FREQ_LABEL[m]})
+                  </div>
+                </th>
+              ))}
+            </tr>
+            {/* Sub-header row */}
+            <tr style={{ borderBottom: `1px solid ${BORDER}`, background: '#F5F7FB' }}>
+              <th className="px-4 py-2 text-left text-[8px] uppercase tracking-[0.22em] font-semibold whitespace-nowrap"
+                style={{ position: 'sticky', left: 0, zIndex: 10, background: '#F5F7FB', color: MUTED, borderRight: `1px solid ${BORDER}`, minWidth: 160 }}>
+                Staff Name
+              </th>
+              <th className="px-3 py-2 text-left text-[8px] uppercase tracking-[0.22em] font-semibold whitespace-nowrap"
+                style={{ background: '#F5F7FB', color: MUTED, borderRight: `1px solid ${BORDER}`, minWidth: 100 }}>
+                Role
+              </th>
+              {TRAINING_MODULES.map(m => (
+                <th key={m} className="px-2 py-2 text-center text-[8px] uppercase tracking-[0.18em] font-semibold"
+                  style={{ color: MUTED, borderLeft: `1px solid ${BORDER}`, minWidth: 84, maxWidth: 84 }}>
+                  Status
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {matrix.map(row => (
-              <tr key={row.user_id} style={{ borderBottom: `1px solid ${BORDER}` }}>
-                <td className="sticky left-0 z-10 px-4 py-3 font-semibold whitespace-nowrap"
-                  style={{ background: BG, color: NAVY, borderRight: `1px solid ${BORDER}`, fontSize: 11 }}>
+            {matrix.map((row, ri) => (
+              <tr key={row.user_id}
+                style={{ borderBottom: ri < matrix.length - 1 ? `1px solid ${BORDER}` : undefined }}>
+                {/* Sticky staff name */}
+                <td className="px-4 py-2.5 whitespace-nowrap font-semibold"
+                  style={{ position: 'sticky', left: 0, zIndex: 10, background: BG, color: NAVY, borderRight: `1px solid ${BORDER}`, fontSize: 11 }}>
                   {row.full_name}
-                  <span className="block text-[9px] font-normal" style={{ color: MUTED }}>{row.role_name}</span>
                 </td>
+                {/* Role */}
+                <td className="px-3 py-2.5 whitespace-nowrap text-[10px]"
+                  style={{ background: BG, color: MUTED, borderRight: `1px solid ${BORDER}` }}>
+                  {row.role_name}
+                </td>
+                {/* Module cells */}
                 {TRAINING_MODULES.map(m => {
                   const e = row.modules[m];
                   const status = e?.status ?? 'not_recorded';
+                  const { bg, text, border } = trainingCellColors(status);
                   return (
                     <td
                       key={m}
-                      className="px-2 py-2 text-center cursor-pointer transition-opacity hover:opacity-80"
-                      style={trainingCellStyle(status)}
+                      className="px-1 py-1.5 text-center cursor-pointer transition-all hover:brightness-95"
+                      style={{ borderLeft: `1px solid ${BORDER}`, background: BG }}
                       onClick={() => setCell({
                         userId: row.user_id,
                         fullName: row.full_name,
                         module: m,
-                        entry: e ? { completed_date: e.completed_date, notes: e.notes } : null,
+                        entry: e ? { completed_date: e.completed_date, expiry_date: e.expiry_date, certificate_url: e.certificate_url, notes: e.notes } : null,
                       })}
                     >
-                      {e?.completed_date ? (
-                        <span style={{ color: status === 'overdue' ? RED : status === 'due_soon' ? ORANGE : GREEN }}>
-                          {fmt(e.completed_date)}
-                        </span>
-                      ) : (
-                        <span style={{ color: MUTED }}>—</span>
-                      )}
+                      <div className="rounded-lg px-1 py-1.5 flex flex-col items-center"
+                        style={{ background: bg, border: `1px solid ${border}` }}>
+                        {e?.completed_date ? (
+                          <>
+                            <span className="text-[8px] font-semibold leading-none" style={{ color: text }}>
+                              {fmt(e.completed_date)}
+                            </span>
+                            {e.expiry_date && (
+                              <span className="text-[7px] mt-0.5 leading-none" style={{ color: text, opacity: 0.7 }}>
+                                Exp: {fmt(e.expiry_date)}
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-[9px]" style={{ color: MUTED }}>—</span>
+                        )}
+                      </div>
                     </td>
                   );
                 })}
@@ -1202,7 +1317,7 @@ function TrainingMatrixTab({ matrix, currentUserId, onRefresh }: {
             ))}
             {matrix.length === 0 && (
               <tr>
-                <td colSpan={TRAINING_MODULES.length + 1} className="px-4 py-8 text-center text-[12px]" style={{ color: MUTED }}>
+                <td colSpan={TRAINING_MODULES.length + 2} className="px-4 py-10 text-center text-[12px]" style={{ color: MUTED }}>
                   No training records found.
                 </td>
               </tr>

@@ -13,10 +13,36 @@ export const TRAINING_MODULES = [
 
 export type TrainingModule = typeof TRAINING_MODULES[number];
 
+// Frequencies in months — matched to EWC CQC Compliance Tracker spreadsheet
 export const MODULE_FREQUENCY: Record<string, number> = {
-  fire_safety: 12, manual_handling: 12, safeguarding_adults: 36, safeguarding_children: 36,
-  basic_life_support: 12, infection_control: 12, information_governance: 12,
-  conflict_resolution: 36, equality_diversity: 36, mental_capacity_act: 36,
-  medicines_management: 12, food_hygiene: 36, health_safety: 12, coshh: 12,
-  lone_working: 12, dementia_awareness: 36, cqc_awareness: 12,
+  fire_safety: 12,           // Annual
+  manual_handling: 12,       // Annual
+  safeguarding_adults: 60,   // 5yr
+  safeguarding_children: 60, // 5yr
+  basic_life_support: 12,    // Annual
+  infection_control: 12,     // Annual
+  information_governance: 12,// Annual
+  conflict_resolution: 12,   // Annual
+  equality_diversity: 60,    // 5yr
+  mental_capacity_act: 12,   // Annual
+  medicines_management: 12,  // Annual
+  food_hygiene: 12,          // Annual
+  health_safety: 12,         // Annual
+  coshh: 12,                 // Annual
+  lone_working: 36,          // 3yr
+  dementia_awareness: 36,    // 3yr
+  cqc_awareness: 12,         // Annual
+};
+
+// Human-readable frequency label
+export const MODULE_FREQ_LABEL: Record<string, string> = {
+  fire_safety: 'Annual',           manual_handling: 'Annual',
+  safeguarding_adults: '5yr',      safeguarding_children: '5yr',
+  basic_life_support: 'Annual',    infection_control: 'Annual',
+  information_governance: 'Annual',conflict_resolution: 'Annual',
+  equality_diversity: '5yr',       mental_capacity_act: 'Annual',
+  medicines_management: 'Annual',  food_hygiene: 'Annual',
+  health_safety: 'Annual',         coshh: 'Annual',
+  lone_working: '3yr',             dementia_awareness: '3yr',
+  cqc_awareness: 'Annual',
 };

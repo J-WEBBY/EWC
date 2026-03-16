@@ -461,9 +461,12 @@ export async function upsertTrainingEntry(
 ): Promise<{ success: boolean; error?: string }> {
   const session = await getStaffSession();
   if (!session) return { success: false, error: 'UNAUTHORIZED' };
-  const { tenantId } = session;
   try {
     const db = createSovereignClient();
+    // Look up real tenant_id UUID from user row (session.tenantId may fall back to 'clinic')
+    const { data: userRow } = await db.from('users').select('tenant_id').eq('id', userId).single();
+    const tenantId = userRow?.tenant_id as string | undefined;
+    if (!tenantId) return { success: false, error: 'User not found' };
     const freq = MODULE_FREQUENCY[module] ?? 12;
     let expiryDate: string | undefined;
     if (data.completed_date) {
@@ -480,7 +483,7 @@ export async function upsertTrainingEntry(
         certificate_url: data.certificate_url ?? null,
         notes: data.notes ?? null,
         assigned_by: data.assigned_by ?? null,
-      }, { onConflict: 'user_id,module' });
+      }, { onConflict: 'tenant_id,user_id,module' });
     if (error) return { success: false, error: error.message };
     return { success: true };
   } catch (e) { return { success: false, error: String(e) }; }
