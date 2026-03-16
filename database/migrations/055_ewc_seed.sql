@@ -197,7 +197,7 @@ ON CONFLICT DO NOTHING;
 --   so Dr Suresh (manager role) can still be flagged as clinical.
 -- =============================================================================
 
-INSERT INTO roles (tenant_id, name, slug, permission_level, is_admin, is_clinical, permissions)
+INSERT INTO roles (tenant_id, name, slug, permission_level, is_admin, permissions)
 SELECT t.id, r.name, r.slug, r.permission_level, r.is_admin, r.is_clinical, r.permissions::JSONB
 FROM tenants t
 CROSS JOIN (VALUES
@@ -239,7 +239,7 @@ CROSS JOIN (VALUES
     '{"can_manage_users":false,"can_view_all_signals":false,"can_view_department_signals":true,"can_create_signals":true,"can_approve_signals":false,"can_view_reports":false,"can_view_patients":true,"can_view_compliance":false,"can_view_all_staff_kpis":false,"can_view_clinical_records":false}'
   )
 
-) AS r(name, slug, permission_level, is_admin, is_clinical, permissions)
+) AS r(name, slug, permission_level, is_admin, permissions)
 WHERE t.slug = 'edgbaston-wellness'
 ON CONFLICT (tenant_id, slug) DO UPDATE SET
   permission_level = EXCLUDED.permission_level,
@@ -286,14 +286,14 @@ DELETE FROM departments a
 -- ── System account (not a real person — platform admin) ──────────────────────
 INSERT INTO users (
   tenant_id, email, title, first_name, last_name, display_name, job_title,
-  password_hash, must_change_password, status, is_admin, is_clinical,
+  password_hash, must_change_password, status, is_admin,
   staff_onboarding_completed, staff_onboarding_completed_at, role_id, department_id
 )
 SELECT t.id,
   'admin@edgbastonwellness.co.uk',
   NULL, 'Admin', 'User', 'System Administrator', 'System Administrator',
   crypt('Admin13!', gen_salt('bf', 10)),
-  FALSE, 'active', TRUE, FALSE, TRUE, NOW(),
+  FALSE, 'active', TRUE, TRUE, NOW(),
   (SELECT id FROM roles WHERE tenant_id = t.id AND slug = 'system_admin'),
   (SELECT id FROM departments WHERE tenant_id = t.id AND name = 'Management')
 FROM tenants t WHERE t.slug = 'edgbaston-wellness'
@@ -303,14 +303,14 @@ ON CONFLICT (tenant_id, email) DO NOTHING;
 -- Cliniko: Administrator. Developer with full platform access to all features.
 INSERT INTO users (
   tenant_id, email, title, first_name, last_name, display_name, job_title,
-  password_hash, must_change_password, status, is_admin, is_clinical,
+  password_hash, must_change_password, status, is_admin,
   staff_onboarding_completed, staff_onboarding_completed_at, role_id, department_id
 )
 SELECT t.id,
   'joseph@jwebly.co.uk',
   NULL, 'Joseph', 'Enemuwe', 'Joseph Enemuwe', 'Solutions Architect (Jwebly)',
   crypt('Admin13!', gen_salt('bf', 10)),
-  FALSE, 'active', TRUE, FALSE, TRUE, NOW(),
+  FALSE, 'active', TRUE, TRUE, NOW(),
   (SELECT id FROM roles WHERE tenant_id = t.id AND slug = 'system_admin'),
   (SELECT id FROM departments WHERE tenant_id = t.id AND name = 'Management')
 FROM tenants t WHERE t.slug = 'edgbaston-wellness'
@@ -321,14 +321,14 @@ ON CONFLICT (tenant_id, email) DO NOTHING;
 -- Role: manager (full operational oversight). is_clinical=true (also practices).
 INSERT INTO users (
   tenant_id, email, title, first_name, last_name, display_name, job_title,
-  password_hash, must_change_password, status, is_admin, is_clinical,
+  password_hash, must_change_password, status, is_admin,
   staff_onboarding_completed, staff_onboarding_completed_at, role_id, department_id
 )
 SELECT t.id,
   'suresh@edgbastonwellness.co.uk',
   'Dr', 'Suresh', 'Ganta', 'Dr Suresh Ganta', 'Medical Director',
   crypt('Staff2024!', gen_salt('bf', 10)),
-  TRUE, 'active', TRUE, TRUE, TRUE, NOW(),
+  TRUE, 'active', TRUE, TRUE, NOW(),
   (SELECT id FROM roles WHERE tenant_id = t.id AND slug = 'manager'),
   (SELECT id FROM departments WHERE tenant_id = t.id AND name = 'Management')
 FROM tenants t WHERE t.slug = 'edgbaston-wellness'
@@ -339,14 +339,14 @@ ON CONFLICT (tenant_id, email) DO NOTHING;
 -- Role: admin (system access). is_clinical=true (active practitioner).
 INSERT INTO users (
   tenant_id, email, title, first_name, last_name, display_name, job_title,
-  password_hash, must_change_password, status, is_admin, is_clinical,
+  password_hash, must_change_password, status, is_admin,
   staff_onboarding_completed, staff_onboarding_completed_at, role_id, department_id
 )
 SELECT t.id,
   'k.penumaka@edgbastonwellness.co.uk',
   'Dr', 'K', 'Penumaka', 'Dr K Penumaka', 'Doctor',
   crypt('Staff2024!', gen_salt('bf', 10)),
-  TRUE, 'active', TRUE, TRUE, TRUE, NOW(),
+  TRUE, 'active', TRUE, TRUE, NOW(),
   (SELECT id FROM roles WHERE tenant_id = t.id AND slug = 'admin'),
   (SELECT id FROM departments WHERE tenant_id = t.id AND name = 'Clinical')
 FROM tenants t WHERE t.slug = 'edgbaston-wellness'
@@ -356,14 +356,14 @@ ON CONFLICT (tenant_id, email) DO NOTHING;
 -- Cliniko: Administrator. No practitioner flag — admin/ops only.
 INSERT INTO users (
   tenant_id, email, title, first_name, last_name, display_name, job_title,
-  password_hash, must_change_password, status, is_admin, is_clinical,
+  password_hash, must_change_password, status, is_admin,
   staff_onboarding_completed, staff_onboarding_completed_at, role_id, department_id
 )
 SELECT t.id,
   'syed.ahmad@edgbastonwellness.co.uk',
   'Mr', 'Syed', 'Ahmad', 'Mr Syed Ahmad', 'Administrator',
   crypt('Staff2024!', gen_salt('bf', 10)),
-  TRUE, 'active', TRUE, FALSE, TRUE, NOW(),
+  TRUE, 'active', TRUE, TRUE, NOW(),
   (SELECT id FROM roles WHERE tenant_id = t.id AND slug = 'admin'),
   (SELECT id FROM departments WHERE tenant_id = t.id AND name = 'Management')
 FROM tenants t WHERE t.slug = 'edgbaston-wellness'
@@ -373,14 +373,14 @@ ON CONFLICT (tenant_id, email) DO NOTHING;
 -- Cliniko: Practitioner.
 INSERT INTO users (
   tenant_id, email, title, first_name, last_name, display_name, job_title,
-  password_hash, must_change_password, status, is_admin, is_clinical,
+  password_hash, must_change_password, status, is_admin,
   staff_onboarding_completed, staff_onboarding_completed_at, role_id, department_id
 )
 SELECT t.id,
   'lubna.bibi@edgbastonwellness.co.uk',
   NULL, 'Lubna', 'Bibi', 'Lubna Bibi', 'Practitioner',
   crypt('Staff2024!', gen_salt('bf', 10)),
-  TRUE, 'active', FALSE, TRUE, TRUE, NOW(),
+  TRUE, 'active', FALSE, TRUE, NOW(),
   (SELECT id FROM roles WHERE tenant_id = t.id AND slug = 'practitioner'),
   (SELECT id FROM departments WHERE tenant_id = t.id AND name = 'Clinical')
 FROM tenants t WHERE t.slug = 'edgbaston-wellness'
@@ -390,14 +390,14 @@ ON CONFLICT (tenant_id, email) DO NOTHING;
 -- Cliniko: Practitioner.
 INSERT INTO users (
   tenant_id, email, title, first_name, last_name, display_name, job_title,
-  password_hash, must_change_password, status, is_admin, is_clinical,
+  password_hash, must_change_password, status, is_admin,
   staff_onboarding_completed, staff_onboarding_completed_at, role_id, department_id
 )
 SELECT t.id,
   'nikita.v@edgbastonwellness.co.uk',
   NULL, 'Nikita', 'V', 'Nikita V', 'Practitioner',
   crypt('Staff2024!', gen_salt('bf', 10)),
-  TRUE, 'active', FALSE, TRUE, TRUE, NOW(),
+  TRUE, 'active', FALSE, TRUE, NOW(),
   (SELECT id FROM roles WHERE tenant_id = t.id AND slug = 'practitioner'),
   (SELECT id FROM departments WHERE tenant_id = t.id AND name = 'Clinical')
 FROM tenants t WHERE t.slug = 'edgbaston-wellness'
@@ -407,14 +407,14 @@ ON CONFLICT (tenant_id, email) DO NOTHING;
 -- Cliniko: Power Receptionist (non-clinical).
 INSERT INTO users (
   tenant_id, email, title, first_name, last_name, display_name, job_title,
-  password_hash, must_change_password, status, is_admin, is_clinical,
+  password_hash, must_change_password, status, is_admin,
   staff_onboarding_completed, staff_onboarding_completed_at, role_id, department_id
 )
 SELECT t.id,
   'benjamin.hawthorne@edgbastonwellness.co.uk',
   'Mr', 'Benjamin', 'Hawthorne', 'Mr Benjamin Hawthorne', 'Senior Receptionist',
   crypt('Staff2024!', gen_salt('bf', 10)),
-  TRUE, 'active', FALSE, FALSE, TRUE, NOW(),
+  TRUE, 'active', FALSE, TRUE, NOW(),
   (SELECT id FROM roles WHERE tenant_id = t.id AND slug = 'receptionist'),
   (SELECT id FROM departments WHERE tenant_id = t.id AND name = 'Reception & Patient Care')
 FROM tenants t WHERE t.slug = 'edgbaston-wellness'
@@ -424,14 +424,14 @@ ON CONFLICT (tenant_id, email) DO NOTHING;
 -- Cliniko: Power Receptionist (non-clinical).
 INSERT INTO users (
   tenant_id, email, title, first_name, last_name, display_name, job_title,
-  password_hash, must_change_password, status, is_admin, is_clinical,
+  password_hash, must_change_password, status, is_admin,
   staff_onboarding_completed, staff_onboarding_completed_at, role_id, department_id
 )
 SELECT t.id,
   'dionne.jackson@edgbastonwellness.co.uk',
   'Ms', 'Dionne', 'Jackson', 'Ms Dionne Jackson', 'Senior Receptionist',
   crypt('Staff2024!', gen_salt('bf', 10)),
-  TRUE, 'active', FALSE, FALSE, TRUE, NOW(),
+  TRUE, 'active', FALSE, TRUE, NOW(),
   (SELECT id FROM roles WHERE tenant_id = t.id AND slug = 'receptionist'),
   (SELECT id FROM departments WHERE tenant_id = t.id AND name = 'Reception & Patient Care')
 FROM tenants t WHERE t.slug = 'edgbaston-wellness'
@@ -441,14 +441,14 @@ ON CONFLICT (tenant_id, email) DO NOTHING;
 -- Cliniko: Receptionist (non-clinical).
 INSERT INTO users (
   tenant_id, email, title, first_name, last_name, display_name, job_title,
-  password_hash, must_change_password, status, is_admin, is_clinical,
+  password_hash, must_change_password, status, is_admin,
   staff_onboarding_completed, staff_onboarding_completed_at, role_id, department_id
 )
 SELECT t.id,
   'ece.kurt@edgbastonwellness.co.uk',
   'Miss', 'Ece', 'Kurt', 'Miss Ece Kurt', 'Receptionist',
   crypt('Staff2024!', gen_salt('bf', 10)),
-  TRUE, 'active', FALSE, FALSE, TRUE, NOW(),
+  TRUE, 'active', FALSE, TRUE, NOW(),
   (SELECT id FROM roles WHERE tenant_id = t.id AND slug = 'receptionist'),
   (SELECT id FROM departments WHERE tenant_id = t.id AND name = 'Reception & Patient Care')
 FROM tenants t WHERE t.slug = 'edgbaston-wellness'
@@ -458,14 +458,14 @@ ON CONFLICT (tenant_id, email) DO NOTHING;
 -- Cliniko: Receptionist + Practitioner flag (shared/generic account — treat as non-clinical).
 INSERT INTO users (
   tenant_id, email, title, first_name, last_name, display_name, job_title,
-  password_hash, must_change_password, status, is_admin, is_clinical,
+  password_hash, must_change_password, status, is_admin,
   staff_onboarding_completed, staff_onboarding_completed_at, role_id, department_id
 )
 SELECT t.id,
   'reception@edgbastonwellness.co.uk',
   NULL, 'Reception', 'Edgbaston', 'Reception Edgbaston', 'Reception (Shared)',
   crypt('Staff2024!', gen_salt('bf', 10)),
-  TRUE, 'active', FALSE, FALSE, TRUE, NOW(),
+  TRUE, 'active', FALSE, TRUE, NOW(),
   (SELECT id FROM roles WHERE tenant_id = t.id AND slug = 'receptionist'),
   (SELECT id FROM departments WHERE tenant_id = t.id AND name = 'Reception & Patient Care')
 FROM tenants t WHERE t.slug = 'edgbaston-wellness'
@@ -475,14 +475,14 @@ ON CONFLICT (tenant_id, email) DO NOTHING;
 -- Cliniko: Receptionist (non-clinical).
 INSERT INTO users (
   tenant_id, email, title, first_name, last_name, display_name, job_title,
-  password_hash, must_change_password, status, is_admin, is_clinical,
+  password_hash, must_change_password, status, is_admin,
   staff_onboarding_completed, staff_onboarding_completed_at, role_id, department_id
 )
 SELECT t.id,
   'shauna.havord@edgbastonwellness.co.uk',
   'Miss', 'Shauna', 'Havord', 'Miss Shauna Havord', 'Receptionist',
   crypt('Staff2024!', gen_salt('bf', 10)),
-  TRUE, 'active', FALSE, FALSE, TRUE, NOW(),
+  TRUE, 'active', FALSE, TRUE, NOW(),
   (SELECT id FROM roles WHERE tenant_id = t.id AND slug = 'receptionist'),
   (SELECT id FROM departments WHERE tenant_id = t.id AND name = 'Reception & Patient Care')
 FROM tenants t WHERE t.slug = 'edgbaston-wellness'

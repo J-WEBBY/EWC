@@ -361,6 +361,12 @@ function HRTrackerTab({ records, users, currentUserId, onRefresh }: {
 
   return (
     <div>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-[10px]" style={{ color: MUTED }}>
+          Click <span style={{ color: BLUE }}>Edit / Add Details</span> on any row to fill in DBS, RTW, registration, appraisal and sign-off information.
+        </p>
+        <span className="text-[11px] font-semibold" style={{ color: NAVY }}>{records.length} staff members</span>
+      </div>
       <div className="overflow-x-auto rounded-2xl" style={{ border: `1px solid ${BORDER}` }}>
         <table className="w-full">
           <thead>
@@ -398,11 +404,11 @@ function HRTrackerTab({ records, users, currentUserId, onRefresh }: {
                 <td className="px-4 py-3">
                   <button
                     onClick={() => setEditRecord(r)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-lg"
+                    className="flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-lg transition-opacity hover:opacity-80"
                     style={{ background: `${BLUE}14`, color: BLUE }}
                   >
                     <Edit2 size={10} />
-                    Edit
+                    {r.id ? 'Edit' : 'Add Details'}
                   </button>
                 </td>
               </tr>
@@ -530,18 +536,21 @@ function TrainingMatrixTab({ matrix, currentUserId, onRefresh }: {
 
   return (
     <div>
-      <div className="flex items-center gap-4 mb-4 px-1">
-        {[
-          { label: 'Compliant', bg: '#ECFDF5', color: GREEN },
-          { label: 'Due soon', bg: '#FFF7ED', color: ORANGE },
-          { label: 'Overdue', bg: '#FEF2F2', color: RED },
-          { label: 'Not recorded', bg: '#F5F7FA', color: MUTED },
-        ].map(l => (
-          <span key={l.label} className="flex items-center gap-1.5 text-[10px]" style={{ color: l.color }}>
-            <span className="w-3 h-3 rounded" style={{ background: l.bg, border: `1px solid ${BORDER}` }} />
-            {l.label}
-          </span>
-        ))}
+      <div className="flex items-center justify-between mb-4 px-1">
+        <div className="flex items-center gap-4">
+          {[
+            { label: 'Compliant', bg: '#ECFDF5', color: GREEN },
+            { label: 'Due soon', bg: '#FFF7ED', color: ORANGE },
+            { label: 'Overdue', bg: '#FEF2F2', color: RED },
+            { label: 'Not recorded', bg: '#F5F7FA', color: MUTED },
+          ].map(l => (
+            <span key={l.label} className="flex items-center gap-1.5 text-[10px]" style={{ color: l.color }}>
+              <span className="w-3 h-3 rounded" style={{ background: l.bg, border: `1px solid ${BORDER}` }} />
+              {l.label}
+            </span>
+          ))}
+        </div>
+        <span className="text-[10px]" style={{ color: MUTED }}>Click any cell to record or update training</span>
       </div>
 
       <div className="overflow-auto rounded-2xl" style={{ border: `1px solid ${BORDER}` }}>
