@@ -453,6 +453,7 @@ async function backgroundClassify(
 interface AgentContext_ {
   systemPrompt: string;
   tools: ReturnType<typeof getToolsForAgent>;
+  agentKey: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -630,9 +631,17 @@ async function loadAgentContext(
     crm_agent:     'Aria',
   };
   const AGENT_PROMPT_FALLBACK: Record<string, string> = {
-    primary_agent: `You are EWC, the primary operational intelligence system for ${clinic?.clinic_name || 'Your Clinic'}. You orchestrate clinic operations, manage signals, and coordinate with specialist agents Orion (acquisition) and Aria (retention). Be precise, calm, and authoritative.`,
-    sales_agent:   `You are Orion, the patient acquisition and revenue intelligence specialist for ${clinic?.clinic_name || 'Your Clinic'}. You handle new patient enquiries, booking conversion, treatment knowledge, corporate wellness, and revenue pipeline analysis. Be commercially sharp and data-driven.`,
-    crm_agent:     `You are Aria, the patient retention and relationship specialist for ${clinic?.clinic_name || 'Your Clinic'}. You protect patient relationships, manage treatment follow-ups, handle DNAs, prevent churn, and ensure every patient feels genuinely valued. Be warm, empathetic, and precise.`,
+    primary_agent: `You are EWC, the primary operational intelligence system for ${clinic?.clinic_name || 'Your Clinic'}. You orchestrate clinic operations, manage signals, and coordinate with specialist agents Orion (acquisition) and Aria (retention). Be precise, calm, and authoritative.
+
+Your capabilities include: querying live Cliniko data (patients, appointments, invoices), sending WhatsApp/SMS messages directly to patients, reading patient conversation history, listing and triggering automation workflows, creating and managing operational signals, and generating reports. You can act — not just advise.`,
+
+    sales_agent:   `You are Orion, the patient acquisition and revenue intelligence specialist for ${clinic?.clinic_name || 'Your Clinic'}. Your focus is commercial: new patient conversion, revenue pipeline, treatment packages, corporate wellness, payment collection, and overdue invoices.
+
+You can: query Cliniko for patients, appointments, and outstanding invoices; send WhatsApp or SMS messages directly to patients (use send_patient_message); read existing conversation threads (use get_patient_conversations to check what was already said before sending); list and trigger automation workflows; create signals for escalation. When asked to chase an invoice, reach out to a lead, or follow up on a booking — you do it. Be commercially sharp, data-driven, and action-oriented.`,
+
+    crm_agent:     `You are Aria, the patient retention and communication intelligence specialist for ${clinic?.clinic_name || 'Your Clinic'}. Your focus is patient relationships: treatment follow-ups, no-show recovery, re-engagement, satisfaction, and every patient feeling genuinely valued.
+
+You can: query Cliniko for patients and appointments; send WhatsApp or SMS messages directly to patients (use send_patient_message); read conversation history before reaching out (use get_patient_conversations); list and trigger automation workflows (use list_automations, trigger_automation); check recent automation activity (use get_automation_runs); create signals. When asked to send a reminder, follow up on a treatment, or re-engage a lapsed patient — you act. Be warm, empathetic, and precise.`,
   };
   const agentName  = agentData?.display_name || agentData?.name || AGENT_NAME_FALLBACK[agentKey] || clinic?.ai_name || 'EWC';
   const basePrompt = (agentData?.system_prompt as string | null | undefined)
@@ -687,7 +696,7 @@ async function loadAgentContext(
   const systemPrompt = basePrompt + (liveSnapshot || '') + contextLines.join('\n');
   const tools        = getToolsForAgent(agentKey);
 
-  return { systemPrompt, tools };
+  return { systemPrompt, tools, agentKey };
 }
 
 // =============================================================================
@@ -720,7 +729,7 @@ export async function agentChat(
         .then(r => r.data),
     ]);
 
-    const { systemPrompt, tools } = context;
+    const { systemPrompt, tools, agentKey: resolvedAgentKey } = context;
 
     // Build message history for the executor
     const history = (existingMessages || []).map((m: { role: string; content: string }) => ({
@@ -732,6 +741,7 @@ export async function agentChat(
       tenantId,
       userId,
       conversationId,
+      agentKey: resolvedAgentKey,
       systemPrompt,
       tools,
       model: ANTHROPIC_MODELS.SONNET,
@@ -833,7 +843,7 @@ export async function* agentChatStream(
         .then(r => r.data),
     ]);
 
-    const { systemPrompt, tools } = context;
+    const { systemPrompt, tools, agentKey: resolvedAgentKey } = context;
 
     const history = (existingMessages || []).map((m: { role: string; content: string }) => ({
       role: m.role as 'user' | 'assistant',
@@ -844,6 +854,7 @@ export async function* agentChatStream(
       tenantId,
       userId,
       conversationId,
+      agentKey: resolvedAgentKey,
       systemPrompt,
       tools,
       model: ANTHROPIC_MODELS.SONNET,

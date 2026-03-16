@@ -27,6 +27,9 @@ import { signalQueryTool } from './signal-query';
 import { createSignalTool } from './create-signal';
 import { updateSignalTool } from './update-signal';
 import { generateReportTool } from './generate-report';
+import { sendPatientMessageTool } from './send-patient-message';
+import { getPatientConversationsTool } from './get-patient-conversations';
+import { listAutomationsTool, triggerAutomationTool, getAutomationRunsTool } from './automation-tools';
 
 /**
  * Tool subset available to specialist agents (Orion + Aria).
@@ -44,6 +47,13 @@ export const SPECIALIST_TOOLS: AgentTool[] = [
   createSignalTool,
   updateSignalTool,
   generateReportTool,
+  // Communication intelligence
+  sendPatientMessageTool,
+  getPatientConversationsTool,
+  // Automation intelligence
+  listAutomationsTool,
+  triggerAutomationTool,
+  getAutomationRunsTool,
 ];
 
 // ---------------------------------------------------------------------------

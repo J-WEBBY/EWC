@@ -35,6 +35,8 @@ export interface AgentContext {
   tenantId: string;
   userId: string;
   conversationId?: string;
+  /** Agent key — identifies which agent is running (primary_agent | sales_agent | crm_agent) */
+  agentKey?: string;
   /** Full system prompt for the agent */
   systemPrompt: string;
   /** Tools available in this execution */

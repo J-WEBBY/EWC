@@ -26,23 +26,40 @@ import { queryAppointmentsTool } from './query-appointments';
 import { getClinicOverviewTool } from './get-clinic-overview';
 import { invokeSpecialistTool, SPECIALIST_TOOLS } from './invoke-specialist';
 import { createPatientTool, bookAppointmentTool, cancelAppointmentTool, logClinikoNoteTool } from './cliniko-write';
+import { sendPatientMessageTool } from './send-patient-message';
+import { getPatientConversationsTool } from './get-patient-conversations';
+import { listAutomationsTool, triggerAutomationTool, getAutomationRunsTool } from './automation-tools';
+import { queryInvoicesTool } from './query-invoices';
 
 export { SPECIALIST_TOOLS };
 
-/** All 17 base tools (no invoke_specialist — use EWC_TOOLS for primary_agent) */
+/** All base tools (no invoke_specialist — use EWC_TOOLS for primary_agent) */
 export const ALL_TOOLS: AgentTool[] = [
+  // Cliniko read
   getClinicOverviewTool,
   queryPatientsTool,
   queryAppointmentsTool,
+  queryInvoicesTool,
+  // Cliniko write
   createPatientTool,
   bookAppointmentTool,
   cancelAppointmentTool,
   logClinikoNoteTool,
-  webSearchTool,
-  knowledgeBaseSearchTool,
+  // Communication intelligence
+  sendPatientMessageTool,
+  getPatientConversationsTool,
+  // Automation intelligence
+  listAutomationsTool,
+  triggerAutomationTool,
+  getAutomationRunsTool,
+  // Signals
   signalQueryTool,
   createSignalTool,
   updateSignalTool,
+  // Knowledge + search
+  webSearchTool,
+  knowledgeBaseSearchTool,
+  // Org + reporting
   departmentInfoTool,
   generateReportTool,
   routeToSpecialistTool,
@@ -62,15 +79,27 @@ export const TOOL_MAP: Record<string, AgentTool> = Object.fromEntries(
 );
 
 /**
+ * Communication + automation tools shared by all specialist agents.
+ */
+const COMMUNICATION_TOOLS: AgentTool[] = [
+  sendPatientMessageTool,
+  getPatientConversationsTool,
+  listAutomationsTool,
+  triggerAutomationTool,
+  getAutomationRunsTool,
+];
+
+/**
  * Returns the correct tool set for a given agent_key.
  *
- * - primary_agent (EWC): EWC_TOOLS — all 13 tools + invoke_specialist
- * - sales_agent (Orion):  SPECIALIST_TOOLS — patient/signal/search/reports (9 tools)
- * - crm_agent (Aria):     SPECIALIST_TOOLS — same subset as Orion
+ * - primary_agent (EWC): EWC_TOOLS — all tools + invoke_specialist
+ * - sales_agent (Orion):  SPECIALIST_TOOLS + comms/automation + invoices
+ * - crm_agent (Aria):     SPECIALIST_TOOLS + comms/automation
  */
 export function getToolsForAgent(agentKey: string): AgentTool[] {
   if (agentKey === 'primary_agent') return EWC_TOOLS;
-  return SPECIALIST_TOOLS;
+  if (agentKey === 'sales_agent') return [...SPECIALIST_TOOLS, ...COMMUNICATION_TOOLS, queryInvoicesTool];
+  return [...SPECIALIST_TOOLS, ...COMMUNICATION_TOOLS];
 }
 
 /**
@@ -109,10 +138,16 @@ export {
   runScanTool,
   queryPatientsTool,
   queryAppointmentsTool,
+  queryInvoicesTool,
   createPatientTool,
   bookAppointmentTool,
   cancelAppointmentTool,
   logClinikoNoteTool,
   getClinicOverviewTool,
   invokeSpecialistTool,
+  sendPatientMessageTool,
+  getPatientConversationsTool,
+  listAutomationsTool,
+  triggerAutomationTool,
+  getAutomationRunsTool,
 };
