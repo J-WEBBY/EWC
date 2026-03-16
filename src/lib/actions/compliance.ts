@@ -273,16 +273,13 @@ export async function getHRRecords(): Promise<HRRecord[]> {
     const { data: users, error: uErr } = await db
       .from('users')
       .select('id, first_name, last_name, roles!inner(name)')
-      .eq('tenant_id', tenantId)
-      .eq('status', 'active')
       .order('first_name');
 
     if (uErr || !users) return [];
 
     const { data: records } = await db
       .from('compliance_hr_records')
-      .select('*')
-      .eq('tenant_id', tenantId);
+      .select('*');
 
     const recordMap: Record<string, Record<string, unknown>> = {};
     for (const r of records ?? []) {
@@ -368,16 +365,13 @@ export async function getTrainingMatrix(): Promise<TrainingMatrixRow[]> {
     const { data: users, error: uErr } = await db
       .from('users')
       .select('id, first_name, last_name, roles!inner(name)')
-      .eq('tenant_id', tenantId)
-      .eq('status', 'active')
       .order('first_name');
 
     if (uErr || !users) return [];
 
     const { data: entries } = await db
       .from('compliance_training')
-      .select('*')
-      .eq('tenant_id', tenantId);
+      .select('*');
 
     const entryMap: Record<string, Record<string, Record<string, unknown>>> = {};
     for (const e of entries ?? []) {
@@ -475,7 +469,6 @@ export async function getEquipmentList(): Promise<EquipmentItem[]> {
         responsible_user_id, action_required, notes,
         users:responsible_user_id(first_name, last_name)
       `)
-      .eq('tenant_id', tenantId)
       .order('item_code');
 
     if (error || !data) return [];
@@ -594,7 +587,6 @@ export async function getCQCAudit(): Promise<CQCAnswer[]> {
     const { data, error } = await db
       .from('compliance_cqc_answers')
       .select('*')
-      .eq('tenant_id', tenantId)
       .order('question_number');
 
     if (error || !data) return [];
@@ -664,7 +656,6 @@ export async function getGovernanceLog(): Promise<GovernanceEntry[]> {
         actions_arising, owner_id, due_date, status, created_at,
         users:owner_id(first_name, last_name)
       `)
-      .eq('tenant_id', tenantId)
       .order('event_date', { ascending: false });
 
     if (error || !data) return [];
@@ -780,7 +771,6 @@ export async function getCalendarTasks(): Promise<CalendarTask[]> {
         responsible_user_id, last_completed_date, next_due_date, notes,
         users:responsible_user_id(first_name, last_name)
       `)
-      .eq('tenant_id', tenantId)
       .order('task_order');
 
     if (error || !data) return [];
@@ -894,13 +884,13 @@ export async function getComplianceDashboard(): Promise<ComplianceDashboard> {
     const db = createSovereignClient();
 
     const [users, hrRecords, training, equipment, cqcAnswers, govLog, calendar] = await Promise.all([
-      db.from('users').select('id').eq('tenant_id', tenantId).eq('status', 'active'),
-      db.from('compliance_hr_records').select('dbs_expiry_date, rtw_type, rtw_expiry_date, next_appraisal_date').eq('tenant_id', tenantId),
-      db.from('compliance_training').select('completed_date, expiry_date').eq('tenant_id', tenantId),
-      db.from('compliance_equipment').select('next_due_date').eq('tenant_id', tenantId),
-      db.from('compliance_cqc_answers').select('answer').eq('tenant_id', tenantId),
-      db.from('compliance_governance_log').select('status').eq('tenant_id', tenantId),
-      db.from('compliance_calendar').select('next_due_date').eq('tenant_id', tenantId),
+      db.from('users').select('id'),
+      db.from('compliance_hr_records').select('dbs_expiry_date, rtw_type, rtw_expiry_date, next_appraisal_date'),
+      db.from('compliance_training').select('completed_date, expiry_date'),
+      db.from('compliance_equipment').select('next_due_date'),
+      db.from('compliance_cqc_answers').select('answer'),
+      db.from('compliance_governance_log').select('status'),
+      db.from('compliance_calendar').select('next_due_date'),
     ]);
 
     const totalStaff = users.data?.length ?? 0;
