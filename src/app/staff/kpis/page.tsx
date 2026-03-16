@@ -1343,7 +1343,7 @@ export default function KPIsPage() {
       {profile && <StaffNav profile={profile} userId={userId ?? ''} brandColor={brandColor} currentPath="Tasks & KPIs" />}
 
       {/* Main container (everything right of nav) */}
-      <div style={{ display: 'flex', flex: 1, height: '100vh', overflow: 'hidden', marginLeft: profile ? 0 : 0 }}>
+      <div style={{ display: 'flex', flex: 1, height: '100vh', overflow: 'hidden', paddingLeft: 240 }}>
 
         {/* LEFT — Task List */}
         <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>

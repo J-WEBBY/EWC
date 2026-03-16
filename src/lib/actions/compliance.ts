@@ -241,14 +241,11 @@ function computeCalendarStatus(nextDue: string | null): CalendarTask['status'] {
 export async function getActiveUsers(): Promise<ActiveUser[]> {
   const session = await getStaffSession();
   if (!session) return [];
-  const { tenantId } = session;
   try {
     const db = createSovereignClient();
     const { data, error } = await db
       .from('users')
       .select(`id, first_name, last_name, email, roles!inner(name)`)
-      .eq('tenant_id', tenantId)
-      .eq('status', 'active')
       .order('first_name');
 
     if (error || !data) return [];
