@@ -332,25 +332,25 @@ export async function getHRRecords(): Promise<HRRecord[]> {
 export async function upsertHRRecord(
   userId: string,
   data: {
-    staff_id?: string;
-    job_title?: string;
-    dept_team?: string;
-    start_date?: string;
-    contract_type?: string;
-    dbs_number?: string;
-    dbs_issue_date?: string;
-    dbs_expiry_date?: string;
-    rtw_type?: string;
-    rtw_expiry_date?: string;
-    registration_body?: string;
-    registration_number?: string;
-    registration_expiry?: string;
-    last_appraisal_date?: string;
-    next_appraisal_date?: string;
+    staff_id?: string | null;
+    job_title?: string | null;
+    dept_team?: string | null;
+    start_date?: string | null;
+    contract_type?: string | null;
+    dbs_number?: string | null;
+    dbs_issue_date?: string | null;
+    dbs_expiry_date?: string | null;
+    rtw_type?: string | null;
+    rtw_expiry_date?: string | null;
+    registration_body?: string | null;
+    registration_number?: string | null;
+    registration_expiry?: string | null;
+    last_appraisal_date?: string | null;
+    next_appraisal_date?: string | null;
     staff_signed?: boolean;
     manager_signed?: boolean;
     documents_uploaded?: boolean;
-    notes?: string;
+    notes?: string | null;
     assigned_by?: string;
   }
 ): Promise<{ success: boolean; error?: string }> {

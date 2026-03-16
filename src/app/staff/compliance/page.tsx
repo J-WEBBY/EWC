@@ -644,26 +644,27 @@ function HRModal({ record, onClose, onSave, onDelete }: {
   async function handleSave() {
     setSaving(true);
     setErr('');
+    const n = (v: string) => v.trim() || null;
     const res = await upsertHRRecord(record.user_id, {
-      staff_id:            form.staff_id || undefined,
-      job_title:           form.job_title || undefined,
-      dept_team:           form.dept_team || undefined,
-      start_date:          form.start_date || undefined,
-      contract_type:       form.contract_type || undefined,
-      dbs_number:          form.dbs_number || undefined,
-      dbs_issue_date:      form.dbs_issue_date || undefined,
-      dbs_expiry_date:     form.dbs_expiry_date || undefined,
-      rtw_type:            form.rtw_type || undefined,
-      rtw_expiry_date:     form.rtw_expiry_date || undefined,
-      registration_body:   form.registration_body || undefined,
-      registration_number: form.registration_number || undefined,
-      registration_expiry: form.registration_expiry || undefined,
-      last_appraisal_date: form.last_appraisal_date || undefined,
-      next_appraisal_date: form.next_appraisal_date || undefined,
+      staff_id:            n(form.staff_id),
+      job_title:           n(form.job_title),
+      dept_team:           n(form.dept_team),
+      start_date:          n(form.start_date),
+      contract_type:       n(form.contract_type),
+      dbs_number:          n(form.dbs_number),
+      dbs_issue_date:      n(form.dbs_issue_date),
+      dbs_expiry_date:     n(form.dbs_expiry_date),
+      rtw_type:            n(form.rtw_type),
+      rtw_expiry_date:     n(form.rtw_expiry_date),
+      registration_body:   n(form.registration_body),
+      registration_number: n(form.registration_number),
+      registration_expiry: n(form.registration_expiry),
+      last_appraisal_date: n(form.last_appraisal_date),
+      next_appraisal_date: n(form.next_appraisal_date),
       staff_signed:        form.staff_signed,
       manager_signed:      form.manager_signed,
       documents_uploaded:  form.documents_uploaded,
-      notes:               form.notes || undefined,
+      notes:               n(form.notes),
     });
     setSaving(false);
     if (res.success) { onSave(); onClose(); }
