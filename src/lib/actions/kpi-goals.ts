@@ -277,10 +277,20 @@ export async function createGoal(goal: {
   parent_goal_id?: string;
 }): Promise<{ success: boolean; id?: string; error?: string }> {
   const db = createSovereignClient();
+
+  // Resolve tenant_id from the owner's user record (single-tenant — just need the UUID)
+  const { data: userRow } = await db
+    .from('users')
+    .select('tenant_id')
+    .eq('id', goal.owner_id)
+    .single();
+  const tenantId = userRow?.tenant_id as string | undefined;
+
   const { data, error } = await db
     .from('staff_goals')
     .insert({
       ...goal,
+      tenant_id:     tenantId,
       current_value: 0,
       status:        'active',
     })
