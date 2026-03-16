@@ -14,7 +14,7 @@ import { getStaffSession } from '@/lib/supabase/tenant-context';
 
 export type GoalCategory =
   | 'appointments' | 'revenue' | 'patients' | 'compliance'
-  | 'training' | 'operational' | 'personal' | 'retention' | 'acquisition';
+  | 'training' | 'operational' | 'personal' | 'retention' | 'acquisition' | 'clinical';
 
 export type GoalScope    = 'personal' | 'department' | 'clinic';
 export type GoalPeriod   = 'weekly' | 'monthly' | 'quarterly' | 'annual' | 'custom';
@@ -1040,4 +1040,88 @@ export async function getClinicKPIMetrics(): Promise<ClinicKPIMetrics> {
     sparkline_patients:     sparklinePatients,
     sparkline_nps:          sparklineNps,
   };
+}
+
+// =============================================================================
+// SUB-TASKS & TASK NOTES
+// =============================================================================
+
+export async function getSubTasks(parentId: string): Promise<StaffGoal[]> {
+  const db = createSovereignClient();
+  const { data, error } = await db
+    .from('staff_goals')
+    .select(`
+      *,
+      owner:owner_id(first_name, last_name, role_id(name)),
+      assigner:assigned_by(first_name, last_name)
+    `)
+    .eq('parent_goal_id', parentId)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('[kpi-goals] getSubTasks error:', error);
+    return [];
+  }
+
+  return (data ?? []).map((g: Record<string, unknown>) => {
+    const owner   = g.owner   as { first_name?: string; last_name?: string; role_id?: { name?: string } } | null;
+    const assigner = g.assigner as { first_name?: string; last_name?: string } | null;
+    return {
+      ...g,
+      owner_name:    owner ? `${owner.first_name ?? ''} ${owner.last_name ?? ''}`.trim() : undefined,
+      owner_role:    owner?.role_id?.name ?? undefined,
+      assigner_name: assigner ? `${assigner.first_name ?? ''} ${assigner.last_name ?? ''}`.trim() : undefined,
+      status:        calcGoalStatus(g as { target_value: number; current_value: number; due_date: string; status: GoalStatus }),
+    } as StaffGoal;
+  });
+}
+
+export async function createSubTask(params: {
+  parent_goal_id: string;
+  owner_id:       string;
+  assigned_by:    string;
+  title:          string;
+}): Promise<{ success: boolean; id?: string; error?: string }> {
+  const db = createSovereignClient();
+  const today   = new Date().toISOString().split('T')[0];
+  const due     = new Date(Date.now() + 30 * 86_400_000).toISOString().split('T')[0];
+
+  const { data, error } = await db
+    .from('staff_goals')
+    .insert({
+      parent_goal_id: params.parent_goal_id,
+      owner_id:       params.owner_id,
+      assigned_by:    params.assigned_by,
+      title:          params.title,
+      category:       'operational' as GoalCategory,
+      scope:          'personal',
+      target_value:   1,
+      current_value:  0,
+      unit:           'count',
+      period:         'custom',
+      start_date:     today,
+      due_date:       due,
+      status:         'active',
+      is_cascaded:    false,
+    })
+    .select('id')
+    .single();
+
+  if (error) {
+    console.error('[kpi-goals] createSubTask error:', error);
+    return { success: false, error: error.message };
+  }
+  return { success: true, id: (data as { id: string }).id };
+}
+
+export async function updateTaskNotes(
+  goalId:    string,
+  notesJson: string,
+): Promise<{ success: boolean }> {
+  const db = createSovereignClient();
+  const { error } = await db
+    .from('staff_goals')
+    .update({ notes: notesJson })
+    .eq('id', goalId);
+  return { success: !error };
 }
