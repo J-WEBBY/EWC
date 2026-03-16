@@ -124,7 +124,11 @@ const CAT_LABELS: Record<string, string> = {
 };
 
 // ─── CQC Domains ─────────────────────────────────────────────────────────────
-const CQC_DOMAINS = ['SAFE', 'EFFECTIVE', 'CARING', 'RESPONSIVE', 'WELL-LED'];
+const CQC_DOMAINS = ['safe', 'effective', 'caring', 'responsive', 'well_led'];
+const CQC_DOMAIN_LABELS: Record<string, string> = {
+  safe: 'SAFE', effective: 'EFFECTIVE', caring: 'CARING',
+  responsive: 'RESPONSIVE', well_led: 'WELL-LED',
+};
 
 // ─── Governance ───────────────────────────────────────────────────────────────
 const GOV_TYPES = [
@@ -1039,7 +1043,7 @@ function CQCTab({ questions, users, currentUserId, onRefresh }: {
   onRefresh: () => void;
 }) {
   const [localQs, setLocalQs] = useState<CQCAnswer[]>(questions);
-  const [expanded, setExpanded] = useState<string | null>('SAFE');
+  const [expanded, setExpanded] = useState<string | null>('safe');
   const [editQNum, setEditQNum] = useState<number | null>(null);
   const [editForm, setEditForm] = useState({ evidence_notes: '', action_required: '', target_date: '', answered_by: '' });
   const [saving, setSaving] = useState<number | null>(null);
@@ -1121,7 +1125,7 @@ function CQCTab({ questions, users, currentUserId, onRefresh }: {
 
       <div className="space-y-3">
         {CQC_DOMAINS.map(domain => {
-          const domainQs = localQs.filter(q => (q.domain ?? '').toUpperCase() === domain);
+          const domainQs = localQs.filter(q => (q.domain ?? '') === domain);
           const domainAnswered = domainQs.filter(q => q.answer !== null).length;
           const domainYes = domainQs.filter(q => q.answer === 'yes').length;
           const domainScore = domainAnswered > 0 ? Math.round((domainYes / domainAnswered) * 100) : 0;
@@ -1134,7 +1138,7 @@ function CQCTab({ questions, users, currentUserId, onRefresh }: {
                 className="w-full flex items-center justify-between px-5 py-4 hover:bg-[#F0F4FF] transition-colors"
               >
                 <div className="flex items-center gap-4">
-                  <span className="text-[12px] font-bold" style={{ color: NAVY }}>{domain}</span>
+                  <span className="text-[12px] font-bold" style={{ color: NAVY }}>{CQC_DOMAIN_LABELS[domain] ?? domain.toUpperCase()}</span>
                   <span className="text-[10px]" style={{ color: MUTED }}>{domainAnswered}/{domainQs.length} answered</span>
                   <span className="text-[11px] font-semibold" style={{ color: domainScore >= 80 ? GREEN : domainScore >= 60 ? ORANGE : RED }}>
                     {domainScore}%
