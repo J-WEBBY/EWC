@@ -197,7 +197,7 @@ ON CONFLICT DO NOTHING;
 --   so Dr Suresh (manager role) can still be flagged as clinical.
 -- =============================================================================
 
-INSERT INTO roles (tenant_id, name, slug, permission_level, is_admin, permissions)
+INSERT INTO roles (tenant_id, name, slug, permission_level, is_admin, is_clinical, permissions)
 SELECT t.id, r.name, r.slug, r.permission_level, r.is_admin, r.is_clinical, r.permissions::JSONB
 FROM tenants t
 CROSS JOIN (VALUES
@@ -239,7 +239,7 @@ CROSS JOIN (VALUES
     '{"can_manage_users":false,"can_view_all_signals":false,"can_view_department_signals":true,"can_create_signals":true,"can_approve_signals":false,"can_view_reports":false,"can_view_patients":true,"can_view_compliance":false,"can_view_all_staff_kpis":false,"can_view_clinical_records":false}'
   )
 
-) AS r(name, slug, permission_level, is_admin, permissions)
+) AS r(name, slug, permission_level, is_admin, is_clinical, permissions)
 WHERE t.slug = 'edgbaston-wellness'
 ON CONFLICT (tenant_id, slug) DO UPDATE SET
   permission_level = EXCLUDED.permission_level,
