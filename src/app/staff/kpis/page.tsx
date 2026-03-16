@@ -790,521 +790,300 @@ function TaskHub({ task, userId, users, onClose, onDelete, onRefresh }: TaskHubP
     outline:      'none',
   };
 
+  const completedSubCount = subTasks.filter(s => s.status === 'completed').length;
+  const subTaskProgress   = subTasks.length > 0 ? (completedSubCount / subTasks.length) * 100 : 0;
+
   return (
     <div style={{
-      width:          560,
-      flexShrink:     0,
-      borderLeft:     `1px solid ${BORDER}`,
-      overflowY:      'auto',
-      display:        'flex',
-      flexDirection:  'column',
-      height:         '100%',
-      background:     BG,
+      width:         560,
+      flexShrink:    0,
+      borderLeft:    `1px solid ${BORDER}`,
+      overflowY:     'auto',
+      display:       'flex',
+      flexDirection: 'column',
+      height:        '100%',
+      background:    BG,
     }}>
-      {/* SECTION 1 — Header */}
-      <div style={{ ...hubSectionStyle, paddingBottom: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
-          <div style={{ flex: 1, minWidth: 0, paddingRight: 12 }}>
-            {editingTitle ? (
-              <div style={{ display: 'flex', gap: 6 }}>
-                <input
-                  value={titleDraft}
-                  onChange={e => setTitleDraft(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') handleSaveTitle(); if (e.key === 'Escape') setEditingTitle(false); }}
-                  style={{ ...inputStyle, fontSize: 15, fontWeight: 700, flex: 1 }}
-                  autoFocus
-                />
-                <button
-                  onClick={handleSaveTitle}
-                  disabled={titleSaving}
-                  style={{
-                    padding:      '6px 12px',
-                    background:   BLUE,
-                    color:        '#fff',
-                    border:       'none',
-                    borderRadius: 7,
-                    fontSize:     11,
-                    fontWeight:   600,
-                    cursor:       'pointer',
-                  }}
-                >
-                  Save
-                </button>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <h2
-                  style={{ fontSize: 17, fontWeight: 900, color: NAVY, letterSpacing: '-0.02em', margin: 0 }}
-                >
-                  {task.title}
-                </h2>
-                <button
-                  onClick={() => setEditingTitle(true)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, padding: 2, marginTop: 1 }}
-                >
-                  <Edit3 size={12} />
-                </button>
-              </div>
-            )}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
-              <span style={{
-                fontSize:        9,
-                fontWeight:      600,
-                textTransform:   'uppercase',
-                letterSpacing:   '0.06em',
-                color:           isCompleted ? GREEN : isClosed ? MUTED : BLUE,
-                backgroundColor: isCompleted ? `${GREEN}14` : isClosed ? `${MUTED}14` : `${BLUE}14`,
-                padding:         '2px 6px',
-                borderRadius:    4,
-              }}>
-                {isCompleted ? 'Completed' : isClosed ? 'Closed' : 'Active'}
-              </span>
-              <Flag size={11} style={{ color: priorityColor(meta.priority) }} />
-              <span style={{ fontSize: 10, color: MUTED, textTransform: 'capitalize' }}>{meta.priority} priority</span>
-            </div>
-          </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, padding: 4, flexShrink: 0 }}>
-            <X size={15} />
+
+      {/* ── HEADER ─────────────────────────────────────────────────────────── */}
+      <div style={{ padding: '20px 24px 0', borderBottom: `1px solid ${BORDER}` }}>
+
+        {/* Top row: close */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, padding: 2 }}>
+            <X size={14} />
           </button>
         </div>
 
-        {/* Action buttons */}
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {/* Title */}
+        {editingTitle ? (
+          <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+            <input
+              value={titleDraft}
+              onChange={e => setTitleDraft(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleSaveTitle(); if (e.key === 'Escape') setEditingTitle(false); }}
+              style={{ ...inputStyle, fontSize: 16, fontWeight: 700, flex: 1 }}
+              autoFocus
+            />
+            <button onClick={handleSaveTitle} disabled={titleSaving} style={{ padding: '6px 14px', background: BLUE, color: '#fff', border: 'none', borderRadius: 7, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+              {titleSaving ? '...' : 'Save'}
+            </button>
+            <button onClick={() => setEditingTitle(false)} style={{ padding: '6px 8px', background: 'transparent', color: MUTED, border: `1px solid ${BORDER}`, borderRadius: 7, cursor: 'pointer' }}>
+              <X size={11} />
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 8 }} className="group">
+            <h2 style={{ fontSize: 18, fontWeight: 800, color: NAVY, letterSpacing: '-0.025em', margin: 0, flex: 1, lineHeight: 1.3 }}>
+              {task.title}
+            </h2>
+            <button onClick={() => setEditingTitle(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, padding: 2, flexShrink: 0, opacity: 0, transition: 'opacity 0.15s', marginTop: 3 }} className="group-hover:opacity-100">
+              <Edit3 size={12} />
+            </button>
+          </div>
+        )}
+
+        {/* Status + meta row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+          <span style={{
+            fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em',
+            color: isCompleted ? GREEN : isClosed ? MUTED : BLUE,
+            background: isCompleted ? `${GREEN}12` : isClosed ? `${MUTED}12` : `${BLUE}12`,
+            border: `1px solid ${isCompleted ? GREEN : isClosed ? MUTED : BLUE}30`,
+            padding: '2px 8px', borderRadius: 999,
+          }}>
+            {isCompleted ? 'Completed' : isClosed ? 'Closed' : 'Active'}
+          </span>
+          <span style={{ fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
+            {meta.priority} priority
+          </span>
+          <span style={{ fontSize: 9, color: MUTED }}>·</span>
+          <span style={{ fontSize: 9, color: MUTED, textTransform: 'capitalize', letterSpacing: '0.04em' }}>
+            {task.category}
+          </span>
+          {subTasks.length > 0 && (
+            <>
+              <span style={{ fontSize: 9, color: MUTED }}>·</span>
+              <span style={{ fontSize: 9, color: completedSubCount === subTasks.length ? GREEN : MUTED, fontWeight: 600 }}>
+                {completedSubCount}/{subTasks.length} sub-tasks
+              </span>
+            </>
+          )}
+        </div>
+
+        {/* Action strip */}
+        <div style={{ display: 'flex', borderTop: `1px solid ${BORDER}` }}>
           <button
             onClick={handleMarkComplete}
             style={{
-              display:      'flex',
-              alignItems:   'center',
-              gap:          4,
-              padding:      '6px 10px',
-              border:       `1px solid ${GREEN}40`,
-              borderRadius: 7,
-              background:   `${GREEN}10`,
-              color:        GREEN,
-              fontSize:     11,
-              fontWeight:   600,
-              cursor:       'pointer',
+              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+              padding: '10px 0', background: 'none', border: 'none', borderRight: `1px solid ${BORDER}`,
+              color: isCompleted ? MUTED : GREEN, fontSize: 11, fontWeight: 600, cursor: 'pointer',
+              transition: 'background 0.15s',
             }}
+            className="hover:bg-[#05966908]"
           >
             <CheckCircle2 size={12} />
-            {isCompleted ? 'Reopen' : 'Mark Complete'}
+            {isCompleted ? 'Reopen' : 'Complete'}
           </button>
           {!isClosed && (
             <button
               onClick={handleCloseTask}
               style={{
-                display:      'flex',
-                alignItems:   'center',
-                gap:          4,
-                padding:      '6px 10px',
-                border:       `1px solid ${MUTED}30`,
-                borderRadius: 7,
-                background:   `${MUTED}10`,
-                color:        MUTED,
-                fontSize:     11,
-                fontWeight:   600,
-                cursor:       'pointer',
+                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                padding: '10px 0', background: 'none', border: 'none', borderRight: `1px solid ${BORDER}`,
+                color: MUTED, fontSize: 11, fontWeight: 600, cursor: 'pointer',
               }}
+              className="hover:bg-[#96989B08]"
             >
               <X size={12} />
-              Close Task
+              Close
             </button>
           )}
           <button
             onClick={handleDelete}
             style={{
-              display:      'flex',
-              alignItems:   'center',
-              gap:          4,
-              padding:      '6px 10px',
-              border:       `1px solid ${RED}30`,
-              borderRadius: 7,
-              background:   confirmDelete ? `${RED}20` : `${RED}08`,
-              color:        RED,
-              fontSize:     11,
-              fontWeight:   600,
-              cursor:       'pointer',
+              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+              padding: '10px 0', background: confirmDelete ? `${RED}08` : 'none', border: 'none',
+              color: RED, fontSize: 11, fontWeight: confirmDelete ? 700 : 600, cursor: 'pointer',
             }}
+            className="hover:bg-[#DC262608]"
           >
             <Trash2 size={12} />
-            {confirmDelete ? 'Confirm Delete' : 'Delete'}
+            {confirmDelete ? 'Confirm?' : 'Delete'}
           </button>
         </div>
       </div>
 
-      {/* SECTION 2 — Details */}
+      {/* ── DETAILS ────────────────────────────────────────────────────────── */}
       <div style={hubSectionStyle}>
         <div style={hubLabelStyle}>Details</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {task.description && (
-            <p style={{ fontSize: 12, color: SEC, margin: 0, lineHeight: 1.6 }}>{task.description}</p>
+        {task.description && (
+          <p style={{ fontSize: 12, color: SEC, margin: '0 0 12px', lineHeight: 1.6 }}>{task.description}</p>
+        )}
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {/* Static rows */}
+          <HubRow label="Category" value={<span style={{ textTransform: 'capitalize' }}>{task.category}</span>} />
+          {meta.treatment_type && meta.treatment_type !== 'None' && (
+            <HubRow label="Treatment" value={meta.treatment_type} />
           )}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 16px' }}>
-            <DetailRow label="Category" value={task.category} />
-            {meta.treatment_type && meta.treatment_type !== 'None' && (
-              <DetailRow label="Treatment" value={meta.treatment_type} />
-            )}
-            {meta.patient_name && (
-              <DetailRow label="Patient" value={meta.patient_name} />
-            )}
+          {meta.patient_name && (
+            <HubRow label="Patient" value={meta.patient_name} />
+          )}
+          {task.assigner_name && (
+            <HubRow label="Assigned by" value={task.assigner_name} />
+          )}
 
-            {/* Editable — Assigned to */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <span style={{ fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.18em', fontWeight: 600 }}>Assigned to</span>
-              {editingAssignee ? (
-                <div style={{ display: 'flex', gap: 4 }}>
-                  <select
-                    value={assigneeDraft}
-                    onChange={e => setAssigneeDraft(e.target.value)}
-                    autoFocus
-                    style={{
-                      flex: 1, padding: '4px 6px', border: `1px solid ${BORDER}`,
-                      borderRadius: 6, fontSize: 11, color: NAVY, background: BG, outline: 'none',
-                    }}
-                  >
-                    {users.map(u => (
-                      <option key={u.id} value={u.id}>{u.full_name}</option>
-                    ))}
-                  </select>
-                  <button
-                    onClick={() => handleSaveAssignee(assigneeDraft)}
-                    disabled={assigneeSaving}
-                    style={{
-                      padding: '4px 8px', background: BLUE, color: '#fff',
-                      border: 'none', borderRadius: 6, fontSize: 10, fontWeight: 600, cursor: 'pointer',
-                    }}
-                  >
-                    {assigneeSaving ? '...' : 'Save'}
-                  </button>
-                  <button
-                    onClick={() => { setEditingAssignee(false); setAssigneeDraft(task.owner_id ?? ''); }}
-                    style={{
-                      padding: '4px 6px', background: 'transparent', color: MUTED,
-                      border: `1px solid ${BORDER}`, borderRadius: 6, fontSize: 10, cursor: 'pointer',
-                    }}
-                  >
-                    <X size={10} />
-                  </button>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }} className="group">
-                  <span style={{ fontSize: 11, color: SEC }}>{task.owner_name ?? '—'}</span>
-                  <button
-                    onClick={() => setEditingAssignee(true)}
-                    style={{
-                      background: 'none', border: 'none', cursor: 'pointer', color: MUTED,
-                      padding: 0, opacity: 0, transition: 'opacity 0.15s',
-                    }}
-                    className="group-hover:opacity-100"
-                  >
-                    <Edit3 size={10} />
-                  </button>
-                </div>
-              )}
-            </div>
+          {/* Editable — Assigned to */}
+          <HubRow label="Assigned to" value={
+            editingAssignee ? (
+              <div style={{ display: 'flex', gap: 4, flex: 1 }}>
+                <select value={assigneeDraft} onChange={e => setAssigneeDraft(e.target.value)} autoFocus
+                  style={{ flex: 1, padding: '3px 6px', border: `1px solid ${BORDER}`, borderRadius: 6, fontSize: 11, color: NAVY, background: BG, outline: 'none' }}>
+                  {users.map(u => <option key={u.id} value={u.id}>{u.full_name}</option>)}
+                </select>
+                <button onClick={() => handleSaveAssignee(assigneeDraft)} disabled={assigneeSaving}
+                  style={{ padding: '3px 10px', background: BLUE, color: '#fff', border: 'none', borderRadius: 6, fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>
+                  {assigneeSaving ? '...' : 'Save'}
+                </button>
+                <button onClick={() => { setEditingAssignee(false); setAssigneeDraft(task.owner_id ?? ''); }}
+                  style={{ padding: '3px 6px', background: 'transparent', color: MUTED, border: `1px solid ${BORDER}`, borderRadius: 6, cursor: 'pointer' }}>
+                  <X size={10} />
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }} className="group">
+                <span>{task.owner_name ?? '—'}</span>
+                <button onClick={() => setEditingAssignee(true)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, padding: 0, opacity: 0, transition: 'opacity 0.15s' }}
+                  className="group-hover:opacity-100"><Edit3 size={10} /></button>
+              </div>
+            )
+          } />
 
-            {/* Editable — Due date */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <span style={{ fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.18em', fontWeight: 600 }}>Due</span>
-              {editingDueDate ? (
-                <div style={{ display: 'flex', gap: 4 }}>
-                  <input
-                    type="date"
-                    value={dueDateDraft}
-                    onChange={e => setDueDateDraft(e.target.value)}
-                    autoFocus
-                    style={{
-                      flex: 1, padding: '4px 6px', border: `1px solid ${BORDER}`,
-                      borderRadius: 6, fontSize: 11, color: NAVY, background: BG,
-                      outline: 'none', colorScheme: 'light',
-                    }}
-                  />
-                  <button
-                    onClick={handleSaveDueDate}
-                    disabled={dueDateSaving || !dueDateDraft}
-                    style={{
-                      padding: '4px 8px', background: BLUE, color: '#fff',
-                      border: 'none', borderRadius: 6, fontSize: 10, fontWeight: 600, cursor: 'pointer',
-                      opacity: dueDateSaving || !dueDateDraft ? 0.5 : 1,
-                    }}
-                  >
-                    {dueDateSaving ? '...' : 'Save'}
-                  </button>
-                  <button
-                    onClick={() => { setEditingDueDate(false); setDueDateDraft(task.due_date ?? ''); }}
-                    style={{
-                      padding: '4px 6px', background: 'transparent', color: MUTED,
-                      border: `1px solid ${BORDER}`, borderRadius: 6, fontSize: 10, cursor: 'pointer',
-                    }}
-                  >
-                    <X size={10} />
-                  </button>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }} className="group">
-                  <span style={{ fontSize: 11, color: task.due_date && isOverdue(task) ? RED : SEC }}>
-                    {task.due_date ? fmtDate(task.due_date) : '—'}
-                  </span>
-                  <button
-                    onClick={() => setEditingDueDate(true)}
-                    style={{
-                      background: 'none', border: 'none', cursor: 'pointer', color: MUTED,
-                      padding: 0, opacity: 0, transition: 'opacity 0.15s',
-                    }}
-                    className="group-hover:opacity-100"
-                  >
-                    <Edit3 size={10} />
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {task.assigner_name && (
-              <DetailRow label="Assigned by" value={task.assigner_name} />
-            )}
-          </div>
+          {/* Editable — Due date */}
+          <HubRow label="Due date" value={
+            editingDueDate ? (
+              <div style={{ display: 'flex', gap: 4, flex: 1 }}>
+                <input type="date" value={dueDateDraft} onChange={e => setDueDateDraft(e.target.value)} autoFocus
+                  style={{ flex: 1, padding: '3px 6px', border: `1px solid ${BORDER}`, borderRadius: 6, fontSize: 11, color: NAVY, background: BG, outline: 'none', colorScheme: 'light' }} />
+                <button onClick={handleSaveDueDate} disabled={dueDateSaving || !dueDateDraft}
+                  style={{ padding: '3px 10px', background: BLUE, color: '#fff', border: 'none', borderRadius: 6, fontSize: 10, fontWeight: 600, cursor: 'pointer', opacity: !dueDateDraft ? 0.5 : 1 }}>
+                  {dueDateSaving ? '...' : 'Save'}
+                </button>
+                <button onClick={() => { setEditingDueDate(false); setDueDateDraft(task.due_date ?? ''); }}
+                  style={{ padding: '3px 6px', background: 'transparent', color: MUTED, border: `1px solid ${BORDER}`, borderRadius: 6, cursor: 'pointer' }}>
+                  <X size={10} />
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }} className="group">
+                <span style={{ color: task.due_date && isOverdue(task) ? RED : SEC }}>
+                  {task.due_date ? fmtDate(task.due_date) : '—'}
+                  {task.due_date && isOverdue(task) && <span style={{ marginLeft: 5, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Overdue</span>}
+                </span>
+                <button onClick={() => setEditingDueDate(true)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, padding: 0, opacity: 0, transition: 'opacity 0.15s' }}
+                  className="group-hover:opacity-100"><Edit3 size={10} /></button>
+              </div>
+            )
+          } />
         </div>
       </div>
 
-      {/* SECTION 3 — Sub-tasks */}
+      {/* ── SUB-TASKS ──────────────────────────────────────────────────────── */}
       <div style={hubSectionStyle}>
-        <div style={hubLabelStyle}>Sub-tasks</div>
-        {subTasks.length === 0 ? (
-          <p style={{ fontSize: 11, color: MUTED, margin: '0 0 10px' }}>No sub-tasks yet</p>
-        ) : (
-          <div style={{ marginBottom: 10 }}>
-            {subTasks.map(sub => (
-              <div
-                key={sub.id}
-                style={{
-                  display:     'flex',
-                  alignItems:  'center',
-                  gap:         8,
-                  padding:     '5px 0',
-                  borderBottom: `1px solid ${BORDER}`,
-                }}
-                className="group"
-              >
-                <button
-                  onClick={() => handleSubTaskCheck(sub)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: sub.status === 'completed' ? GREEN : MUTED, flexShrink: 0, padding: 0 }}
-                >
-                  {sub.status === 'completed' ? <CheckCircle2 size={14} /> : <Circle size={14} />}
-                </button>
-                <span style={{
-                  fontSize:        11,
-                  color:           sub.status === 'completed' ? MUTED : SEC,
-                  textDecoration:  sub.status === 'completed' ? 'line-through' : 'none',
-                  flex:            1,
-                }}>
-                  {sub.title}
-                </span>
-                <button
-                  onClick={() => handleSubTaskDelete(sub.id)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, padding: 0, opacity: 0, transition: 'opacity 0.15s' }}
-                  className="group-hover:opacity-100"
-                >
-                  <Trash2 size={11} />
-                </button>
-              </div>
-            ))}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+          <span style={hubLabelStyle}>Sub-tasks</span>
+          {subTasks.length > 0 && (
+            <span style={{ fontSize: 10, color: completedSubCount === subTasks.length ? GREEN : MUTED, fontWeight: 600 }}>
+              {completedSubCount} of {subTasks.length} complete
+            </span>
+          )}
+        </div>
+
+        {/* Progress bar */}
+        {subTasks.length > 0 && (
+          <div style={{ height: 3, background: `${BORDER}`, borderRadius: 99, marginBottom: 12, overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${subTaskProgress}%`, background: subTaskProgress === 100 ? GREEN : BLUE, borderRadius: 99, transition: 'width 0.3s' }} />
           </div>
         )}
+
+        {subTasks.length === 0 && (
+          <p style={{ fontSize: 11, color: MUTED, margin: '0 0 10px' }}>No sub-tasks yet</p>
+        )}
+
+        <div style={{ marginBottom: 10 }}>
+          {subTasks.map(sub => (
+            <div key={sub.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderBottom: `1px solid ${BORDER}` }} className="group">
+              <button onClick={() => handleSubTaskCheck(sub)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: sub.status === 'completed' ? GREEN : MUTED, flexShrink: 0, padding: 0 }}>
+                {sub.status === 'completed' ? <CheckCircle2 size={14} /> : <Circle size={14} />}
+              </button>
+              <span style={{ fontSize: 11, color: sub.status === 'completed' ? MUTED : SEC, textDecoration: sub.status === 'completed' ? 'line-through' : 'none', flex: 1 }}>
+                {sub.title}
+              </span>
+              <button onClick={() => handleSubTaskDelete(sub.id)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, padding: 0, opacity: 0, transition: 'opacity 0.15s' }}
+                className="group-hover:opacity-100">
+                <Trash2 size={11} />
+              </button>
+            </div>
+          ))}
+        </div>
+
         <div style={{ display: 'flex', gap: 6 }}>
-          <input
-            value={subTaskInput}
-            onChange={e => setSubTaskInput(e.target.value)}
+          <input value={subTaskInput} onChange={e => setSubTaskInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddSubTask(); } }}
             placeholder="Add a sub-task..."
-            style={{ ...inputStyle, flex: 1 }}
-          />
-          <button
-            onClick={handleAddSubTask}
-            disabled={subTaskSaving || !subTaskInput.trim()}
-            style={{
-              padding:      '7px 12px',
-              background:   BLUE,
-              color:        '#fff',
-              border:       'none',
-              borderRadius: 7,
-              fontSize:     12,
-              fontWeight:   600,
-              cursor:       subTaskSaving || !subTaskInput.trim() ? 'not-allowed' : 'pointer',
-              opacity:      subTaskSaving || !subTaskInput.trim() ? 0.5 : 1,
-              flexShrink:   0,
-            }}
-          >
+            style={{ ...inputStyle, flex: 1 }} />
+          <button onClick={handleAddSubTask} disabled={subTaskSaving || !subTaskInput.trim()}
+            style={{ padding: '7px 12px', background: NAVY, color: '#fff', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: subTaskInput.trim() ? 'pointer' : 'not-allowed', opacity: subTaskInput.trim() ? 1 : 0.35, flexShrink: 0 }}>
             <Plus size={13} />
           </button>
         </div>
       </div>
 
-      {/* SECTION 4 — Evidence */}
-      <div style={hubSectionStyle}>
-        <div style={hubLabelStyle}>Evidence</div>
-
-        {evidence.length === 0 ? (
-          <p style={{ fontSize: 11, color: MUTED, margin: '0 0 10px' }}>No evidence attached</p>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
-            {evidence.map(ev => (
-              <div
-                key={ev.id}
-                style={{
-                  display:     'flex',
-                  alignItems:  'center',
-                  gap:         8,
-                  padding:     '6px 10px',
-                  border:      `1px solid ${BORDER}`,
-                  borderRadius: 8,
-                  background:  'transparent',
-                }}
-                className="group"
-              >
-                {ev.evidence_url?.startsWith('data:image') ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={ev.evidence_url} alt={ev.file_name} style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 5, flexShrink: 0 }} />
-                ) : (
-                  <Paperclip size={14} style={{ color: MUTED, flexShrink: 0 }} />
-                )}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: NAVY, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.file_name}</div>
-                  {ev.note && <div style={{ fontSize: 10, color: TER }}>{ev.note}</div>}
-                  <div style={{ fontSize: 9, color: MUTED }}>{timeAgo(ev.created_at)}</div>
-                </div>
-                <button
-                  onClick={() => handleDeleteEvidence(ev.id)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, padding: 0, opacity: 0, transition: 'opacity 0.15s' }}
-                  className="group-hover:opacity-100"
-                >
-                  <Trash2 size={11} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* File picker */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          style={{ display: 'none' }}
-          accept="image/*,.pdf,.doc,.docx,.txt,.csv"
-          onChange={e => setSelectedFile(e.target.files?.[0] ?? null)}
-        />
-        {!selectedFile ? (
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            style={{
-              display:      'flex',
-              alignItems:   'center',
-              gap:          5,
-              padding:      '7px 12px',
-              border:       `1px solid ${BORDER}`,
-              borderRadius: 7,
-              background:   'transparent',
-              color:        SEC,
-              fontSize:     11,
-              fontWeight:   600,
-              cursor:       'pointer',
-            }}
-          >
-            <Paperclip size={11} />
-            Attach File
-          </button>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Paperclip size={11} style={{ color: BLUE }} />
-              <span style={{ fontSize: 11, color: SEC }}>{selectedFile.name}</span>
-              <button onClick={() => setSelectedFile(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, padding: 0, marginLeft: 'auto' }}>
-                <X size={11} />
-              </button>
-            </div>
-            <textarea
-              value={evidenceNote}
-              onChange={e => setEvidenceNote(e.target.value)}
-              placeholder="Optional note..."
-              rows={1}
-              style={{ ...inputStyle, resize: 'none' }}
-            />
-            <button
-              onClick={handleUploadEvidence}
-              disabled={uploadSaving}
-              style={{
-                padding:      '7px 12px',
-                background:   BLUE,
-                color:        '#fff',
-                border:       'none',
-                borderRadius: 7,
-                fontSize:     11,
-                fontWeight:   600,
-                cursor:       uploadSaving ? 'not-allowed' : 'pointer',
-                opacity:      uploadSaving ? 0.7 : 1,
-                alignSelf:    'flex-start',
-              }}
-            >
-              {uploadSaving ? 'Uploading...' : 'Upload'}
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* SECTION 5 — Session */}
+      {/* ── SESSION ────────────────────────────────────────────────────────── */}
       <div style={hubSectionStyle}>
         <div style={hubLabelStyle}>Session</div>
-        <div style={{ display: 'flex', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+
           {/* Session Cost */}
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 10, color: MUTED, marginBottom: 4 }}>Session Cost</div>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <div style={{ display: 'flex', alignItems: 'center', border: `1px solid ${BORDER}`, borderRadius: 7, overflow: 'hidden', flex: 1 }}>
-                <span style={{ padding: '7px 8px', color: MUTED, fontSize: 12, borderRight: `1px solid ${BORDER}` }}>£</span>
-                <input
-                  type="number"
-                  value={sessionCost}
-                  onChange={e => setSessionCost(e.target.value)}
-                  style={{ flex: 1, padding: '7px 8px', border: 'none', background: BG, color: NAVY, fontSize: 12, outline: 'none' }}
-                  placeholder="0"
-                />
+          <div style={{ border: `1px solid ${BORDER}`, borderRadius: 10, padding: '12px 14px' }}>
+            <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.24em', fontWeight: 600, color: MUTED, marginBottom: 8 }}>Session Cost</div>
+            {sessionCost ? (
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 3, marginBottom: 8 }}>
+                <span style={{ fontSize: 11, color: MUTED }}>£</span>
+                <span style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.04em', color: NAVY }}>{parseFloat(sessionCost).toLocaleString('en-GB')}</span>
               </div>
-              <button
-                onClick={handleSaveSessionCost}
-                style={{
-                  padding:      '7px 10px',
-                  background:   `${BLUE}12`,
-                  color:        BLUE,
-                  border:       `1px solid ${BLUE}30`,
-                  borderRadius: 7,
-                  fontSize:     11,
-                  fontWeight:   600,
-                  cursor:       'pointer',
-                  flexShrink:   0,
-                }}
-              >
-                Save
-              </button>
+            ) : (
+              <div style={{ fontSize: 11, color: MUTED, marginBottom: 8 }}>Not logged</div>
+            )}
+            <div style={{ display: 'flex', alignItems: 'center', border: `1px solid ${BORDER}`, borderRadius: 6, overflow: 'hidden' }}>
+              <span style={{ padding: '5px 7px', color: MUTED, fontSize: 11, borderRight: `1px solid ${BORDER}` }}>£</span>
+              <input type="number" value={sessionCost} onChange={e => setSessionCost(e.target.value)}
+                onBlur={handleSaveSessionCost}
+                style={{ flex: 1, padding: '5px 7px', border: 'none', background: BG, color: NAVY, fontSize: 11, outline: 'none' }}
+                placeholder="0" />
             </div>
           </div>
 
           {/* Satisfaction */}
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 10, color: MUTED, marginBottom: 4 }}>Satisfaction</div>
-            <div style={{ display: 'flex', gap: 4 }}>
+          <div style={{ border: `1px solid ${BORDER}`, borderRadius: 10, padding: '12px 14px' }}>
+            <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.24em', fontWeight: 600, color: MUTED, marginBottom: 8 }}>Satisfaction</div>
+            {satisfaction ? (
+              <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.04em', color: NAVY, marginBottom: 8 }}>
+                {satisfaction}<span style={{ fontSize: 11, color: MUTED, fontWeight: 400 }}>/5</span>
+              </div>
+            ) : (
+              <div style={{ fontSize: 11, color: MUTED, marginBottom: 8 }}>Not rated</div>
+            )}
+            <div style={{ display: 'flex', gap: 3 }}>
               {[1, 2, 3, 4, 5].map(n => (
-                <button
-                  key={n}
-                  onClick={() => handleSatisfactionClick(String(n))}
-                  style={{
-                    background:  'none',
-                    border:      'none',
-                    cursor:      'pointer',
-                    padding:     2,
-                    color:       Number(satisfaction) >= n ? GOLD : BORDER,
-                    transition:  'color 0.15s',
-                  }}
-                >
-                  <Star size={18} fill={Number(satisfaction) >= n ? GOLD : 'none'} />
+                <button key={n} onClick={() => handleSatisfactionClick(String(n))}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 1, color: Number(satisfaction) >= n ? GOLD : BORDER, transition: 'color 0.15s' }}>
+                  <Star size={16} fill={Number(satisfaction) >= n ? GOLD : 'none'} />
                 </button>
               ))}
             </div>
@@ -1312,33 +1091,82 @@ function TaskHub({ task, userId, users, onClose, onDelete, onRefresh }: TaskHubP
         </div>
       </div>
 
-      {/* SECTION 6 — Notes */}
+      {/* ── EVIDENCE ───────────────────────────────────────────────────────── */}
+      <div style={hubSectionStyle}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+          <span style={hubLabelStyle}>Evidence</span>
+          <button onClick={() => fileInputRef.current?.click()}
+            style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', border: `1px solid ${BORDER}`, borderRadius: 6, background: 'transparent', color: SEC, fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>
+            <Paperclip size={10} /> Attach
+          </button>
+        </div>
+
+        <input ref={fileInputRef} type="file" style={{ display: 'none' }} accept="image/*,.pdf,.doc,.docx,.txt,.csv"
+          onChange={e => setSelectedFile(e.target.files?.[0] ?? null)} />
+
+        {evidence.length === 0 && !selectedFile && (
+          <p style={{ fontSize: 11, color: MUTED, margin: 0 }}>No files attached</p>
+        )}
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {evidence.map(ev => (
+            <div key={ev.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', border: `1px solid ${BORDER}`, borderRadius: 8, background: 'transparent' }} className="group">
+              {ev.evidence_url?.startsWith('data:image') ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={ev.evidence_url} alt={ev.file_name} style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 5, flexShrink: 0 }} />
+              ) : (
+                <div style={{ width: 32, height: 32, border: `1px solid ${BORDER}`, borderRadius: 5, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Paperclip size={12} style={{ color: MUTED }} />
+                </div>
+              )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: NAVY, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.file_name}</div>
+                {ev.note && <div style={{ fontSize: 10, color: TER }}>{ev.note}</div>}
+                <div style={{ fontSize: 9, color: MUTED, marginTop: 1 }}>{timeAgo(ev.created_at)}</div>
+              </div>
+              <button onClick={() => handleDeleteEvidence(ev.id)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, padding: 0, opacity: 0, transition: 'opacity 0.15s' }}
+                className="group-hover:opacity-100">
+                <Trash2 size={11} />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {selectedFile && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: evidence.length > 0 ? 8 : 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', border: `1px solid ${BLUE}40`, borderRadius: 7, background: `${BLUE}06` }}>
+              <Paperclip size={11} style={{ color: BLUE }} />
+              <span style={{ fontSize: 11, color: NAVY, flex: 1 }}>{selectedFile.name}</span>
+              <button onClick={() => setSelectedFile(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, padding: 0 }}>
+                <X size={11} />
+              </button>
+            </div>
+            <input value={evidenceNote} onChange={e => setEvidenceNote(e.target.value)} placeholder="Add a note (optional)..."
+              style={{ ...inputStyle }} />
+            <button onClick={handleUploadEvidence} disabled={uploadSaving}
+              style={{ padding: '7px 14px', background: NAVY, color: '#fff', border: 'none', borderRadius: 7, fontSize: 11, fontWeight: 600, cursor: uploadSaving ? 'not-allowed' : 'pointer', opacity: uploadSaving ? 0.7 : 1, alignSelf: 'flex-start' }}>
+              {uploadSaving ? 'Uploading...' : 'Upload File'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ── NOTES ──────────────────────────────────────────────────────────── */}
       <div style={{ ...hubSectionStyle, borderBottom: 'none' }}>
-        <div style={hubLabelStyle}>Notes</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <span style={hubLabelStyle}>Notes</span>
+          {notesSaving && <span style={{ fontSize: 9, color: MUTED }}>Saving...</span>}
+        </div>
         <textarea
           value={taskNotes}
           onChange={e => setTaskNotes(e.target.value)}
-          rows={4}
-          placeholder="Add notes..."
-          style={{ ...inputStyle, resize: 'vertical', marginBottom: 8 }}
+          onBlur={handleSaveNotes}
+          rows={5}
+          placeholder="Add notes, observations, or follow-up actions..."
+          style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.6, fontSize: 12 }}
         />
-        <button
-          onClick={handleSaveNotes}
-          disabled={notesSaving}
-          style={{
-            padding:      '7px 14px',
-            background:   `${BLUE}12`,
-            color:        BLUE,
-            border:       `1px solid ${BLUE}30`,
-            borderRadius: 7,
-            fontSize:     11,
-            fontWeight:   600,
-            cursor:       notesSaving ? 'not-allowed' : 'pointer',
-            opacity:      notesSaving ? 0.7 : 1,
-          }}
-        >
-          {notesSaving ? 'Saving...' : 'Save Notes'}
-        </button>
+        <div style={{ fontSize: 9, color: MUTED, marginTop: 5 }}>Auto-saves on blur</div>
       </div>
     </div>
   );
@@ -1349,6 +1177,34 @@ function DetailRow({ label, value }: { label: string; value: string }) {
     <div style={{ display: 'flex', gap: 4, alignItems: 'baseline' }}>
       <span style={{ fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.18em', fontWeight: 600, flexShrink: 0 }}>{label}:</span>
       <span style={{ fontSize: 11, color: SEC }}>{value}</span>
+    </div>
+  );
+}
+
+function HubRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div style={{
+      display:      'flex',
+      alignItems:   'center',
+      padding:      '8px 0',
+      borderBottom: `1px solid ${BORDER}`,
+      gap:          12,
+      minHeight:    36,
+    }}>
+      <span style={{
+        fontSize:      9,
+        textTransform: 'uppercase',
+        letterSpacing: '0.2em',
+        fontWeight:    600,
+        color:         MUTED,
+        flexShrink:    0,
+        width:         88,
+      }}>
+        {label}
+      </span>
+      <div style={{ flex: 1, fontSize: 12, color: SEC, minWidth: 0 }}>
+        {value}
+      </div>
     </div>
   );
 }
