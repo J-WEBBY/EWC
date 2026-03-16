@@ -166,6 +166,98 @@ export async function getAutomationCommunications(limit = 50): Promise<{
 }
 
 // =============================================================================
+// getPatientConversations — load conversation threads
+// =============================================================================
+
+export interface PatientConversation {
+  id: string;
+  patient_name: string | null;
+  patient_phone: string | null;
+  channel: 'WhatsApp' | 'SMS' | 'Email' | 'Voice';
+  agent_key: string | null;
+  agent_name: string | null;
+  automation_source: string | null;
+  status: string;
+  last_message_at: string;
+  unread_count: number;
+  last_message?: string | null;
+}
+
+export interface PatientMessage {
+  id: string;
+  conversation_id: string;
+  direction: 'inbound' | 'outbound';
+  content: string;
+  sent_at: string;
+  status: string | null;
+  agent_key: string | null;
+}
+
+export async function getPatientConversations(limit = 30): Promise<{
+  success: boolean;
+  conversations?: PatientConversation[];
+  error?: string;
+}> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
+
+  try {
+    const db = createSovereignClient();
+    const { data, error } = await db
+      .from('patient_conversations')
+      .select('*')
+      .order('last_message_at', { ascending: false })
+      .limit(limit);
+
+    if (error) return { success: true, conversations: [] };
+
+    // Fetch last message for each conversation
+    const conversations = (data ?? []) as PatientConversation[];
+    const withLastMsg = await Promise.all(
+      conversations.map(async conv => {
+        const { data: msgs } = await db
+          .from('patient_messages')
+          .select('content')
+          .eq('conversation_id', conv.id)
+          .order('sent_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        return { ...conv, last_message: (msgs?.content as string | null) ?? null };
+      })
+    );
+
+    return { success: true, conversations: withLastMsg };
+  } catch (err) {
+    console.error('[automations] getPatientConversations threw:', err);
+    return { success: true, conversations: [] };
+  }
+}
+
+export async function getConversationMessages(conversationId: string): Promise<{
+  success: boolean;
+  messages?: PatientMessage[];
+  error?: string;
+}> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
+
+  try {
+    const db = createSovereignClient();
+    const { data, error } = await db
+      .from('patient_messages')
+      .select('*')
+      .eq('conversation_id', conversationId)
+      .order('sent_at', { ascending: true });
+
+    if (error) return { success: true, messages: [] };
+    return { success: true, messages: (data ?? []) as PatientMessage[] };
+  } catch (err) {
+    console.error('[automations] getConversationMessages threw:', err);
+    return { success: true, messages: [] };
+  }
+}
+
+// =============================================================================
 // commandAutomationAI — Aria interprets natural language automation commands
 // =============================================================================
 
