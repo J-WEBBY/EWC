@@ -21,7 +21,9 @@ import { StaffNav } from '@/components/staff-nav';
 import OrbLoader from '@/components/orb-loader';
 import {
   getAutomationRuns, getAutomationStats, getAutomationCommunications,
+  getPatientConversations, getConversationMessages,
   type AutomationRun, type AutomationCommunication,
+  type PatientConversation, type PatientMessage,
 } from '@/lib/actions/automations';
 import { AUTOMATION_REGISTRY, type AutomationConfig, type AutomationCategory } from '@/lib/automations/registry';
 
@@ -296,6 +298,13 @@ export default function AutomationsPage() {
   const [commLimit,      setCommLimit]      = useState(10);
   const [expandedCommId, setExpandedCommId] = useState<string | null>(null);
 
+  // Conversations state
+  const [conversations,      setConversations]      = useState<PatientConversation[]>([]);
+  const [selectedConvId,     setSelectedConvId]     = useState<string | null>(null);
+  const [convMessages,       setConvMessages]       = useState<PatientMessage[]>([]);
+  const [convLoading,        setConvLoading]        = useState(false);
+  const [commView,           setCommView]           = useState<'conversations' | 'log'>('conversations');
+
   useEffect(() => {
     (async () => {
       let uid = urlUserId;
@@ -306,16 +315,18 @@ export default function AutomationsPage() {
       if (!uid) { router.push('/login'); return; }
       setUserId(uid);
 
-      const [profileRes, runsRes, statsRes, commsRes] = await Promise.all([
+      const [profileRes, runsRes, statsRes, commsRes, convsRes] = await Promise.all([
         getStaffProfile('clinic', uid),
         getAutomationRuns(),
         getAutomationStats(),
         getAutomationCommunications(),
+        getPatientConversations(),
       ]);
 
       if (profileRes.success && profileRes.data) setProfile(profileRes.data.profile);
       if (runsRes.success && runsRes.runs) setRuns(runsRes.runs);
       if (commsRes.success && commsRes.communications) setComms(commsRes.communications);
+      if (convsRes.success && convsRes.conversations) setConversations(convsRes.conversations);
       if (statsRes.success && statsRes.stats) setStats({
         active:    statsRes.stats.active_count,
         total:     AUTOMATION_REGISTRY.length,
@@ -434,7 +445,7 @@ export default function AutomationsPage() {
           </AnimatePresence>
         </motion.div>
 
-        {/* ── COMMUNICATION LOG ─────────────────────────────────────────────── */}
+        {/* ── CONVERSATIONS / COMMUNICATION LOG ────────────────────────────── */}
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -447,35 +458,189 @@ export default function AutomationsPage() {
               <p className="text-[10px] uppercase tracking-[0.18em] font-medium mb-0.5" style={{ color: MUT }}>
                 Automation Output
               </p>
-              <h2 className="text-[16px] font-semibold" style={{ color: NAVY }}>Communication</h2>
+              <h2 className="text-[16px] font-semibold" style={{ color: NAVY }}>Patient Conversations</h2>
             </div>
 
-            {/* Channel filter chips */}
-            <div className="flex items-center gap-1.5">
-              {(['all', 'WhatsApp', 'SMS', 'Email', 'Voice'] as const).map(ch => {
-                const meta = ch === 'all' ? null : CHANNEL_META[ch];
-                const isActive = commChannel === ch;
-                return (
+            <div className="flex items-center gap-2">
+              {/* View toggle */}
+              <div className="flex items-center rounded-lg border overflow-hidden" style={{ borderColor: BORDER }}>
+                {(['conversations', 'log'] as const).map(v => (
                   <button
-                    key={ch}
-                    onClick={() => setCommChannel(ch)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium border transition-all"
+                    key={v}
+                    onClick={() => setCommView(v)}
+                    className="px-3 py-1.5 text-[11px] font-medium transition-all"
                     style={{
-                      backgroundColor: isActive ? (meta ? meta.bg : `${BLUE}10`) : 'transparent',
-                      borderColor:     isActive ? (meta ? meta.color + '50' : `${BLUE}40`) : BORDER,
-                      color:           isActive ? (meta ? meta.color : BLUE) : MUT,
+                      backgroundColor: commView === v ? `${BLUE}12` : 'transparent',
+                      color:           commView === v ? BLUE : MUT,
                     }}
                   >
-                    {meta && (() => { const Icon = meta.icon; return <Icon size={10} />; })()}
-                    {ch === 'all' ? 'All channels' : ch}
+                    {v === 'conversations' ? 'Conversations' : 'All Messages'}
                   </button>
-                );
-              })}
+                ))}
+              </div>
+
+              {/* Channel filter chips — only for log view */}
+              {commView === 'log' && (
+                <div className="flex items-center gap-1.5">
+                  {(['all', 'WhatsApp', 'SMS', 'Email', 'Voice'] as const).map(ch => {
+                    const meta = ch === 'all' ? null : CHANNEL_META[ch];
+                    const isActive = commChannel === ch;
+                    return (
+                      <button
+                        key={ch}
+                        onClick={() => setCommChannel(ch)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium border transition-all"
+                        style={{
+                          backgroundColor: isActive ? (meta ? meta.bg : `${BLUE}10`) : 'transparent',
+                          borderColor:     isActive ? (meta ? meta.color + '50' : `${BLUE}40`) : BORDER,
+                          color:           isActive ? (meta ? meta.color : BLUE) : MUT,
+                        }}
+                      >
+                        {meta && (() => { const Icon = meta.icon; return <Icon size={10} />; })()}
+                        {ch === 'all' ? 'All channels' : ch}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Communication list */}
-          {(() => {
+          {/* ── CONVERSATIONS VIEW ──────────────────────────────────────────── */}
+          {commView === 'conversations' && (
+            <div className="rounded-2xl border overflow-hidden" style={{ borderColor: BORDER }}>
+              {conversations.length === 0 ? (
+                <div className="px-6 py-10 text-center" style={{ backgroundColor: BG }}>
+                  <p className="text-[13px]" style={{ color: TER }}>No conversations yet. Patient replies to automation messages will appear here.</p>
+                </div>
+              ) : (
+                <div className="flex" style={{ backgroundColor: BG, minHeight: 400 }}>
+
+                  {/* Left — conversation list */}
+                  <div className="w-[280px] flex-shrink-0 overflow-y-auto" style={{ borderRight: `1px solid ${BORDER}` }}>
+                    {conversations.map(conv => {
+                      const chMeta  = CHANNEL_META[conv.channel as keyof typeof CHANNEL_META];
+                      const ChanIcon = chMeta?.icon ?? MessageCircle;
+                      const isSelected = selectedConvId === conv.id;
+                      const agentColor = conv.agent_key === 'sales_agent' ? GOLD : conv.agent_key === 'primary_agent' ? BLUE : '#00A693';
+
+                      return (
+                        <button
+                          key={conv.id}
+                          onClick={async () => {
+                            setSelectedConvId(conv.id);
+                            setConvLoading(true);
+                            const res = await getConversationMessages(conv.id);
+                            if (res.success && res.messages) setConvMessages(res.messages);
+                            setConvLoading(false);
+                          }}
+                          className="w-full text-left px-4 py-3.5 transition-all"
+                          style={{
+                            backgroundColor: isSelected ? `${BLUE}08` : 'transparent',
+                            borderBottom:    `1px solid ${BORDER}`,
+                            borderLeft:      isSelected ? `2px solid ${BLUE}` : '2px solid transparent',
+                          }}
+                        >
+                          <div className="flex items-start justify-between gap-2 mb-1">
+                            <p className="text-[12px] font-semibold truncate" style={{ color: NAVY }}>
+                              {conv.patient_name ?? conv.patient_phone ?? 'Unknown'}
+                            </p>
+                            <p className="text-[10px] flex-shrink-0" style={{ color: MUT }}>
+                              {relativeTime(conv.last_message_at)}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="flex items-center gap-1 text-[9px] font-medium" style={{ color: chMeta?.color ?? MUT }}>
+                              <ChanIcon size={9} />{conv.channel}
+                            </span>
+                            <span className="text-[9px] font-medium px-1.5 py-0.5 rounded-full" style={{ backgroundColor: `${agentColor}12`, color: agentColor }}>
+                              {conv.agent_name ?? 'Aria'}
+                            </span>
+                            {conv.unread_count > 0 && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: BLUE, color: '#fff' }}>
+                                {conv.unread_count}
+                              </span>
+                            )}
+                          </div>
+                          {conv.last_message && (
+                            <p className="text-[11px] truncate" style={{ color: TER }}>{conv.last_message}</p>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Right — message thread */}
+                  <div className="flex-1 flex flex-col overflow-hidden">
+                    {!selectedConvId ? (
+                      <div className="flex-1 flex items-center justify-center">
+                        <p className="text-[12px]" style={{ color: MUT }}>Select a conversation</p>
+                      </div>
+                    ) : convLoading ? (
+                      <div className="flex-1 flex items-center justify-center">
+                        <p className="text-[12px]" style={{ color: MUT }}>Loading...</p>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Thread header */}
+                        {(() => {
+                          const conv = conversations.find(c => c.id === selectedConvId);
+                          const agentColor = conv?.agent_key === 'sales_agent' ? GOLD : conv?.agent_key === 'primary_agent' ? BLUE : '#00A693';
+                          return conv ? (
+                            <div className="px-5 py-3 flex items-center gap-3" style={{ borderBottom: `1px solid ${BORDER}` }}>
+                              <div>
+                                <p className="text-[13px] font-semibold" style={{ color: NAVY }}>{conv.patient_name ?? conv.patient_phone}</p>
+                                <p className="text-[10px]" style={{ color: MUT }}>{conv.channel} · handled by <span style={{ color: agentColor }}>{conv.agent_name ?? 'Aria'}</span></p>
+                              </div>
+                            </div>
+                          ) : null;
+                        })()}
+
+                        {/* Messages */}
+                        <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3">
+                          {convMessages.length === 0 ? (
+                            <p className="text-[12px] text-center" style={{ color: MUT }}>No messages yet</p>
+                          ) : (
+                            convMessages.map(msg => {
+                              const isOutbound = msg.direction === 'outbound';
+                              const agentColor = msg.agent_key === 'sales_agent' ? GOLD : msg.agent_key === 'primary_agent' ? BLUE : '#00A693';
+                              return (
+                                <div key={msg.id} className={`flex ${isOutbound ? 'justify-end' : 'justify-start'}`}>
+                                  <div
+                                    className="max-w-[70%] rounded-2xl px-4 py-2.5"
+                                    style={{
+                                      backgroundColor: isOutbound ? `${agentColor}12` : `${BORDER}80`,
+                                      border: `1px solid ${isOutbound ? agentColor + '30' : BORDER}`,
+                                    }}
+                                  >
+                                    {isOutbound && msg.agent_key && (
+                                      <p className="text-[9px] font-semibold mb-1" style={{ color: agentColor }}>
+                                        {msg.agent_key === 'sales_agent' ? 'Orion' : msg.agent_key === 'primary_agent' ? 'EWC' : 'Aria'}
+                                      </p>
+                                    )}
+                                    <p className="text-[12px] leading-relaxed whitespace-pre-wrap" style={{ color: NAVY }}>{msg.content}</p>
+                                    <p className="text-[9px] mt-1 text-right" style={{ color: MUT }}>
+                                      {new Date(msg.sent_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                                    </p>
+                                  </div>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── LOG VIEW (existing feed) ────────────────────────────────────── */}
+          {commView === 'log' && (
+            <>
+            {/* Communication list */}
+            {(() => {
             const filtered_comms = comms
               .filter(c => commChannel === 'all' || c.channel === commChannel)
               .slice(0, commLimit);
@@ -653,7 +818,9 @@ export default function AutomationsPage() {
                 )}
               </div>
             );
-          })()}
+            })()}
+            </>
+          )}
         </motion.div>
 
         {/* Recent run history */}
