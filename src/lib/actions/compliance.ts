@@ -489,6 +489,24 @@ export async function upsertTrainingEntry(
   } catch (e) { return { success: false, error: String(e) }; }
 }
 
+export async function deleteTrainingEntry(
+  userId: string,
+  module: string,
+): Promise<{ success: boolean; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
+  try {
+    const db = createSovereignClient();
+    const { error } = await db
+      .from('compliance_training')
+      .delete()
+      .eq('user_id', userId)
+      .eq('module', module);
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (e) { return { success: false, error: String(e) }; }
+}
+
 // =============================================================================
 // EQUIPMENT
 // =============================================================================

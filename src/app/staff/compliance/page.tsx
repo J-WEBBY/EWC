@@ -13,7 +13,7 @@ import {
 } from '@/lib/actions/staff-onboarding';
 import {
   getComplianceDashboard, getHRRecords, upsertHRRecord, deleteHRRecord,
-  getTrainingMatrix, upsertTrainingEntry,
+  getTrainingMatrix, upsertTrainingEntry, deleteTrainingEntry,
   getEquipmentList, updateEquipmentItem, createEquipmentItem, deleteEquipmentItem,
   getCQCAudit, saveCQCAnswer,
   getGovernanceLog, createGovernanceEntry, updateGovernanceEntry, deleteGovernanceEntry,
@@ -1064,7 +1064,9 @@ function TrainingModal({ userId, fullName, module, entry, currentUserId, onClose
   const [certRef, setCertRef] = useState(entry?.certificate_url ?? '');
   const [notes, setNotes] = useState(entry?.notes ?? '');
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [err, setErr] = useState('');
+  const hasRecord = !!entry?.completed_date;
 
   const freqLabel = MODULE_FREQ_LABEL[module] ?? '—';
   const previewExpiry = completedDate
@@ -1152,12 +1154,32 @@ function TrainingModal({ userId, fullName, module, entry, currentUserId, onClose
 
         {err && <p className="mt-2 text-[11px]" style={{ color: RED }}>{err}</p>}
 
-        <div className="flex items-center gap-2 mt-4">
-          <BtnPrimary onClick={handleSave} disabled={saving}>
-            <Save size={12} />
-            {saving ? 'Saving...' : 'Save Record'}
-          </BtnPrimary>
-          <BtnGhost onClick={onClose}>Cancel</BtnGhost>
+        <div className="flex items-center justify-between mt-4">
+          <div className="flex items-center gap-2">
+            <BtnPrimary onClick={handleSave} disabled={saving || deleting}>
+              <Save size={12} />
+              {saving ? 'Saving...' : 'Save Record'}
+            </BtnPrimary>
+            <BtnGhost onClick={onClose}>Cancel</BtnGhost>
+          </div>
+          {hasRecord && (
+            <button
+              onClick={async () => {
+                if (!confirm(`Delete training record for ${MODULE_LABELS[module]} — ${fullName}?`)) return;
+                setDeleting(true);
+                const res = await deleteTrainingEntry(userId, module);
+                setDeleting(false);
+                if (res.success) { onSave(); onClose(); }
+                else setErr(res.error ?? 'Delete failed');
+              }}
+              disabled={deleting || saving}
+              className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[11px] font-medium transition-all hover:opacity-80"
+              style={{ background: `${RED}10`, border: `1px solid ${RED}28`, color: RED, opacity: deleting ? 0.6 : 1 }}
+            >
+              <Trash2 size={11} />
+              {deleting ? 'Deleting...' : 'Delete'}
+            </button>
+          )}
         </div>
       </motion.div>
     </div>
