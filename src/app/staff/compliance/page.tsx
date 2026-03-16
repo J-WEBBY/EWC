@@ -140,36 +140,396 @@ const GOV_TYPES = [
 const GOV_STATUSES: Array<GovernanceEntry['status']> = ['open', 'in_progress', 'completed', 'overdue'];
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// DASHBOARD CHART PRIMITIVES
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const BLUE2 = '#3B82F6'; // lighter blue accent
+const BLUE3 = '#BFDBFE'; // pale blue fill
+
+function DonutRing({ value, max, size = 72, strokeWidth = 7, color = BLUE }: {
+  value: number; max: number; size?: number; strokeWidth?: number; color?: string;
+}) {
+  const r   = (size - strokeWidth) / 2;
+  const circ = 2 * Math.PI * r;
+  const pct  = max > 0 ? Math.min(value / max, 1) : 0;
+  return (
+    <svg width={size} height={size} style={{ transform: 'rotate(-90deg)', flexShrink: 0 }}>
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={BORDER} strokeWidth={strokeWidth} />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color}  strokeWidth={strokeWidth}
+        strokeDasharray={circ} strokeDashoffset={circ * (1 - pct)} strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function HBar({ value, max, color = BLUE, h = 5 }: { value: number; max: number; color?: string; h?: number }) {
+  const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0;
+  return (
+    <div style={{ height: h, background: BORDER, borderRadius: 99, overflow: 'hidden', flex: 1 }}>
+      <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 99, transition: 'width 0.7s ease' }} />
+    </div>
+  );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-4" style={{ color: MUTED }}>{children}</p>;
+}
+
+function Panel({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={`rounded-2xl p-5 ${className}`} style={{ border: `1px solid ${BORDER}` }}>
+      {children}
+    </div>
+  );
+}
+
+// Mini sparkline (last 6 months)
+function Sparkline({ data, color = BLUE }: { data: number[]; color?: string }) {
+  const w = 80; const h = 28;
+  const max = Math.max(...data, 1);
+  const pts = data.map((v, i) => `${(i / (data.length - 1)) * w},${h - (v / max) * h}`).join(' ');
+  const fill = [...data.map((v, i) => `${(i / (data.length - 1)) * w},${h - (v / max) * h}`), `${w},${h}`, `0,${h}`].join(' ');
+  return (
+    <svg width={w} height={h} style={{ overflow: 'visible' }}>
+      <polygon points={fill} fill={`${color}18`} />
+      <polyline points={pts} fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // TAB: Dashboard
 // ═══════════════════════════════════════════════════════════════════════════════
 function DashboardTab({ dash }: { dash: ComplianceDashboard }) {
-  const cqcColor = dash.cqc_score_pct >= 80 ? GREEN : dash.cqc_score_pct >= 60 ? ORANGE : RED;
-  const dbsRtwIssues = dash.dbs_issues + dash.rtw_issues;
+  void dash; // live data wired after demo phase
 
-  const tiles = [
-    { label: 'CQC Score', value: `${dash.cqc_score_pct}%`, color: cqcColor, sub: `${dash.cqc_answered}/${dash.cqc_total} answered` },
-    { label: 'Total Staff', value: String(dash.total_staff), color: NAVY, sub: 'active users' },
-    { label: 'DBS / RTW Issues', value: String(dbsRtwIssues), color: dbsRtwIssues > 0 ? RED : GREEN, sub: 'require attention' },
-    { label: 'Training Gaps', value: String(dash.training_gaps), color: dash.training_gaps > 0 ? RED : GREEN, sub: 'overdue modules' },
-    { label: 'Equipment Overdue', value: String(dash.equipment_overdue), color: dash.equipment_overdue > 0 ? RED : GREEN, sub: `${dash.equipment_due_soon} due soon` },
-    { label: 'Calendar Overdue', value: String(dash.calendar_overdue), color: dash.calendar_overdue > 0 ? RED : GREEN, sub: `${dash.calendar_due_soon} due soon` },
+  // ── Demo data ────────────────────────────────────────────────────────────────
+  const TOTAL_STAFF = 12;
+
+  const dbs = { valid: 8, dueSoon: 2, noDbs: 2 };
+  const appraisal = { onTrack: 7, dueSoon: 3, overdue: 2 };
+  const rtw = { permanent: 10, visa: 1, pending: 1 };
+
+  const trainingModules = [
+    { label: 'Fire Safety',         compliant: 4, total: 12 },
+    { label: 'Manual Handling',     compliant: 4, total: 12 },
+    { label: 'Safeguarding Adults', compliant: 4, total: 12 },
+    { label: 'Basic Life Support',  compliant: 4, total: 12 },
+    { label: 'Infection Control',   compliant: 4, total: 12 },
+    { label: 'Info Governance',     compliant: 4, total: 12 },
+    { label: 'CQC Awareness',       compliant: 4, total: 12 },
+    { label: 'Health & Safety',     compliant: 4, total: 12 },
+    { label: 'Medicines Mgmt',      compliant: 4, total: 12 },
+    { label: 'Lone Working',        compliant: 4, total: 12 },
+  ];
+  const trainingCompliant = 68; const trainingTotal = 204;
+
+  const equipmentCats = [
+    { label: 'PAT Testing',       items: 2,  status: 'Not Scheduled' },
+    { label: 'Equipment Service', items: 4,  status: 'Not Scheduled' },
+    { label: 'Fire Safety',       items: 3,  status: 'Not Scheduled' },
+    { label: 'Medicines',         items: 4,  status: 'Not Scheduled' },
+    { label: 'Clinical Stock',    items: 4,  status: 'Not Scheduled' },
+    { label: 'Legionella',        items: 2,  status: 'Not Scheduled' },
+    { label: 'Environmental',     items: 1,  status: 'Not Scheduled' },
   ];
 
+  const medicines = [
+    { label: 'Emergency Drug Kit',       freq: 'Monthly',  status: 'schedule' },
+    { label: 'Controlled Drugs Cabinet', freq: 'Weekly',   status: 'schedule' },
+    { label: 'Fridge Temperature Log',   freq: 'Daily',    status: 'schedule' },
+    { label: 'Vaccine Stock & Cold Chain',freq: 'Weekly',  status: 'schedule' },
+    { label: 'Sharps Bins',             freq: 'Quarterly', status: 'schedule' },
+    { label: 'Clinical Stock Expiry',   freq: 'Monthly',   status: 'schedule' },
+  ];
+
+  const cqcDomains = [
+    { label: 'SAFE',       answered: 0, total: 20 },
+    { label: 'EFFECTIVE',  answered: 0, total: 10 },
+    { label: 'CARING',     answered: 0, total: 7  },
+    { label: 'RESPONSIVE', answered: 0, total: 7  },
+    { label: 'WELL-LED',   answered: 0, total: 13 },
+  ];
+
+  const govSummary = {
+    lastMeeting: '28 Feb 2026',
+    nextDue: 'Apr 2026',
+    openActions: 5,
+    sigEvents: 2,
+    riskRegister: 'Jan 2026',
+    meetingHistory: [1, 1, 1, 0, 1, 1], // last 6 months attended
+  };
+
+  const trainingTrend = [22, 34, 40, 52, 60, 68];
+  const cqcScore = 0;
+
+  // ─────────────────────────────────────────────────────────────────────────────
   return (
-    <div>
-      <div className="grid grid-cols-3 gap-4 mb-8">
-        {tiles.map(t => (
-          <div key={t.label} className="rounded-2xl p-5" style={{ border: `1px solid ${BORDER}` }}>
-            <p className="text-[8px] uppercase tracking-[0.22em] font-semibold mb-3" style={{ color: MUTED }}>{t.label}</p>
-            <p className="text-[32px] font-black tracking-[-0.04em] leading-none mb-1" style={{ color: t.color }}>{t.value}</p>
-            <p className="text-[10px]" style={{ color: MUTED }}>{t.sub}</p>
-          </div>
+    <div className="space-y-5">
+
+      {/* ── Demo notice ── */}
+      <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-medium"
+        style={{ background: `${BLUE}0d`, border: `1px solid ${BLUE}25`, color: BLUE }}>
+        Demo data — run migration 069 in Supabase to connect live compliance records.
+      </div>
+
+      {/* ── Row 1: KPI strip (6 tiles) ─────────────────────────────────────────── */}
+      <div className="grid grid-cols-6 gap-3">
+        {[
+          { label: 'Total Staff',       value: TOTAL_STAFF,       sub: 'active',          spark: [8,9,10,10,11,12] },
+          { label: 'DBS Due / Expired', value: dbs.dueSoon,       sub: 'need attention',  spark: [0,1,2,1,2,2]    },
+          { label: 'Training Gaps',     value: 136,               sub: 'not yet recorded',spark: [204,180,160,140,136,136] },
+          { label: 'Appraisals Overdue',value: appraisal.overdue, sub: 'staff',           spark: [0,1,1,2,2,2]    },
+          { label: 'Equipment Items',   value: 20,                sub: 'tracked',         spark: [10,14,16,18,20,20] },
+          { label: 'CQC Answered',      value: `${cqcScore}%`,    sub: '0 / 57 questions',spark: [0,0,0,0,0,0]    },
+        ].map(t => (
+          <Panel key={t.label}>
+            <SectionLabel>{t.label}</SectionLabel>
+            <div className="flex items-end justify-between">
+              <div>
+                <p className="text-[28px] font-black tracking-[-0.04em] leading-none mb-0.5" style={{ color: NAVY }}>
+                  {t.value}
+                </p>
+                <p className="text-[9px]" style={{ color: MUTED }}>{t.sub}</p>
+              </div>
+              <Sparkline data={t.spark} color={BLUE} />
+            </div>
+          </Panel>
         ))}
       </div>
-      <div className="rounded-2xl px-5 py-4" style={{ border: `1px solid ${BORDER}` }}>
-        <p className="text-[11px]" style={{ color: SEC }}>
-          Select a tab above to view and update compliance records. All staff can view, add, edit and update records.
-        </p>
+
+      {/* ── Row 2: HR & Staffing | Training Matrix ─────────────────────────────── */}
+      <div className="grid grid-cols-2 gap-5">
+
+        {/* HR & Staffing */}
+        <Panel>
+          <SectionLabel>HR &amp; Staffing</SectionLabel>
+          <div className="grid grid-cols-2 gap-6">
+
+            {/* DBS Status donut */}
+            <div>
+              <p className="text-[10px] font-semibold mb-3" style={{ color: SEC }}>DBS Check Status</p>
+              <div className="flex items-center gap-3 mb-4">
+                <div style={{ position: 'relative', width: 72, height: 72 }}>
+                  <DonutRing value={dbs.valid} max={TOTAL_STAFF} color={BLUE} />
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span className="text-[13px] font-black" style={{ color: NAVY }}>
+                      {Math.round((dbs.valid / TOTAL_STAFF) * 100)}%
+                    </span>
+                  </div>
+                </div>
+                <div className="space-y-1.5 flex-1">
+                  {[
+                    { label: 'Valid',   value: dbs.valid,   color: BLUE  },
+                    { label: 'Due soon',value: dbs.dueSoon, color: BLUE2 },
+                    { label: 'No DBS',  value: dbs.noDbs,   color: BORDER},
+                  ].map(r => (
+                    <div key={r.label} className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: r.color }} />
+                      <span className="text-[10px] flex-1" style={{ color: MUTED }}>{r.label}</span>
+                      <span className="text-[11px] font-semibold" style={{ color: NAVY }}>{r.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Appraisal status */}
+            <div>
+              <p className="text-[10px] font-semibold mb-3" style={{ color: SEC }}>Appraisal Status</p>
+              <div className="space-y-2.5">
+                {[
+                  { label: 'On Track',  value: appraisal.onTrack, color: BLUE  },
+                  { label: 'Due Soon',  value: appraisal.dueSoon, color: BLUE2 },
+                  { label: 'Overdue',   value: appraisal.overdue, color: ORANGE },
+                ].map(r => (
+                  <div key={r.label}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px]" style={{ color: MUTED }}>{r.label}</span>
+                      <span className="text-[10px] font-semibold" style={{ color: NAVY }}>{r.value}/{TOTAL_STAFF}</span>
+                    </div>
+                    <HBar value={r.value} max={TOTAL_STAFF} color={r.color} h={4} />
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ borderTop: `1px solid ${BORDER}`, marginTop: 16, paddingTop: 14 }}>
+                <p className="text-[10px] font-semibold mb-2.5" style={{ color: SEC }}>Right to Work</p>
+                {[
+                  { label: 'UK / Permanent', value: rtw.permanent, color: BLUE  },
+                  { label: 'Visa / Permit',  value: rtw.visa,      color: BLUE2 },
+                  { label: 'Pending Check',  value: rtw.pending,   color: ORANGE },
+                ].map(r => (
+                  <div key={r.label} className="flex items-center gap-2 mb-1.5">
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: r.color }} />
+                    <span className="text-[10px] flex-1" style={{ color: MUTED }}>{r.label}</span>
+                    <span className="text-[11px] font-semibold" style={{ color: NAVY }}>{r.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </Panel>
+
+        {/* Training Matrix Overview */}
+        <Panel>
+          <div className="flex items-start justify-between mb-4">
+            <SectionLabel>Mandatory Training</SectionLabel>
+            <div className="flex items-center gap-1.5">
+              <div style={{ position: 'relative', width: 40, height: 40 }}>
+                <DonutRing value={trainingCompliant} max={trainingTotal} size={40} strokeWidth={4} color={BLUE} />
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span className="text-[8px] font-black" style={{ color: NAVY }}>
+                    {Math.round((trainingCompliant / trainingTotal) * 100)}%
+                  </span>
+                </div>
+              </div>
+              <div>
+                <p className="text-[11px] font-bold" style={{ color: NAVY }}>{trainingCompliant}/{trainingTotal}</p>
+                <p className="text-[9px]" style={{ color: MUTED }}>modules compliant</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            {trainingModules.map(m => (
+              <div key={m.label} className="flex items-center gap-3">
+                <span className="text-[10px] w-[120px] flex-shrink-0" style={{ color: SEC }}>{m.label}</span>
+                <HBar value={m.compliant} max={m.total} color={BLUE} h={4} />
+                <span className="text-[10px] font-semibold w-8 text-right flex-shrink-0" style={{ color: NAVY }}>
+                  {m.compliant}/{m.total}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ borderTop: `1px solid ${BORDER}`, marginTop: 14, paddingTop: 12 }}>
+            <div className="flex items-center justify-between">
+              <p className="text-[10px]" style={{ color: MUTED }}>Training completions (last 6 months)</p>
+              <Sparkline data={trainingTrend} color={BLUE} />
+            </div>
+          </div>
+        </Panel>
+      </div>
+
+      {/* ── Row 3: Equipment | Medicines & Stock | CQC + Governance ─────────────── */}
+      <div className="grid grid-cols-3 gap-5">
+
+        {/* Equipment & Safety */}
+        <Panel>
+          <SectionLabel>Equipment &amp; Safety</SectionLabel>
+          <div className="space-y-1">
+            {equipmentCats.map(e => (
+              <div key={e.label}
+                className="flex items-center justify-between py-2"
+                style={{ borderBottom: `1px solid ${BORDER}` }}>
+                <div>
+                  <p className="text-[11px] font-medium" style={{ color: NAVY }}>{e.label}</p>
+                  <p className="text-[9px]" style={{ color: MUTED }}>{e.items} items tracked</p>
+                </div>
+                <span className="text-[9px] font-semibold px-2 py-1 rounded-lg"
+                  style={{ background: `${BLUE}0d`, color: BLUE }}>
+                  {e.status}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 flex items-center justify-between">
+            <div style={{ textAlign: 'center' }}>
+              <p className="text-[22px] font-black tracking-[-0.04em]" style={{ color: NAVY }}>20</p>
+              <p className="text-[9px]" style={{ color: MUTED }}>Total Items</p>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <p className="text-[22px] font-black tracking-[-0.04em]" style={{ color: BLUE }}>0</p>
+              <p className="text-[9px]" style={{ color: MUTED }}>Scheduled</p>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <p className="text-[22px] font-black tracking-[-0.04em]" style={{ color: ORANGE }}>0</p>
+              <p className="text-[9px]" style={{ color: MUTED }}>Overdue</p>
+            </div>
+          </div>
+        </Panel>
+
+        {/* Medicines & Stock */}
+        <Panel>
+          <SectionLabel>Medicines &amp; Stock</SectionLabel>
+          <div className="space-y-1">
+            {medicines.map(m => (
+              <div key={m.label}
+                className="flex items-center justify-between py-2"
+                style={{ borderBottom: `1px solid ${BORDER}` }}>
+                <div>
+                  <p className="text-[11px] font-medium" style={{ color: NAVY }}>{m.label}</p>
+                  <p className="text-[9px]" style={{ color: MUTED }}>{m.freq} check</p>
+                </div>
+                <span className="text-[9px] font-semibold px-2 py-1 rounded-lg"
+                  style={{ background: `${BLUE}0d`, color: BLUE }}>
+                  Set schedule
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 pt-3" style={{ borderTop: `1px solid ${BORDER}` }}>
+            <p className="text-[9px]" style={{ color: MUTED }}>
+              Use the Calendar tab to assign responsible persons and set next check dates for each medicine/stock item.
+            </p>
+          </div>
+        </Panel>
+
+        {/* CQC Score + Governance */}
+        <div className="space-y-5">
+
+          {/* CQC Domain Overview */}
+          <Panel>
+            <SectionLabel>CQC Audit Progress</SectionLabel>
+            <div className="space-y-2">
+              {cqcDomains.map(d => (
+                <div key={d.label}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] font-semibold" style={{ color: SEC }}>{d.label}</span>
+                    <span className="text-[9px]" style={{ color: MUTED }}>{d.answered}/{d.total}</span>
+                  </div>
+                  <HBar value={d.answered} max={d.total} color={BLUE} h={4} />
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 flex items-center gap-2">
+              <div style={{ position: 'relative', width: 32, height: 32, flexShrink: 0 }}>
+                <DonutRing value={0} max={57} size={32} strokeWidth={3} color={BLUE} />
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span style={{ fontSize: 7, fontWeight: 900, color: NAVY }}>0%</span>
+                </div>
+              </div>
+              <p className="text-[9px]" style={{ color: MUTED }}>
+                0 of 57 CQC questions answered. Go to CQC Audit tab to start.
+              </p>
+            </div>
+          </Panel>
+
+          {/* Governance Summary */}
+          <Panel>
+            <SectionLabel>Governance</SectionLabel>
+            <div className="space-y-2">
+              {[
+                { label: 'Last meeting',     value: govSummary.lastMeeting },
+                { label: 'Next meeting due', value: govSummary.nextDue     },
+                { label: 'Open actions',     value: String(govSummary.openActions) },
+                { label: 'Significant events (MTD)', value: String(govSummary.sigEvents) },
+                { label: 'Risk register reviewed',   value: govSummary.riskRegister    },
+              ].map(r => (
+                <div key={r.label} className="flex items-center justify-between py-1.5"
+                  style={{ borderBottom: `1px solid ${BORDER}` }}>
+                  <span className="text-[10px]" style={{ color: MUTED }}>{r.label}</span>
+                  <span className="text-[11px] font-semibold" style={{ color: NAVY }}>{r.value}</span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 flex items-center justify-between">
+              <p className="text-[9px]" style={{ color: MUTED }}>Meeting attendance (6mo)</p>
+              <Sparkline data={govSummary.meetingHistory} color={BLUE2} />
+            </div>
+          </Panel>
+        </div>
+
       </div>
     </div>
   );
