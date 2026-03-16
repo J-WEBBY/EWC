@@ -102,59 +102,74 @@ export async function getClinikoStats(): Promise<{
   revenue_outstanding: number;
   practitioners: number;
 }> {
-  // Reads from LOCAL CACHE (cliniko_* tables) — never hits the live Cliniko API.
-  // This prevents 429 rate limits on every dashboard load/poll.
+  // Calls the live Cliniko API using lightweight per_page=1 requests to read
+  // total_entries counts — never hits the (dropped) cliniko_* cache tables.
   const ZERO = {
     patients: 0, appointments: 0, appointments_upcoming: 0,
     appointments_this_month: 0, invoices: 0, revenue_outstanding: 0, practitioners: 0,
   };
 
   try {
-    const db  = createSovereignClient();
-    const now = new Date();
-    const nowIso        = now.toISOString();
-    const startOfMonth  = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-    const endOfMonth    = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
+    // Read config directly from DB (same pattern as rest of this file)
+    // to avoid the ClinikoConfig type mismatch from the client module.
+    const db = createSovereignClient();
+    const { data: cfg } = await db
+      .from('cliniko_config')
+      .select('api_key, shard, is_active')
+      .single();
+    if (!cfg?.api_key || !cfg.is_active) return ZERO;
 
-    const [patRes, apptRes, apptUpRes, apptMonRes, invRes, practRes] = await Promise.allSettled([
-      // Total patients in cache
-      db.from('cliniko_patients').select('id', { count: 'exact', head: true }),
-      // Total appointments in cache
-      db.from('cliniko_appointments').select('id', { count: 'exact', head: true }),
-      // Upcoming appointments
-      db.from('cliniko_appointments').select('id', { count: 'exact', head: true }).gte('starts_at', nowIso),
-      // This month's appointments
-      db.from('cliniko_appointments').select('id', { count: 'exact', head: true })
-        .gte('starts_at', startOfMonth).lt('starts_at', endOfMonth),
-      // Outstanding invoices total
-      db.from('cliniko_invoices').select('amount_due')
-        .in('status', ['outstanding', 'partial']),
-      // Practitioners
-      db.from('cliniko_practitioners').select('id', { count: 'exact', head: true }).eq('active', true),
-    ]);
-
-    const patients               = patRes.status     === 'fulfilled' ? (patRes.value.count ?? 0)     : 0;
-    const appointments           = apptRes.status    === 'fulfilled' ? (apptRes.value.count ?? 0)    : 0;
-    const appointments_upcoming  = apptUpRes.status  === 'fulfilled' ? (apptUpRes.value.count ?? 0)  : 0;
-    const appointments_this_month = apptMonRes.status === 'fulfilled' ? (apptMonRes.value.count ?? 0) : 0;
-    const practitioners          = practRes.status   === 'fulfilled' ? (practRes.value.count ?? 0)   : 0;
-
-    let revenue_outstanding = 0;
-    if (invRes.status === 'fulfilled' && invRes.value.data) {
-      revenue_outstanding = invRes.value.data.reduce(
-        (sum: number, r: { amount_due: number | null }) => sum + (r.amount_due ?? 0), 0,
-      );
-    }
-
-    return {
-      patients,
-      appointments,
-      appointments_upcoming,
-      appointments_this_month,
-      invoices: 0,
-      revenue_outstanding,
-      practitioners,
+    const shard   = (cfg.shard as string) ?? 'uk1';
+    const baseUrl = `https://api.${shard}.cliniko.com/v1`;
+    const auth    = `Basic ${Buffer.from(`${cfg.api_key as string}:`).toString('base64')}`;
+    const headers = {
+      'Authorization': auth,
+      'Accept':        'application/json',
+      'User-Agent':    'EWC-Intelligence/1.0 (admin@edgbastonwellness.co.uk)',
     };
+
+    // 5-second timeout guard — return ZERO if Cliniko is unresponsive
+    const timeout = new Promise<null>(resolve => setTimeout(() => resolve(null), 5000));
+
+    const fetchStats = async () => {
+      const now          = new Date();
+      const nowEnc       = encodeURIComponent(now.toISOString());
+      const startOfMonth = encodeURIComponent(
+        new Date(now.getFullYear(), now.getMonth(), 1).toISOString(),
+      );
+      const endOfMonth   = encodeURIComponent(
+        new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString(),
+      );
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const get = (path: string): Promise<any> =>
+        fetch(`${baseUrl}${path}`, { headers }).then(r => r.ok ? r.json() : null);
+
+      const [practRes, patRes, apptAllRes, apptUpRes, apptMonRes] = await Promise.allSettled([
+        get('/practitioners?per_page=1'),
+        get('/patients?per_page=1'),
+        get('/individual_appointments?per_page=1'),
+        get(`/individual_appointments?per_page=1&q[starts_at_gteq]=${nowEnc}`),
+        get(`/individual_appointments?per_page=1&q[starts_at_gteq]=${startOfMonth}&q[starts_at_lt]=${endOfMonth}`),
+      ]);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const te = (res: PromiseSettledResult<any>): number =>
+        res.status === 'fulfilled' ? (res.value?.total_entries ?? 0) : 0;
+
+      return {
+        practitioners:           te(practRes),
+        patients:                te(patRes),
+        appointments:            te(apptAllRes),
+        appointments_upcoming:   te(apptUpRes),
+        appointments_this_month: te(apptMonRes),
+        invoices:                0,
+        revenue_outstanding:     0,
+      };
+    };
+
+    const result = await Promise.race([fetchStats(), timeout]);
+    return result ?? ZERO;
   } catch {
     return ZERO;
   }

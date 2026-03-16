@@ -395,6 +395,94 @@ export async function getGoalHistory(goalId: string): Promise<GoalUpdate[]> {
 }
 
 // =============================================================================
+// EVIDENCE — attach files / notes to a task (stored in goal_updates)
+// evidence_url  → base64 data URL or external URL, stored in the note field as JSON
+// evidence_note → human-readable note
+// =============================================================================
+
+export interface EvidenceEntry {
+  id:           string;
+  goal_id:      string;
+  updated_by:   string;
+  file_name:    string;
+  evidence_url: string | null;
+  note:         string;
+  created_at:   string;
+}
+
+export async function addTaskEvidence(
+  goalId:      string,
+  userId:      string,
+  evidenceUrl: string,  // base64 data URL or plain URL
+  fileName:    string,
+  note:        string,
+): Promise<{ success: boolean; id?: string; error?: string }> {
+  const db = createSovereignClient();
+  // Store evidence as JSON in the note column — value=0 as placeholder
+  const payload = JSON.stringify({ __evidence: true, file_name: fileName, evidence_url: evidenceUrl, note });
+  const { data, error } = await db
+    .from('goal_updates')
+    .insert({
+      goal_id:    goalId,
+      updated_by: userId,
+      note:       payload,
+      value:      0,
+    })
+    .select('id')
+    .single();
+
+  if (error) {
+    console.error('[kpi-goals] addTaskEvidence error:', error);
+    return { success: false, error: error.message };
+  }
+  return { success: true, id: (data as { id: string }).id };
+}
+
+export async function getTaskEvidence(goalId: string): Promise<EvidenceEntry[]> {
+  const db = createSovereignClient();
+  const { data, error } = await db
+    .from('goal_updates')
+    .select('*')
+    .eq('goal_id', goalId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('[kpi-goals] getTaskEvidence error:', error);
+    return [];
+  }
+
+  // Filter to rows that contain evidence JSON
+  return ((data ?? []) as Record<string, unknown>[])
+    .filter(row => {
+      try {
+        const parsed = JSON.parse(row.note as string ?? '{}');
+        return parsed.__evidence === true;
+      } catch { return false; }
+    })
+    .map(row => {
+      let parsed: Record<string, unknown> = {};
+      try { parsed = JSON.parse(row.note as string); } catch { /* ignore */ }
+      return {
+        id:           row.id as string,
+        goal_id:      row.goal_id as string,
+        updated_by:   row.updated_by as string,
+        file_name:    (parsed.file_name as string) ?? '',
+        evidence_url: (parsed.evidence_url as string) ?? null,
+        note:         (parsed.note as string) ?? '',
+        created_at:   row.created_at as string,
+      };
+    });
+}
+
+export async function deleteTaskEvidence(
+  updateId: string,
+): Promise<{ success: boolean }> {
+  const db = createSovereignClient();
+  const { error } = await db.from('goal_updates').delete().eq('id', updateId);
+  return { success: !error };
+}
+
+// =============================================================================
 // STAFF GOALS — DIRECTOR VIEW (all staff)
 // =============================================================================
 
