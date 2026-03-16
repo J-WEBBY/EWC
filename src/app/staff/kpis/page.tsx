@@ -100,9 +100,9 @@ function Ring({ value, size = 56, stroke = 5, color = BLUE }: {
 // ANSWER PILL
 // =============================================================================
 function AnswerPill({
-  label, value, active, color, onClick,
+  label, active, color, onClick,
 }: {
-  label: string; value: CQCAnswer['answer']; active: boolean; color: string; onClick: () => void;
+  label: string; value?: CQCAnswer['answer']; active: boolean; color: string; onClick: () => void;
 }) {
   return (
     <button
@@ -377,7 +377,7 @@ export default function KPIPage() {
                   <div className="px-5 py-8 text-center">
                     <p className="text-[12px]" style={{ color: MUTED }}>No pending tasks</p>
                     <p className="text-[10px] mt-1" style={{ color: BORDER }}>
-                      Click "Add task" to create one
+                      Click &ldquo;Add task&rdquo; to create one
                     </p>
                   </div>
                 )}
