@@ -166,14 +166,13 @@ export default function NotificationPanel({ userId, isOpen, onClose }: NotifPane
                         </p>
                       </div>
                       {pendingSignals.map((s, i) => (
-                        <button key={s.id} onClick={() => { router.push(`/staff/signals?userId=${userId}`); handleClose(); }}
-                          className="w-full text-left px-5 py-3.5 flex items-start gap-3 transition-all"
+                        <div key={s.id}
+                          className="w-full text-left px-5 py-3.5 flex items-start gap-3"
                           style={{
                             borderTop: i === 0 ? `1px solid ${BORDER}` : 'none',
                             borderBottom: `1px solid ${BORDER}`,
                           }}
-                          onMouseEnter={e => (e.currentTarget.style.background = ORANGE + '06')}
-                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                          >
                           <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
                             style={{ background: ORANGE + '14', border: `1px solid ${ORANGE}28` }}>
                             <AlertCircle size={14} style={{ color: ORANGE }} />
@@ -183,8 +182,7 @@ export default function NotificationPanel({ userId, isOpen, onClose }: NotifPane
                             <p className="text-[10px] mt-0.5 line-clamp-1" style={{ color: TER }}>{s.description}</p>
                             <p className="text-[9px] mt-1 font-semibold" style={{ color: ORANGE }}>Pending approval · {relTime(s.created_at)}</p>
                           </div>
-                          <ChevronRight size={12} style={{ color: MUTED, flexShrink: 0, marginTop: 4 }} />
-                        </button>
+                        </div>
                       ))}
                     </section>
                   )}
@@ -198,14 +196,13 @@ export default function NotificationPanel({ userId, isOpen, onClose }: NotifPane
                         </p>
                       </div>
                       {unreadSignals.map((s, i) => (
-                        <button key={s.id} onClick={() => { router.push(`/staff/signals?userId=${userId}`); handleClose(); }}
-                          className="w-full text-left px-5 py-3.5 flex items-start gap-3 transition-all"
+                        <div key={s.id}
+                          className="w-full text-left px-5 py-3.5 flex items-start gap-3"
                           style={{
                             borderTop: i === 0 ? `1px solid ${BORDER}` : 'none',
                             borderBottom: `1px solid ${BORDER}`,
                           }}
-                          onMouseEnter={e => (e.currentTarget.style.background = BLUE + '06')}
-                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                          >
                           <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
                             style={{ background: BLUE + '14', border: `1px solid ${BLUE}28` }}>
                             <Radio size={14} style={{ color: BLUE }} />
@@ -215,8 +212,7 @@ export default function NotificationPanel({ userId, isOpen, onClose }: NotifPane
                             <p className="text-[10px] mt-0.5 line-clamp-1" style={{ color: TER }}>{s.description}</p>
                             <p className="text-[9px] mt-1" style={{ color: MUTED }}>{relTime(s.created_at)}</p>
                           </div>
-                          <ChevronRight size={12} style={{ color: MUTED, flexShrink: 0, marginTop: 4 }} />
-                        </button>
+                        </div>
                       ))}
                     </section>
                   )}
@@ -349,13 +345,8 @@ export default function NotificationPanel({ userId, isOpen, onClose }: NotifPane
             </div>
 
             {/* Footer */}
-            <div className="px-5 py-3 flex items-center justify-between" style={{ borderTop: `1px solid ${BORDER}` }}>
+            <div className="px-5 py-3" style={{ borderTop: `1px solid ${BORDER}` }}>
               <p className="text-[10px]" style={{ color: MUTED }}>Updates every 30s</p>
-              <button onClick={() => { router.push(`/staff/signals?userId=${userId}`); handleClose(); }}
-                className="text-[11px] font-semibold flex items-center gap-1 px-3 py-1.5 rounded-lg transition-all"
-                style={{ background: BLUE + '10', border: `1px solid ${BLUE}25`, color: BLUE }}>
-                View all signals <ChevronRight size={10} />
-              </button>
             </div>
           </motion.div>
         </>
