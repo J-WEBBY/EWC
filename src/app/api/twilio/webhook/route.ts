@@ -46,13 +46,13 @@ async function parseTwilioBody(req: NextRequest): Promise<Record<string, string>
 // Load agent system prompt + memories from DB
 // ---------------------------------------------------------------------------
 
-async function loadAgentPrompt(agentKey: string): Promise<string> {
+async function loadAgentPrompt(agentKey: string, channel: 'WhatsApp' | 'SMS'): Promise<string> {
   const db = createSovereignClient();
 
   const FALLBACKS: Record<string, string> = {
-    crm_agent:    'You are Aria, the patient retention specialist for Edgbaston Wellness Clinic. You are warm, empathetic, and professional. You help patients rebook appointments, answer questions about their care, and ensure they feel valued. Keep replies concise — this is WhatsApp/SMS, not a letter. Never diagnose or give medical advice.',
-    sales_agent:  'You are Orion, the patient acquisition specialist for Edgbaston Wellness Clinic. You are commercially sharp, friendly, and knowledgeable about treatments and pricing. You help patients understand their options and encourage rebooking. Keep replies concise — this is WhatsApp/SMS.',
-    primary_agent: 'You are EWC, the operational intelligence system for Edgbaston Wellness Clinic. You help patients with enquiries professionally and concisely.',
+    crm_agent:     'You are Aria, the patient care and retention specialist for Edgbaston Wellness Clinic. You are warm, empathetic, and professional.',
+    sales_agent:   'You are Orion, the patient acquisition and revenue specialist for Edgbaston Wellness Clinic. You are commercially sharp, friendly, and knowledgeable about treatments and pricing.',
+    primary_agent: 'You are EWC, the operational intelligence system for Edgbaston Wellness Clinic.',
   };
 
   const [agentResult, memoriesResult, clinicResult] = await Promise.all([
@@ -69,15 +69,31 @@ async function loadAgentPrompt(agentKey: string): Promise<string> {
   const memories   = (memoriesResult.data ?? []).map(m => m.content as string).join('\n\n');
 
   const contextBlock = [
-    `\n\n## WhatsApp / SMS Conversation`,
-    `You are responding to a patient message via ${agentKey === 'sales_agent' ? 'WhatsApp/SMS as Orion' : 'WhatsApp/SMS as Aria'}.`,
-    `Clinic: ${clinicName}`,
-    `Keep replies SHORT (2-4 sentences max). This is messaging, not email.`,
-    `Do not use markdown. Write in plain conversational text.`,
-    `Never ask more than one question per message.`,
-    `Never give medical advice or diagnose conditions.`,
-    `If the patient wants to book: offer to pass their details to reception or direct them to call the clinic.`,
-    memories ? `\n## Recent Context\n${memories}` : '',
+    `\n\n## WhatsApp / SMS Conversation — ${clinicName}`,
+    `You are responding to a patient message via ${channel} as ${agentKey === 'sales_agent' ? 'Orion' : 'Aria'}.`,
+    ``,
+    `## Communication Rules`,
+    `- Keep replies SHORT (2-4 sentences). This is messaging, not email.`,
+    `- Write in plain conversational text — NO markdown, NO bullet points.`,
+    `- Never ask more than one question per message.`,
+    `- Never give medical advice or diagnose conditions.`,
+    `- Be warm and human — patients should feel cared for, not processed.`,
+    ``,
+    `## Booking via WhatsApp/SMS — YOU CAN BOOK DIRECTLY`,
+    `When a patient wants to book an appointment:`,
+    `1. Collect their full name (if you don't already have it from the conversation).`,
+    `2. Ask which treatment they're interested in.`,
+    `3. Ask for their preferred date and time.`,
+    `4. Use query_patients to find their Cliniko record (search by name or phone).`,
+    `   - If found: use their existing patient ID.`,
+    `   - If not found: use create_patient to register them first.`,
+    `5. Use book_appointment to book directly into Cliniko.`,
+    `6. Use create_signal to notify clinic staff: title "WhatsApp Booking — [Patient Name]", category "operational", signal_type "task", priority "medium", include treatment and appointment time in description.`,
+    `7. Reply to the patient confirming: name, treatment, date/time.`,
+    ``,
+    `Do NOT redirect patients to call the clinic or contact reception — handle it yourself.`,
+    `If Cliniko is unavailable, apologise and tell the patient reception will call them to confirm.`,
+    memories ? `\n## Your Recent Memory\n${memories}` : '',
   ].filter(Boolean).join('\n');
 
   return basePrompt + contextBlock;
@@ -128,18 +144,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const history = await getConversationHistory(conversationId, 20);
 
     // Build agent context
-    const systemPrompt = await loadAgentPrompt(agentKey);
+    const systemPrompt = await loadAgentPrompt(agentKey, channel);
     const tools        = getToolsForAgent(agentKey);
 
     const ctx: AgentContext = {
       tenantId:      'clinic',
       userId:        'twilio-inbound',
       conversationId,
+      agentKey,
       systemPrompt,
       tools,
       model:         ANTHROPIC_SONNET,
-      maxIterations: 5,
-      maxTokens:     300,   // Short replies for WhatsApp/SMS
+      maxIterations: 8,    // Enough for: query_patients → create_patient → book_appointment → create_signal
+      maxTokens:     400,  // Slightly more for booking confirmations
       temperature:   0.4,
     };
 
