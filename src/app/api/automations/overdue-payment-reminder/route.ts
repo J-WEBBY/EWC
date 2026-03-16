@@ -195,16 +195,16 @@ async function runOverduePaymentReminder(): Promise<{
       daysOverdue >= 14 ? 'overdue_14d' :
       daysOverdue >=  7 ? 'overdue_7d'  : 'overdue_3d';
 
-    // Dedup: skip if this stage already sent for this invoice
-    const { data: existing } = await db
-      .from('automation_reminder_log')
-      .select('id')
-      .eq('cliniko_appt_id', `inv_${invoiceId}`)
-      .eq('reminder_type', stage)
-      .maybeSingle();
-
-    if (existing) {
+    // Atomic dedup: INSERT first — unique constraint rejects concurrent duplicates
+    const { error: dupErr } = await db.from('automation_reminder_log').insert({
+      cliniko_appt_id: `inv_${invoiceId}`,
+      reminder_type:   stage,
+      patient_name:    patientName,
+      patient_phone:   normalised,
+    });
+    if (dupErr) {
       result.skipped++;
+      if (dupErr.code !== '23505') result.detail.push(`Dedup insert error: ${dupErr.message}`);
       continue;
     }
 
@@ -226,14 +226,6 @@ async function runOverduePaymentReminder(): Promise<{
           amount_due:   amountDue,
           days_overdue: daysOverdue,
         },
-      });
-
-      // Log dedup entry
-      await db.from('automation_reminder_log').insert({
-        cliniko_appt_id: `inv_${invoiceId}`,
-        reminder_type:   stage,
-        patient_name:    patientName,
-        patient_phone:   normalised,
       });
 
       result.signalled++;
@@ -264,13 +256,6 @@ async function runOverduePaymentReminder(): Promise<{
         channel:         'Voice',
         message:         `[PAYMENT CALL] Invoice ${invoiceRef} ${amountDue} ${daysOverdue}d overdue. ${callNote}`,
         status:          callStatus,
-      });
-
-      await db.from('automation_reminder_log').insert({
-        cliniko_appt_id: `inv_${invoiceId}`,
-        reminder_type:   stage,
-        patient_name:    patientName,
-        patient_phone:   normalised,
       });
 
       result.detail.push(`${callStatus} call → ${patientName} (${invoiceRef}, ${daysOverdue}d)`);
@@ -305,13 +290,6 @@ async function runOverduePaymentReminder(): Promise<{
         result.errors++;
       }
     }
-
-    await db.from('automation_reminder_log').insert({
-      cliniko_appt_id: `inv_${invoiceId}`,
-      reminder_type:   stage,
-      patient_name:    patientName,
-      patient_phone:   normalised,
-    });
 
     await logCommunication({
       automation_id:   'overdue_payment_reminder',

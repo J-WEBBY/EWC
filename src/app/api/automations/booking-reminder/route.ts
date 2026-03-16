@@ -156,23 +156,22 @@ async function runBookingReminder(): Promise<{
 
       const reminderType = window.type as ReminderType;
 
-      // Deduplication check
-      const { data: existing } = await db
-        .from('automation_reminder_log')
-        .select('id')
-        .eq('cliniko_appt_id', apptId)
-        .eq('reminder_type', reminderType)
-        .maybeSingle();
-
-      if (existing) {
+      // Atomic dedup: INSERT first — unique constraint rejects concurrent duplicates
+      const normalised = normalizeUKPhone(phone);
+      const { error: dupErr } = await db.from('automation_reminder_log').insert({
+        cliniko_appt_id: apptId,
+        reminder_type:   reminderType,
+        patient_name:    patientName,
+        patient_phone:   normalised,
+      });
+      if (dupErr) {
         result.skipped++;
-        result.detail.push(`Already sent ${reminderType} to ${patientName}`);
+        if (dupErr.code !== '23505') result.detail.push(`Dedup insert error: ${dupErr.message}`);
         continue;
       }
 
       // Build + send message
       const message = buildMessage({ firstName, appointmentType, practitionerName, startsAt, reminderType });
-      const normalised = normalizeUKPhone(phone);
 
       let sid         = '';
       let channel: 'WhatsApp' | 'SMS' = 'WhatsApp';
@@ -191,14 +190,6 @@ async function runBookingReminder(): Promise<{
           errorMsg   = smsErr instanceof Error ? smsErr.message : String(smsErr);
         }
       }
-
-      // Log to reminder dedup table (insert only — unique constraint prevents duplicates)
-      await db.from('automation_reminder_log').insert({
-        cliniko_appt_id: apptId,
-        reminder_type:   reminderType,
-        patient_name:    patientName,
-        patient_phone:   normalised,
-      });
 
       // Log to automation_communications
       await logCommunication({

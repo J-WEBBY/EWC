@@ -143,21 +143,21 @@ async function runAppointmentPaymentLink(): Promise<{
     const appointmentType = (appt.appointment_type_name as string) || 'appointment';
     const startsAt       = appt.starts_at as string;
 
-    // Dedup check
-    const { data: existing } = await db
-      .from('automation_reminder_log')
-      .select('id')
-      .eq('cliniko_appt_id', apptId)
-      .eq('reminder_type', 'payment_link')
-      .maybeSingle();
+    const normalised = normalizeUKPhone(phone);
 
-    if (existing) {
+    // Atomic dedup: INSERT first — unique constraint rejects concurrent duplicates
+    const { error: dupErr } = await db.from('automation_reminder_log').insert({
+      cliniko_appt_id: apptId,
+      reminder_type:   'payment_link',
+      patient_name:    patientName,
+      patient_phone:   normalised,
+    });
+    if (dupErr) {
       result.skipped++;
-      result.detail.push(`Payment link already sent for ${patientName} (appt ${apptId})`);
+      if (dupErr.code !== '23505') result.detail.push(`Dedup insert error: ${dupErr.message}`);
       continue;
     }
 
-    const normalised = normalizeUKPhone(phone);
     const dateLabel  = formatDate(startsAt);
     const timeLabel  = formatTime(startsAt);
 
@@ -188,14 +188,6 @@ async function runAppointmentPaymentLink(): Promise<{
         result.errors++;
       }
     }
-
-    // Dedup log
-    await db.from('automation_reminder_log').insert({
-      cliniko_appt_id: apptId,
-      reminder_type:   'payment_link',
-      patient_name:    patientName,
-      patient_phone:   normalised,
-    });
 
     await logCommunication({
       automation_id:   'appointment_payment_link',

@@ -192,21 +192,22 @@ async function runAfterAppointmentFollowup(): Promise<{
       continue;
     }
 
-    // Dedup check
-    const { data: existing } = await db
-      .from('automation_reminder_log')
-      .select('id')
-      .eq('cliniko_appt_id', apptId)
-      .eq('reminder_type', stage)
-      .maybeSingle();
+    const normalised = normalizeUKPhone(phone);
 
-    if (existing) {
+    // Atomic dedup: INSERT first — unique constraint rejects concurrent duplicates
+    const { error: dupErr } = await db.from('automation_reminder_log').insert({
+      cliniko_appt_id: apptId,
+      reminder_type:   stage,
+      patient_name:    patientName,
+      patient_phone:   normalised,
+    });
+    if (dupErr) {
+      // 23505 = unique_violation — already sent (or another cron instance beat us)
       result.skipped++;
-      result.detail.push(`Already sent ${stage} to ${patientName}`);
+      if (dupErr.code !== '23505') result.detail.push(`Dedup insert error: ${dupErr.message}`);
       continue;
     }
 
-    const normalised = normalizeUKPhone(phone);
     const message = stage === 'aftercare_24h'
       ? `Hi ${firstName}, thank you for visiting Edgbaston Wellness Clinic yesterday for your ${appointmentType} on ${dateLabel}.\n\nHere are your aftercare instructions:\n\n${aftercareContent.aftercare}\n\nIf you have any concerns, reply to this message or call us on 0121 456 7890.`
       : `Hi ${firstName}, we wanted to check in on you after your recent ${appointmentType} at Edgbaston Wellness Clinic.\n\n${aftercareContent.checkin}\n\nTake care, Edgbaston Wellness Clinic`;
@@ -229,14 +230,6 @@ async function runAfterAppointmentFollowup(): Promise<{
         result.errors++;
       }
     }
-
-    // Dedup log
-    await db.from('automation_reminder_log').insert({
-      cliniko_appt_id: apptId,
-      reminder_type:   stage,
-      patient_name:    patientName,
-      patient_phone:   normalised,
-    });
 
     await logCommunication({
       automation_id:   'after_appointment_followup',
