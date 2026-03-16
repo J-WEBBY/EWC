@@ -1,20 +1,16 @@
 'use client';
 
 // =============================================================================
-// KPI Cockpit — Edgbaston Wellness Clinic
-// Tabs: Overview | Tasks | Compliance | Team (manager)
-// Data-driven, personalised, interactive.
+// KPI & Compliance — personal task tracker + CQC compliance checklist
+// Two sections: My Tasks | CQC Compliance
 // =============================================================================
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  CheckCircle2, Circle, Plus, ChevronRight,
-  TrendingUp, TrendingDown, Bell, AlertCircle, CheckCheck,
-  Target, Users, ShieldCheck, BarChart2,
-  Clock, Calendar, Flag, Trash2, X, ArrowRight,
-  Activity, Award, Edit2, type LucideIcon,
+  CheckCircle2, Circle, Plus, Trash2, X,
+  ShieldCheck, ClipboardList, ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { StaffNav } from '@/components/staff-nav';
 import OrbLoader from '@/components/orb-loader';
@@ -23,1642 +19,665 @@ import {
 } from '@/lib/actions/staff-onboarding';
 import {
   getMyGoals, createGoal, updateGoalProgress, deleteGoal,
-  getMyComplianceItems, seedComplianceItemsForUser,
-  getPersonalKPIMetrics, getAllStaffGoalsSummary,
-  getStaffMonthlyStats, getStaffAllTimeTotals,
-  type StaffGoal, type ComplianceItem,
-  type PersonalKPIMetrics, type StaffGoalsSummary,
-  type MonthlyStatPoint,
-  type GoalCategory, type GoalUnit,
+  type StaffGoal,
 } from '@/lib/actions/kpi-goals';
-import { getClinikoStats } from '@/lib/actions/cliniko';
+import {
+  getCQCAudit, saveCQCAnswer, type CQCAnswer,
+} from '@/lib/actions/compliance';
 
 // =============================================================================
-// DESIGN TOKENS
+// TOKENS
 // =============================================================================
-const BG     = '#FAF7F2';
+const BG     = '#F8FAFF';
 const NAVY   = '#181D23';
 const SEC    = '#3D4451';
 const TER    = '#5A6475';
 const MUTED  = '#96989B';
-const BORDER = '#EBE5FF';
+const BORDER = '#D4E2FF';
 const BLUE   = '#0058E6';
 const GREEN  = '#059669';
 const ORANGE = '#EA580C';
 const RED    = '#DC2626';
-const GOLD   = '#D8A600';
-const PURPLE = '#7C3AED';
 
 // =============================================================================
-// TYPES
+// CQC DOMAINS
 // =============================================================================
-type TabId = 'overview' | 'tasks' | 'compliance' | 'team';
-type TaskFilter = 'my' | 'assigned' | 'all';
-type TaskPeriod = 'today' | 'week' | 'month' | 'all';
-
-interface ClinikoStats {
-  patients: number; appointments: number; appointments_upcoming: number;
-  appointments_this_month: number; invoices: number;
-  revenue_outstanding: number; practitioners: number;
-}
-
-const FALLBACK_PROFILE: StaffProfile = {
-  userId: '', firstName: '—', lastName: '', email: '', jobTitle: null,
-  departmentName: null, departmentId: null, roleName: null, isAdmin: false,
-  isOwner: false, companyName: '', aiName: 'Aria', brandColor: BLUE,
-  logoUrl: null, industry: null, reportsTo: null, teamSize: 0,
-};
+const CQC_DOMAINS = ['Safe', 'Effective', 'Caring', 'Responsive', 'Well-led'] as const;
+type CQCDomain = typeof CQC_DOMAINS[number];
 
 // =============================================================================
 // HELPERS
 // =============================================================================
-
 function greeting() {
   const h = new Date().getHours();
-  if (h < 12) return 'Good morning'; if (h < 17) return 'Good afternoon'; return 'Good evening';
+  return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
 }
 
-function fmtGBP(n: number) {
-  if (n >= 1000) return `£${(n / 1000).toFixed(1)}k`; return `£${Math.round(n)}`;
+function dueLabel(iso: string | null): { text: string; color: string } | null {
+  if (!iso) return null;
+  const d = Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000);
+  if (d < 0)  return { text: `${Math.abs(d)}d overdue`, color: RED };
+  if (d === 0) return { text: 'Due today', color: ORANGE };
+  if (d <= 7)  return { text: `${d}d left`, color: BLUE };
+  return { text: new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }), color: MUTED };
 }
 
-function daysBetween(iso: string): number {
-  return Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000);
+function domainScore(items: CQCAnswer[]): number {
+  const answered = items.filter(i => i.answer !== null);
+  if (!answered.length) return 0;
+  const yes = answered.filter(i => i.answer === 'yes').length;
+  return Math.round((yes / answered.length) * 100);
 }
 
-function dueBadge(isoDate: string | null): { label: string; color: string } {
-  if (!isoDate) return { label: 'No due date', color: MUTED };
-  const d = daysBetween(isoDate);
-  if (d < 0)  return { label: `${Math.abs(d)}d overdue`, color: RED };
-  if (d === 0) return { label: 'Due today',              color: ORANGE };
-  if (d <= 7)  return { label: `${d}d left`,             color: BLUE };
-  return { label: new Date(isoDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }), color: MUTED };
-}
-
-function priorityDotColor(goal: StaffGoal): string | null {
-  if (!goal.due_date) return null;
-  const d = daysBetween(goal.due_date);
-  if (d < 0 || goal.status === 'at_risk' || goal.status === 'missed') return RED;
-  if (d <= 3) return ORANGE;
-  if (goal.status === 'on_track') return null;
-  return null;
-}
-
-function aiInsight(kpi: PersonalKPIMetrics, name: string, clinikoStats: ClinikoStats | null): string {
-  const issues: string[] = [];
-  if (kpi.cqc_critical_overdue > 0) issues.push(`${kpi.cqc_critical_overdue} CQC-critical item${kpi.cqc_critical_overdue > 1 ? 's are' : ' is'} overdue — resolve immediately`);
-  if (kpi.compliance_overdue > 0 && kpi.cqc_critical_overdue === 0) issues.push(`${kpi.compliance_overdue} compliance item${kpi.compliance_overdue > 1 ? 's' : ''} overdue`);
-  if (kpi.goals_at_risk > 0) issues.push(`${kpi.goals_at_risk} goal${kpi.goals_at_risk > 1 ? 's' : ''} at risk`);
-  if (kpi.goals_missed > 0) issues.push(`${kpi.goals_missed} goal${kpi.goals_missed > 1 ? 's' : ''} missed`);
-
-  if (issues.length === 0) {
-    const apt = clinikoStats?.appointments_this_month ?? kpi.appointments_this_month;
-    if (apt > 0) return `All clear, ${name}. ${apt} appointments this month. Compliance and goals on track — strong performance.`;
-    return `All clear, ${name}. Compliance up to date and all goals on track. Keep the momentum going.`;
-  }
-  return `${name}, focus needed: ${issues.join('; ')}.`;
-}
-
-function teamInsight(s: StaffGoalsSummary): string {
-  if (s.goals_at_risk > 1) return `${s.goals_at_risk} goals at risk — schedule check-in`;
-  if (s.compliance_score < 70) return `Compliance score low (${s.compliance_score}%) — review responsibilities`;
-  if (s.goals_missed > 0)   return `${s.goals_missed} missed goal${s.goals_missed > 1 ? 's' : ''} — discuss blockers`;
-  if (s.appointments_mtd === 0 && s.roleName?.toLowerCase().includes('practi')) return 'No appointments recorded this month';
-  return 'Performing well — on track';
-}
-
-function isManagerRole(profile: StaffProfile | null): boolean {
-  if (!profile) return false;
-  if (profile.isAdmin || profile.isOwner) return true;
-  const role = (profile.roleName ?? '').toLowerCase();
-  return role.includes('manager') || role.includes('director') || role.includes('admin') || role.includes('owner');
+function answerColor(a: CQCAnswer['answer']): string {
+  if (a === 'yes')     return GREEN;
+  if (a === 'partial') return ORANGE;
+  if (a === 'no')      return RED;
+  if (a === 'na')      return MUTED;
+  return BORDER;
 }
 
 // =============================================================================
-// MINI COMPONENTS
+// RING CHART
 // =============================================================================
-
-function RingChart({ value, size = 80, stroke = 8, color = BLUE }: { value: number; size?: number; stroke?: number; color?: string }) {
-  const r = (size - stroke) / 2;
+function Ring({ value, size = 56, stroke = 5, color = BLUE }: {
+  value: number; size?: number; stroke?: number; color?: string;
+}) {
+  const r    = (size - stroke) / 2;
   const circ = 2 * Math.PI * r;
   const dash = circ * Math.min(value, 100) / 100;
   return (
-    <svg width={size} height={size} className="-rotate-90">
+    <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
       <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={BORDER} strokeWidth={stroke} />
       <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={stroke}
         strokeDasharray={`${dash} ${circ - dash}`} strokeLinecap="round"
-        style={{ transition: 'stroke-dasharray 0.8s ease' }} />
+        style={{ transition: 'stroke-dasharray 0.7s ease' }} />
     </svg>
   );
 }
 
-function MiniBar({ pct, color }: { pct: number; color: string }) {
-  return (
-    <div className="w-full h-1.5 rounded-full" style={{ background: BORDER }}>
-      <div className="h-1.5 rounded-full transition-all duration-500" style={{ width: `${Math.min(pct, 100)}%`, background: color }} />
-    </div>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, { label: string; color: string }> = {
-    at_risk:   { label: 'At risk',   color: RED },
-    missed:    { label: 'Missed',    color: RED },
-    on_track:  { label: 'On track',  color: GREEN },
-    completed: { label: 'Done',      color: GREEN },
-    active:    { label: 'Active',    color: BLUE },
-    draft:     { label: 'Draft',     color: MUTED },
-    paused:    { label: 'Paused',    color: MUTED },
-  };
-  const cfg = map[status] ?? { label: status, color: MUTED };
-  return (
-    <span className="text-[8px] font-bold uppercase tracking-[0.14em] px-1.5 py-0.5 rounded flex-shrink-0"
-      style={{ color: cfg.color, background: cfg.color + '18', border: `1px solid ${cfg.color}28` }}>
-      {cfg.label}
-    </span>
-  );
-}
-
-function SectionHead({ label, right }: { label: string; right?: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between mb-4" style={{ borderBottom: `1px solid ${BORDER}`, paddingBottom: 12 }}>
-      <span className="text-[8px] uppercase tracking-[0.30em] font-semibold" style={{ color: MUTED }}>{label}</span>
-      {right}
-    </div>
-  );
-}
-
-/** Mini animated orb — replaces Sparkles icon in AI briefing sections */
-function MiniOrb() {
-  return (
-    <div className="relative flex items-center justify-center flex-shrink-0" style={{ width: 20, height: 20, marginTop: 1 }}>
-      <motion.div className="absolute rounded-full"
-        style={{ width: 18, height: 18, background: `radial-gradient(circle, ${BLUE}22 0%, transparent 70%)` }}
-        animate={{ opacity: [0.5, 1, 0.5], scale: [0.9, 1.1, 0.9] }}
-        transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }} />
-      <div className="rounded-full" style={{ width: 7, height: 7, background: `radial-gradient(circle at 35% 35%, #4A8FFF, ${BLUE})`, boxShadow: `0 0 5px ${BLUE}90` }} />
-    </div>
-  );
-}
-
-/** SVG polyline chart for monthly history */
-function HistoryChart({
-  data, valueKey, color = BLUE, height = 60,
+// =============================================================================
+// ANSWER PILL
+// =============================================================================
+function AnswerPill({
+  label, value, active, color, onClick,
 }: {
-  data: MonthlyStatPoint[];
-  valueKey: 'appointments' | 'est_revenue' | 'goals_completed';
-  color?: string;
-  height?: number;
-}) {
-  if (data.length < 2) return null;
-  const vals = data.map(d => d[valueKey]);
-  const max  = Math.max(...vals, 1);
-  const w    = 100; // viewBox units per point (scaled)
-  const pad  = 6;
-  const vw   = (data.length - 1) * w + pad * 2;
-  const vh   = height;
-
-  const pts  = vals.map((v, i) => `${i * w + pad},${vh - pad - ((v / max) * (vh - pad * 2))}`).join(' ');
-  const area = `${pad},${vh - pad} ` + pts + ` ${(data.length - 1) * w + pad},${vh - pad}`;
-
-  return (
-    <svg viewBox={`0 0 ${vw} ${vh}`} preserveAspectRatio="none" style={{ width: '100%', height }}>
-      <defs>
-        <linearGradient id={`hg-${color.slice(1)}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.18" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <polygon points={area} fill={`url(#hg-${color.slice(1)})`} />
-      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-      {/* Last point dot */}
-      {vals.length > 0 && (
-        <circle
-          cx={(vals.length - 1) * w + pad}
-          cy={vh - pad - ((vals[vals.length - 1] / max) * (vh - pad * 2))}
-          r="3" fill={color} />
-      )}
-    </svg>
-  );
-}
-
-function fmtTenure(iso: string): string {
-  const ms = Date.now() - new Date(iso).getTime();
-  const months = Math.floor(ms / (1000 * 60 * 60 * 24 * 30.4));
-  if (months < 1)  return 'Less than a month';
-  if (months < 12) return `${months} month${months > 1 ? 's' : ''}`;
-  const years = Math.floor(months / 12);
-  const rem   = months % 12;
-  return `${years}yr${years > 1 ? 's' : ''}${rem > 0 ? ` ${rem}mo` : ''}`;
-}
-
-function NavTab({ label, icon: Icon, active, onClick, badge }: {
-  label: string; icon: LucideIcon; active: boolean; onClick: () => void; badge?: number;
+  label: string; value: CQCAnswer['answer']; active: boolean; color: string; onClick: () => void;
 }) {
   return (
-    <button onClick={onClick}
-      className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-left transition-all duration-150"
+    <button
+      onClick={onClick}
+      className="text-[9px] font-bold uppercase tracking-[0.12em] px-2 py-1 rounded-lg transition-all"
       style={{
-        background: active ? BLUE + '14' : 'transparent',
-        border: active ? `1px solid ${BLUE}30` : '1px solid transparent',
+        background: active ? color + '20' : 'transparent',
+        border: `1px solid ${active ? color + '50' : BORDER}`,
+        color: active ? color : MUTED,
       }}>
-      <div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0"
-        style={{ background: active ? BLUE + '20' : 'rgba(0,0,0,0.04)' }}>
-        <Icon size={13} style={{ color: active ? BLUE : TER }} />
-      </div>
-      <span className="text-[12px] font-semibold flex-1" style={{ color: active ? NAVY : SEC }}>{label}</span>
-      {badge !== undefined && badge > 0 && (
-        <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0"
-          style={{ background: RED + '18', color: RED, border: `1px solid ${RED}28` }}>
-          {badge}
-        </span>
-      )}
+      {label}
     </button>
   );
 }
 
 // =============================================================================
-// ADD TASK MODAL
+// MAIN PAGE
 // =============================================================================
+export default function KPIPage() {
+  const params   = useSearchParams();
+  const urlUser  = params.get('userId');
 
-function AddTaskModal({ userId, onClose, onAdded }: {
-  userId: string;
-  onClose: () => void;
-  onAdded: (goal: { id: string }) => void;
-}) {
-  const [title,    setTitle]    = useState('');
-  const [dueDate,  setDueDate]  = useState('');
-  const [category, setCategory] = useState<GoalCategory>('operational');
-  const [notes,    setNotes]    = useState('');
-  const [saving,   setSaving]   = useState(false);
-  const [error,    setError]    = useState('');
+  const [userId,     setUserId]     = useState<string | null>(urlUser);
+  const [profile,    setProfile]    = useState<StaffProfile | null>(null);
+  const [brandColor, setBrandColor] = useState(BLUE);
+  const [loading,    setLoading]    = useState(true);
 
-  const save = async () => {
-    if (!title.trim()) { setError('Title is required'); return; }
-    if (!dueDate)       { setError('Due date is required'); return; }
+  // Tasks
+  const [tasks,       setTasks]       = useState<StaffGoal[]>([]);
+  const [showDone,    setShowDone]    = useState(false);
+  const [addOpen,     setAddOpen]     = useState(false);
+  const [newTitle,    setNewTitle]    = useState('');
+  const [newDue,      setNewDue]      = useState('');
+  const [saving,      setSaving]      = useState(false);
+  const titleRef = useRef<HTMLInputElement>(null);
+
+  // Compliance
+  const [cqcItems,    setCqcItems]    = useState<CQCAnswer[]>([]);
+  const [openDomain,  setOpenDomain]  = useState<CQCDomain | null>('Safe');
+  const [savingQ,     setSavingQ]     = useState<number | null>(null);
+
+  // Deleting
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // ── Load ────────────────────────────────────────────────────────────────────
+  const load = useCallback(async (uid: string) => {
+    const [pRes, tRes, cRes] = await Promise.allSettled([
+      getStaffProfile('clinic', uid),
+      getMyGoals(uid),
+      getCQCAudit(),
+    ]);
+    if (pRes.status === 'fulfilled' && pRes.value.success && pRes.value.data) {
+      setProfile(pRes.value.data.profile);
+      if (pRes.value.data.profile.brandColor) setBrandColor(pRes.value.data.profile.brandColor);
+    }
+    if (tRes.status === 'fulfilled')
+      setTasks(tRes.value);
+    if (cRes.status === 'fulfilled')
+      setCqcItems(cRes.value);
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      let uid = urlUser;
+      if (!uid) {
+        const cu = await getCurrentUser();
+        uid = cu?.userId ?? null;
+        if (uid) setUserId(uid);
+      }
+      if (uid) {
+        await load(uid);
+      }
+      setLoading(false);
+    })();
+  }, [urlUser, load]);
+
+  useEffect(() => {
+    if (addOpen) setTimeout(() => titleRef.current?.focus(), 60);
+  }, [addOpen]);
+
+  // ── Task: complete ──────────────────────────────────────────────────────────
+  const handleComplete = useCallback(async (task: StaffGoal) => {
+    if (!userId) return;
+    const already = task.status === 'completed';
+    setTasks(prev => prev.map(t => t.id === task.id
+      ? { ...t, status: already ? 'active' : 'completed', current_value: already ? 0 : t.target_value }
+      : t
+    ));
+    await updateGoalProgress(task.id, already ? 0 : task.target_value, undefined, userId);
+  }, [userId]);
+
+  // ── Task: delete ────────────────────────────────────────────────────────────
+  const handleDelete = useCallback(async (id: string) => {
+    setDeletingId(id);
+    setTasks(prev => prev.filter(t => t.id !== id));
+    await deleteGoal(id);
+    setDeletingId(null);
+  }, []);
+
+  // ── Task: create ────────────────────────────────────────────────────────────
+  const handleCreate = useCallback(async () => {
+    if (!userId || !newTitle.trim()) return;
     setSaving(true);
     const today = new Date().toISOString().split('T')[0];
     const res = await createGoal({
-      owner_id:     userId,
-      title:        title.trim(),
-      description:  notes || undefined,
-      category,
-      scope:        'personal',
+      owner_id:    userId,
+      title:       newTitle.trim(),
+      category:    'personal',
+      scope:       'personal',
+      unit:        'count',
       target_value: 1,
-      unit:         'count' as GoalUnit,
-      period:       'custom',
-      start_date:   today,
-      due_date:     dueDate,
-      notes:        notes || undefined,
+      period:      'custom',
+      start_date:  today,
+      due_date:    newDue || new Date(Date.now() + 30 * 86_400_000).toISOString().split('T')[0],
     });
+    if (res.success) {
+      await load(userId);
+      setNewTitle('');
+      setNewDue('');
+      setAddOpen(false);
+    }
     setSaving(false);
-    if (res.success && res.id) onAdded({ id: res.id });
-    else setError(res.error ?? 'Failed to create task');
-  };
+  }, [userId, newTitle, newDue, load]);
 
-  return (
-    <motion.div
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center px-4"
-      style={{ background: 'rgba(24,29,35,0.5)' }}
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <motion.div
-        initial={{ scale: 0.95, y: 16 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 16 }}
-        className="w-full max-w-md rounded-2xl p-6 flex flex-col gap-4"
-        style={{ background: BG, border: `1px solid ${BORDER}` }}>
-        <div className="flex items-center justify-between">
-          <h3 className="text-[16px] font-bold" style={{ color: NAVY }}>Add Task</h3>
-          <button onClick={onClose} className="w-7 h-7 rounded-lg flex items-center justify-center transition-all"
-            style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${BORDER}` }}>
-            <X size={13} style={{ color: TER }} />
-          </button>
-        </div>
-
-        <div className="flex flex-col gap-3">
-          <div>
-            <label className="text-[9px] uppercase tracking-[0.20em] font-semibold block mb-1.5" style={{ color: MUTED }}>Task title *</label>
-            <input
-              autoFocus value={title} onChange={e => setTitle(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && save()}
-              placeholder="What needs to be done?"
-              className="w-full text-[13px] px-3 py-2.5 rounded-xl outline-none transition-all"
-              style={{ border: `1px solid ${BORDER}`, background: 'rgba(0,0,0,0.02)', color: NAVY }}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-[9px] uppercase tracking-[0.20em] font-semibold block mb-1.5" style={{ color: MUTED }}>Due date *</label>
-              <input
-                type="date" value={dueDate} onChange={e => setDueDate(e.target.value)}
-                className="w-full text-[12px] px-3 py-2.5 rounded-xl outline-none"
-                style={{ border: `1px solid ${BORDER}`, background: 'rgba(0,0,0,0.02)', color: NAVY }}
-              />
-            </div>
-            <div>
-              <label className="text-[9px] uppercase tracking-[0.20em] font-semibold block mb-1.5" style={{ color: MUTED }}>Category</label>
-              <select value={category} onChange={e => setCategory(e.target.value as GoalCategory)}
-                className="w-full text-[12px] px-3 py-2.5 rounded-xl outline-none"
-                style={{ border: `1px solid ${BORDER}`, background: 'rgba(0,0,0,0.02)', color: NAVY }}>
-                {(['operational','compliance','appointments','revenue','patients','training','personal','retention','acquisition'] as GoalCategory[]).map(c => (
-                  <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="text-[9px] uppercase tracking-[0.20em] font-semibold block mb-1.5" style={{ color: MUTED }}>Notes (optional)</label>
-            <textarea
-              value={notes} onChange={e => setNotes(e.target.value)}
-              placeholder="Additional context…"
-              rows={2}
-              className="w-full text-[12px] px-3 py-2.5 rounded-xl outline-none resize-none"
-              style={{ border: `1px solid ${BORDER}`, background: 'rgba(0,0,0,0.02)', color: NAVY }}
-            />
-          </div>
-        </div>
-
-        {error && <p className="text-[11px]" style={{ color: RED }}>{error}</p>}
-
-        <div className="flex gap-2 justify-end">
-          <button onClick={onClose}
-            className="text-[12px] font-semibold px-4 py-2 rounded-xl transition-all"
-            style={{ border: `1px solid ${BORDER}`, color: SEC, background: 'transparent' }}>
-            Cancel
-          </button>
-          <button onClick={save} disabled={saving}
-            className="text-[12px] font-semibold px-4 py-2 rounded-xl transition-all disabled:opacity-50"
-            style={{ background: BLUE + '14', border: `1px solid ${BLUE}30`, color: NAVY }}>
-            {saving ? 'Adding…' : 'Add Task'}
-          </button>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-}
-
-// =============================================================================
-// STAFF DETAIL PANEL (manager view) — full history + value metrics
-// =============================================================================
-
-type DetailPeriod = '1m' | '3m' | '6m' | '1y' | 'all';
-
-function StaffDetailPanel({ staff, onClose }: { staff: StaffGoalsSummary; onClose: () => void }) {
-  const compColor = staff.compliance_score >= 80 ? GREEN : staff.compliance_score >= 60 ? ORANGE : RED;
-  const goalPct   = staff.goals_total > 0 ? Math.round((staff.goals_on_track / staff.goals_total) * 100) : 0;
-  const perfScore = Math.round((goalPct * 0.4) + (staff.compliance_score * 0.4) + Math.min(staff.appointments_mtd * 2, 20));
-  const perfColor = perfScore >= 70 ? GREEN : perfScore >= 50 ? ORANGE : RED;
-  const insight   = teamInsight(staff);
-
-  const startKey = `ewc_start_${staff.userId}`;
-  const [startDate, setStartDate]   = useState<string>(() => {
-    if (typeof window === 'undefined') return '';
-    return localStorage.getItem(startKey) ?? '';
-  });
-  const [editingStart, setEditingStart] = useState(false);
-  const [startInput,   setStartInput]   = useState(startDate);
-
-  const [detailPeriod, setDetailPeriod] = useState<DetailPeriod>('6m');
-  const [history,      setHistory]      = useState<MonthlyStatPoint[]>([]);
-  const [allTime,      setAllTime]      = useState<{ total_appointments: number; total_est_revenue: number; earliest_appointment: string | null } | null>(null);
-  const [loadingHist,  setLoadingHist]  = useState(false);
-
-  useEffect(() => {
-    if (!staff.first_name) return;
-    setLoadingHist(true);
-    Promise.allSettled([
-      getStaffMonthlyStats(staff.first_name, 24),
-      getStaffAllTimeTotals(staff.first_name, startDate || undefined),
-    ]).then(([hRes, atRes]) => {
-      if (hRes.status === 'fulfilled') setHistory(hRes.value);
-      if (atRes.status === 'fulfilled') setAllTime(atRes.value);
-      setLoadingHist(false);
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [staff.userId]);
-
-  const saveStart = () => {
-    localStorage.setItem(startKey, startInput);
-    setStartDate(startInput);
-    setEditingStart(false);
-    // Reload all-time totals with new start date
-    if (staff.first_name) {
-      getStaffAllTimeTotals(staff.first_name, startInput || undefined).then(setAllTime).catch(() => {});
-    }
-  };
-
-  // Slice history by selected period
-  const sliceMap: Record<DetailPeriod, number> = { '1m': 1, '3m': 3, '6m': 6, '1y': 12, 'all': 24 };
-  const histSlice = history.slice(-sliceMap[detailPeriod]);
-  const totAppts  = histSlice.reduce((s, p) => s + p.appointments, 0);
-  const totRev    = histSlice.reduce((s, p) => s + p.est_revenue, 0);
-  const peakMonth = histSlice.length > 0 ? histSlice.reduce((b, p) => p.appointments > b.appointments ? p : b, histSlice[0]) : null;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-end"
-      style={{ background: 'rgba(24,29,35,0.4)' }}
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <motion.div
-        initial={{ x: 60 }} animate={{ x: 0 }} exit={{ x: 60 }}
-        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-        className="h-full w-[520px] overflow-y-auto flex flex-col"
-        style={{ background: BG, borderLeft: `1px solid ${BORDER}` }}>
-
-        {/* ── Header ──────────────────────────────────────────────────────── */}
-        <div className="px-6 pt-6 pb-4 flex items-start justify-between" style={{ borderBottom: `1px solid ${BORDER}` }}>
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl flex items-center justify-center font-black text-[15px]"
-              style={{ background: BLUE + '18', color: BLUE, border: `1px solid ${BLUE}28` }}>
-              {staff.displayName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
-            </div>
-            <div>
-              <p className="text-[16px] font-bold" style={{ color: NAVY }}>{staff.displayName}</p>
-              <p className="text-[11px]" style={{ color: TER }}>{staff.roleName}{staff.departmentName ? ` · ${staff.departmentName}` : ''}</p>
-              {/* Start date / tenure */}
-              <div className="flex items-center gap-1.5 mt-1">
-                {startDate ? (
-                  <>
-                    <span className="text-[10px]" style={{ color: MUTED }}>
-                      {fmtTenure(startDate)} at EWC · since {new Date(startDate).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}
-                    </span>
-                    <button onClick={() => { setStartInput(startDate); setEditingStart(true); }}
-                      className="p-0.5 rounded" style={{ color: MUTED }}>
-                      <Edit2 size={9} />
-                    </button>
-                  </>
-                ) : (
-                  <button onClick={() => { setStartInput(''); setEditingStart(true); }}
-                    className="text-[10px] flex items-center gap-1 px-2 py-0.5 rounded-lg"
-                    style={{ background: BLUE + '10', border: `1px solid ${BLUE}25`, color: BLUE }}>
-                    <Plus size={9} /> Set start date
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-          <button onClick={onClose} className="w-7 h-7 rounded-lg flex items-center justify-center"
-            style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${BORDER}` }}>
-            <X size={13} style={{ color: TER }} />
-          </button>
-        </div>
-
-        {/* ── Start date editor ────────────────────────────────────────────── */}
-        <AnimatePresence>
-          {editingStart && (
-            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-              className="overflow-hidden px-6 py-3 flex items-center gap-3" style={{ background: BLUE + '06', borderBottom: `1px solid ${BLUE}20` }}>
-              <p className="text-[11px] font-semibold shrink-0" style={{ color: NAVY }}>Employment start date</p>
-              <input type="date" value={startInput} onChange={e => setStartInput(e.target.value)}
-                className="text-[12px] px-3 py-1.5 rounded-lg outline-none flex-1"
-                style={{ border: `1px solid ${BORDER}`, background: BG, color: NAVY }} />
-              <button onClick={saveStart}
-                className="text-[11px] font-semibold px-3 py-1.5 rounded-lg"
-                style={{ background: BLUE + '14', border: `1px solid ${BLUE}30`, color: NAVY }}>
-                Save
-              </button>
-              <button onClick={() => setEditingStart(false)}
-                className="text-[11px] px-2 py-1.5 rounded-lg"
-                style={{ border: `1px solid ${BORDER}`, color: TER }}>
-                Cancel
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <div className="px-6 py-5 flex flex-col gap-5">
-
-          {/* ── AI Insight ──────────────────────────────────────────────────── */}
-          <div className="flex items-start gap-3 p-4 rounded-2xl" style={{ background: BLUE + '08', border: `1px solid ${BLUE}20` }}>
-            <MiniOrb />
-            <p className="text-[12px] leading-relaxed" style={{ color: SEC }}>{insight}</p>
-          </div>
-
-          {/* ── Performance ring + 3 value tiles ──────────────────────────── */}
-          <div className="grid grid-cols-4 gap-3">
-            <div className="rounded-2xl p-4 flex flex-col items-center justify-center gap-2 col-span-1" style={{ border: `1px solid ${BORDER}` }}>
-              <div className="relative">
-                <RingChart value={perfScore} size={72} stroke={6} color={perfColor} />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-[14px] font-black" style={{ color: NAVY }}>{perfScore}</span>
-                </div>
-              </div>
-              <p className="text-[8px] uppercase tracking-[0.18em] font-semibold text-center" style={{ color: MUTED }}>Perf Score</p>
-            </div>
-            {[
-              { label: 'Compliance',   value: `${staff.compliance_score}%`,       color: compColor },
-              { label: 'Goals On Track', value: `${staff.goals_on_track}/${staff.goals_total}`, color: goalPct >= 60 ? GREEN : ORANGE },
-              { label: 'Appts MTD',    value: String(staff.appointments_mtd),     color: BLUE },
-            ].map(m => (
-              <div key={m.label} className="rounded-2xl p-4 flex flex-col justify-center" style={{ border: `1px solid ${BORDER}` }}>
-                <p className="text-[8px] uppercase tracking-[0.18em] font-semibold mb-1" style={{ color: MUTED }}>{m.label}</p>
-                <p className="text-[22px] font-black" style={{ color: m.color }}>{m.value}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* ── Value metrics — 3 tiles: patients seen / revenue / est LTV ── */}
-          <div className="grid grid-cols-3 gap-3">
-            {[
-              { label: 'Appts This Period',  value: totAppts.toString(),       sub: `${detailPeriod === 'all' ? 'All time' : detailPeriod}`, color: BLUE   },
-              { label: 'Est. Revenue',        value: fmtGBP(totRev),            sub: 'at £130 avg per appt',                                    color: GOLD   },
-              { label: 'Peak Month',          value: peakMonth ? String(peakMonth.appointments) : '—', sub: peakMonth?.month ?? '',              color: GREEN  },
-            ].map(m => (
-              <div key={m.label} className="rounded-2xl p-4" style={{ background: m.color + '08', border: `1px solid ${m.color}25` }}>
-                <p className="text-[8px] uppercase tracking-[0.18em] font-semibold mb-1" style={{ color: MUTED }}>{m.label}</p>
-                <p className="text-[22px] font-black" style={{ color: m.color }}>{m.value}</p>
-                <p className="text-[9px] mt-0.5" style={{ color: TER }}>{m.sub}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* ── All-time totals (if start date set) ────────────────────────── */}
-          {startDate && allTime && (
-            <div className="rounded-2xl p-4 flex flex-col gap-3" style={{ background: 'rgba(0,0,0,0.015)', border: `1px solid ${BORDER}` }}>
-              <p className="text-[8px] uppercase tracking-[0.28em] font-semibold" style={{ color: MUTED }}>
-                All-time since {new Date(startDate).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}
-              </p>
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <p className="text-[10px]" style={{ color: TER }}>Total appointments</p>
-                  <p className="text-[20px] font-black" style={{ color: BLUE }}>{allTime.total_appointments.toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-[10px]" style={{ color: TER }}>Est. total revenue</p>
-                  <p className="text-[20px] font-black" style={{ color: GOLD }}>{fmtGBP(allTime.total_est_revenue)}</p>
-                </div>
-                <div>
-                  <p className="text-[10px]" style={{ color: TER }}>Tenure</p>
-                  <p className="text-[14px] font-bold" style={{ color: NAVY }}>{fmtTenure(startDate)}</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ── Monthly history chart ────────────────────────────────────── */}
-          <div className="rounded-2xl p-5 flex flex-col gap-4" style={{ border: `1px solid ${BORDER}` }}>
-            <div className="flex items-center justify-between">
-              <p className="text-[9px] uppercase tracking-[0.26em] font-semibold" style={{ color: MUTED }}>Appointment History</p>
-              <div className="flex items-center gap-1">
-                {(['1m', '3m', '6m', '1y', 'all'] as DetailPeriod[]).map(p => (
-                  <button key={p} onClick={() => setDetailPeriod(p)}
-                    className="text-[9px] font-semibold px-2 py-0.5 rounded-lg transition-all capitalize"
-                    style={{
-                      background: detailPeriod === p ? BLUE + '14' : 'transparent',
-                      color:      detailPeriod === p ? BLUE : MUTED,
-                      border:     detailPeriod === p ? `1px solid ${BLUE}30` : `1px solid transparent`,
-                    }}>
-                    {p}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {loadingHist ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="w-5 h-5 border-2 rounded-full animate-spin" style={{ borderColor: BLUE, borderTopColor: 'transparent' }} />
-              </div>
-            ) : histSlice.length < 2 ? (
-              <div className="py-6 flex flex-col items-center gap-2">
-                <Activity size={18} style={{ color: MUTED }} />
-                <p className="text-[11px]" style={{ color: TER }}>
-                  {histSlice.length === 0 ? 'No appointment data available' : 'Not enough data for chart'}
-                </p>
-              </div>
-            ) : (
-              <>
-                <HistoryChart data={histSlice} valueKey="appointments" color={BLUE} height={72} />
-                {/* X labels */}
-                <div className="flex justify-between">
-                  {[histSlice[0], histSlice[Math.floor(histSlice.length / 2)], histSlice[histSlice.length - 1]].map(p => (
-                    <span key={p.iso} className="text-[8px]" style={{ color: MUTED }}>{p.month}</span>
-                  ))}
-                </div>
-                {/* Revenue chart */}
-                <div className="mt-2 flex flex-col gap-1">
-                  <p className="text-[9px] uppercase tracking-[0.18em] font-semibold" style={{ color: MUTED }}>Est. Revenue</p>
-                  <HistoryChart data={histSlice} valueKey="est_revenue" color={GOLD} height={48} />
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* ── Goals breakdown ──────────────────────────────────────────── */}
-          <div>
-            <SectionHead label="Goals Breakdown" />
-            <div className="flex flex-col gap-2">
-              {[
-                { label: 'On track',  count: staff.goals_on_track,  color: GREEN  },
-                { label: 'At risk',   count: staff.goals_at_risk,   color: RED    },
-                { label: 'Completed', count: staff.goals_completed,  color: BLUE   },
-                { label: 'Missed',    count: staff.goals_missed,     color: ORANGE },
-              ].map(row => (
-                <div key={row.label} className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: row.color }} />
-                  <span className="text-[11px] flex-1" style={{ color: SEC }}>{row.label}</span>
-                  <span className="text-[12px] font-bold" style={{ color: row.count > 0 ? row.color : MUTED }}>{row.count}</span>
-                </div>
-              ))}
-              <MiniBar pct={goalPct} color={goalPct >= 60 ? GREEN : ORANGE} />
-            </div>
-          </div>
-
-          {/* ── Suggested actions ───────────────────────────────────────── */}
-          <div>
-            <SectionHead label="Manager Actions" />
-            <div className="flex flex-col gap-2">
-              {staff.goals_at_risk > 0 && (
-                <div className="flex items-start gap-3 p-3 rounded-xl" style={{ background: RED + '08', border: `1px solid ${RED}20` }}>
-                  <Flag size={12} style={{ color: RED, marginTop: 1, flexShrink: 0 }} />
-                  <span className="text-[11px]" style={{ color: SEC }}>
-                    {staff.goals_at_risk} goal{staff.goals_at_risk > 1 ? 's' : ''} at risk — schedule a 1:1 with {staff.displayName.split(' ')[0]} to identify blockers
-                  </span>
-                </div>
-              )}
-              {staff.compliance_score < 80 && (
-                <div className="flex items-start gap-3 p-3 rounded-xl" style={{ background: ORANGE + '08', border: `1px solid ${ORANGE}20` }}>
-                  <ShieldCheck size={12} style={{ color: ORANGE, marginTop: 1, flexShrink: 0 }} />
-                  <span className="text-[11px]" style={{ color: SEC }}>
-                    Compliance at {staff.compliance_score}% — review outstanding items and set a resolution deadline
-                  </span>
-                </div>
-              )}
-              {staff.appointments_mtd === 0 && staff.roleName.toLowerCase().includes('practi') && (
-                <div className="flex items-start gap-3 p-3 rounded-xl" style={{ background: ORANGE + '08', border: `1px solid ${ORANGE}20` }}>
-                  <Calendar size={12} style={{ color: ORANGE, marginTop: 1, flexShrink: 0 }} />
-                  <span className="text-[11px]" style={{ color: SEC }}>No appointments recorded this month — check rota and availability</span>
-                </div>
-              )}
-              {staff.goals_completed > 0 && staff.compliance_score >= 85 && (
-                <div className="flex items-start gap-3 p-3 rounded-xl" style={{ background: GREEN + '08', border: `1px solid ${GREEN}20` }}>
-                  <Award size={12} style={{ color: GREEN, marginTop: 1, flexShrink: 0 }} />
-                  <span className="text-[11px]" style={{ color: SEC }}>
-                    {staff.displayName.split(' ')[0]} is performing well — consider recognition or a stretch goal
-                  </span>
-                </div>
-              )}
-              {!startDate && (
-                <div className="flex items-start gap-3 p-3 rounded-xl" style={{ background: PURPLE + '08', border: `1px solid ${PURPLE}20` }}>
-                  <Clock size={12} style={{ color: PURPLE, marginTop: 1, flexShrink: 0 }} />
-                  <span className="text-[11px]" style={{ color: SEC }}>
-                    Set {staff.displayName.split(' ')[0]}&apos;s employment start date to enable all-time analytics and tenure tracking
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-}
-
-// =============================================================================
-// PAGE COMPONENT
-// =============================================================================
-
-export default function KpisPage() {
-  const router       = useRouter();
-  const searchParams = useSearchParams();
-  const urlUserId    = searchParams.get('userId');
-
-  const [profile,      setProfile]      = useState<StaffProfile | null>(null);
-  const [userId,       setUserId]        = useState('');
-  const [loading,      setLoading]       = useState(true);
-  const [activeTab,    setActiveTab]     = useState<TabId>('overview');
-
-  // Data
-  const [kpi,          setKpi]          = useState<PersonalKPIMetrics | null>(null);
-  const [goals,        setGoals]        = useState<StaffGoal[]>([]);
-  const [compliance,   setCompliance]   = useState<ComplianceItem[]>([]);
-  const [clinikoStats, setClinikoStats] = useState<ClinikoStats | null>(null);
-  const [teamSummary,  setTeamSummary]  = useState<StaffGoalsSummary[]>([]);
-  const [teamLoading,  setTeamLoading]  = useState(false);
-  const teamLoaded = useRef(false);
-
-  // Personal history
-  const [personalHistory, setPersonalHistory] = useState<MonthlyStatPoint[]>([]);
-  const [histPeriod,      setHistPeriod]      = useState<'3m' | '6m' | '1y'>('6m');
-
-  // UI state
-  const [showAddTask,    setShowAddTask]    = useState(false);
-  const [taskFilter,     setTaskFilter]     = useState<TaskFilter>('my');
-  const [taskPeriod,     setTaskPeriod]     = useState<TaskPeriod>('all');
-  const [compFilter,     setCompFilter]     = useState<'all' | 'overdue' | 'due_soon' | 'compliant'>('all');
-  const [selectedStaff,  setSelectedStaff]  = useState<StaffGoalsSummary | null>(null);
-  const [expandedGoal,   setExpandedGoal]   = useState<string | null>(null);
-  const [deleting,       setDeleting]       = useState<string | null>(null);
-  const [completing,     setCompleting]     = useState<string | null>(null);
-
-  // ── Load base data ─────────────────────────────────────────────────────────
-  useEffect(() => {
-    (async () => {
-      let uid = urlUserId;
-      if (!uid) {
-        const cur = await getCurrentUser();
-        if (!cur.success || !cur.userId) { router.push('/login'); return; }
-        uid = cur.userId;
-      }
-      setUserId(uid);
-
-      const profRes = await getStaffProfile('clinic', uid);
-      const prof = profRes.success && profRes.data
-        ? (profRes.data as unknown as { profile: StaffProfile }).profile
-        : null;
-      setProfile(prof);
-
-      const [kpiRes, goalsRes, compRes, csRes] = await Promise.allSettled([
-        getPersonalKPIMetrics(uid, prof?.roleName ?? 'staff', prof?.firstName ?? 'Staff'),
-        getMyGoals(uid),
-        getMyComplianceItems(uid),
-        getClinikoStats(),
-      ]);
-
-      if (kpiRes.status    === 'fulfilled') setKpi(kpiRes.value);
-      if (goalsRes.status  === 'fulfilled') setGoals(goalsRes.value);
-      if (csRes.status     === 'fulfilled') setClinikoStats(csRes.value);
-
-      // Personal history — load quietly in background after profile resolves
-      if (prof?.firstName) {
-        getStaffMonthlyStats(prof.firstName, 24).then(setPersonalHistory).catch(() => {});
-      }
-
-      if (compRes.status === 'fulfilled') {
-        if (compRes.value.length === 0) {
-          await seedComplianceItemsForUser(uid, prof?.roleName ?? 'staff');
-          const seeded = await getMyComplianceItems(uid);
-          setCompliance(seeded);
-        } else {
-          setCompliance(compRes.value);
-        }
-      }
-
-      setLoading(false);
-    })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // ── Load team data (lazy) ──────────────────────────────────────────────────
-  const loadTeam = useCallback(async () => {
-    if (teamLoaded.current || teamLoading) return;
-    setTeamLoading(true);
-    teamLoaded.current = true;
-    const data = await getAllStaffGoalsSummary();
-    setTeamSummary(data);
-    setTeamLoading(false);
-  }, [teamLoading]);
-
-  useEffect(() => {
-    if (activeTab === 'team' && !teamLoaded.current) loadTeam();
-  }, [activeTab, loadTeam]);
-
-  // ── Task actions ───────────────────────────────────────────────────────────
-  const handleComplete = useCallback(async (goal: StaffGoal) => {
-    setCompleting(goal.id);
-    await updateGoalProgress(goal.id, goal.target_value, undefined, userId);
-    setGoals(prev => prev.map(g => g.id === goal.id ? { ...g, current_value: g.target_value, status: 'completed' } : g));
-    setCompleting(null);
+  // ── Compliance: answer ──────────────────────────────────────────────────────
+  const handleAnswer = useCallback(async (
+    q: CQCAnswer,
+    answer: CQCAnswer['answer'],
+  ) => {
+    if (!userId) return;
+    const next = q.answer === answer ? null : answer; // toggle off
+    setSavingQ(q.question_number);
+    setCqcItems(prev => prev.map(i =>
+      i.question_number === q.question_number ? { ...i, answer: next } : i
+    ));
+    await saveCQCAnswer(q.question_number, { answer: next, answered_by: userId });
+    setSavingQ(null);
   }, [userId]);
 
-  const handleUncomplete = useCallback(async (goal: StaffGoal) => {
-    setCompleting(goal.id);
-    await updateGoalProgress(goal.id, 0, undefined, userId);
-    setGoals(prev => prev.map(g => g.id === goal.id ? { ...g, current_value: 0, status: 'active' } : g));
-    setCompleting(null);
-  }, [userId]);
+  // ── Derived ─────────────────────────────────────────────────────────────────
+  const pending   = tasks.filter(t => t.status !== 'completed' && t.status !== 'missed');
+  const done      = tasks.filter(t => t.status === 'completed');
+  const overdue   = pending.filter(t => t.due_date && new Date(t.due_date) < new Date());
 
-  const handleDelete = useCallback(async (goalId: string) => {
-    setDeleting(goalId);
-    await deleteGoal(goalId);
-    setGoals(prev => prev.filter(g => g.id !== goalId));
-    setDeleting(null);
-  }, []);
-
-  const handleTaskAdded = useCallback(async () => {
-    setShowAddTask(false);
-    const fresh = await getMyGoals(userId);
-    setGoals(fresh);
-  }, [userId]);
-
-  // ── Derived ────────────────────────────────────────────────────────────────
-  const isManager     = isManagerRole(profile);
-  const firstName     = profile?.firstName ?? 'there';
-  const todayStr      = new Date().toISOString().split('T')[0];
-
-  const compOverdue   = compliance.filter(c => c.status === 'overdue' || c.status === 'expired' || c.status === 'not_started').length;
-  const compDueSoon   = compliance.filter(c => c.status === 'due_soon' || c.status === 'in_progress').length;
-  const compOk        = compliance.filter(c => c.status === 'compliant' || c.status === 'waived').length;
-  const compScore     = compliance.length > 0
-    ? Math.round((compOk / compliance.filter(c => c.is_mandatory).length || 1) * 100)
-    : 100;
-
-  const perfScore     = kpi ? Math.round(
-    (kpi.goals_on_track / Math.max(kpi.goals_total, 1)) * 40 +
-    (kpi.compliance_score * 0.4) +
-    Math.min((kpi.appointments_this_month / Math.max(kpi.appointments_target, 1)) * 20, 20)
-  ) : 60;
-  const perfColor     = perfScore >= 75 ? GREEN : perfScore >= 50 ? ORANGE : RED;
-
-  // ── Filtered task list ─────────────────────────────────────────────────────
-  const filteredGoals = goals.filter(g => {
-    if (taskFilter === 'my')       return !g.assigned_by;
-    if (taskFilter === 'assigned') return !!g.assigned_by;
-    return true;
-  }).filter(g => {
-    if (taskPeriod === 'all') return true;
-    if (!g.due_date) return false;
-    if (taskPeriod === 'today')  return g.due_date === todayStr;
-    if (taskPeriod === 'week') {
-      const start = new Date(); start.setDate(start.getDate() - start.getDay());
-      const end   = new Date(); end.setDate(end.getDate() + (6 - end.getDay()));
-      return g.due_date >= start.toISOString().split('T')[0] && g.due_date <= end.toISOString().split('T')[0];
-    }
-    if (taskPeriod === 'month') {
-      return g.due_date >= todayStr.slice(0, 7) + '-01' && g.due_date < (() => {
-        const d = new Date(); d.setMonth(d.getMonth() + 1, 1);
-        return d.toISOString().split('T')[0];
-      })();
-    }
-    return true;
-  }).sort((a, b) => {
-    const statusOrd = (s: string) => ({ at_risk: 0, missed: 1, active: 2, on_track: 3, completed: 4, draft: 5, paused: 6 })[s] ?? 9;
-    if (statusOrd(a.status) !== statusOrd(b.status)) return statusOrd(a.status) - statusOrd(b.status);
-    if (a.due_date && b.due_date) return a.due_date.localeCompare(b.due_date);
-    return 0;
-  });
-
-  const filteredCompliance = compliance.filter(c => {
-    if (compFilter === 'all') return true;
-    if (compFilter === 'overdue')   return c.status === 'overdue' || c.status === 'expired' || c.status === 'not_started';
-    if (compFilter === 'due_soon')  return c.status === 'due_soon' || c.status === 'in_progress';
-    if (compFilter === 'compliant') return c.status === 'compliant' || c.status === 'waived';
-    return true;
-  });
-
-  if (loading) {
-    return <OrbLoader />;
+  const domainMap: Record<string, CQCAnswer[]> = {};
+  for (const domain of CQC_DOMAINS) {
+    domainMap[domain] = cqcItems.filter(i =>
+      (i.domain ?? '').toLowerCase() === domain.toLowerCase()
+    );
   }
+  const totalAnswered = cqcItems.filter(i => i.answer !== null).length;
+  const totalYes      = cqcItems.filter(i => i.answer === 'yes').length;
+  const overallScore  = cqcItems.length > 0
+    ? Math.round((totalYes / cqcItems.length) * 100)
+    : 0;
 
-  // ==========================================================================
-  // RENDER
-  // ==========================================================================
+  // ── Loading ─────────────────────────────────────────────────────────────────
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center" style={{ background: BG }}>
+      <OrbLoader />
+    </div>
+  );
+
+  const name = profile?.firstName || 'there';
+
   return (
-    <div className="min-h-screen nav-offset" style={{ background: BG }}>
-      <StaffNav profile={profile ?? FALLBACK_PROFILE} userId={userId} brandColor={profile?.brandColor ?? BLUE} currentPath="KPIs" />
+    <div className="min-h-screen" style={{ background: BG }}>
+      {profile && (
+        <StaffNav profile={profile} userId={userId ?? ''} brandColor={brandColor} currentPath="KPIs" />
+      )}
 
-      {/* ── HEADER BAR ──────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between px-8 pt-7 pb-5"
-        style={{ borderBottom: `2px solid ${BLUE}16` }}>
-        <div>
-          <p className="text-[8px] uppercase tracking-[0.30em] font-semibold mb-1" style={{ color: MUTED }}>KPI Cockpit</p>
-          <h1 className="text-[30px] font-black tracking-[-0.03em] leading-none" style={{ color: NAVY }}>
-            {greeting()}, {firstName}
-          </h1>
-          <p className="text-[12px] mt-1.5" style={{ color: TER }}>
-            {goals.filter(g => g.status !== 'completed').length} active tasks · {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
+      <div className="pl-[240px]">
+        {/* ── Header ───────────────────────────────────────────────────────── */}
+        <div className="px-8 pt-8 pb-6" style={{ borderBottom: `1px solid ${BORDER}` }}>
+          <p className="text-[10px] uppercase tracking-[0.28em] font-semibold mb-1" style={{ color: MUTED }}>
+            {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
           </p>
-        </div>
-        <div className="flex items-center gap-2.5">
-          {compOverdue > 0 && (
-            <button onClick={() => { setActiveTab('compliance'); }}
-              className="flex items-center gap-2 text-[11px] font-semibold px-3 py-2 rounded-xl transition-all"
-              style={{ background: RED + '10', border: `1px solid ${RED}25`, color: RED }}>
-              <ShieldCheck size={12} /> {compOverdue} compliance overdue
-            </button>
-          )}
-          <button onClick={() => router.push(`/staff/signals?userId=${userId}`)}
-            className="flex items-center gap-2 text-[11px] font-medium px-3 py-2 rounded-xl transition-all"
-            style={{ background: 'rgba(0,0,0,0.02)', border: `1px solid ${BORDER}`, color: SEC }}>
-            <Bell size={12} />
-            Signals
-          </button>
-          <button onClick={() => setShowAddTask(true)}
-            className="flex items-center gap-2 text-[11px] font-semibold px-3 py-2 rounded-xl transition-all"
-            style={{ background: BLUE + '14', border: `1px solid ${BLUE}30`, color: NAVY }}>
-            <Plus size={12} /> Add Task
-          </button>
-        </div>
-      </div>
-
-      {/* ── BODY — sidebar + content ─────────────────────────────────────────── */}
-      <div className="flex min-h-[calc(100vh-160px)]">
-
-        {/* ── LEFT SIDEBAR ────────────────────────────────────────────────────── */}
-        <div className="flex flex-col shrink-0 overflow-y-auto" style={{ width: 260, borderRight: `1px solid ${BORDER}` }}>
-          <div className="px-4 py-5 flex flex-col gap-6">
-
-            {/* Profile card */}
-            <div className="rounded-2xl p-4 flex items-center gap-3" style={{ background: BLUE + '08', border: `1px solid ${BLUE}20` }}>
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-[14px] flex-shrink-0"
-                style={{ background: BLUE + '20', color: BLUE, border: `1px solid ${BLUE}30` }}>
-                {(profile?.firstName?.[0] ?? '?')}{(profile?.lastName?.[0] ?? '')}
-              </div>
-              <div className="min-w-0">
-                <p className="text-[13px] font-bold truncate" style={{ color: NAVY }}>{profile?.firstName} {profile?.lastName}</p>
-                <p className="text-[10px] truncate" style={{ color: TER }}>{profile?.roleName ?? 'Staff'}</p>
-                <p className="text-[9px] truncate" style={{ color: MUTED }}>{profile?.departmentName ?? 'Edgbaston Wellness'}</p>
-              </div>
-            </div>
-
-            {/* Tab nav */}
-            <nav className="flex flex-col gap-1">
-              <NavTab label="My Overview"   icon={BarChart2}   active={activeTab === 'overview'}    onClick={() => setActiveTab('overview')} />
-              <NavTab label="Tasks"         icon={Target}      active={activeTab === 'tasks'}       onClick={() => setActiveTab('tasks')}
-                badge={goals.filter(g => g.status === 'at_risk' || g.status === 'missed').length || undefined} />
-              <NavTab label="Compliance"    icon={ShieldCheck} active={activeTab === 'compliance'}  onClick={() => setActiveTab('compliance')}
-                badge={compOverdue || undefined} />
-              {isManager && (
-                <NavTab label="Team" icon={Users} active={activeTab === 'team'} onClick={() => setActiveTab('team')} />
-              )}
-            </nav>
-
-            {/* Quick stats */}
-            <div className="flex flex-col gap-2">
-              <p className="text-[8px] uppercase tracking-[0.28em] font-semibold" style={{ color: MUTED }}>Quick Stats</p>
-              {[
-                { label: 'Performance',    value: `${perfScore}`,     color: perfColor,  suffix: '' },
-                { label: 'Goals Active',   value: String(goals.filter(g => g.status !== 'completed').length), color: BLUE, suffix: '' },
-                { label: 'Compliance',     value: `${compScore}`,     color: compScore >= 80 ? GREEN : compScore >= 60 ? ORANGE : RED, suffix: '%' },
-                { label: 'Appts MTD',      value: String(kpi?.appointments_this_month ?? 0), color: BLUE, suffix: '' },
-              ].map(s => (
-                <div key={s.label} className="flex items-center justify-between px-2 py-1.5">
-                  <span className="text-[10px]" style={{ color: TER }}>{s.label}</span>
-                  <span className="text-[12px] font-bold" style={{ color: s.color }}>{s.value}{s.suffix}</span>
-                </div>
-              ))}
-            </div>
+          <h1 className="text-[32px] font-black tracking-[-0.03em]" style={{ color: NAVY }}>
+            {greeting()}, {name}
+          </h1>
+          <div className="flex items-center gap-6 mt-3">
+            <Stat
+              label="tasks pending"
+              value={pending.length}
+              color={overdue.length > 0 ? RED : BLUE}
+              sub={overdue.length > 0 ? `${overdue.length} overdue` : `${done.length} done`}
+            />
+            <div style={{ width: 1, height: 28, background: BORDER }} />
+            <Stat
+              label="CQC answered"
+              value={totalAnswered}
+              color={overallScore >= 80 ? GREEN : overallScore >= 60 ? ORANGE : RED}
+              sub={`${overallScore}% compliant`}
+            />
           </div>
         </div>
 
-        {/* ── MAIN CONTENT ────────────────────────────────────────────────────── */}
-        <div className="flex-1 overflow-y-auto">
-          <AnimatePresence mode="wait">
+        {/* ── Body ─────────────────────────────────────────────────────────── */}
+        <div className="px-8 py-6 grid grid-cols-5 gap-6 items-start">
 
-            {/* ════════════════════════════════════════════════════════════════
-                OVERVIEW TAB
-            ════════════════════════════════════════════════════════════════ */}
-            {activeTab === 'overview' && (
-              <motion.div key="overview"
-                initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                className="p-6 flex flex-col gap-5">
+          {/* ── LEFT: Tasks ────────────────────────────────────────────────── */}
+          <div className="col-span-2">
+            <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${BORDER}` }}>
+              {/* Section head */}
+              <div className="px-5 py-4 flex items-center justify-between"
+                style={{ borderBottom: `1px solid ${BORDER}` }}>
+                <div className="flex items-center gap-2">
+                  <ClipboardList size={13} style={{ color: BLUE }} />
+                  <span className="text-[8px] uppercase tracking-[0.28em] font-semibold" style={{ color: MUTED }}>
+                    My Tasks
+                  </span>
+                </div>
+                <button
+                  onClick={() => setAddOpen(o => !o)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all"
+                  style={{ background: BLUE + '12', border: `1px solid ${BLUE}28`, color: NAVY }}>
+                  <Plus size={11} style={{ color: BLUE }} />
+                  Add task
+                </button>
+              </div>
 
-                {/* AI Briefing */}
-                <div className="flex items-start gap-3 p-4 rounded-2xl" style={{ background: BLUE + '08', border: `1px solid ${BLUE}20` }}>
-                  <MiniOrb />
-                  <div>
-                    <p className="text-[9px] uppercase tracking-[0.24em] font-semibold mb-1" style={{ color: BLUE + 'bb' }}>AI Briefing</p>
-                    <p className="text-[13px] leading-relaxed" style={{ color: SEC }}>
-                      {kpi ? aiInsight(kpi, firstName, clinikoStats) : 'Loading your performance summary…'}
+              {/* Add form */}
+              <AnimatePresence>
+                {addOpen && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    style={{ overflow: 'hidden', borderBottom: `1px solid ${BORDER}` }}>
+                    <div className="px-5 py-4 flex flex-col gap-2">
+                      <input
+                        ref={titleRef}
+                        value={newTitle}
+                        onChange={e => setNewTitle(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') handleCreate(); if (e.key === 'Escape') setAddOpen(false); }}
+                        placeholder="Task title..."
+                        className="w-full text-[12px] bg-transparent outline-none placeholder:text-[#C0C8D8]"
+                        style={{ color: NAVY, borderBottom: `1px solid ${BORDER}`, paddingBottom: 6 }}
+                      />
+                      <div className="flex items-center gap-2 mt-1">
+                        <input
+                          type="date"
+                          value={newDue}
+                          onChange={e => setNewDue(e.target.value)}
+                          className="text-[11px] bg-transparent outline-none flex-1"
+                          style={{ color: TER, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '4px 8px' }}
+                        />
+                        <button
+                          onClick={handleCreate}
+                          disabled={saving || !newTitle.trim()}
+                          className="px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all"
+                          style={{
+                            background: BLUE,
+                            color: '#fff',
+                            opacity: saving || !newTitle.trim() ? 0.5 : 1,
+                          }}>
+                          {saving ? 'Saving…' : 'Save'}
+                        </button>
+                        <button onClick={() => setAddOpen(false)} style={{ color: MUTED }}>
+                          <X size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Pending tasks */}
+              <div className="py-1">
+                {pending.length === 0 && !addOpen && (
+                  <div className="px-5 py-8 text-center">
+                    <p className="text-[12px]" style={{ color: MUTED }}>No pending tasks</p>
+                    <p className="text-[10px] mt-1" style={{ color: BORDER }}>
+                      Click "Add task" to create one
                     </p>
                   </div>
-                </div>
-
-                {/* Metric tiles — 4 col */}
-                <div className="grid grid-cols-4 gap-3">
-                  {[
-                    { label: 'Active Goals',      value: String(goals.filter(g => g.status !== 'completed' && g.status !== 'paused').length), sub: `${kpi?.goals_on_track ?? 0} on track`, color: BLUE,   trend: 'up'  },
-                    { label: 'Appointments MTD',  value: String(kpi?.appointments_this_month ?? 0), sub: `target: ${kpi?.appointments_target ?? 0}`, color: GREEN,  trend: kpi && kpi.appointments_this_month >= kpi.appointments_target ? 'up' : 'down' },
-                    { label: 'Patients Active',   value: String(kpi?.active_patients ?? clinikoStats?.patients ?? 0), sub: `${kpi?.new_patients_this_month ?? 0} new this month`, color: PURPLE, trend: 'up' },
-                    { label: 'Compliance Score',  value: `${kpi?.compliance_score ?? compScore}%`, sub: compOverdue > 0 ? `${compOverdue} overdue` : 'All clear', color: kpi && kpi.compliance_score >= 80 ? GREEN : kpi && kpi.compliance_score >= 60 ? ORANGE : RED, trend: kpi && kpi.compliance_score >= 80 ? 'up' : 'down' },
-                  ].map(tile => (
-                    <div key={tile.label} className="rounded-2xl p-4 flex flex-col gap-1" style={{ border: `1px solid ${BORDER}` }}>
-                      <div className="flex items-start justify-between">
-                        <p className="text-[8px] uppercase tracking-[0.24em] font-semibold" style={{ color: MUTED }}>{tile.label}</p>
-                        {tile.trend === 'up'
-                          ? <TrendingUp size={11} style={{ color: GREEN }} />
-                          : <TrendingDown size={11} style={{ color: RED }} />}
-                      </div>
-                      <p className="text-[30px] font-black tracking-[-0.04em]" style={{ color: tile.color }}>{tile.value}</p>
-                      <p className="text-[10px]" style={{ color: MUTED }}>{tile.sub}</p>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Performance ring + compliance snapshot */}
-                <div className="grid grid-cols-2 gap-4">
-                  {/* Performance ring */}
-                  <div className="rounded-2xl p-5 flex items-center gap-5" style={{ border: `1px solid ${BORDER}` }}>
-                    <div className="relative shrink-0">
-                      <RingChart value={perfScore} size={96} stroke={8} color={perfColor} />
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-[18px] font-black" style={{ color: NAVY }}>{perfScore}</span>
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-[8px] uppercase tracking-[0.24em] font-semibold mb-1" style={{ color: MUTED }}>Performance Score</p>
-                      <p className="text-[16px] font-bold" style={{ color: perfColor }}>
-                        {perfScore >= 80 ? 'Excellent' : perfScore >= 60 ? 'On Track' : 'Needs Attention'}
-                      </p>
-                      <p className="text-[11px] mt-1" style={{ color: TER }}>{kpi?.goals_on_track ?? 0}/{kpi?.goals_total ?? goals.length} goals on track</p>
-                      <div className="flex flex-col gap-1 mt-3">
-                        {[{ l: 'Goals', c: BLUE }, { l: 'Compliance', c: GREEN }, { l: 'Activity', c: GOLD }].map(x => (
-                          <div key={x.l} className="flex items-center gap-2 text-[10px]" style={{ color: SEC }}>
-                            <div className="w-2 h-2 rounded-full" style={{ background: x.c }} /> {x.l}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Compliance snapshot */}
-                  <div className="rounded-2xl p-5" style={{ border: `1px solid ${BORDER}` }}>
-                    <SectionHead label="Compliance Snapshot" right={
-                      <button onClick={() => setActiveTab('compliance')} className="text-[10px] flex items-center gap-1" style={{ color: BLUE }}>
-                        View all <ArrowRight size={9} />
-                      </button>
-                    } />
-                    <div className="grid grid-cols-3 gap-3 mb-4">
-                      {[
-                        { count: compOk,       label: 'Complete', color: GREEN  },
-                        { count: compDueSoon,   label: 'Due soon', color: ORANGE },
-                        { count: compOverdue,   label: 'Overdue',  color: RED    },
-                      ].map(s => (
-                        <div key={s.label} className="rounded-xl p-3 text-center" style={{ background: s.color + '10', border: `1px solid ${s.color}28` }}>
-                          <p className="text-[22px] font-black" style={{ color: s.color }}>{s.count}</p>
-                          <p className="text-[9px]" style={{ color: SEC }}>{s.label}</p>
-                        </div>
-                      ))}
-                    </div>
-                    {compOverdue > 0 && compliance.filter(c => c.status === 'overdue' || c.status === 'not_started').slice(0, 2).map(c => (
-                      <div key={c.id} className="flex items-center gap-2 py-1.5" style={{ borderTop: `1px solid ${BORDER}` }}>
-                        <div className="w-1.5 h-1.5 rounded-full" style={{ background: RED }} />
-                        <span className="text-[10px] flex-1 truncate" style={{ color: SEC }}>{c.title}</span>
-                        <span className="text-[8px] font-semibold px-1.5 py-0.5 rounded" style={{ background: RED + '14', color: RED }}>Overdue</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Goals list (top 5 active) */}
-                {goals.filter(g => g.status !== 'completed' && g.status !== 'paused').length > 0 && (
-                  <div className="rounded-2xl p-5" style={{ border: `1px solid ${BORDER}` }}>
-                    <SectionHead label="Active Goals" right={
-                      <button onClick={() => setActiveTab('tasks')} className="text-[10px] flex items-center gap-1" style={{ color: BLUE }}>
-                        Manage tasks <ArrowRight size={9} />
-                      </button>
-                    } />
-                    <div className="flex flex-col gap-3">
-                      {goals.filter(g => g.status !== 'completed' && g.status !== 'paused').slice(0, 5).map(goal => {
-                        const pct = Math.min(Math.round((goal.current_value / Math.max(goal.target_value, 1)) * 100), 100);
-                        const col = pct >= 80 ? GREEN : pct >= 40 ? ORANGE : RED;
-                        return (
-                          <div key={goal.id}>
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-[12px] font-medium" style={{ color: NAVY }}>{goal.title}</span>
-                              <div className="flex items-center gap-2">
-                                <StatusBadge status={goal.status} />
-                                <span className="text-[11px] font-bold" style={{ color: col }}>{pct}%</span>
-                              </div>
-                            </div>
-                            <MiniBar pct={pct} color={col} />
-                            <div className="flex justify-between mt-1">
-                              <span className="text-[9px]" style={{ color: MUTED }}>{goal.category}</span>
-                              {goal.due_date && (
-                                <span className="text-[9px]" style={{ color: dueBadge(goal.due_date).color }}>
-                                  {dueBadge(goal.due_date).label}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
                 )}
+                <AnimatePresence>
+                  {pending.map(task => (
+                    <TaskRow
+                      key={task.id}
+                      task={task}
+                      deleting={deletingId === task.id}
+                      onComplete={() => handleComplete(task)}
+                      onDelete={() => handleDelete(task.id)}
+                    />
+                  ))}
+                </AnimatePresence>
+              </div>
 
-                {/* Performance History */}
-                {personalHistory.length > 1 && (() => {
-                  const sliceMap: Record<string, number> = { '3m': 3, '6m': 6, '1y': 12 };
-                  const slice  = personalHistory.slice(-sliceMap[histPeriod]);
-                  const totAppts = slice.reduce((s, p) => s + p.appointments, 0);
-                  const totRev   = slice.reduce((s, p) => s + p.est_revenue, 0);
-                  const peakMo   = slice.reduce((best, p) => p.appointments > best.appointments ? p : best, slice[0]);
-                  return (
-                    <div className="rounded-2xl p-5 flex flex-col gap-4" style={{ border: `1px solid ${BORDER}` }}>
-                      <div className="flex items-center justify-between">
-                        <SectionHead label="My Performance History" />
-                        <div className="flex items-center gap-1.5 mb-4">
-                          {(['3m', '6m', '1y'] as const).map(p => (
-                            <button key={p} onClick={() => setHistPeriod(p)}
-                              className="text-[10px] font-semibold px-2.5 py-1 rounded-lg transition-all"
-                              style={{
-                                background: histPeriod === p ? BLUE + '14' : 'transparent',
-                                color:      histPeriod === p ? BLUE : MUTED,
-                                border:     histPeriod === p ? `1px solid ${BLUE}30` : `1px solid ${BORDER}`,
-                              }}>
-                              {p === '3m' ? '3 months' : p === '6m' ? '6 months' : '1 year'}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Summary stats */}
-                      <div className="grid grid-cols-3 gap-3">
-                        {[
-                          { label: 'Appointments', value: totAppts.toString(), color: BLUE },
-                          { label: 'Est. Revenue',  value: fmtGBP(totRev), color: GOLD },
-                          { label: 'Peak Month',    value: peakMo.appointments.toString(), sub: peakMo.month, color: GREEN },
-                        ].map(s => (
-                          <div key={s.label} className="rounded-xl p-3" style={{ background: s.color + '08', border: `1px solid ${s.color}20` }}>
-                            <p className="text-[8px] uppercase tracking-[0.20em] font-semibold mb-1" style={{ color: MUTED }}>{s.label}</p>
-                            <p className="text-[20px] font-black" style={{ color: s.color }}>{s.value}</p>
-                            {'sub' in s && <p className="text-[9px]" style={{ color: TER }}>{s.sub}</p>}
-                          </div>
+              {/* Done toggle */}
+              {done.length > 0 && (
+                <div style={{ borderTop: `1px solid ${BORDER}` }}>
+                  <button
+                    onClick={() => setShowDone(s => !s)}
+                    className="w-full px-5 py-3 flex items-center justify-between transition-all"
+                    style={{ color: MUTED }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.02)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                    <span className="text-[10px] font-semibold">
+                      {done.length} completed
+                    </span>
+                    {showDone ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                  </button>
+                  <AnimatePresence>
+                    {showDone && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        style={{ overflow: 'hidden' }}>
+                        {done.map(task => (
+                          <TaskRow
+                            key={task.id}
+                            task={task}
+                            deleting={deletingId === task.id}
+                            onComplete={() => handleComplete(task)}
+                            onDelete={() => handleDelete(task.id)}
+                            muted
+                          />
                         ))}
-                      </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )}
+            </div>
+          </div>
 
-                      {/* Chart */}
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center justify-between">
-                          <p className="text-[9px] uppercase tracking-[0.18em] font-semibold" style={{ color: MUTED }}>Appointments per month</p>
-                          <div className="flex items-center gap-1">
-                            <div className="w-3 h-[1.5px] rounded" style={{ background: BLUE }} />
-                            <span className="text-[9px]" style={{ color: MUTED }}>Appointments</span>
-                          </div>
-                        </div>
-                        <HistoryChart data={slice} valueKey="appointments" color={BLUE} height={64} />
-                        {/* Month labels */}
-                        <div className="flex justify-between">
-                          {[slice[0], slice[Math.floor(slice.length / 2)], slice[slice.length - 1]].map(p => (
-                            <span key={p.iso} className="text-[8px]" style={{ color: MUTED }}>{p.month}</span>
-                          ))}
-                        </div>
-                      </div>
+          {/* ── RIGHT: CQC Compliance ───────────────────────────────────────── */}
+          <div className="col-span-3">
+            <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${BORDER}` }}>
+              {/* Header */}
+              <div className="px-5 py-4 flex items-center justify-between"
+                style={{ borderBottom: `1px solid ${BORDER}` }}>
+                <div className="flex items-center gap-2">
+                  <ShieldCheck size={13} style={{ color: BLUE }} />
+                  <span className="text-[8px] uppercase tracking-[0.28em] font-semibold" style={{ color: MUTED }}>
+                    CQC Compliance
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px]" style={{ color: TER }}>
+                    {totalAnswered} / {cqcItems.length} answered
+                  </span>
+                  <div className="relative flex items-center justify-center">
+                    <Ring value={overallScore} size={40} stroke={4}
+                      color={overallScore >= 80 ? GREEN : overallScore >= 60 ? ORANGE : RED} />
+                    <span className="absolute text-[8px] font-black" style={{ color: NAVY }}>
+                      {overallScore}%
+                    </span>
+                  </div>
+                </div>
+              </div>
 
-                      {/* Revenue chart */}
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center justify-between">
-                          <p className="text-[9px] uppercase tracking-[0.18em] font-semibold" style={{ color: MUTED }}>Est. Revenue per month</p>
-                          <div className="flex items-center gap-1">
-                            <div className="w-3 h-[1.5px] rounded" style={{ background: GOLD }} />
-                            <span className="text-[9px]" style={{ color: MUTED }}>Revenue</span>
-                          </div>
+              {/* Domain accordions */}
+              {cqcItems.length === 0 ? (
+                <div className="px-5 py-10 text-center">
+                  <p className="text-[12px]" style={{ color: MUTED }}>No CQC questions loaded</p>
+                  <p className="text-[10px] mt-1" style={{ color: BORDER }}>
+                    Run the compliance migration to populate the checklist
+                  </p>
+                </div>
+              ) : (
+                CQC_DOMAINS.map((domain, di) => {
+                  const items = domainMap[domain] ?? [];
+                  const score = domainScore(items);
+                  const answeredCount = items.filter(i => i.answer !== null).length;
+                  const isOpen = openDomain === domain;
+                  const domColor = score >= 80 ? GREEN : score >= 60 ? ORANGE : RED;
+
+                  return (
+                    <div key={domain} style={{ borderBottom: di < CQC_DOMAINS.length - 1 ? `1px solid ${BORDER}` : 'none' }}>
+                      {/* Domain header */}
+                      <button
+                        onClick={() => setOpenDomain(isOpen ? null : domain)}
+                        className="w-full px-5 py-4 flex items-center gap-4 transition-all text-left"
+                        onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,88,230,0.02)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                        {/* Ring */}
+                        <div className="relative flex items-center justify-center flex-shrink-0">
+                          <Ring value={items.length ? score : 0} size={44} stroke={4}
+                            color={items.length ? domColor : BORDER} />
+                          <span className="absolute text-[8px] font-black"
+                            style={{ color: items.length ? NAVY : MUTED }}>
+                            {items.length ? `${score}%` : '—'}
+                          </span>
                         </div>
-                        <HistoryChart data={slice} valueKey="est_revenue" color={GOLD} height={48} />
-                      </div>
+                        {/* Domain info */}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] font-bold" style={{ color: NAVY }}>{domain}</p>
+                          <p className="text-[10px] mt-0.5" style={{ color: TER }}>
+                            {answeredCount} of {items.length} answered
+                          </p>
+                        </div>
+                        {/* Status pill */}
+                        {items.length > 0 && (
+                          <span className="text-[8px] font-bold uppercase tracking-[0.14em] px-2 py-1 rounded-lg flex-shrink-0"
+                            style={{
+                              color: domColor,
+                              background: domColor + '18',
+                              border: `1px solid ${domColor}28`,
+                            }}>
+                            {score >= 80 ? 'Good' : score >= 60 ? 'Partial' : answeredCount === 0 ? 'Not started' : 'Action needed'}
+                          </span>
+                        )}
+                        {isOpen
+                          ? <ChevronUp size={13} style={{ color: MUTED, flexShrink: 0 }} />
+                          : <ChevronDown size={13} style={{ color: MUTED, flexShrink: 0 }} />
+                        }
+                      </button>
+
+                      {/* Questions */}
+                      <AnimatePresence>
+                        {isOpen && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.22 }}
+                            style={{ overflow: 'hidden' }}>
+                            {items.length === 0 ? (
+                              <div className="px-5 pb-4">
+                                <p className="text-[11px]" style={{ color: MUTED }}>
+                                  No questions in this domain
+                                </p>
+                              </div>
+                            ) : (
+                              <div style={{ borderTop: `1px solid ${BORDER}` }}>
+                                {items.map((q, qi) => (
+                                  <motion.div
+                                    key={q.id}
+                                    initial={{ opacity: 0, x: -6 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: qi * 0.03 }}
+                                    className="px-5 py-3 flex items-start gap-4"
+                                    style={{
+                                      borderBottom: qi < items.length - 1 ? `1px solid ${BORDER}` : 'none',
+                                      background: q.answer === null ? 'transparent' : answerColor(q.answer) + '05',
+                                    }}>
+                                    {/* Q number */}
+                                    <span className="text-[9px] font-bold flex-shrink-0 mt-1"
+                                      style={{ color: MUTED, minWidth: 20 }}>
+                                      {q.question_number}
+                                    </span>
+                                    {/* Question text */}
+                                    <p className="text-[11px] leading-relaxed flex-1"
+                                      style={{
+                                        color: q.answer === null ? SEC : q.answer === 'na' ? MUTED : NAVY,
+                                        textDecoration: q.answer === 'na' ? 'line-through' : 'none',
+                                      }}>
+                                      {q.question_text}
+                                      {q.audit_area && (
+                                        <span className="block text-[9px] mt-0.5" style={{ color: MUTED }}>
+                                          {q.audit_area}
+                                        </span>
+                                      )}
+                                    </p>
+                                    {/* Answer buttons */}
+                                    <div className="flex items-center gap-1 flex-shrink-0"
+                                      style={{ opacity: savingQ === q.question_number ? 0.5 : 1 }}>
+                                      {(['yes', 'partial', 'no', 'na'] as CQCAnswer['answer'][]).map(ans => (
+                                        <AnswerPill
+                                          key={ans}
+                                          label={ans === 'partial' ? 'Part' : (ans ?? '').toUpperCase()}
+                                          value={ans}
+                                          active={q.answer === ans}
+                                          color={answerColor(ans)}
+                                          onClick={() => handleAnswer(q, ans)}
+                                        />
+                                      ))}
+                                    </div>
+                                  </motion.div>
+                                ))}
+                              </div>
+                            )}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   );
-                })()}
-              </motion.div>
-            )}
-
-            {/* ════════════════════════════════════════════════════════════════
-                TASKS TAB
-            ════════════════════════════════════════════════════════════════ */}
-            {activeTab === 'tasks' && (
-              <motion.div key="tasks"
-                initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                className="p-6 flex flex-col gap-4">
-
-                {/* Controls row */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    {(['my', 'assigned', 'all'] as TaskFilter[]).map(f => (
-                      <button key={f} onClick={() => setTaskFilter(f)}
-                        className="text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-all capitalize"
-                        style={{
-                          background: taskFilter === f ? NAVY : 'transparent',
-                          color:      taskFilter === f ? BG : SEC,
-                          border:     taskFilter === f ? `1px solid ${NAVY}` : `1px solid ${BORDER}`,
-                        }}>
-                        {f === 'my' ? 'My Tasks' : f === 'assigned' ? 'Assigned to me' : 'All Tasks'}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    {(['today', 'week', 'month', 'all'] as TaskPeriod[]).map(p => (
-                      <button key={p} onClick={() => setTaskPeriod(p)}
-                        className="text-[10px] font-semibold px-2.5 py-1.5 rounded-lg transition-all capitalize"
-                        style={{
-                          background: taskPeriod === p ? BLUE + '14' : 'transparent',
-                          color:      taskPeriod === p ? BLUE : TER,
-                          border:     taskPeriod === p ? `1px solid ${BLUE}30` : `1px solid ${BORDER}`,
-                        }}>
-                        {p === 'all' ? 'All time' : p.charAt(0).toUpperCase() + p.slice(1)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Task list */}
-                <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${BORDER}` }}>
-                  {filteredGoals.length === 0 ? (
-                    <div className="py-16 flex flex-col items-center gap-3">
-                      <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.03)', border: `1px solid ${BORDER}` }}>
-                        <Target size={18} style={{ color: MUTED }} />
-                      </div>
-                      <p className="text-[13px] font-medium" style={{ color: TER }}>No tasks in this view</p>
-                      <button onClick={() => setShowAddTask(true)}
-                        className="text-[11px] font-semibold px-4 py-2 rounded-xl transition-all mt-1"
-                        style={{ background: BLUE + '14', border: `1px solid ${BLUE}30`, color: NAVY }}>
-                        <Plus size={11} className="inline mr-1" /> Add your first task
-                      </button>
-                    </div>
-                  ) : (
-                    <AnimatePresence>
-                      {filteredGoals.map((goal, i) => {
-                        const isDone  = goal.status === 'completed';
-                        const dotCol  = priorityDotColor(goal);
-                        const db      = dueBadge(goal.due_date);
-                        const isExpanded = expandedGoal === goal.id;
-                        return (
-                          <motion.div key={goal.id}
-                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                            className="group"
-                            style={{ borderBottom: i < filteredGoals.length - 1 ? `1px solid ${BORDER}` : 'none' }}>
-                            <div
-                              className="flex items-start gap-3 px-5 py-4 cursor-pointer transition-all"
-                              style={{ background: isExpanded ? BLUE + '04' : 'transparent' }}
-                              onClick={() => setExpandedGoal(isExpanded ? null : goal.id)}>
-
-                              {/* Checkbox */}
-                              <button
-                                onClick={e => { e.stopPropagation(); if (isDone) { handleUncomplete(goal); } else { handleComplete(goal); } }}
-                                disabled={completing === goal.id}
-                                className="mt-0.5 shrink-0 transition-all disabled:opacity-40">
-                                {completing === goal.id
-                                  ? <div className="w-4 h-4 border-2 rounded-full animate-spin" style={{ borderColor: BLUE, borderTopColor: 'transparent' }} />
-                                  : isDone
-                                    ? <CheckCircle2 size={16} style={{ color: GREEN }} />
-                                    : <Circle size={16} style={{ color: MUTED }} />}
-                              </button>
-
-                              {/* Priority dot */}
-                              {dotCol && !isDone && (
-                                <div className="w-1.5 h-1.5 rounded-full mt-[7px] shrink-0" style={{ background: dotCol }} />
-                              )}
-
-                              {/* Content */}
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-start justify-between gap-2">
-                                  <span className="text-[13px] font-medium leading-snug"
-                                    style={{ color: isDone ? MUTED : NAVY, textDecoration: isDone ? 'line-through' : 'none' }}>
-                                    {goal.title}
-                                  </span>
-                                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                                    <StatusBadge status={goal.status} />
-                                    <ChevronRight size={11} style={{ color: MUTED, transform: isExpanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} />
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-3 mt-1">
-                                  {goal.due_date && (
-                                    <span className="flex items-center gap-1 text-[10px]" style={{ color: db.color }}>
-                                      <Clock size={9} /> {db.label}
-                                    </span>
-                                  )}
-                                  <span className="text-[10px]" style={{ color: MUTED }}>{goal.category}</span>
-                                  {goal.assigned_by && (
-                                    <span className="text-[10px]" style={{ color: PURPLE }}>
-                                      Assigned by {goal.assigner_name ?? 'manager'}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Expanded detail */}
-                            <AnimatePresence>
-                              {isExpanded && (
-                                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-                                  className="overflow-hidden px-5 pb-4"
-                                  style={{ borderTop: `1px solid ${BORDER}`, background: BLUE + '03' }}>
-                                  <div className="pt-3 flex flex-col gap-3">
-                                    {goal.description && (
-                                      <p className="text-[12px] leading-relaxed" style={{ color: TER }}>{goal.description}</p>
-                                    )}
-                                    {/* Progress bar */}
-                                    <div>
-                                      <div className="flex justify-between mb-1.5">
-                                        <span className="text-[10px]" style={{ color: MUTED }}>Progress</span>
-                                        <span className="text-[10px] font-semibold" style={{ color: SEC }}>
-                                          {goal.current_value} / {goal.target_value} {goal.unit}
-                                        </span>
-                                      </div>
-                                      <MiniBar pct={Math.round((goal.current_value / Math.max(goal.target_value, 1)) * 100)}
-                                        color={goal.current_value >= goal.target_value ? GREEN : BLUE} />
-                                    </div>
-                                    <div className="flex gap-2">
-                                      <span className="text-[9px] px-2 py-1 rounded-lg" style={{ background: BORDER, color: TER }}>{goal.period}</span>
-                                      <span className="text-[9px] px-2 py-1 rounded-lg" style={{ background: BORDER, color: TER }}>{goal.scope}</span>
-                                    </div>
-                                    <div className="flex gap-2">
-                                      <button onClick={e => { e.stopPropagation(); handleDelete(goal.id); }} disabled={deleting === goal.id}
-                                        className="flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-lg transition-all disabled:opacity-40"
-                                        style={{ background: RED + '10', border: `1px solid ${RED}25`, color: RED }}>
-                                        <Trash2 size={11} /> {deleting === goal.id ? 'Removing…' : 'Remove'}
-                                      </button>
-                                      {!isDone && (
-                                        <button onClick={e => { e.stopPropagation(); handleComplete(goal); }} disabled={completing === goal.id}
-                                          className="flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-lg transition-all disabled:opacity-40"
-                                          style={{ background: GREEN + '10', border: `1px solid ${GREEN}25`, color: GREEN }}>
-                                          <CheckCircle2 size={11} /> Mark complete
-                                        </button>
-                                      )}
-                                    </div>
-                                  </div>
-                                </motion.div>
-                              )}
-                            </AnimatePresence>
-                          </motion.div>
-                        );
-                      })}
-                    </AnimatePresence>
-                  )}
-                </div>
-
-                {/* Summary bar */}
-                <div className="flex items-center gap-4 px-4 py-3 rounded-2xl" style={{ background: 'rgba(0,0,0,0.02)', border: `1px solid ${BORDER}` }}>
-                  {[
-                    { label: 'Total',     count: filteredGoals.length,                                               color: MUTED  },
-                    { label: 'Active',    count: filteredGoals.filter(g => g.status === 'active').length,             color: BLUE   },
-                    { label: 'On track',  count: filteredGoals.filter(g => g.status === 'on_track').length,           color: GREEN  },
-                    { label: 'At risk',   count: filteredGoals.filter(g => g.status === 'at_risk' || g.status === 'missed').length, color: RED },
-                    { label: 'Complete',  count: filteredGoals.filter(g => g.status === 'completed').length,          color: GREEN  },
-                  ].map((s, i) => (
-                    <div key={s.label} className="flex items-center gap-2" style={{ borderLeft: i > 0 ? `1px solid ${BORDER}` : 'none', paddingLeft: i > 0 ? 16 : 0 }}>
-                      <span className="text-[10px]" style={{ color: MUTED }}>{s.label}</span>
-                      <span className="text-[12px] font-bold" style={{ color: s.color }}>{s.count}</span>
-                    </div>
-                  ))}
-                  <div className="flex-1" />
-                  <button onClick={() => setShowAddTask(true)}
-                    className="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-all"
-                    style={{ background: BLUE + '12', border: `1px solid ${BLUE}28`, color: NAVY }}>
-                    <Plus size={11} /> New task
-                  </button>
-                </div>
-              </motion.div>
-            )}
-
-            {/* ════════════════════════════════════════════════════════════════
-                COMPLIANCE TAB
-            ════════════════════════════════════════════════════════════════ */}
-            {activeTab === 'compliance' && (
-              <motion.div key="compliance"
-                initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                className="p-6 flex flex-col gap-5">
-
-                {/* Score + summary */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="rounded-2xl p-5 flex items-center gap-5" style={{ border: `1px solid ${BORDER}` }}>
-                    <div className="relative shrink-0">
-                      <RingChart value={kpi?.compliance_score ?? compScore} size={80} stroke={7}
-                        color={compScore >= 80 ? GREEN : compScore >= 60 ? ORANGE : RED} />
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-[15px] font-black" style={{ color: NAVY }}>{kpi?.compliance_score ?? compScore}%</span>
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-[9px] uppercase tracking-[0.24em] font-semibold mb-1" style={{ color: MUTED }}>Compliance Score</p>
-                      <p className="text-[15px] font-bold" style={{ color: compScore >= 80 ? GREEN : compScore >= 60 ? ORANGE : RED }}>
-                        {compScore >= 90 ? 'Excellent' : compScore >= 75 ? 'Good' : compScore >= 60 ? 'Needs Review' : 'Action Required'}
-                      </p>
-                      <p className="text-[10px] mt-1" style={{ color: TER }}>{compliance.filter(c => c.is_mandatory).length} mandatory items</p>
-                      {(kpi?.cqc_critical_overdue ?? 0) > 0 && (
-                        <p className="text-[10px] font-bold mt-1" style={{ color: RED }}>
-                          {kpi!.cqc_critical_overdue} CQC-critical overdue
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-3">
-                    {[
-                      { count: compOk,     label: 'Complete', color: GREEN,  icon: CheckCheck  },
-                      { count: compDueSoon, label: 'Due soon', color: ORANGE, icon: Clock       },
-                      { count: compOverdue, label: 'Overdue',  color: RED,    icon: AlertCircle },
-                    ].map(s => (
-                      <div key={s.label} className="rounded-2xl p-4 flex flex-col items-center justify-center gap-2"
-                        style={{ background: s.color + '08', border: `1px solid ${s.color}28` }}>
-                        <s.icon size={18} style={{ color: s.color }} />
-                        <p className="text-[26px] font-black leading-none" style={{ color: s.color }}>{s.count}</p>
-                        <p className="text-[9px] font-semibold uppercase tracking-[0.14em]" style={{ color: s.color + 'bb' }}>{s.label}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Filter chips */}
-                <div className="flex items-center gap-2">
-                  {([
-                    { v: 'all' as const,       l: 'All',        count: compliance.length },
-                    { v: 'overdue' as const,   l: 'Overdue',    count: compOverdue  },
-                    { v: 'due_soon' as const,  l: 'Due soon',   count: compDueSoon  },
-                    { v: 'compliant' as const, l: 'Complete',   count: compOk       },
-                  ]).map(f => (
-                    <button key={f.v} onClick={() => setCompFilter(f.v)}
-                      className="text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-all"
-                      style={{
-                        background: compFilter === f.v ? NAVY : 'transparent',
-                        color:      compFilter === f.v ? BG : SEC,
-                        border:     compFilter === f.v ? `1px solid ${NAVY}` : `1px solid ${BORDER}`,
-                      }}>
-                      {f.l} {f.count > 0 && <span className="opacity-70">({f.count})</span>}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Compliance list */}
-                <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${BORDER}` }}>
-                  {filteredCompliance.length === 0 ? (
-                    <div className="py-14 flex flex-col items-center gap-2">
-                      <CheckCheck size={24} style={{ color: GREEN }} />
-                      <p className="text-[13px]" style={{ color: TER }}>All clear in this category</p>
-                    </div>
-                  ) : filteredCompliance.map((item, i) => {
-                    const statusCol = item.status === 'compliant' || item.status === 'waived' ? GREEN
-                      : item.status === 'due_soon' || item.status === 'in_progress' ? ORANGE : RED;
-                    const db = dueBadge(item.due_date);
-                    return (
-                      <div key={item.id} className="flex items-start gap-4 px-5 py-4"
-                        style={{ borderBottom: i < filteredCompliance.length - 1 ? `1px solid ${BORDER}` : 'none' }}>
-                        <div className="w-1.5 h-1.5 rounded-full mt-[7px] flex-shrink-0" style={{ background: statusCol }} />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-2">
-                            <div>
-                              <p className="text-[12px] font-semibold" style={{ color: NAVY }}>{item.title}</p>
-                              {item.description && (
-                                <p className="text-[10px] mt-0.5 line-clamp-1" style={{ color: TER }}>{item.description}</p>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2 flex-shrink-0">
-                              {item.is_cqc_critical && (
-                                <span className="text-[8px] font-bold px-1.5 py-0.5 rounded"
-                                  style={{ background: PURPLE + '18', color: PURPLE, border: `1px solid ${PURPLE}28` }}>CQC</span>
-                              )}
-                              <span className="text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-[0.12em]"
-                                style={{ background: statusCol + '18', color: statusCol, border: `1px solid ${statusCol}28` }}>
-                                {item.status.replace('_', ' ')}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3 mt-1.5">
-                            <span className="text-[9px]" style={{ color: MUTED }}>{item.category}</span>
-                            {item.due_date && (
-                              <span className="flex items-center gap-1 text-[9px]" style={{ color: db.color }}>
-                                <Calendar size={8} /> {db.label}
-                              </span>
-                            )}
-                            {item.is_mandatory && (
-                              <span className="text-[9px] font-semibold" style={{ color: MUTED }}>Mandatory</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </motion.div>
-            )}
-
-            {/* ════════════════════════════════════════════════════════════════
-                TEAM TAB (manager/admin only)
-            ════════════════════════════════════════════════════════════════ */}
-            {activeTab === 'team' && isManager && (
-              <motion.div key="team"
-                initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                className="p-6 flex flex-col gap-5">
-
-                {/* Clinic summary strip */}
-                <div className="grid grid-cols-4 gap-3">
-                  {[
-                    { label: 'Total Patients',  value: (clinikoStats?.patients ?? 0).toLocaleString(), color: BLUE },
-                    { label: 'Appts This Month', value: (clinikoStats?.appointments_this_month ?? 0).toLocaleString(), color: GREEN },
-                    { label: 'Team Members',     value: String(teamSummary.length || '—'), color: PURPLE },
-                    { label: 'Outstanding Rev',  value: clinikoStats ? fmtGBP(clinikoStats.revenue_outstanding) : '—', color: GOLD },
-                  ].map(m => (
-                    <div key={m.label} className="rounded-2xl p-4" style={{ border: `1px solid ${BORDER}` }}>
-                      <p className="text-[8px] uppercase tracking-[0.24em] font-semibold mb-1" style={{ color: MUTED }}>{m.label}</p>
-                      <p className="text-[28px] font-black tracking-[-0.04em]" style={{ color: m.color }}>{m.value}</p>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Team list */}
-                {teamLoading ? (
-                  <div className="flex items-center justify-center py-20">
-                    <div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: BLUE, borderTopColor: 'transparent' }} />
-                  </div>
-                ) : teamSummary.length === 0 ? (
-                  <div className="rounded-2xl py-16 flex flex-col items-center gap-3" style={{ border: `1px solid ${BORDER}` }}>
-                    <Users size={28} style={{ color: MUTED }} />
-                    <p className="text-[13px]" style={{ color: TER }}>No team members found</p>
-                  </div>
-                ) : (
-                  <>
-                    {/* Team health bar */}
-                    <div className="flex items-center gap-4 px-5 py-3 rounded-2xl" style={{ background: 'rgba(0,0,0,0.02)', border: `1px solid ${BORDER}` }}>
-                      <Activity size={13} style={{ color: BLUE }} />
-                      <span className="text-[11px] font-semibold" style={{ color: SEC }}>Team Health</span>
-                      <div className="flex-1">
-                        <MiniBar
-                          pct={teamSummary.length > 0 ? Math.round(teamSummary.reduce((s, m) => s + m.compliance_score, 0) / teamSummary.length) : 0}
-                          color={GREEN}
-                        />
-                      </div>
-                      <span className="text-[11px] font-bold" style={{ color: GREEN }}>
-                        {teamSummary.length > 0 ? Math.round(teamSummary.reduce((s, m) => s + m.compliance_score, 0) / teamSummary.length) : 0}% avg compliance
-                      </span>
-                      <span className="text-[10px]" style={{ color: MUTED }}>·</span>
-                      <span className="text-[11px] font-bold" style={{ color: RED }}>
-                        {teamSummary.filter(m => m.goals_at_risk > 0).length} members at risk
-                      </span>
-                    </div>
-
-                    {/* Team grid */}
-                    <div className="grid grid-cols-2 gap-4">
-                      {teamSummary.map(member => {
-                        const atRisk     = member.goals_at_risk > 0 || member.compliance_score < 70;
-                        const compCol    = member.compliance_score >= 80 ? GREEN : member.compliance_score >= 60 ? ORANGE : RED;
-                        const goalPctM   = member.goals_total > 0 ? Math.round((member.goals_on_track / member.goals_total) * 100) : 0;
-                        const insight    = teamInsight(member);
-
-                        const estRevMTD = member.appointments_mtd * 130;
-                        return (
-                          <motion.button
-                            key={member.userId}
-                            onClick={() => setSelectedStaff(member)}
-                            className="text-left rounded-2xl p-5 flex flex-col gap-3 transition-all"
-                            style={{ border: `1px solid ${atRisk ? RED + '40' : BORDER}`, background: atRisk ? RED + '03' : 'transparent' }}
-                            whileHover={{ scale: 1.01 }}
-                            transition={{ duration: 0.15 }}>
-
-                            <div className="flex items-start justify-between">
-                              <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-[12px] flex-shrink-0"
-                                  style={{ background: BLUE + '16', color: BLUE, border: `1px solid ${BLUE}26` }}>
-                                  {member.displayName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
-                                </div>
-                                <div>
-                                  <p className="text-[13px] font-bold" style={{ color: NAVY }}>{member.displayName}</p>
-                                  <p className="text-[10px]" style={{ color: TER }}>{member.roleName}{member.departmentName ? ` · ${member.departmentName}` : ''}</p>
-                                </div>
-                              </div>
-                              {atRisk && (
-                                <span className="text-[8px] font-bold px-1.5 py-0.5 rounded flex-shrink-0"
-                                  style={{ background: RED + '14', color: RED, border: `1px solid ${RED}28` }}>
-                                  Needs attention
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Stats — 4 col */}
-                            <div className="grid grid-cols-4 gap-2">
-                              <div className="text-center">
-                                <p className="text-[15px] font-black" style={{ color: goalPctM >= 60 ? GREEN : ORANGE }}>{goalPctM}%</p>
-                                <p className="text-[8px]" style={{ color: MUTED }}>Goals</p>
-                              </div>
-                              <div className="text-center">
-                                <p className="text-[15px] font-black" style={{ color: compCol }}>{member.compliance_score}%</p>
-                                <p className="text-[8px]" style={{ color: MUTED }}>Compliance</p>
-                              </div>
-                              <div className="text-center">
-                                <p className="text-[15px] font-black" style={{ color: BLUE }}>{member.appointments_mtd}</p>
-                                <p className="text-[8px]" style={{ color: MUTED }}>Appts MTD</p>
-                              </div>
-                              <div className="text-center">
-                                <p className="text-[15px] font-black" style={{ color: GOLD }}>{fmtGBP(estRevMTD)}</p>
-                                <p className="text-[8px]" style={{ color: MUTED }}>Est. Rev</p>
-                              </div>
-                            </div>
-
-                            <MiniBar pct={goalPctM} color={goalPctM >= 60 ? GREEN : ORANGE} />
-
-                            <div className="flex items-center justify-between">
-                              <p className="text-[10px] flex-1 truncate pr-2" style={{ color: TER }}>{insight}</p>
-                              <ArrowRight size={11} style={{ color: MUTED, flexShrink: 0 }} />
-                            </div>
-                          </motion.button>
-                        );
-                      })}
-                    </div>
-                  </>
-                )}
-              </motion.div>
-            )}
-
-          </AnimatePresence>
+                })
+              )}
+            </div>
+          </div>
         </div>
       </div>
+    </div>
+  );
+}
 
-      {/* ── MODALS ──────────────────────────────────────────────────────────── */}
-      <AnimatePresence>
-        {showAddTask && (
-          <AddTaskModal
-            userId={userId}
-            onClose={() => setShowAddTask(false)}
-            onAdded={handleTaskAdded}
-          />
+// =============================================================================
+// TASK ROW
+// =============================================================================
+function TaskRow({
+  task, deleting, onComplete, onDelete, muted = false,
+}: {
+  task: StaffGoal;
+  deleting: boolean;
+  onComplete: () => void;
+  onDelete: () => void;
+  muted?: boolean;
+}) {
+  const [hover, setHover] = useState(false);
+  const done  = task.status === 'completed';
+  const due   = dueLabel(task.due_date);
+  const overdue = due?.color === RED;
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: -4 }}
+      animate={{ opacity: deleting ? 0 : 1, y: 0 }}
+      exit={{ opacity: 0, height: 0 }}
+      className="px-5 py-3 flex items-start gap-3 transition-all"
+      style={{ borderBottom: `1px solid ${BORDER}`, background: hover && !muted ? 'rgba(0,0,0,0.015)' : 'transparent' }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}>
+      {/* Checkbox */}
+      <button onClick={onComplete} className="flex-shrink-0 mt-0.5 transition-all">
+        {done
+          ? <CheckCircle2 size={16} style={{ color: GREEN }} />
+          : <Circle size={16} style={{ color: overdue ? RED : BORDER }} />
+        }
+      </button>
+      {/* Title + due */}
+      <div className="flex-1 min-w-0">
+        <p className="text-[12px] font-medium leading-snug"
+          style={{
+            color: done || muted ? MUTED : NAVY,
+            textDecoration: done ? 'line-through' : 'none',
+          }}>
+          {task.title}
+        </p>
+        {due && !done && (
+          <p className="text-[9px] mt-0.5 font-semibold" style={{ color: due.color }}>
+            {due.text}
+          </p>
         )}
-        {selectedStaff && (
-          <StaffDetailPanel
-            staff={selectedStaff}
-            onClose={() => setSelectedStaff(null)}
-          />
+      </div>
+      {/* Delete */}
+      <AnimatePresence>
+        {hover && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            onClick={onDelete}
+            className="flex-shrink-0 mt-0.5 transition-all"
+            style={{ color: MUTED }}
+            onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.color = RED)}
+            onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.color = MUTED)}>
+            <Trash2 size={12} />
+          </motion.button>
         )}
       </AnimatePresence>
+    </motion.div>
+  );
+}
+
+// =============================================================================
+// STAT PILL
+// =============================================================================
+function Stat({ label, value, color, sub }: {
+  label: string; value: number; color: string; sub: string;
+}) {
+  return (
+    <div className="flex items-baseline gap-2">
+      <span className="text-[28px] font-black tracking-[-0.03em]" style={{ color }}>{value}</span>
+      <div>
+        <p className="text-[10px] font-semibold" style={{ color: NAVY }}>{label}</p>
+        <p className="text-[9px]" style={{ color: MUTED }}>{sub}</p>
+      </div>
     </div>
   );
 }
