@@ -144,9 +144,14 @@ interface TaskCardProps {
 function TaskCard({ task, isActive, onClick }: TaskCardProps) {
   const meta        = getMetaNotes(task);
   const over        = isOverdue(task);
-  const pc          = priorityColor(meta.priority);
-  const cc          = categoryColor(task.category);
   const isCompleted = task.status === 'completed';
+
+  // Muted bar colour — only high priority gets a vivid accent
+  const barColor = isActive ? BLUE
+    : isCompleted               ? '#D4E2FF'
+    : meta.priority === 'high'   ? RED
+    : meta.priority === 'medium' ? '#C8A96E'
+    : '#C8D8F0';
 
   return (
     <motion.div
@@ -161,23 +166,18 @@ function TaskCard({ task, isActive, onClick }: TaskCardProps) {
         alignItems:      'stretch',
         borderBottom:    `1px solid ${BORDER}`,
         cursor:          'pointer',
-        backgroundColor: isActive ? `${BLUE}08` : 'transparent',
+        backgroundColor: isActive ? `${BLUE}06` : 'transparent',
         transition:      'background 0.15s',
       }}
-      className="hover:bg-[#0058E608] group"
+      className="hover:bg-[#0058E605] group"
     >
-      {/* Priority bar — always visible */}
-      <div style={{
-        width:           3,
-        flexShrink:      0,
-        backgroundColor: isActive ? BLUE : isCompleted ? GREEN : pc,
-        transition:      'background 0.15s',
-      }} />
+      {/* Priority indicator bar */}
+      <div style={{ width: 3, flexShrink: 0, backgroundColor: barColor, transition: 'background 0.15s' }} />
 
       {/* Content */}
-      <div style={{ flex: 1, minWidth: 0, padding: '11px 14px' }}>
+      <div style={{ flex: 1, minWidth: 0, padding: '11px 16px' }}>
         {/* Title row */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 3 }}>
           <span style={{
             fontSize:       12,
             fontWeight:     600,
@@ -200,7 +200,7 @@ function TaskCard({ task, isActive, onClick }: TaskCardProps) {
           <p style={{
             fontSize:     11,
             color:        TER,
-            margin:       '0 0 6px',
+            margin:       '0 0 5px',
             overflow:     'hidden',
             textOverflow: 'ellipsis',
             whiteSpace:   'nowrap',
@@ -210,61 +210,25 @@ function TaskCard({ task, isActive, onClick }: TaskCardProps) {
           </p>
         )}
 
-        {/* Badge row */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', marginBottom: 5 }}>
-          <span style={{
-            fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em',
-            color: isCompleted ? MUTED : pc,
-            background: isCompleted ? `${MUTED}14` : `${pc}18`,
-            border: `1px solid ${isCompleted ? MUTED : pc}40`,
-            padding: '1px 6px', borderRadius: 999, flexShrink: 0,
-          }}>
-            {isCompleted ? 'done' : meta.priority}
-          </span>
-          <span style={{
-            fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em',
-            color: cc, background: `${cc}14`,
-            padding: '1px 6px', borderRadius: 999, flexShrink: 0,
-          }}>
-            {task.category}
-          </span>
+        {/* Meta row — neutral text only, red for overdue */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+          <span style={{ fontSize: 10, color: MUTED, textTransform: 'capitalize' }}>{task.category}</span>
           {meta.treatment_type && meta.treatment_type !== 'None' && (
-            <span style={{
-              fontSize: 9, fontWeight: 500, color: TER,
-              background: BORDER, padding: '1px 6px', borderRadius: 999, flexShrink: 0,
-            }}>
-              {meta.treatment_type}
-            </span>
+            <span style={{ fontSize: 10, color: MUTED }}>&nbsp;· {meta.treatment_type}</span>
           )}
-          {over && (
-            <span style={{
-              fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
-              color: RED, background: `${RED}18`, border: `1px solid ${RED}40`,
-              padding: '1px 6px', borderRadius: 999, flexShrink: 0,
-            }}>
-              Overdue
-            </span>
-          )}
-        </div>
-
-        {/* Meta row */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {task.owner_name && (
-            <span style={{ fontSize: 10, color: MUTED }}>{task.owner_name}</span>
+            <span style={{ fontSize: 10, color: MUTED }}>&nbsp;· {task.owner_name}</span>
           )}
           {meta.patient_name && (
-            <span style={{ fontSize: 10, color: TER }}>· {meta.patient_name}</span>
+            <span style={{ fontSize: 10, color: MUTED }}>&nbsp;· {meta.patient_name}</span>
           )}
-          {task.due_date && !over && (
-            <span style={{ fontSize: 10, color: MUTED, display: 'flex', alignItems: 'center', gap: 3 }}>
-              <Clock size={9} />
-              {fmtDate(task.due_date)}
-            </span>
-          )}
-          {over && task.due_date && (
-            <span style={{ fontSize: 10, color: RED, display: 'flex', alignItems: 'center', gap: 3 }}>
-              <Clock size={9} />
-              {fmtDate(task.due_date)}
+          {task.due_date && (
+            <span style={{
+              fontSize: 10,
+              color:    over ? RED : MUTED,
+              fontWeight: over ? 600 : 400,
+            }}>
+              &nbsp;· {over ? 'Overdue ' : ''}{fmtDate(task.due_date)}
             </span>
           )}
         </div>
@@ -279,23 +243,24 @@ function TaskCard({ task, isActive, onClick }: TaskCardProps) {
 function StatTile({ label, value, color, sub }: { label: string; value: string | number; color: string; sub?: string }) {
   return (
     <div style={{
+      display:      'flex',
+      alignItems:   'stretch',
       border:       `1px solid ${BORDER}`,
-      borderRadius: 16,
+      borderRadius: 12,
       background:   'transparent',
       overflow:     'hidden',
-      position:     'relative',
     }}>
-      {/* Top accent bar */}
-      <div style={{ height: 3, background: color }} />
-      <div style={{ padding: '14px 18px 16px' }}>
-        <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.28em', fontWeight: 600, color: MUTED, marginBottom: 8 }}>
+      {/* Left accent */}
+      <div style={{ width: 3, flexShrink: 0, background: color, opacity: 0.5 }} />
+      <div style={{ padding: '14px 16px 14px' }}>
+        <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.28em', fontWeight: 600, color: MUTED, marginBottom: 6 }}>
           {label}
         </div>
-        <div style={{ fontSize: 32, fontWeight: 900, letterSpacing: '-0.04em', color, lineHeight: 1 }}>
+        <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: '-0.04em', color: NAVY, lineHeight: 1 }}>
           {value}
         </div>
         {sub && (
-          <div style={{ fontSize: 10, color: MUTED, marginTop: 5 }}>{sub}</div>
+          <div style={{ fontSize: 10, color: MUTED, marginTop: 4 }}>{sub}</div>
         )}
       </div>
     </div>
