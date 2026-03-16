@@ -505,6 +505,57 @@ export async function getEquipmentList(): Promise<EquipmentItem[]> {
   } catch { return []; }
 }
 
+export async function createEquipmentItem(data: {
+  name: string;
+  category: string;
+  check_frequency?: string;
+  location?: string;
+  serial_number?: string;
+  next_due_date?: string;
+  responsible_user_id?: string | null;
+  notes?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
+  const { tenantId } = session;
+  try {
+    const db = createSovereignClient();
+    // Generate next item code
+    const { data: existing } = await db
+      .from('compliance_equipment')
+      .select('item_code')
+      .eq('tenant_id', tenantId)
+      .order('item_code', { ascending: false })
+      .limit(1);
+    const lastCode = existing?.[0]?.item_code ?? 'EQ000';
+    const lastNum = parseInt(lastCode.replace(/\D/g, ''), 10) || 0;
+    const item_code = `EQ${String(lastNum + 1).padStart(3, '0')}`;
+    const { error } = await db
+      .from('compliance_equipment')
+      .insert({ tenant_id: tenantId, item_code, ...data });
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (e) { return { success: false, error: String(e) }; }
+}
+
+export async function deleteEquipmentItem(
+  id: string
+): Promise<{ success: boolean; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
+  const { tenantId } = session;
+  try {
+    const db = createSovereignClient();
+    const { error } = await db
+      .from('compliance_equipment')
+      .delete()
+      .eq('id', id)
+      .eq('tenant_id', tenantId);
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (e) { return { success: false, error: String(e) }; }
+}
+
 export async function updateEquipmentItem(
   id: string,
   data: {
@@ -754,6 +805,52 @@ export async function getCalendarTasks(): Promise<CalendarTask[]> {
       };
     });
   } catch { return []; }
+}
+
+export async function createCalendarTask(data: {
+  task_name: string;
+  frequency: string;
+  month_due?: string;
+  next_due_date?: string;
+  responsible_user_id?: string | null;
+  notes?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
+  const { tenantId } = session;
+  try {
+    const db = createSovereignClient();
+    const { data: existing } = await db
+      .from('compliance_calendar')
+      .select('task_order')
+      .eq('tenant_id', tenantId)
+      .order('task_order', { ascending: false })
+      .limit(1);
+    const nextOrder = (existing?.[0]?.task_order ?? 0) + 1;
+    const { error } = await db
+      .from('compliance_calendar')
+      .insert({ tenant_id: tenantId, task_order: nextOrder, ...data });
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (e) { return { success: false, error: String(e) }; }
+}
+
+export async function deleteCalendarTask(
+  id: string
+): Promise<{ success: boolean; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
+  const { tenantId } = session;
+  try {
+    const db = createSovereignClient();
+    const { error } = await db
+      .from('compliance_calendar')
+      .delete()
+      .eq('id', id)
+      .eq('tenant_id', tenantId);
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (e) { return { success: false, error: String(e) }; }
 }
 
 export async function updateCalendarTask(

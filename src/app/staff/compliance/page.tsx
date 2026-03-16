@@ -14,10 +14,10 @@ import {
 import {
   getComplianceDashboard, getHRRecords, upsertHRRecord,
   getTrainingMatrix, upsertTrainingEntry,
-  getEquipmentList, updateEquipmentItem,
+  getEquipmentList, updateEquipmentItem, createEquipmentItem, deleteEquipmentItem,
   getCQCAudit, saveCQCAnswer,
   getGovernanceLog, createGovernanceEntry, updateGovernanceEntry, deleteGovernanceEntry,
-  getCalendarTasks, updateCalendarTask,
+  getCalendarTasks, updateCalendarTask, createCalendarTask, deleteCalendarTask,
   getActiveUsers,
   type ActiveUser, type HRRecord, type TrainingMatrixRow,
   type EquipmentItem, type CQCAnswer, type GovernanceEntry,
@@ -735,6 +735,124 @@ function EquipmentModal({ item, users, currentUserId, onClose, onSave }: {
   );
 }
 
+const EQUIPMENT_CATEGORIES = [
+  'pat_testing', 'equipment_service', 'fire_safety', 'medicines',
+  'clinical_stock', 'legionella', 'environmental',
+];
+
+function AddEquipmentModal({ users, currentUserId, onClose, onSave }: {
+  users: ActiveUser[];
+  currentUserId: string;
+  onClose: () => void;
+  onSave: () => void;
+}) {
+  const [form, setForm] = useState({
+    name: '',
+    category: '',
+    check_frequency: '',
+    location: '',
+    serial_number: '',
+    next_due_date: '',
+    responsible_user_id: '',
+    notes: '',
+  });
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+
+  async function handleSave() {
+    if (!form.name || !form.category) { setErr('Name and category are required.'); return; }
+    setSaving(true);
+    setErr('');
+    const res = await createEquipmentItem({
+      name: form.name,
+      category: form.category,
+      check_frequency: form.check_frequency || undefined,
+      location: form.location || undefined,
+      serial_number: form.serial_number || undefined,
+      next_due_date: form.next_due_date || undefined,
+      responsible_user_id: form.responsible_user_id || null,
+      notes: form.notes || undefined,
+    });
+    setSaving(false);
+    if (res.success) { onSave(); onClose(); }
+    else setErr(res.error ?? 'Save failed');
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(24,29,35,0.35)' }}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.97 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.97 }}
+        className="w-full max-w-md rounded-2xl p-6 overflow-y-auto max-h-[90vh]"
+        style={{ background: BG, border: `1px solid ${BORDER}` }}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <p className="text-[8px] uppercase tracking-[0.22em] font-semibold mb-0.5" style={{ color: MUTED }}>New Item</p>
+            <h3 className="text-[14px] font-bold" style={{ color: NAVY }}>Add Equipment</h3>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[#F0F4FF]">
+            <X size={16} color={MUTED} />
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <Lbl>Name *</Lbl>
+            <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className={INP} style={INP_STYLE} placeholder="e.g. Autoclave Unit 2" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Lbl>Category *</Lbl>
+              <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} className={INP} style={INP_STYLE}>
+                <option value="">Select...</option>
+                {EQUIPMENT_CATEGORIES.map(c => <option key={c} value={c}>{CAT_LABELS[c] ?? c}</option>)}
+              </select>
+            </div>
+            <div>
+              <Lbl>Check Frequency</Lbl>
+              <input value={form.check_frequency} onChange={e => setForm(f => ({ ...f, check_frequency: e.target.value }))} className={INP} style={INP_STYLE} placeholder="e.g. Annual" />
+            </div>
+            <div>
+              <Lbl>Serial Number</Lbl>
+              <input value={form.serial_number} onChange={e => setForm(f => ({ ...f, serial_number: e.target.value }))} className={INP} style={INP_STYLE} />
+            </div>
+            <div>
+              <Lbl>Location</Lbl>
+              <input value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} className={INP} style={INP_STYLE} placeholder="e.g. Treatment Room 1" />
+            </div>
+            <div className="col-span-2">
+              <Lbl>Next Due Date</Lbl>
+              <input type="date" value={form.next_due_date} onChange={e => setForm(f => ({ ...f, next_due_date: e.target.value }))} className={INP} style={INP_STYLE} />
+            </div>
+          </div>
+          <div>
+            <Lbl>Responsible Person</Lbl>
+            <select value={form.responsible_user_id} onChange={e => setForm(f => ({ ...f, responsible_user_id: e.target.value }))} className={INP} style={INP_STYLE}>
+              <option value="">Unassigned</option>
+              {users.map(u => <option key={u.id} value={u.id}>{u.full_name}</option>)}
+            </select>
+          </div>
+          <div>
+            <Lbl>Notes</Lbl>
+            <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} className="w-full rounded-xl px-3 py-2 text-[12px] focus:outline-none" style={TA_STYLE} />
+          </div>
+        </div>
+
+        {err && <p className="mt-2 text-[11px]" style={{ color: RED }}>{err}</p>}
+        <div className="flex items-center gap-2 mt-4">
+          <BtnPrimary onClick={handleSave} disabled={saving}>
+            <Save size={12} />
+            {saving ? 'Saving...' : 'Add Item'}
+          </BtnPrimary>
+          <BtnGhost onClick={onClose}>Cancel</BtnGhost>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 function EquipmentTab({ equipment, users, currentUserId, onRefresh }: {
   equipment: EquipmentItem[];
   users: ActiveUser[];
@@ -743,6 +861,9 @@ function EquipmentTab({ equipment, users, currentUserId, onRefresh }: {
 }) {
   const [filter, setFilter] = useState<'all' | 'overdue' | 'due_soon'>('all');
   const [editItem, setEditItem] = useState<EquipmentItem | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const filtered = equipment.filter(e => {
     if (filter === 'overdue') return e.status === 'overdue';
@@ -756,23 +877,37 @@ function EquipmentTab({ equipment, users, currentUserId, onRefresh }: {
     grouped[e.category].push(e);
   }
 
+  async function handleDelete(id: string) {
+    setDeleting(true);
+    await deleteEquipmentItem(id);
+    setDeleting(false);
+    setDeleteConfirm(null);
+    onRefresh();
+  }
+
   return (
     <div>
-      <div className="flex items-center gap-2 mb-5">
-        {(['all', 'overdue', 'due_soon'] as const).map(f => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className="px-3 py-1.5 rounded-xl text-[11px] font-medium transition-colors"
-            style={{
-              background: filter === f ? BLUE : 'transparent',
-              color: filter === f ? '#fff' : SEC,
-              border: `1px solid ${filter === f ? BLUE : BORDER}`,
-            }}
-          >
-            {f === 'all' ? 'All' : f === 'overdue' ? 'Overdue' : 'Due Soon'}
-          </button>
-        ))}
+      <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center gap-2">
+          {(['all', 'overdue', 'due_soon'] as const).map(f => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className="px-3 py-1.5 rounded-xl text-[11px] font-medium transition-colors"
+              style={{
+                background: filter === f ? NAVY : 'transparent',
+                color: filter === f ? '#F8FAFF' : SEC,
+                border: `1px solid ${filter === f ? NAVY : BORDER}`,
+              }}
+            >
+              {f === 'all' ? 'All' : f === 'overdue' ? 'Overdue' : 'Due Soon'}
+            </button>
+          ))}
+        </div>
+        <BtnPrimary onClick={() => setShowAdd(true)}>
+          <Plus size={12} />
+          Add Equipment
+        </BtnPrimary>
       </div>
 
       <div className="space-y-6">
@@ -808,14 +943,40 @@ function EquipmentTab({ equipment, users, currentUserId, onRefresh }: {
                       <td className="px-4 py-3"><StatusDot status={e.status} /></td>
                       <td className="px-4 py-3 text-[11px] whitespace-nowrap" style={{ color: SEC }}>{e.responsible_name ?? '—'}</td>
                       <td className="px-4 py-3">
-                        <button
-                          onClick={() => setEditItem(e)}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-lg"
-                          style={{ background: `${BLUE}14`, color: BLUE }}
-                        >
-                          <Edit2 size={10} />
-                          Edit
-                        </button>
+                        <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => setEditItem(e)}
+                            className="flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-lg"
+                            style={{ background: `${BLUE}14`, color: BLUE }}
+                          >
+                            <Edit2 size={10} />
+                            Edit
+                          </button>
+                          {deleteConfirm === e.id ? (
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => handleDelete(e.id)}
+                                disabled={deleting}
+                                className="flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-lg"
+                                style={{ background: `${RED}14`, color: RED }}
+                              >
+                                {deleting ? '...' : 'Confirm'}
+                              </button>
+                              <button onClick={() => setDeleteConfirm(null)} className="p-1 rounded-lg hover:bg-[#F0F4FF]">
+                                <X size={10} color={MUTED} />
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setDeleteConfirm(e.id)}
+                              className="flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-lg hover:bg-[#FEF2F2] transition-colors"
+                              style={{ color: RED }}
+                            >
+                              <Trash2 size={10} />
+                              Delete
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -826,7 +987,13 @@ function EquipmentTab({ equipment, users, currentUserId, onRefresh }: {
         ))}
 
         {Object.keys(grouped).length === 0 && (
-          <p className="text-center py-8 text-[12px]" style={{ color: MUTED }}>No equipment found.</p>
+          <div className="text-center py-12">
+            <p className="text-[12px] mb-3" style={{ color: MUTED }}>No equipment found.</p>
+            <BtnGhost onClick={() => setShowAdd(true)}>
+              <Plus size={12} />
+              Add first item
+            </BtnGhost>
+          </div>
         )}
       </div>
 
@@ -837,7 +1004,15 @@ function EquipmentTab({ equipment, users, currentUserId, onRefresh }: {
             users={users}
             currentUserId={currentUserId}
             onClose={() => setEditItem(null)}
-            onSave={onRefresh}
+            onSave={() => { setEditItem(null); onRefresh(); }}
+          />
+        )}
+        {showAdd && (
+          <AddEquipmentModal
+            users={users}
+            currentUserId={currentUserId}
+            onClose={() => setShowAdd(false)}
+            onSave={() => { setShowAdd(false); onRefresh(); }}
           />
         )}
       </AnimatePresence>
@@ -1343,6 +1518,108 @@ function GovernanceTab({ log, users, currentUserId, onRefresh }: {
 // ═══════════════════════════════════════════════════════════════════════════════
 // TAB: Calendar
 // ═══════════════════════════════════════════════════════════════════════════════
+const FREQUENCIES = ['Daily', 'Weekly', 'Fortnightly', 'Monthly', 'Quarterly', '6-Monthly', 'Annual', 'As needed / Quarterly', 'Weekly / Fortnightly'];
+
+function AddCalendarTaskModal({ users, onClose, onSave }: {
+  users: ActiveUser[];
+  onClose: () => void;
+  onSave: () => void;
+}) {
+  const [form, setForm] = useState({
+    task_name: '',
+    frequency: '',
+    month_due: '',
+    next_due_date: '',
+    responsible_user_id: '',
+    notes: '',
+  });
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+
+  async function handleSave() {
+    if (!form.task_name || !form.frequency) { setErr('Task name and frequency are required.'); return; }
+    setSaving(true);
+    setErr('');
+    const res = await createCalendarTask({
+      task_name: form.task_name,
+      frequency: form.frequency,
+      month_due: form.month_due || undefined,
+      next_due_date: form.next_due_date || undefined,
+      responsible_user_id: form.responsible_user_id || null,
+      notes: form.notes || undefined,
+    });
+    setSaving(false);
+    if (res.success) { onSave(); onClose(); }
+    else setErr(res.error ?? 'Save failed');
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(24,29,35,0.35)' }}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.97 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.97 }}
+        className="w-full max-w-md rounded-2xl p-6 overflow-y-auto max-h-[90vh]"
+        style={{ background: BG, border: `1px solid ${BORDER}` }}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <p className="text-[8px] uppercase tracking-[0.22em] font-semibold mb-0.5" style={{ color: MUTED }}>New Task</p>
+            <h3 className="text-[14px] font-bold" style={{ color: NAVY }}>Add Calendar Task</h3>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[#F0F4FF]">
+            <X size={16} color={MUTED} />
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <Lbl>Task Name *</Lbl>
+            <input value={form.task_name} onChange={e => setForm(f => ({ ...f, task_name: e.target.value }))} className={INP} style={INP_STYLE} placeholder="e.g. Monthly Fire Log Review" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Lbl>Frequency *</Lbl>
+              <select value={form.frequency} onChange={e => setForm(f => ({ ...f, frequency: e.target.value }))} className={INP} style={INP_STYLE}>
+                <option value="">Select...</option>
+                {FREQUENCIES.map(fr => <option key={fr} value={fr}>{fr}</option>)}
+              </select>
+            </div>
+            <div>
+              <Lbl>Month(s) Due</Lbl>
+              <input value={form.month_due} onChange={e => setForm(f => ({ ...f, month_due: e.target.value }))} className={INP} style={INP_STYLE} placeholder="e.g. Jan, Apr, Jul, Oct" />
+            </div>
+            <div className="col-span-2">
+              <Lbl>Next Due Date</Lbl>
+              <input type="date" value={form.next_due_date} onChange={e => setForm(f => ({ ...f, next_due_date: e.target.value }))} className={INP} style={INP_STYLE} />
+            </div>
+          </div>
+          <div>
+            <Lbl>Responsible Person</Lbl>
+            <select value={form.responsible_user_id} onChange={e => setForm(f => ({ ...f, responsible_user_id: e.target.value }))} className={INP} style={INP_STYLE}>
+              <option value="">Unassigned</option>
+              {users.map(u => <option key={u.id} value={u.id}>{u.full_name}</option>)}
+            </select>
+          </div>
+          <div>
+            <Lbl>Notes</Lbl>
+            <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} className="w-full rounded-xl px-3 py-2 text-[12px] focus:outline-none" style={TA_STYLE} />
+          </div>
+        </div>
+
+        {err && <p className="mt-2 text-[11px]" style={{ color: RED }}>{err}</p>}
+        <div className="flex items-center gap-2 mt-4">
+          <BtnPrimary onClick={handleSave} disabled={saving}>
+            <Save size={12} />
+            {saving ? 'Saving...' : 'Add Task'}
+          </BtnPrimary>
+          <BtnGhost onClick={onClose}>Cancel</BtnGhost>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 interface CalendarRowForm {
   last_completed_date: string;
   next_due_date: string;
@@ -1359,6 +1636,9 @@ function CalendarTab({ tasks, users, currentUserId, onRefresh }: {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [forms, setForms] = useState<Record<string, CalendarRowForm>>({});
   const [saving, setSaving] = useState<string | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   function getForm(t: CalendarTask): CalendarRowForm {
     return forms[t.id] ?? {
@@ -1401,8 +1681,24 @@ function CalendarTab({ tasks, users, currentUserId, onRefresh }: {
     setExpandedId(t.id);
   }
 
+  async function handleDelete(id: string) {
+    setDeleting(true);
+    await deleteCalendarTask(id);
+    setDeleting(false);
+    setDeleteConfirm(null);
+    onRefresh();
+  }
+
   return (
     <div>
+      <div className="flex items-center justify-between mb-5">
+        <p className="text-[11px]" style={{ color: MUTED }}>{tasks.length} tasks</p>
+        <BtnPrimary onClick={() => setShowAdd(true)}>
+          <Plus size={12} />
+          Add Task
+        </BtnPrimary>
+      </div>
+
       <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${BORDER}` }}>
         <table className="w-full">
           <thead>
@@ -1450,6 +1746,30 @@ function CalendarTab({ tasks, users, currentUserId, onRefresh }: {
                           <Edit2 size={10} />
                           Edit
                         </button>
+                        {deleteConfirm === t.id ? (
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => handleDelete(t.id)}
+                              disabled={deleting}
+                              className="flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-lg"
+                              style={{ background: `${RED}14`, color: RED }}
+                            >
+                              {deleting ? '...' : 'Confirm'}
+                            </button>
+                            <button onClick={() => setDeleteConfirm(null)} className="p-1 rounded-lg hover:bg-[#F0F4FF]">
+                              <X size={10} color={MUTED} />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setDeleteConfirm(t.id)}
+                            className="flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-lg hover:bg-[#FEF2F2] transition-colors"
+                            style={{ color: RED }}
+                          >
+                            <Trash2 size={10} />
+                            Delete
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -1517,13 +1837,23 @@ function CalendarTab({ tasks, users, currentUserId, onRefresh }: {
             {tasks.length === 0 && (
               <tr>
                 <td colSpan={8} className="px-4 py-8 text-center text-[12px]" style={{ color: MUTED }}>
-                  No calendar tasks found.
+                  No calendar tasks found. Add your first task to get started.
                 </td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
+
+      <AnimatePresence>
+        {showAdd && (
+          <AddCalendarTaskModal
+            users={users}
+            onClose={() => setShowAdd(false)}
+            onSave={() => { setShowAdd(false); onRefresh(); }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
