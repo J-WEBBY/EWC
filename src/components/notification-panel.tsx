@@ -9,9 +9,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Radio, CheckCircle2, Clock, AlertCircle, ChevronRight } from 'lucide-react';
+import { X, Radio, CheckCircle2, Clock, AlertCircle, ChevronRight, CalendarCheck, Zap, Phone, MessageCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { getPendingSignals, getSignalFeed, type SignalEntry, type PendingSignal } from '@/lib/actions/signals';
+import { getPendingSignals, getSignalFeed, getActivityNotifications, type SignalEntry, type PendingSignal, type BookingNotification, type AutomationNotification } from '@/lib/actions/signals';
 import { getMyComplianceItems, type ComplianceItem } from '@/lib/actions/kpi-goals';
 
 const BG     = '#FAF7F2';
@@ -45,6 +45,8 @@ export default function NotificationPanel({ userId, isOpen, onClose }: NotifPane
   const [pendingSignals,  setPendingSignals]  = useState<PendingSignal[]>([]);
   const [unreadSignals,   setUnreadSignals]   = useState<SignalEntry[]>([]);
   const [complianceItems, setComplianceItems] = useState<ComplianceItem[]>([]);
+  const [bookings,        setBookings]        = useState<BookingNotification[]>([]);
+  const [automations,     setAutomations]     = useState<AutomationNotification[]>([]);
   const [loading,         setLoading]         = useState(false);
 
   const LAST_READ_KEY = `ewc_notif_read_${userId}`;
@@ -54,10 +56,11 @@ export default function NotificationPanel({ userId, isOpen, onClose }: NotifPane
     setLoading(true);
     const lastRead = localStorage.getItem(LAST_READ_KEY) ?? new Date(0).toISOString();
 
-    const [pendRes, feedRes, compRes] = await Promise.allSettled([
+    const [pendRes, feedRes, compRes, activityRes] = await Promise.allSettled([
       getPendingSignals('clinic'),
       getSignalFeed('clinic'),
       getMyComplianceItems(userId),
+      getActivityNotifications(),
     ]);
 
     if (pendRes.status === 'fulfilled' && pendRes.value.success)
@@ -77,6 +80,11 @@ export default function NotificationPanel({ userId, isOpen, onClose }: NotifPane
       setComplianceItems(urgent);
     }
 
+    if (activityRes.status === 'fulfilled') {
+      setBookings(activityRes.value.bookings);
+      setAutomations(activityRes.value.automations);
+    }
+
     setLoading(false);
   }, [userId, isOpen, LAST_READ_KEY]);
 
@@ -88,7 +96,7 @@ export default function NotificationPanel({ userId, isOpen, onClose }: NotifPane
     onClose();
   };
 
-  const totalCount = pendingSignals.length + unreadSignals.length + complianceItems.length;
+  const totalCount = pendingSignals.length + unreadSignals.length + complianceItems.length + bookings.length;
 
   return (
     <AnimatePresence>
@@ -213,6 +221,81 @@ export default function NotificationPanel({ userId, isOpen, onClose }: NotifPane
                     </section>
                   )}
 
+                  {/* Bookings — from Aria WhatsApp / Komal Voice */}
+                  {bookings.length > 0 && (
+                    <section>
+                      <div className="px-5 py-3">
+                        <p className="text-[8px] uppercase tracking-[0.28em] font-semibold" style={{ color: MUTED }}>
+                          New Bookings · {bookings.length}
+                        </p>
+                      </div>
+                      {bookings.map((b, i) => {
+                        const isKomal    = b.source === 'komal';
+                        const accent     = isKomal ? '#7C3AED' : '#00A693';
+                        const BookIcon   = isKomal ? Phone : MessageCircle;
+                        return (
+                          <button key={b.id}
+                            onClick={() => { router.push(isKomal ? `/staff/voice?userId=${userId}` : `/staff/automations?userId=${userId}`); handleClose(); }}
+                            className="w-full text-left px-5 py-3.5 flex items-start gap-3 transition-all"
+                            style={{
+                              borderTop:    i === 0 ? `1px solid ${BORDER}` : 'none',
+                              borderBottom: `1px solid ${BORDER}`,
+                            }}
+                            onMouseEnter={e => (e.currentTarget.style.background = accent + '06')}
+                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                            <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
+                              style={{ background: accent + '14', border: `1px solid ${accent}28` }}>
+                              <BookIcon size={14} style={{ color: accent }} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[12px] font-semibold leading-snug" style={{ color: NAVY }}>{b.title}</p>
+                              <p className="text-[10px] mt-0.5 line-clamp-1" style={{ color: TER }}>{b.description}</p>
+                              <p className="text-[9px] mt-1 font-semibold" style={{ color: accent }}>
+                                {isKomal ? 'Komal voice' : 'WhatsApp / SMS'} · {relTime(b.created_at)}
+                              </p>
+                            </div>
+                            <ChevronRight size={12} style={{ color: MUTED, flexShrink: 0, marginTop: 4 }} />
+                          </button>
+                        );
+                      })}
+                    </section>
+                  )}
+
+                  {/* Automation Activity — ran in last 6h */}
+                  {automations.length > 0 && (
+                    <section>
+                      <div className="px-5 py-3">
+                        <p className="text-[8px] uppercase tracking-[0.28em] font-semibold" style={{ color: MUTED }}>
+                          Automation Activity · last 6h
+                        </p>
+                      </div>
+                      {automations.map((a, i) => (
+                        <button key={a.automation_id}
+                          onClick={() => { router.push(`/staff/automations?userId=${userId}`); handleClose(); }}
+                          className="w-full text-left px-5 py-3.5 flex items-start gap-3 transition-all"
+                          style={{
+                            borderTop:    i === 0 ? `1px solid ${BORDER}` : 'none',
+                            borderBottom: `1px solid ${BORDER}`,
+                          }}
+                          onMouseEnter={e => (e.currentTarget.style.background = BLUE + '06')}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                          <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
+                            style={{ background: BLUE + '14', border: `1px solid ${BLUE}28` }}>
+                            <Zap size={14} style={{ color: BLUE }} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[12px] font-semibold leading-snug" style={{ color: NAVY }}>{a.automation_name}</p>
+                            <p className="text-[10px] mt-0.5" style={{ color: TER }}>
+                              {a.count} message{a.count !== 1 ? 's' : ''} sent via {a.channel}
+                            </p>
+                            <p className="text-[9px] mt-1" style={{ color: MUTED }}>{relTime(a.last_sent_at)}</p>
+                          </div>
+                          <CalendarCheck size={12} style={{ color: BLUE, flexShrink: 0, marginTop: 4 }} />
+                        </button>
+                      ))}
+                    </section>
+                  )}
+
                   {/* Compliance Due */}
                   {complianceItems.length > 0 && (
                     <section>
@@ -288,19 +371,22 @@ export function useNotifCount(userId: string): number {
   useEffect(() => {
     if (!userId) return;
     const run = async () => {
-      const [pendRes, compRes] = await Promise.allSettled([
+      const [pendRes, compRes, activityRes] = await Promise.allSettled([
         getPendingSignals('clinic'),
         getMyComplianceItems(userId),
+        getActivityNotifications(),
       ]);
       let n = 0;
       if (pendRes.status === 'fulfilled' && pendRes.value.success)
         n += (pendRes.value.signals ?? []).length;
       if (compRes.status === 'fulfilled')
         n += compRes.value.filter(c => c.status === 'overdue' || c.status === 'expired' || c.status === 'due_soon').length;
+      if (activityRes.status === 'fulfilled')
+        n += activityRes.value.bookings.length;
       setCount(n);
     };
     run();
-    const t = setInterval(run, 60_000);
+    const t = setInterval(run, 30_000);
     return () => clearInterval(t);
   }, [userId]);
 

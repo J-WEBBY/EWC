@@ -443,6 +443,39 @@ export async function POST(req: NextRequest) {
     }
 
     // -----------------------------------------------------------------------
+    // 2b. signals — create notification for bookings and missed calls
+    // -----------------------------------------------------------------------
+
+    if (outcome === 'booked' || outcome === 'missed' || outcome === 'lead') {
+      const callerLabel = enriched.name ?? call.customer?.number ?? 'Unknown caller';
+      const titles: Record<string, string> = {
+        booked:  `Komal Booking — ${callerLabel}`,
+        missed:  `Missed Call — ${callerLabel}`,
+        lead:    `New Lead — ${callerLabel}`,
+      };
+      const descriptions: Record<string, string> = {
+        booked:  `${enriched.service ?? 'Treatment'} booked via AI receptionist${enriched.notes ? ` · ${enriched.notes}` : ''}`,
+        missed:  `Inbound call not answered. ${summary ? summary.slice(0, 120) : 'Follow up required.'}`,
+        lead:    `Enquiry via voice call. ${enriched.service ? `Interested in: ${enriched.service}.` : ''} Follow up needed.`,
+      };
+      const priorities: Record<string, string> = { booked: 'medium', missed: 'high', lead: 'medium' };
+
+      await supabase.from('signals').insert({
+        tenant_id:   '00000000-0000-0000-0000-000000000001',
+        signal_type: outcome === 'booked' ? 'task' : 'alert',
+        title:       titles[outcome],
+        description: descriptions[outcome],
+        priority:    priorities[outcome],
+        status:      'new',
+        category:    'operational',
+        source_type: 'komal',
+        tags:        outcome === 'booked' ? ['komal_booking', 'voice'] : [outcome, 'voice'],
+        data:        { outcome, vapi_call_id: call.id, caller: callerLabel, service: enriched.service ?? null },
+        response_mode: outcome === 'missed' ? 'human_only' : 'auto',
+      });
+    }
+
+    // -----------------------------------------------------------------------
     // 3. agent_memories — all 3 agents become aware of this call
     // -----------------------------------------------------------------------
 

@@ -738,3 +738,112 @@ export async function updateSignalStatus(
     return { success: false, error: 'Failed to update status' };
   }
 }
+
+// =============================================================================
+// getActivityNotifications — bookings from Aria/Komal + automation runs today
+// Used by the notification panel bell
+// =============================================================================
+
+export interface BookingNotification {
+  id: string;
+  title: string;
+  description: string;
+  source: 'whatsapp' | 'komal' | 'agent';
+  created_at: string;
+}
+
+export interface AutomationNotification {
+  automation_id: string;
+  automation_name: string;
+  count: number;
+  last_sent_at: string;
+  channel: string;
+}
+
+export async function getActivityNotifications(): Promise<{
+  bookings: BookingNotification[];
+  automations: AutomationNotification[];
+}> {
+  try {
+    const sovereign = createSovereignClient();
+    const since24h  = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const since6h   = new Date(Date.now() -  6 * 60 * 60 * 1000).toISOString();
+
+    const [signalsRes, commsRes] = await Promise.all([
+      // Booking signals from WhatsApp/Aria/Komal in last 24h
+      sovereign
+        .from('signals')
+        .select('id, title, description, source_type, created_at, tags')
+        .gte('created_at', since24h)
+        .or('title.ilike.%WhatsApp Booking%,title.ilike.%Komal Booking%,title.ilike.%SMS Booking%,source_type.eq.komal,tags.cs.{whatsapp_booking}')
+        .order('created_at', { ascending: false })
+        .limit(10),
+
+      // Automation comms in last 6h — grouped client-side
+      sovereign
+        .from('automation_communications')
+        .select('automation_id, automation_name, channel, sent_at')
+        .gte('sent_at', since6h)
+        .neq('automation_id', 'agent_outbound')
+        .order('sent_at', { ascending: false })
+        .limit(100),
+    ]);
+
+    // Map booking signals
+    const bookings: BookingNotification[] = ((signalsRes.data ?? []) as {
+      id: string; title: string; description: string | null; source_type: string; created_at: string; tags: string[];
+    }[]).map(r => ({
+      id:          r.id,
+      title:       r.title,
+      description: r.description ?? '',
+      source:      r.source_type === 'komal' ? 'komal' : r.title.toLowerCase().includes('whatsapp') ? 'whatsapp' : 'agent',
+      created_at:  r.created_at,
+    }));
+
+    // Also pull booking_requests from Komal (last 24h) — these may not have signals yet
+    const { data: brRows } = await sovereign
+      .from('booking_requests')
+      .select('id, caller_name, service, preferred_date, created_at')
+      .gte('created_at', since24h)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    for (const br of (brRows ?? []) as { id: string; caller_name: string | null; service: string | null; preferred_date: string | null; created_at: string }[]) {
+      // Avoid duplicates — only add if no matching booking signal already present
+      const nameHint = br.caller_name ?? 'Patient';
+      const exists = bookings.some(b => b.title.includes(nameHint));
+      if (!exists) {
+        bookings.push({
+          id:          br.id,
+          title:       `Komal Booking — ${nameHint}`,
+          description: `${br.service ?? 'Treatment'}${br.preferred_date ? ` · ${br.preferred_date}` : ''}`,
+          source:      'komal',
+          created_at:  br.created_at,
+        });
+      }
+    }
+
+    // Sort combined bookings by date
+    bookings.sort((a, b) => b.created_at.localeCompare(a.created_at));
+
+    // Group automation comms by automation_id
+    const autoMap: Record<string, AutomationNotification> = {};
+    for (const row of (commsRes.data ?? []) as { automation_id: string; automation_name: string; channel: string; sent_at: string }[]) {
+      if (!autoMap[row.automation_id]) {
+        autoMap[row.automation_id] = {
+          automation_id:   row.automation_id,
+          automation_name: row.automation_name,
+          count:           0,
+          last_sent_at:    row.sent_at,
+          channel:         row.channel,
+        };
+      }
+      autoMap[row.automation_id].count++;
+    }
+    const automations = Object.values(autoMap).sort((a, b) => b.last_sent_at.localeCompare(a.last_sent_at));
+
+    return { bookings, automations };
+  } catch {
+    return { bookings: [], automations: [] };
+  }
+}
