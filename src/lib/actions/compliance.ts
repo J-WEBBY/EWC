@@ -26,6 +26,12 @@ export interface HRRecord {
   user_id:              string;
   full_name:            string;
   role_name:            string;
+  // Profile
+  staff_id:             string | null;
+  job_title:            string | null;
+  dept_team:            string | null;
+  start_date:           string | null;
+  contract_type:        string | null;
   // DBS
   dbs_number:           string | null;
   dbs_issue_date:       string | null;
@@ -295,6 +301,11 @@ export async function getHRRecords(): Promise<HRRecord[]> {
         user_id:              u.id as string,
         full_name:            `${u.first_name} ${u.last_name}`.trim(),
         role_name:            (u.roles as Record<string, unknown>)?.name as string ?? '—',
+        staff_id:             getStr('staff_id'),
+        job_title:            getStr('job_title'),
+        dept_team:            getStr('dept_team'),
+        start_date:           getStr('start_date'),
+        contract_type:        getStr('contract_type'),
         dbs_number:           getStr('dbs_number'),
         dbs_issue_date:       getStr('dbs_issue_date'),
         dbs_expiry_date:      getStr('dbs_expiry_date'),
@@ -321,6 +332,11 @@ export async function getHRRecords(): Promise<HRRecord[]> {
 export async function upsertHRRecord(
   userId: string,
   data: {
+    staff_id?: string;
+    job_title?: string;
+    dept_team?: string;
+    start_date?: string;
+    contract_type?: string;
     dbs_number?: string;
     dbs_issue_date?: string;
     dbs_expiry_date?: string;
@@ -346,6 +362,22 @@ export async function upsertHRRecord(
     const { error } = await db
       .from('compliance_hr_records')
       .upsert({ tenant_id: tenantId, user_id: userId, ...data }, { onConflict: 'user_id' });
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (e) { return { success: false, error: String(e) }; }
+}
+
+export async function deleteHRRecord(
+  userId: string,
+): Promise<{ success: boolean; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
+  try {
+    const db = createSovereignClient();
+    const { error } = await db
+      .from('compliance_hr_records')
+      .delete()
+      .eq('user_id', userId);
     if (error) return { success: false, error: error.message };
     return { success: true };
   } catch (e) { return { success: false, error: String(e) }; }

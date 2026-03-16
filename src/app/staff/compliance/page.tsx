@@ -12,7 +12,7 @@ import {
   getStaffProfile, getCurrentUser, type StaffProfile,
 } from '@/lib/actions/staff-onboarding';
 import {
-  getComplianceDashboard, getHRRecords, upsertHRRecord,
+  getComplianceDashboard, getHRRecords, upsertHRRecord, deleteHRRecord,
   getTrainingMatrix, upsertTrainingEntry,
   getEquipmentList, updateEquipmentItem, createEquipmentItem, deleteEquipmentItem,
   getCQCAudit, saveCQCAnswer,
@@ -538,55 +538,139 @@ function DashboardTab({ dash }: { dash: ComplianceDashboard }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // TAB: HR Tracker
 // ═══════════════════════════════════════════════════════════════════════════════
-function HRModal({ record, onClose, onSave }: {
+
+// ── Delete confirmation modal ─────────────────────────────────────────────────
+function HRDeleteConfirm({ record, onClose, onConfirm }: {
+  record: HRRecord;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  const [input, setInput] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [err, setErr] = useState('');
+  const matches = input.trim().toLowerCase() === record.full_name.trim().toLowerCase();
+
+  async function handleDelete() {
+    if (!matches) return;
+    setDeleting(true);
+    setErr('');
+    const res = await deleteHRRecord(record.user_id);
+    setDeleting(false);
+    if (res.success) onConfirm();
+    else setErr(res.error ?? 'Delete failed');
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: 'rgba(24,29,35,0.5)' }}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.96 }}
+        className="w-full max-w-sm rounded-2xl p-6"
+        style={{ background: BG, border: `1px solid ${BORDER}` }}
+      >
+        <div className="flex items-start gap-3 mb-4">
+          <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${RED}14` }}>
+            <Trash2 size={14} color={RED} />
+          </div>
+          <div>
+            <h3 className="text-[14px] font-bold mb-1" style={{ color: NAVY }}>Delete HR Record</h3>
+            <p className="text-[11px]" style={{ color: MUTED }}>
+              This will permanently clear all compliance data for <strong style={{ color: NAVY }}>{record.full_name}</strong>. This action cannot be undone.
+            </p>
+          </div>
+        </div>
+        <div className="mb-4">
+          <Lbl>Type <strong>{record.full_name}</strong> to confirm</Lbl>
+          <input
+            type="text"
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            className={INP}
+            style={{ ...INP_STYLE, borderColor: input && !matches ? RED : BORDER }}
+            placeholder={record.full_name}
+          />
+        </div>
+        {err && <p className="mb-3 text-[11px]" style={{ color: RED }}>{err}</p>}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleDelete}
+            disabled={!matches || deleting}
+            className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[11px] font-semibold transition-all"
+            style={{ background: matches ? `${RED}18` : `${MUTED}18`, border: `1px solid ${matches ? RED + '40' : MUTED + '40'}`, color: matches ? RED : MUTED, opacity: deleting ? 0.6 : 1 }}
+          >
+            <Trash2 size={11} />
+            {deleting ? 'Deleting...' : 'Delete Record'}
+          </button>
+          <BtnGhost onClick={onClose}>Cancel</BtnGhost>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// ── HR Edit panel (slide-in from right) ──────────────────────────────────────
+function HRModal({ record, onClose, onSave, onDelete }: {
   record: HRRecord;
   onClose: () => void;
   onSave: () => void;
+  onDelete: () => void;
 }) {
   const [form, setForm] = useState({
-    dbs_number: record.dbs_number ?? '',
-    dbs_issue_date: record.dbs_issue_date ?? '',
-    dbs_expiry_date: record.dbs_expiry_date ?? '',
-    rtw_type: record.rtw_type ?? '',
-    rtw_expiry_date: record.rtw_expiry_date ?? '',
-    registration_body: record.registration_body ?? '',
+    staff_id:            record.staff_id ?? '',
+    job_title:           record.job_title ?? '',
+    dept_team:           record.dept_team ?? '',
+    start_date:          record.start_date ?? '',
+    contract_type:       record.contract_type ?? '',
+    dbs_number:          record.dbs_number ?? '',
+    dbs_issue_date:      record.dbs_issue_date ?? '',
+    dbs_expiry_date:     record.dbs_expiry_date ?? '',
+    rtw_type:            record.rtw_type ?? '',
+    rtw_expiry_date:     record.rtw_expiry_date ?? '',
+    registration_body:   record.registration_body ?? '',
     registration_number: record.registration_number ?? '',
     registration_expiry: record.registration_expiry ?? '',
     last_appraisal_date: record.last_appraisal_date ?? '',
     next_appraisal_date: record.next_appraisal_date ?? '',
-    staff_signed: record.staff_signed,
-    manager_signed: record.manager_signed,
-    documents_uploaded: record.documents_uploaded,
-    notes: record.notes ?? '',
+    staff_signed:        record.staff_signed,
+    manager_signed:      record.manager_signed,
+    documents_uploaded:  record.documents_uploaded,
+    notes:               record.notes ?? '',
   });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
+  const [showDelete, setShowDelete] = useState(false);
 
   async function handleSave() {
     setSaving(true);
     setErr('');
     const res = await upsertHRRecord(record.user_id, {
-      dbs_number: form.dbs_number || undefined,
-      dbs_issue_date: form.dbs_issue_date || undefined,
-      dbs_expiry_date: form.dbs_expiry_date || undefined,
-      rtw_type: form.rtw_type || undefined,
-      rtw_expiry_date: form.rtw_expiry_date || undefined,
-      registration_body: form.registration_body || undefined,
+      staff_id:            form.staff_id || undefined,
+      job_title:           form.job_title || undefined,
+      dept_team:           form.dept_team || undefined,
+      start_date:          form.start_date || undefined,
+      contract_type:       form.contract_type || undefined,
+      dbs_number:          form.dbs_number || undefined,
+      dbs_issue_date:      form.dbs_issue_date || undefined,
+      dbs_expiry_date:     form.dbs_expiry_date || undefined,
+      rtw_type:            form.rtw_type || undefined,
+      rtw_expiry_date:     form.rtw_expiry_date || undefined,
+      registration_body:   form.registration_body || undefined,
       registration_number: form.registration_number || undefined,
       registration_expiry: form.registration_expiry || undefined,
       last_appraisal_date: form.last_appraisal_date || undefined,
       next_appraisal_date: form.next_appraisal_date || undefined,
-      staff_signed: form.staff_signed,
-      manager_signed: form.manager_signed,
-      documents_uploaded: form.documents_uploaded,
-      notes: form.notes || undefined,
+      staff_signed:        form.staff_signed,
+      manager_signed:      form.manager_signed,
+      documents_uploaded:  form.documents_uploaded,
+      notes:               form.notes || undefined,
     });
     setSaving(false);
     if (res.success) { onSave(); onClose(); }
     else setErr(res.error ?? 'Save failed');
   }
 
-  function inp(field: keyof typeof form, type = 'text') {
+  function inp(field: keyof typeof form, type = 'text', placeholder = '') {
     const val = form[field];
     return (
       <input
@@ -595,13 +679,14 @@ function HRModal({ record, onClose, onSave }: {
         onChange={e => setForm(f => ({ ...f, [field]: e.target.value }))}
         className={INP}
         style={INP_STYLE}
+        placeholder={placeholder}
       />
     );
   }
 
   function chk(field: 'staff_signed' | 'manager_signed' | 'documents_uploaded', label: string) {
     return (
-      <label className="flex items-center gap-2 cursor-pointer">
+      <label className="flex items-center gap-2 cursor-pointer select-none">
         <input
           type="checkbox"
           checked={form[field] as boolean}
@@ -614,41 +699,89 @@ function HRModal({ record, onClose, onSave }: {
     );
   }
 
+  function SectionHead({ children }: { children: React.ReactNode }) {
+    return <p className="text-[8px] uppercase tracking-[0.22em] font-semibold mb-3 mt-1" style={{ color: BLUE }}>{children}</p>;
+  }
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(24,29,35,0.35)' }}>
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 z-50"
+        style={{ background: 'rgba(24,29,35,0.35)' }}
+        onClick={onClose}
+      />
+      {/* Slide-in panel */}
       <motion.div
-        initial={{ opacity: 0, scale: 0.97 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.97 }}
-        className="w-full max-w-lg rounded-2xl p-6 overflow-y-auto max-h-[90vh]"
-        style={{ background: BG, border: `1px solid ${BORDER}` }}
+        initial={{ x: '100%', opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        exit={{ x: '100%', opacity: 0 }}
+        transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+        className="fixed top-0 right-0 bottom-0 z-50 flex flex-col overflow-hidden"
+        style={{ width: 520, background: BG, borderLeft: `1px solid ${BORDER}` }}
+        onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <p className="text-[8px] uppercase tracking-[0.22em] font-semibold mb-0.5" style={{ color: MUTED }}>HR Record</p>
-            <h3 className="text-[16px] font-bold" style={{ color: NAVY }}>{record.full_name}</h3>
-            <p className="text-[11px]" style={{ color: MUTED }}>{record.role_name}</p>
+        {/* Header */}
+        <div className="flex items-start justify-between p-6 flex-shrink-0" style={{ borderBottom: `1px solid ${BORDER}` }}>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0"
+              style={{ background: `${BLUE}14`, border: `1px solid ${BLUE}30` }}>
+              <span className="text-[11px] font-black" style={{ color: BLUE }}>{record.staff_id ?? '—'}</span>
+            </div>
+            <div>
+              <p className="text-[8px] uppercase tracking-[0.22em] font-semibold mb-0.5" style={{ color: MUTED }}>HR Record</p>
+              <h3 className="text-[16px] font-bold" style={{ color: NAVY }}>{record.full_name}</h3>
+              <p className="text-[11px]" style={{ color: MUTED }}>{record.role_name}</p>
+            </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[#F0F4FF] transition-colors">
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[#F0F4FF] transition-colors flex-shrink-0">
             <X size={16} color={MUTED} />
           </button>
         </div>
 
-        <div className="space-y-4">
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-5">
+
+          {/* Profile Info */}
           <div>
-            <p className="text-[8px] uppercase tracking-[0.22em] font-semibold mb-3" style={{ color: BLUE }}>DBS Check</p>
+            <SectionHead>Profile Information</SectionHead>
             <div className="grid grid-cols-2 gap-3">
-              <div><Lbl>DBS Number</Lbl>{inp('dbs_number')}</div>
-              <div><Lbl>Issue Date</Lbl>{inp('dbs_issue_date', 'date')}</div>
+              <div><Lbl>Staff ID</Lbl>{inp('staff_id', 'text', 'e.g. S001')}</div>
+              <div><Lbl>Contract Type</Lbl>
+                <select value={form.contract_type} onChange={e => setForm(f => ({ ...f, contract_type: e.target.value }))} className={INP} style={INP_STYLE}>
+                  <option value="">Select...</option>
+                  <option value="Permanent Full-Time">Permanent Full-Time</option>
+                  <option value="Permanent Part-Time">Permanent Part-Time</option>
+                  <option value="Fixed-Term">Fixed-Term</option>
+                  <option value="Zero Hours">Zero Hours</option>
+                  <option value="Self-Employed">Self-Employed</option>
+                  <option value="Agency">Agency</option>
+                  <option value="Locum">Locum</option>
+                  <option value="Volunteer">Volunteer</option>
+                </select>
+              </div>
+              <div><Lbl>Job Title</Lbl>{inp('job_title')}</div>
+              <div><Lbl>Dept / Team</Lbl>{inp('dept_team')}</div>
+              <div><Lbl>Start Date</Lbl>{inp('start_date', 'date')}</div>
+            </div>
+          </div>
+
+          {/* DBS */}
+          <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 16 }}>
+            <SectionHead>DBS Check</SectionHead>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2"><Lbl>DBS Number</Lbl>{inp('dbs_number', 'text', 'e.g. DBS-001-AB')}</div>
+              <div><Lbl>Date Issued</Lbl>{inp('dbs_issue_date', 'date')}</div>
               <div><Lbl>Expiry Date</Lbl>{inp('dbs_expiry_date', 'date')}</div>
             </div>
           </div>
 
+          {/* RTW */}
           <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 16 }}>
-            <p className="text-[8px] uppercase tracking-[0.22em] font-semibold mb-3" style={{ color: BLUE }}>Right to Work</p>
+            <SectionHead>Right to Work</SectionHead>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Lbl>RTW Type</Lbl>
+                <Lbl>RTW Status</Lbl>
                 <select value={form.rtw_type} onChange={e => setForm(f => ({ ...f, rtw_type: e.target.value }))} className={INP} style={INP_STYLE}>
                   <option value="">Select...</option>
                   <option value="uk_national">UK National</option>
@@ -657,36 +790,40 @@ function HRModal({ record, onClose, onSave }: {
                   <option value="na">N/A</option>
                 </select>
               </div>
-              <div><Lbl>Expiry Date</Lbl>{inp('rtw_expiry_date', 'date')}</div>
+              <div><Lbl>RTW Expiry</Lbl>{inp('rtw_expiry_date', 'date')}</div>
             </div>
           </div>
 
+          {/* Professional Registration */}
           <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 16 }}>
-            <p className="text-[8px] uppercase tracking-[0.22em] font-semibold mb-3" style={{ color: BLUE }}>Professional Registration</p>
+            <SectionHead>Professional Registration</SectionHead>
             <div className="grid grid-cols-2 gap-3">
-              <div><Lbl>Registration Body</Lbl>{inp('registration_body')}</div>
+              <div><Lbl>Registration Body</Lbl>{inp('registration_body', 'text', 'e.g. GMC, NMC, HCPC')}</div>
               <div><Lbl>Registration Number</Lbl>{inp('registration_number')}</div>
-              <div><Lbl>Expiry Date</Lbl>{inp('registration_expiry', 'date')}</div>
+              <div className="col-span-2"><Lbl>Expiry Date</Lbl>{inp('registration_expiry', 'date')}</div>
             </div>
           </div>
 
+          {/* Appraisals */}
           <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 16 }}>
-            <p className="text-[8px] uppercase tracking-[0.22em] font-semibold mb-3" style={{ color: BLUE }}>Appraisals</p>
+            <SectionHead>Appraisals</SectionHead>
             <div className="grid grid-cols-2 gap-3">
-              <div><Lbl>Last Appraisal</Lbl>{inp('last_appraisal_date', 'date')}</div>
-              <div><Lbl>Next Appraisal</Lbl>{inp('next_appraisal_date', 'date')}</div>
+              <div><Lbl>Last Appraisal Date</Lbl>{inp('last_appraisal_date', 'date')}</div>
+              <div><Lbl>Next Appraisal Date</Lbl>{inp('next_appraisal_date', 'date')}</div>
             </div>
           </div>
 
+          {/* Sign-off */}
           <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 16 }}>
-            <p className="text-[8px] uppercase tracking-[0.22em] font-semibold mb-3" style={{ color: BLUE }}>Sign-off</p>
-            <div className="flex flex-col gap-2">
+            <SectionHead>Sign-off &amp; Documents</SectionHead>
+            <div className="flex flex-col gap-2.5">
               {chk('staff_signed', 'Staff signed')}
               {chk('manager_signed', 'Manager signed')}
               {chk('documents_uploaded', 'Documents uploaded')}
             </div>
           </div>
 
+          {/* Notes */}
           <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 16 }}>
             <Lbl>Notes</Lbl>
             <textarea
@@ -695,21 +832,46 @@ function HRModal({ record, onClose, onSave }: {
               rows={3}
               className="w-full rounded-xl px-3 py-2 text-[12px] focus:outline-none"
               style={TA_STYLE}
+              placeholder="Any additional notes, flags, or context..."
             />
           </div>
         </div>
 
-        {err && <p className="mt-3 text-[11px]" style={{ color: RED }}>{err}</p>}
-
-        <div className="flex items-center gap-2 mt-5">
-          <BtnPrimary onClick={handleSave} disabled={saving}>
-            <Save size={12} />
-            {saving ? 'Saving...' : 'Save Record'}
-          </BtnPrimary>
-          <BtnGhost onClick={onClose}>Cancel</BtnGhost>
+        {/* Footer */}
+        <div className="p-6 flex-shrink-0" style={{ borderTop: `1px solid ${BORDER}` }}>
+          {err && <p className="mb-3 text-[11px]" style={{ color: RED }}>{err}</p>}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <BtnPrimary onClick={handleSave} disabled={saving}>
+                <Save size={12} />
+                {saving ? 'Saving...' : 'Save Record'}
+              </BtnPrimary>
+              <BtnGhost onClick={onClose}>Cancel</BtnGhost>
+            </div>
+            {record.id && (
+              <button
+                onClick={() => setShowDelete(true)}
+                className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[11px] font-medium transition-all hover:opacity-80"
+                style={{ background: `${RED}10`, border: `1px solid ${RED}28`, color: RED }}
+              >
+                <Trash2 size={11} />
+                Delete Record
+              </button>
+            )}
+          </div>
         </div>
       </motion.div>
-    </div>
+
+      <AnimatePresence>
+        {showDelete && (
+          <HRDeleteConfirm
+            record={record}
+            onClose={() => setShowDelete(false)}
+            onConfirm={() => { setShowDelete(false); onDelete(); onClose(); }}
+          />
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 
@@ -723,63 +885,131 @@ function HRTrackerTab({ records, users, currentUserId, onRefresh }: {
   void users;
   void currentUserId;
 
+  const COLS: Array<{ label: string; key?: string; w?: number }> = [
+    { label: 'Staff ID',       w: 72  },
+    { label: 'Full Name',      w: 160 },
+    { label: 'Job Title',      w: 150 },
+    { label: 'Dept / Team',    w: 140 },
+    { label: 'Start Date',     w: 100 },
+    { label: 'Contract',       w: 130 },
+    { label: 'DBS Number',     w: 130 },
+    { label: 'DBS Issued',     w: 100 },
+    { label: 'DBS Status',     w: 90  },
+    { label: 'RTW Expiry',     w: 100 },
+    { label: 'RTW Status',     w: 90  },
+    { label: 'Last Appraisal', w: 110 },
+    { label: 'Next Appraisal', w: 110 },
+    { label: 'Appraisal',      w: 90  },
+    { label: 'Staff Signed',   w: 90  },
+    { label: 'Mgr Signed',     w: 90  },
+    { label: 'Docs',           w: 70  },
+    { label: 'Notes',          w: 180 },
+    { label: '',               w: 60  },
+  ];
+
+  function CheckBadge({ val }: { val: boolean }) {
+    return val
+      ? <span className="text-[9px] font-semibold px-2 py-0.5 rounded-lg" style={{ background: `${BLUE}12`, color: BLUE }}>Yes</span>
+      : <span className="text-[9px] font-medium" style={{ color: MUTED }}>—</span>;
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
         <p className="text-[10px]" style={{ color: MUTED }}>
-          Click <span style={{ color: BLUE }}>Edit / Add Details</span> on any row to fill in DBS, RTW, registration, appraisal and sign-off information.
+          Click <span style={{ color: BLUE }}>Edit</span> on any row to enter DBS, RTW, registration, appraisal and sign-off details.
         </p>
         <span className="text-[11px] font-semibold" style={{ color: NAVY }}>{records.length} staff members</span>
       </div>
+
       <div className="overflow-x-auto rounded-2xl" style={{ border: `1px solid ${BORDER}` }}>
-        <table className="w-full">
+        <table style={{ width: 'max-content', minWidth: '100%', borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ borderBottom: `1px solid ${BORDER}` }}>
-              {['Staff', 'Role', 'DBS Expiry', 'DBS', 'RTW', 'Reg. Body', 'Reg. Expiry', 'Next Appraisal', 'Appraisal', 'Docs', ''].map((h, i) => (
-                <th key={i} className="text-left px-4 py-3 text-[8px] uppercase tracking-[0.22em] font-semibold whitespace-nowrap" style={{ color: MUTED }}>
-                  {h}
+            <tr style={{ borderBottom: `1px solid ${BORDER}`, background: '#F5F7FB' }}>
+              {COLS.map((c, i) => (
+                <th
+                  key={i}
+                  className="text-left px-3 py-3 text-[8px] uppercase tracking-[0.22em] font-semibold whitespace-nowrap"
+                  style={{ color: MUTED, minWidth: c.w, maxWidth: c.w }}
+                >
+                  {c.label}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {records.map(r => (
+            {records.map((r, ri) => (
               <tr
                 key={r.user_id}
                 className="group transition-colors hover:bg-[#F0F4FF]"
-                style={{ borderBottom: `1px solid ${BORDER}` }}
+                style={{ borderBottom: ri < records.length - 1 ? `1px solid ${BORDER}` : undefined }}
               >
-                <td className="px-4 py-3">
-                  <span className="text-[12px] font-semibold" style={{ color: NAVY }}>{r.full_name}</span>
-                </td>
-                <td className="px-4 py-3 text-[11px] whitespace-nowrap" style={{ color: MUTED }}>{r.role_name}</td>
-                <td className="px-4 py-3 text-[11px] whitespace-nowrap" style={{ color: SEC }}>{fmt(r.dbs_expiry_date)}</td>
-                <td className="px-4 py-3"><StatusDot status={r.dbs_status} /></td>
-                <td className="px-4 py-3"><StatusDot status={r.rtw_status} /></td>
-                <td className="px-4 py-3 text-[11px] whitespace-nowrap" style={{ color: SEC }}>{r.registration_body ?? '—'}</td>
-                <td className="px-4 py-3 text-[11px] whitespace-nowrap" style={{ color: SEC }}>{fmt(r.registration_expiry)}</td>
-                <td className="px-4 py-3 text-[11px] whitespace-nowrap" style={{ color: SEC }}>{fmt(r.next_appraisal_date)}</td>
-                <td className="px-4 py-3"><StatusDot status={r.appraisal_status} /></td>
-                <td className="px-4 py-3">
-                  <span className="text-[10px]" style={{ color: r.documents_uploaded ? GREEN : MUTED }}>
-                    {r.documents_uploaded ? 'Uploaded' : 'Pending'}
+                {/* Staff ID */}
+                <td className="px-3 py-3">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg"
+                    style={{ background: `${BLUE}12`, color: BLUE }}>
+                    {r.staff_id ?? '—'}
                   </span>
                 </td>
-                <td className="px-4 py-3">
+                {/* Full Name */}
+                <td className="px-3 py-3">
+                  <span className="text-[12px] font-semibold whitespace-nowrap" style={{ color: NAVY }}>{r.full_name}</span>
+                </td>
+                {/* Job Title */}
+                <td className="px-3 py-3 text-[11px] whitespace-nowrap" style={{ color: SEC }}>{r.job_title ?? '—'}</td>
+                {/* Dept/Team */}
+                <td className="px-3 py-3 text-[11px] whitespace-nowrap" style={{ color: MUTED }}>{r.dept_team ?? '—'}</td>
+                {/* Start Date */}
+                <td className="px-3 py-3 text-[11px] whitespace-nowrap" style={{ color: SEC }}>{fmt(r.start_date)}</td>
+                {/* Contract */}
+                <td className="px-3 py-3 text-[10px] whitespace-nowrap" style={{ color: MUTED }}>{r.contract_type ?? '—'}</td>
+                {/* DBS Number */}
+                <td className="px-3 py-3 text-[11px] whitespace-nowrap font-mono" style={{ color: SEC }}>{r.dbs_number ?? '—'}</td>
+                {/* DBS Issued */}
+                <td className="px-3 py-3 text-[11px] whitespace-nowrap" style={{ color: SEC }}>{fmt(r.dbs_issue_date)}</td>
+                {/* DBS Status */}
+                <td className="px-3 py-3"><StatusDot status={r.dbs_status} /></td>
+                {/* RTW Expiry */}
+                <td className="px-3 py-3 text-[11px] whitespace-nowrap" style={{ color: SEC }}>{fmt(r.rtw_expiry_date)}</td>
+                {/* RTW Status */}
+                <td className="px-3 py-3"><StatusDot status={r.rtw_status} /></td>
+                {/* Last Appraisal */}
+                <td className="px-3 py-3 text-[11px] whitespace-nowrap" style={{ color: SEC }}>{fmt(r.last_appraisal_date)}</td>
+                {/* Next Appraisal */}
+                <td className="px-3 py-3 text-[11px] whitespace-nowrap" style={{ color: SEC }}>{fmt(r.next_appraisal_date)}</td>
+                {/* Appraisal Status */}
+                <td className="px-3 py-3"><StatusDot status={r.appraisal_status} /></td>
+                {/* Staff Signed */}
+                <td className="px-3 py-3"><CheckBadge val={r.staff_signed} /></td>
+                {/* Manager Signed */}
+                <td className="px-3 py-3"><CheckBadge val={r.manager_signed} /></td>
+                {/* Docs */}
+                <td className="px-3 py-3"><CheckBadge val={r.documents_uploaded} /></td>
+                {/* Notes */}
+                <td className="px-3 py-3">
+                  {r.notes
+                    ? <span className="text-[10px]" style={{ color: MUTED }} title={r.notes}>
+                        {r.notes.length > 40 ? r.notes.slice(0, 40) + '…' : r.notes}
+                      </span>
+                    : <span className="text-[10px]" style={{ color: BORDER }}>—</span>
+                  }
+                </td>
+                {/* Actions */}
+                <td className="px-3 py-3">
                   <button
                     onClick={() => setEditRecord(r)}
-                    className="flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-lg transition-opacity hover:opacity-80"
+                    className="flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-lg transition-opacity hover:opacity-80 whitespace-nowrap"
                     style={{ background: `${BLUE}14`, color: BLUE }}
                   >
                     <Edit2 size={10} />
-                    {r.id ? 'Edit' : 'Add Details'}
+                    Edit
                   </button>
                 </td>
               </tr>
             ))}
             {records.length === 0 && (
               <tr>
-                <td colSpan={11} className="px-4 py-8 text-center text-[12px]" style={{ color: MUTED }}>
+                <td colSpan={COLS.length} className="px-4 py-10 text-center text-[12px]" style={{ color: MUTED }}>
                   No HR records found.
                 </td>
               </tr>
@@ -794,6 +1024,7 @@ function HRTrackerTab({ records, users, currentUserId, onRefresh }: {
             record={editRecord}
             onClose={() => setEditRecord(null)}
             onSave={onRefresh}
+            onDelete={onRefresh}
           />
         )}
       </AnimatePresence>
