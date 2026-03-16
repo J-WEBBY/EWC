@@ -350,6 +350,23 @@ export async function deleteGoal(
   return { success: true };
 }
 
+export async function updateGoal(
+  goalId: string,
+  data: {
+    title?:       string;
+    description?: string;
+    notes?:       string;
+    due_date?:    string;
+    category?:    GoalCategory;
+    owner_id?:    string;
+  }
+): Promise<{ success: boolean; error?: string }> {
+  const db = createSovereignClient();
+  const { error } = await db.from('staff_goals').update(data).eq('id', goalId);
+  if (error) return { success: false, error: error.message };
+  return { success: true };
+}
+
 export async function getGoalHistory(goalId: string): Promise<GoalUpdate[]> {
   const db = createSovereignClient();
   const { data, error } = await db
