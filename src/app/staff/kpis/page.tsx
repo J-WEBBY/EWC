@@ -381,7 +381,7 @@ function CreateTaskModal({ userId, users, onClose, onCreate }: CreateTaskModalPr
       const assigneeName = users.find(u => u.id === assignTo)?.full_name ?? 'someone';
       const selfName     = users.find(u => u.id === userId)?.full_name ?? 'A team member';
       await createSignal('clinic', {
-        signalType:  'task_assigned',
+        signalType:  'task',
         title:       `New task assigned to you: ${title.trim()}`,
         description: `${selfName} assigned you a task: "${title.trim()}" — due ${fmtDate(dueDate)}. Assigned to ${assigneeName}.`,
         priority:    priority === 'high' ? 'high' : priority === 'low' ? 'low' : 'medium',
@@ -391,9 +391,9 @@ function CreateTaskModal({ userId, users, onClose, onCreate }: CreateTaskModalPr
       });
     }
 
-    // Reload to get joined data
+    // Reload to get joined data and open hub
     const all = await getAllStaffGoals();
-    const created = all.find(t => t.id === res.id);
+    const created = all.find(t => t.id === res.id) ?? all[0];
     if (created) onCreate(created);
     setSaving(false);
   }
@@ -405,8 +405,9 @@ function CreateTaskModal({ userId, users, onClose, onCreate }: CreateTaskModalPr
     borderRadius: 8,
     fontSize:     12,
     color:        NAVY,
-    background:   BG,
+    background:   '#fff',
     outline:      'none',
+    colorScheme:  'light',
   };
 
   const labelStyle: React.CSSProperties = {
