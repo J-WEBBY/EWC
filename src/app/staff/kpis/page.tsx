@@ -9,7 +9,7 @@ import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, X, Trash2, CheckCircle2, Circle, ChevronDown, ChevronUp,
-  Clock, Flag, Paperclip, Edit3, RefreshCw, Star, ChevronRight,
+  Clock, Flag, Paperclip, Edit3, RefreshCw, Star, ChevronRight, Search,
 } from 'lucide-react';
 import { StaffNav } from '@/components/staff-nav';
 import OrbLoader from '@/components/orb-loader';
@@ -142,10 +142,11 @@ interface TaskCardProps {
 }
 
 function TaskCard({ task, isActive, onClick }: TaskCardProps) {
-  const meta  = getMetaNotes(task);
-  const over  = isOverdue(task);
-  const pc    = priorityColor(meta.priority);
-  const cc    = categoryColor(task.category);
+  const meta        = getMetaNotes(task);
+  const over        = isOverdue(task);
+  const pc          = priorityColor(meta.priority);
+  const cc          = categoryColor(task.category);
+  const isCompleted = task.status === 'completed';
 
   return (
     <motion.div
@@ -157,67 +158,96 @@ function TaskCard({ task, isActive, onClick }: TaskCardProps) {
       onClick={onClick}
       style={{
         display:         'flex',
-        alignItems:      'center',
-        gap:             12,
-        padding:         '12px 16px',
+        alignItems:      'stretch',
         borderBottom:    `1px solid ${BORDER}`,
         cursor:          'pointer',
         backgroundColor: isActive ? `${BLUE}08` : 'transparent',
-        position:        'relative',
         transition:      'background 0.15s',
       }}
       className="hover:bg-[#0058E608] group"
     >
-      {/* Priority strip */}
+      {/* Priority bar — always visible */}
       <div style={{
-        position:        'absolute',
-        left:            0, top: 0, bottom: 0,
-        width:           isActive ? 3 : 0,
-        backgroundColor: isActive ? BLUE : pc,
-        transition:      'width 0.15s',
-      }} className="group-hover:w-[3px]" />
+        width:           3,
+        flexShrink:      0,
+        backgroundColor: isActive ? BLUE : isCompleted ? GREEN : pc,
+        transition:      'background 0.15s',
+      }} />
 
       {/* Content */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+      <div style={{ flex: 1, minWidth: 0, padding: '11px 14px' }}>
+        {/* Title row */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 4 }}>
           <span style={{
-            fontSize:   12,
-            fontWeight: 600,
-            color:      NAVY,
-            whiteSpace: 'nowrap',
-            overflow:   'hidden',
-            textOverflow: 'ellipsis',
-            maxWidth:   320,
+            fontSize:       12,
+            fontWeight:     600,
+            color:          isCompleted ? MUTED : NAVY,
+            lineHeight:     1.4,
+            flex:           1,
+            textDecoration: isCompleted ? 'line-through' : 'none',
           }}>
             {task.title}
           </span>
+          <ChevronRight
+            size={13}
+            style={{ color: MUTED, opacity: 0, transition: 'opacity 0.15s', flexShrink: 0, marginTop: 2 }}
+            className="group-hover:opacity-100"
+          />
+        </div>
+
+        {/* Description snippet */}
+        {task.description && (
+          <p style={{
+            fontSize:     11,
+            color:        TER,
+            margin:       '0 0 6px',
+            overflow:     'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace:   'nowrap',
+            lineHeight:   1.4,
+          }}>
+            {task.description}
+          </p>
+        )}
+
+        {/* Badge row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', marginBottom: 5 }}>
           <span style={{
-            fontSize:        9,
-            fontWeight:      600,
-            textTransform:   'uppercase',
-            letterSpacing:   '0.06em',
-            color:           cc,
-            backgroundColor: `${cc}14`,
-            padding:         '1px 5px',
-            borderRadius:    4,
-            flexShrink:      0,
+            fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em',
+            color: isCompleted ? MUTED : pc,
+            background: isCompleted ? `${MUTED}14` : `${pc}18`,
+            border: `1px solid ${isCompleted ? MUTED : pc}40`,
+            padding: '1px 6px', borderRadius: 999, flexShrink: 0,
+          }}>
+            {isCompleted ? 'done' : meta.priority}
+          </span>
+          <span style={{
+            fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em',
+            color: cc, background: `${cc}14`,
+            padding: '1px 6px', borderRadius: 999, flexShrink: 0,
           }}>
             {task.category}
           </span>
           {meta.treatment_type && meta.treatment_type !== 'None' && (
             <span style={{
-              fontSize:        9,
-              fontWeight:      500,
-              color:           TER,
-              backgroundColor: `${BORDER}`,
-              padding:         '1px 5px',
-              borderRadius:    4,
-              flexShrink:      0,
+              fontSize: 9, fontWeight: 500, color: TER,
+              background: BORDER, padding: '1px 6px', borderRadius: 999, flexShrink: 0,
             }}>
               {meta.treatment_type}
             </span>
           )}
+          {over && (
+            <span style={{
+              fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
+              color: RED, background: `${RED}18`, border: `1px solid ${RED}40`,
+              padding: '1px 6px', borderRadius: 999, flexShrink: 0,
+            }}>
+              Overdue
+            </span>
+          )}
         </div>
+
+        {/* Meta row */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {task.owner_name && (
             <span style={{ fontSize: 10, color: MUTED }}>{task.owner_name}</span>
@@ -225,30 +255,20 @@ function TaskCard({ task, isActive, onClick }: TaskCardProps) {
           {meta.patient_name && (
             <span style={{ fontSize: 10, color: TER }}>· {meta.patient_name}</span>
           )}
-          {task.due_date && (
-            <span style={{
-              fontSize:        10,
-              color:           over ? RED : MUTED,
-              backgroundColor: over ? `${RED}12` : 'transparent',
-              padding:         over ? '0 4px' : undefined,
-              borderRadius:    3,
-              display:         'flex',
-              alignItems:      'center',
-              gap:             3,
-            }}>
+          {task.due_date && !over && (
+            <span style={{ fontSize: 10, color: MUTED, display: 'flex', alignItems: 'center', gap: 3 }}>
+              <Clock size={9} />
+              {fmtDate(task.due_date)}
+            </span>
+          )}
+          {over && task.due_date && (
+            <span style={{ fontSize: 10, color: RED, display: 'flex', alignItems: 'center', gap: 3 }}>
               <Clock size={9} />
               {fmtDate(task.due_date)}
             </span>
           )}
         </div>
       </div>
-
-      {/* Chevron */}
-      <ChevronRight
-        size={14}
-        style={{ color: MUTED, opacity: 0, transition: 'opacity 0.15s', flexShrink: 0 }}
-        className="group-hover:opacity-100"
-      />
     </motion.div>
   );
 }
@@ -256,19 +276,27 @@ function TaskCard({ task, isActive, onClick }: TaskCardProps) {
 // =============================================================================
 // STATS TILE
 // =============================================================================
-function StatTile({ label, value, color }: { label: string; value: string | number; color: string }) {
+function StatTile({ label, value, color, sub }: { label: string; value: string | number; color: string; sub?: string }) {
   return (
     <div style={{
-      padding:      '14px 16px',
       border:       `1px solid ${BORDER}`,
-      borderRadius: 12,
+      borderRadius: 16,
       background:   'transparent',
+      overflow:     'hidden',
+      position:     'relative',
     }}>
-      <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.28em', fontWeight: 600, color: MUTED, marginBottom: 6 }}>
-        {label}
-      </div>
-      <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.03em', color }}>
-        {value}
+      {/* Top accent bar */}
+      <div style={{ height: 3, background: color }} />
+      <div style={{ padding: '14px 18px 16px' }}>
+        <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.28em', fontWeight: 600, color: MUTED, marginBottom: 8 }}>
+          {label}
+        </div>
+        <div style={{ fontSize: 32, fontWeight: 900, letterSpacing: '-0.04em', color, lineHeight: 1 }}>
+          {value}
+        </div>
+        {sub && (
+          <div style={{ fontSize: 10, color: MUTED, marginTop: 5 }}>{sub}</div>
+        )}
       </div>
     </div>
   );
@@ -284,27 +312,29 @@ function SectionToggle({ label, count, open, onToggle }: { label: string; count:
       style={{
         display:        'flex',
         alignItems:     'center',
-        gap:            6,
-        padding:        '10px 0',
+        gap:            8,
+        padding:        '10px 0 8px',
         background:     'none',
         border:         'none',
+        borderTop:      `1px solid ${BORDER}`,
         cursor:         'pointer',
-        color:          MUTED,
-        fontSize:       11,
-        fontWeight:     600,
-        letterSpacing:  '0.02em',
         width:          '100%',
+        marginTop:      4,
       }}
     >
-      {open ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-      <span>{label}</span>
+      <span style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.28em', fontWeight: 600, color: MUTED }}>
+        {label}
+      </span>
       <span style={{
         fontSize:        9,
-        backgroundColor: `${MUTED}20`,
+        backgroundColor: `${MUTED}18`,
         color:           MUTED,
-        padding:         '1px 6px',
-        borderRadius:    10,
+        padding:         '1px 7px',
+        borderRadius:    999,
+        fontWeight:      600,
       }}>{count}</span>
+      <div style={{ flex: 1 }} />
+      {open ? <ChevronUp size={11} style={{ color: MUTED }} /> : <ChevronDown size={11} style={{ color: MUTED }} />}
     </button>
   );
 }
@@ -593,12 +623,13 @@ function CreateTaskModal({ userId, users, onClose, onCreate }: CreateTaskModalPr
 interface TaskHubProps {
   task:        StaffGoal;
   userId:      string;
+  users:       ActiveUser[];
   onClose:     () => void;
   onDelete:    (id: string) => void;
   onRefresh:   () => void;
 }
 
-function TaskHub({ task, userId, onClose, onDelete, onRefresh }: TaskHubProps) {
+function TaskHub({ task, userId, users, onClose, onDelete, onRefresh }: TaskHubProps) {
   const meta = getMetaNotes(task);
 
   // Sub-tasks
@@ -626,6 +657,16 @@ function TaskHub({ task, userId, onClose, onDelete, onRefresh }: TaskHubProps) {
   const [titleDraft,       setTitleDraft]        = useState(task.title);
   const [titleSaving,      setTitleSaving]       = useState(false);
 
+  // Due date edit
+  const [editingDueDate,   setEditingDueDate]    = useState(false);
+  const [dueDateDraft,     setDueDateDraft]      = useState(task.due_date ?? '');
+  const [dueDateSaving,    setDueDateSaving]     = useState(false);
+
+  // Assignee edit
+  const [editingAssignee,  setEditingAssignee]   = useState(false);
+  const [assigneeDraft,    setAssigneeDraft]     = useState(task.owner_id ?? '');
+  const [assigneeSaving,   setAssigneeSaving]    = useState(false);
+
   // Confirm delete
   const [confirmDelete,    setConfirmDelete]     = useState(false);
 
@@ -639,7 +680,9 @@ function TaskHub({ task, userId, onClose, onDelete, onRefresh }: TaskHubProps) {
     setSatisfaction(m.satisfaction ?? '');
     setTaskNotes(m.task_notes ?? '');
     setTitleDraft(task.title);
-  }, [task.id, task.notes]);
+    setDueDateDraft(task.due_date ?? '');
+    setAssigneeDraft(task.owner_id ?? '');
+  }, [task.id, task.notes, task.due_date, task.owner_id]);
 
   // ---- Sub-task actions ----
   async function handleAddSubTask() {
@@ -714,6 +757,25 @@ function TaskHub({ task, userId, onClose, onDelete, onRefresh }: TaskHubProps) {
     await updateGoal(task.id, { title: titleDraft.trim() });
     setEditingTitle(false);
     setTitleSaving(false);
+    onRefresh();
+  }
+
+  // ---- Due date edit ----
+  async function handleSaveDueDate() {
+    if (!dueDateDraft) return;
+    setDueDateSaving(true);
+    await updateGoal(task.id, { due_date: dueDateDraft });
+    setEditingDueDate(false);
+    setDueDateSaving(false);
+    onRefresh();
+  }
+
+  // ---- Assignee edit ----
+  async function handleSaveAssignee(newOwnerId: string) {
+    setAssigneeSaving(true);
+    await updateGoal(task.id, { owner_id: newOwnerId });
+    setEditingAssignee(false);
+    setAssigneeSaving(false);
     onRefresh();
   }
 
@@ -913,19 +975,125 @@ function TaskHub({ task, userId, onClose, onDelete, onRefresh }: TaskHubProps) {
             <p style={{ fontSize: 12, color: SEC, margin: 0, lineHeight: 1.6 }}>{task.description}</p>
           )}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 16px' }}>
-            <DetailRow label="Category"    value={task.category} />
+            <DetailRow label="Category" value={task.category} />
             {meta.treatment_type && meta.treatment_type !== 'None' && (
-              <DetailRow label="Treatment"   value={meta.treatment_type} />
+              <DetailRow label="Treatment" value={meta.treatment_type} />
             )}
             {meta.patient_name && (
-              <DetailRow label="Patient"     value={meta.patient_name} />
+              <DetailRow label="Patient" value={meta.patient_name} />
             )}
-            {task.owner_name && (
-              <DetailRow label="Assigned to" value={task.owner_name} />
-            )}
-            {task.due_date && (
-              <DetailRow label="Due"         value={fmtDate(task.due_date)} />
-            )}
+
+            {/* Editable — Assigned to */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <span style={{ fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.18em', fontWeight: 600 }}>Assigned to</span>
+              {editingAssignee ? (
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <select
+                    value={assigneeDraft}
+                    onChange={e => setAssigneeDraft(e.target.value)}
+                    autoFocus
+                    style={{
+                      flex: 1, padding: '4px 6px', border: `1px solid ${BORDER}`,
+                      borderRadius: 6, fontSize: 11, color: NAVY, background: BG, outline: 'none',
+                    }}
+                  >
+                    {users.map(u => (
+                      <option key={u.id} value={u.id}>{u.full_name}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => handleSaveAssignee(assigneeDraft)}
+                    disabled={assigneeSaving}
+                    style={{
+                      padding: '4px 8px', background: BLUE, color: '#fff',
+                      border: 'none', borderRadius: 6, fontSize: 10, fontWeight: 600, cursor: 'pointer',
+                    }}
+                  >
+                    {assigneeSaving ? '...' : 'Save'}
+                  </button>
+                  <button
+                    onClick={() => { setEditingAssignee(false); setAssigneeDraft(task.owner_id ?? ''); }}
+                    style={{
+                      padding: '4px 6px', background: 'transparent', color: MUTED,
+                      border: `1px solid ${BORDER}`, borderRadius: 6, fontSize: 10, cursor: 'pointer',
+                    }}
+                  >
+                    <X size={10} />
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }} className="group">
+                  <span style={{ fontSize: 11, color: SEC }}>{task.owner_name ?? '—'}</span>
+                  <button
+                    onClick={() => setEditingAssignee(true)}
+                    style={{
+                      background: 'none', border: 'none', cursor: 'pointer', color: MUTED,
+                      padding: 0, opacity: 0, transition: 'opacity 0.15s',
+                    }}
+                    className="group-hover:opacity-100"
+                  >
+                    <Edit3 size={10} />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Editable — Due date */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <span style={{ fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.18em', fontWeight: 600 }}>Due</span>
+              {editingDueDate ? (
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <input
+                    type="date"
+                    value={dueDateDraft}
+                    onChange={e => setDueDateDraft(e.target.value)}
+                    autoFocus
+                    style={{
+                      flex: 1, padding: '4px 6px', border: `1px solid ${BORDER}`,
+                      borderRadius: 6, fontSize: 11, color: NAVY, background: BG,
+                      outline: 'none', colorScheme: 'light',
+                    }}
+                  />
+                  <button
+                    onClick={handleSaveDueDate}
+                    disabled={dueDateSaving || !dueDateDraft}
+                    style={{
+                      padding: '4px 8px', background: BLUE, color: '#fff',
+                      border: 'none', borderRadius: 6, fontSize: 10, fontWeight: 600, cursor: 'pointer',
+                      opacity: dueDateSaving || !dueDateDraft ? 0.5 : 1,
+                    }}
+                  >
+                    {dueDateSaving ? '...' : 'Save'}
+                  </button>
+                  <button
+                    onClick={() => { setEditingDueDate(false); setDueDateDraft(task.due_date ?? ''); }}
+                    style={{
+                      padding: '4px 6px', background: 'transparent', color: MUTED,
+                      border: `1px solid ${BORDER}`, borderRadius: 6, fontSize: 10, cursor: 'pointer',
+                    }}
+                  >
+                    <X size={10} />
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }} className="group">
+                  <span style={{ fontSize: 11, color: task.due_date && isOverdue(task) ? RED : SEC }}>
+                    {task.due_date ? fmtDate(task.due_date) : '—'}
+                  </span>
+                  <button
+                    onClick={() => setEditingDueDate(true)}
+                    style={{
+                      background: 'none', border: 'none', cursor: 'pointer', color: MUTED,
+                      padding: 0, opacity: 0, transition: 'opacity 0.15s',
+                    }}
+                    className="group-hover:opacity-100"
+                  >
+                    <Edit3 size={10} />
+                  </button>
+                </div>
+              )}
+            </div>
+
             {task.assigner_name && (
               <DetailRow label="Assigned by" value={task.assigner_name} />
             )}
@@ -1234,7 +1402,10 @@ export default function KPIsPage() {
   const [users,           setUsers]           = useState<ActiveUser[]>([]);
   const [activeTask,      setActiveTask]      = useState<StaffGoal | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [assigneeFilter,  setAssigneeFilter]  = useState<'all'|'mine'|'unassigned'>('all');
+  const [assigneeFilter,  setAssigneeFilter]  = useState<'all'|'mine'|'unassigned'>('mine');
+  const [categoryFilter,  setCategoryFilter]  = useState<'all'|'clinical'|'operational'|'training'|'compliance'>('all');
+  const [priorityFilter,  setPriorityFilter]  = useState<'all'|'high'|'medium'|'low'>('all');
+  const [searchQuery,     setSearchQuery]     = useState('');
   const [showCompleted,   setShowCompleted]   = useState(false);
   const [showClosed,      setShowClosed]      = useState(false);
 
@@ -1283,11 +1454,29 @@ export default function KPIsPage() {
   const completedTasks = tasks.filter(t => !getMetaNotes(t).closed && t.status === 'completed');
   const pendingTasks   = tasks.filter(t => !getMetaNotes(t).closed && t.status !== 'completed');
 
-  const filteredPending = pendingTasks.filter(t => {
-    if (assigneeFilter === 'mine')       return t.owner_id === userId;
-    if (assigneeFilter === 'unassigned') return !t.owner_id || !t.assigned_by;
-    return true;
-  });
+  function applyFilters(list: StaffGoal[]) {
+    return list.filter(t => {
+      const meta = getMetaNotes(t);
+      if (assigneeFilter === 'mine'       && t.owner_id !== userId)           return false;
+      if (assigneeFilter === 'unassigned' && (t.owner_id && t.assigned_by))  return false;
+      if (categoryFilter !== 'all'        && t.category !== categoryFilter)   return false;
+      if (priorityFilter !== 'all'        && meta.priority !== priorityFilter) return false;
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const match =
+          t.title.toLowerCase().includes(q) ||
+          (t.description ?? '').toLowerCase().includes(q) ||
+          (t.owner_name ?? '').toLowerCase().includes(q) ||
+          meta.patient_name.toLowerCase().includes(q);
+        if (!match) return false;
+      }
+      return true;
+    });
+  }
+
+  const filteredPending   = applyFilters(pendingTasks);
+  const filteredCompleted = applyFilters(completedTasks);
+  const filteredClosed    = applyFilters(closedTasks);
 
   const overduePending = pendingTasks.filter(t => isOverdue(t));
 
@@ -1315,17 +1504,6 @@ export default function KPIsPage() {
     setTasks(prev => [...prev.filter(t => t.id !== task.id), task]);
     setActiveTask(task);
   }
-
-  const chipStyle = (active: boolean): React.CSSProperties => ({
-    padding:      '5px 12px',
-    border:       active ? 'none' : `1px solid ${BORDER}`,
-    borderRadius: 20,
-    background:   active ? BLUE : 'transparent',
-    color:        active ? '#fff' : SEC,
-    fontSize:     11,
-    fontWeight:   600,
-    cursor:       'pointer',
-  });
 
   if (loading) {
     return (
@@ -1409,19 +1587,107 @@ export default function KPIsPage() {
           {/* Stats strip */}
           <div style={{ padding: '20px 32px', borderBottom: `1px solid ${BORDER}` }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
-              <StatTile label="Pending"   value={pendingTasks.length}    color={overduePending.length > 0 ? RED : BLUE} />
-              <StatTile label="Overdue"   value={overduePending.length}  color={RED} />
-              <StatTile label="Completed" value={completedTasks.length}  color={GREEN} />
-              <StatTile label="Closed"    value={closedTasks.length}     color={MUTED} />
-              <StatTile label="Revenue"   value={`£${totalRevenue.toLocaleString('en-GB', { minimumFractionDigits: 0 })}`} color={GOLD} />
+              <StatTile label="Pending"   value={pendingTasks.length}    color={overduePending.length > 0 ? RED : BLUE} sub={`${filteredPending.length} visible`} />
+              <StatTile label="Overdue"   value={overduePending.length}  color={RED}   sub={overduePending.length > 0 ? 'needs attention' : 'all clear'} />
+              <StatTile label="Completed" value={completedTasks.length}  color={GREEN} sub="this period" />
+              <StatTile label="Closed"    value={closedTasks.length}     color={MUTED} sub="archived" />
+              <StatTile label="Revenue"   value={`£${totalRevenue.toLocaleString('en-GB', { minimumFractionDigits: 0 })}`} color={GOLD} sub="logged sessions" />
             </div>
           </div>
 
-          {/* Filter chips */}
-          <div style={{ padding: '12px 32px 8px', display: 'flex', gap: 6 }}>
-            <button onClick={() => setAssigneeFilter('all')}        style={chipStyle(assigneeFilter === 'all')}>All</button>
-            <button onClick={() => setAssigneeFilter('mine')}       style={chipStyle(assigneeFilter === 'mine')}>Mine</button>
-            <button onClick={() => setAssigneeFilter('unassigned')} style={chipStyle(assigneeFilter === 'unassigned')}>Unassigned</button>
+          {/* Filters */}
+          <div style={{ borderBottom: `1px solid ${BORDER}` }}>
+            {/* Search row */}
+            <div style={{ padding: '12px 32px 10px', position: 'relative' }}>
+              <Search size={12} style={{ position: 'absolute', left: 44, top: '50%', transform: 'translateY(-50%)', color: MUTED, pointerEvents: 'none' }} />
+              <input
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search tasks, patients, owners..."
+                style={{
+                  width:        '100%',
+                  padding:      '8px 10px 8px 30px',
+                  border:       `1px solid ${BORDER}`,
+                  borderRadius: 8,
+                  fontSize:     12,
+                  color:        NAVY,
+                  background:   '#fff',
+                  outline:      'none',
+                  boxSizing:    'border-box',
+                }}
+              />
+            </div>
+            {/* Tab row */}
+            <div style={{ padding: '0 32px', display: 'flex', alignItems: 'center', gap: 0 }}>
+              {([
+                { key: 'all' as const,        label: 'All tasks' },
+                { key: 'mine' as const,       label: 'Mine' },
+                { key: 'unassigned' as const, label: 'Unassigned' },
+              ]).map(tab => (
+                <button
+                  key={tab.key}
+                  onClick={() => setAssigneeFilter(tab.key)}
+                  style={{
+                    padding:      '10px 14px',
+                    background:   'none',
+                    border:       'none',
+                    borderBottom: assigneeFilter === tab.key ? `2px solid ${BLUE}` : '2px solid transparent',
+                    color:        assigneeFilter === tab.key ? BLUE : MUTED,
+                    fontSize:     11,
+                    fontWeight:   assigneeFilter === tab.key ? 700 : 500,
+                    cursor:       'pointer',
+                    transition:   'all 0.15s',
+                    marginBottom: -1,
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+              <div style={{ flex: 1 }} />
+              {/* Category + Priority selects */}
+              <select
+                value={categoryFilter}
+                onChange={e => setCategoryFilter(e.target.value as typeof categoryFilter)}
+                style={{
+                  padding:      '5px 10px',
+                  border:       categoryFilter !== 'all' ? `1px solid ${BLUE}40` : `1px solid ${BORDER}`,
+                  borderRadius: 20,
+                  background:   categoryFilter !== 'all' ? `${BLUE}0d` : 'transparent',
+                  color:        categoryFilter !== 'all' ? BLUE : SEC,
+                  fontSize:     11,
+                  fontWeight:   600,
+                  cursor:       'pointer',
+                  outline:      'none',
+                  marginRight:  6,
+                }}
+              >
+                <option value="all">All categories</option>
+                <option value="clinical">Clinical</option>
+                <option value="operational">Operational</option>
+                <option value="training">Training</option>
+                <option value="compliance">Compliance</option>
+              </select>
+              <select
+                value={priorityFilter}
+                onChange={e => setPriorityFilter(e.target.value as typeof priorityFilter)}
+                style={{
+                  padding:      '5px 10px',
+                  border:       priorityFilter !== 'all' ? `1px solid ${priorityColor(priorityFilter)}40` : `1px solid ${BORDER}`,
+                  borderRadius: 20,
+                  background:   priorityFilter !== 'all' ? `${priorityColor(priorityFilter)}0d` : 'transparent',
+                  color:        priorityFilter !== 'all' ? priorityColor(priorityFilter) : SEC,
+                  fontSize:     11,
+                  fontWeight:   600,
+                  cursor:       'pointer',
+                  outline:      'none',
+                }}
+              >
+                <option value="all">All priorities</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
+            </div>
           </div>
 
           {/* Pending task list */}
@@ -1448,12 +1714,12 @@ export default function KPIsPage() {
             {/* Completed section */}
             <SectionToggle
               label="Completed"
-              count={completedTasks.length}
+              count={filteredCompleted.length}
               open={showCompleted}
               onToggle={() => setShowCompleted(v => !v)}
             />
             <AnimatePresence>
-              {showCompleted && completedTasks.map(task => (
+              {showCompleted && filteredCompleted.map(task => (
                 <TaskCard
                   key={task.id}
                   task={task}
@@ -1466,12 +1732,12 @@ export default function KPIsPage() {
             {/* Closed section */}
             <SectionToggle
               label="Closed"
-              count={closedTasks.length}
+              count={filteredClosed.length}
               open={showClosed}
               onToggle={() => setShowClosed(v => !v)}
             />
             <AnimatePresence>
-              {showClosed && closedTasks.map(task => (
+              {showClosed && filteredClosed.map(task => (
                 <TaskCard
                   key={task.id}
                   task={task}
@@ -1488,6 +1754,7 @@ export default function KPIsPage() {
           <TaskHub
             task={activeTask}
             userId={userId ?? ''}
+            users={users}
             onClose={() => setActiveTask(null)}
             onDelete={handleTaskDelete}
             onRefresh={handleRefresh}
