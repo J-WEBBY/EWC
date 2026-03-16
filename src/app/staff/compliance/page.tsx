@@ -1068,7 +1068,7 @@ function TrainingModal({ userId, fullName, module, entry, currentUserId, onClose
 
   const freqLabel = MODULE_FREQ_LABEL[module] ?? '—';
   const previewExpiry = completedDate
-    ? (() => { const d = new Date(completedDate); const m = { fire_safety: 12, manual_handling: 12, safeguarding_adults: 60, safeguarding_children: 60, basic_life_support: 12, infection_control: 12, information_governance: 12, conflict_resolution: 12, equality_diversity: 60, mental_capacity_act: 12, medicines_management: 12, food_hygiene: 12, health_safety: 12, coshh: 12, lone_working: 36, dementia_awareness: 36, cqc_awareness: 12 } as Record<string,number>; d.setMonth(d.getMonth() + (m[module] ?? 12)); return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); })()
+    ? (() => { const d = new Date(completedDate); const m = { fire_safety: 12, manual_handling: 12, safeguarding_adults: 36, safeguarding_children: 36, basic_life_support: 12, infection_control: 12, information_governance: 12, conflict_resolution: 12, equality_diversity: 36, mental_capacity_act: 12, medicines_management: 12, food_hygiene: 12, health_safety: 12, coshh: 12, lone_working: 36, dementia_awareness: 36, cqc_awareness: 12 } as Record<string,number>; d.setMonth(d.getMonth() + (m[module] ?? 12)); return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); })()
     : null;
 
   async function handleSave() {

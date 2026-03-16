@@ -17,13 +17,13 @@ export type TrainingModule = typeof TRAINING_MODULES[number];
 export const MODULE_FREQUENCY: Record<string, number> = {
   fire_safety: 12,           // Annual
   manual_handling: 12,       // Annual
-  safeguarding_adults: 60,   // 5yr
-  safeguarding_children: 60, // 5yr
+  safeguarding_adults: 36,   // 3yr
+  safeguarding_children: 36, // 3yr
   basic_life_support: 12,    // Annual
   infection_control: 12,     // Annual
   information_governance: 12,// Annual
   conflict_resolution: 12,   // Annual
-  equality_diversity: 60,    // 5yr
+  equality_diversity: 36,    // 3yr
   mental_capacity_act: 12,   // Annual
   medicines_management: 12,  // Annual
   food_hygiene: 12,          // Annual
@@ -37,10 +37,10 @@ export const MODULE_FREQUENCY: Record<string, number> = {
 // Human-readable frequency label
 export const MODULE_FREQ_LABEL: Record<string, string> = {
   fire_safety: 'Annual',           manual_handling: 'Annual',
-  safeguarding_adults: '5yr',      safeguarding_children: '5yr',
+  safeguarding_adults: '3yr',      safeguarding_children: '3yr',
   basic_life_support: 'Annual',    infection_control: 'Annual',
   information_governance: 'Annual',conflict_resolution: 'Annual',
-  equality_diversity: '5yr',       mental_capacity_act: 'Annual',
+  equality_diversity: '3yr',       mental_capacity_act: 'Annual',
   medicines_management: 'Annual',  food_hygiene: 'Annual',
   health_safety: 'Annual',         coshh: 'Annual',
   lone_working: '3yr',             dementia_awareness: '3yr',
