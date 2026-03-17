@@ -164,11 +164,16 @@ export interface ComplianceDashboard {
   appraisals_overdue:     number;
   // Training
   training_gaps:          number;   // overdue entries
+  training_compliant:     number;
+  training_total:         number;
+  training_due:           number;
   // Equipment
   equipment_overdue:      number;
   equipment_due_soon:     number;
+  // Medicines
+  medicine_expiring_soon: number;
   // CQC
-  cqc_score_pct:          number;   // yes / (yes+no+partial) * 100
+  cqc_score_pct:          number;   // yes / answered * 100
   cqc_answered:           number;
   cqc_total:              number;
   cqc_no_count:           number;
@@ -1087,7 +1092,9 @@ export async function updateCalendarTask(
 
 const EMPTY_DASHBOARD: ComplianceDashboard = {
   total_staff: 0, dbs_issues: 0, rtw_issues: 0, appraisals_overdue: 0,
-  training_gaps: 0, equipment_overdue: 0, equipment_due_soon: 0,
+  training_gaps: 0, training_compliant: 0, training_total: 0, training_due: 0,
+  equipment_overdue: 0, equipment_due_soon: 0,
+  medicine_expiring_soon: 0,
   cqc_score_pct: 0, cqc_answered: 0, cqc_total: 0, cqc_no_count: 0, cqc_partial_count: 0,
   governance_open: 0, governance_overdue: 0, calendar_overdue: 0, calendar_due_soon: 0,
 };
@@ -1099,11 +1106,12 @@ export async function getComplianceDashboard(): Promise<ComplianceDashboard> {
   try {
     const db = createSovereignClient();
 
-    const [users, hrRecords, training, equipment, cqcAnswers, govLog, calendar] = await Promise.all([
+    const [users, hrRecords, training, equipment, medicines, cqcAnswers, govLog, calendar] = await Promise.all([
       db.from('users').select('id'),
       db.from('compliance_hr_records').select('dbs_expiry_date, rtw_type, rtw_expiry_date, next_appraisal_date'),
       db.from('compliance_training').select('completed_date, expiry_date'),
       db.from('compliance_equipment').select('next_due_date'),
+      db.from('compliance_medicines').select('expiry_date'),
       db.from('compliance_cqc_answers').select('answer'),
       db.from('compliance_governance_log').select('status'),
       db.from('compliance_calendar').select('next_due_date'),
@@ -1123,11 +1131,27 @@ export async function getComplianceDashboard(): Promise<ComplianceDashboard> {
     if (ap === 'overdue') appraisalsOverdue++;
   }
 
-  // Training gaps (overdue entries)
-  let trainingGaps = 0;
+  // Training stats
+  let trainingGaps = 0; let trainingCompliant = 0; let trainingDue = 0;
+  const trainingTotal = (training.data ?? []).length;
   for (const e of training.data ?? []) {
     const t = e as Record<string, unknown>;
-    if (computeTrainingStatus(t.completed_date as string | null, t.expiry_date as string | null) === 'overdue') trainingGaps++;
+    const ts = computeTrainingStatus(t.completed_date as string | null, t.expiry_date as string | null);
+    if (ts === 'overdue') trainingGaps++;
+    else if (ts === 'compliant') trainingCompliant++;
+    else if (ts === 'due_soon') trainingDue++;
+  }
+
+  // Medicine expiring soon (within 30 days)
+  const now30 = new Date(); now30.setDate(now30.getDate() + 30);
+  const nowD = new Date();
+  let medExpiringSoon = 0;
+  for (const m of medicines.data ?? []) {
+    const med = m as Record<string, unknown>;
+    const expStr = med.expiry_date as string | null;
+    if (!expStr) continue;
+    const exp = new Date(expStr);
+    if (exp >= nowD && exp <= now30) medExpiringSoon++;
   }
 
   // Equipment
@@ -1166,23 +1190,27 @@ export async function getComplianceDashboard(): Promise<ComplianceDashboard> {
   }
 
   return {
-    total_staff:         totalStaff,
-    dbs_issues:          dbsIssues,
-    rtw_issues:          rtwIssues,
-    appraisals_overdue:  appraisalsOverdue,
-    training_gaps:       trainingGaps,
-    equipment_overdue:   equipOverdue,
-    equipment_due_soon:  equipDueSoon,
-    cqc_score_pct:       cqcScore,
-    cqc_answered:        cqcAnswered,
-    cqc_total:           cqcTotal,
-    cqc_no_count:        cqcNo,
-    cqc_partial_count:   cqcPartial,
-    governance_open:     govOpen,
-    governance_overdue:  govOverdue,
-    calendar_overdue:    calOverdue,
-      calendar_due_soon:   calDueSoon,
-    };
+    total_staff:            totalStaff,
+    dbs_issues:             dbsIssues,
+    rtw_issues:             rtwIssues,
+    appraisals_overdue:     appraisalsOverdue,
+    training_gaps:          trainingGaps,
+    training_compliant:     trainingCompliant,
+    training_total:         trainingTotal,
+    training_due:           trainingDue,
+    equipment_overdue:      equipOverdue,
+    equipment_due_soon:     equipDueSoon,
+    medicine_expiring_soon: medExpiringSoon,
+    cqc_score_pct:          cqcScore,
+    cqc_answered:           cqcAnswered,
+    cqc_total:              cqcTotal,
+    cqc_no_count:           cqcNo,
+    cqc_partial_count:      cqcPartial,
+    governance_open:        govOpen,
+    governance_overdue:     govOverdue,
+    calendar_overdue:       calOverdue,
+    calendar_due_soon:      calDueSoon,
+  };
   } catch { return EMPTY_DASHBOARD; }
 }
 

@@ -54,10 +54,13 @@ function statusInfo(status: string): { color: string; label: string } {
 
 function StatusDot({ status }: { status: string }) {
   const { color, label } = statusInfo(status);
+  if (label === '—') return <span className="text-[10px]" style={{ color: MUTED }}>—</span>;
   return (
-    <span className="flex items-center gap-1.5">
-      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: color }} />
-      <span className="text-[10px] font-medium" style={{ color }}>{label}</span>
+    <span
+      className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-semibold whitespace-nowrap"
+      style={{ background: `${color}18`, color, border: `1px solid ${color}30` }}
+    >
+      {label}
     </span>
   );
 }
@@ -83,8 +86,13 @@ function BtnPrimary({ onClick, children, disabled }: {
     <button
       onClick={onClick}
       disabled={disabled}
-      className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[11px] font-semibold transition-opacity"
-      style={{ background: BLUE, color: '#fff', opacity: disabled ? 0.5 : 1 }}
+      className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[11px] font-medium transition-all"
+      style={{
+        background: `${BLUE}18`,
+        border: `1px solid ${BLUE}40`,
+        color: NAVY,
+        opacity: disabled ? 0.5 : 1,
+      }}
     >
       {children}
     </button>
@@ -144,8 +152,6 @@ const GOV_STATUSES: Array<GovernanceEntry['status']> = ['open', 'in_progress', '
 // DASHBOARD CHART PRIMITIVES
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const BLUE2 = '#3B82F6'; // lighter blue accent
-const BLUE3 = '#BFDBFE'; // pale blue fill
 
 function DonutRing({ value, max, size = 72, strokeWidth = 7, color = BLUE }: {
   value: number; max: number; size?: number; strokeWidth?: number; color?: string;
@@ -201,335 +207,159 @@ function Sparkline({ data, color = BLUE }: { data: number[]; color?: string }) {
 // TAB: Dashboard
 // ═══════════════════════════════════════════════════════════════════════════════
 function DashboardTab({ dash }: { dash: ComplianceDashboard }) {
-  void dash; // live data wired after demo phase
+  const trainingPct = dash.training_total > 0
+    ? Math.round((dash.training_compliant / dash.training_total) * 100)
+    : 0;
+  const cqcColor = dash.cqc_score_pct >= 80 ? GREEN : dash.cqc_score_pct >= 60 ? ORANGE : RED;
 
-  // ── Demo data ────────────────────────────────────────────────────────────────
-  const TOTAL_STAFF = 12;
-
-  const dbs = { valid: 8, dueSoon: 2, noDbs: 2 };
-  const appraisal = { onTrack: 7, dueSoon: 3, overdue: 2 };
-  const rtw = { permanent: 10, visa: 1, pending: 1 };
-
-  const trainingModules = [
-    { label: 'Fire Safety',         compliant: 4, total: 12 },
-    { label: 'Manual Handling',     compliant: 4, total: 12 },
-    { label: 'Safeguarding Adults', compliant: 4, total: 12 },
-    { label: 'Basic Life Support',  compliant: 4, total: 12 },
-    { label: 'Infection Control',   compliant: 4, total: 12 },
-    { label: 'Info Governance',     compliant: 4, total: 12 },
-    { label: 'CQC Awareness',       compliant: 4, total: 12 },
-    { label: 'Health & Safety',     compliant: 4, total: 12 },
-    { label: 'Medicines Mgmt',      compliant: 4, total: 12 },
-    { label: 'Lone Working',        compliant: 4, total: 12 },
-  ];
-  const trainingCompliant = 68; const trainingTotal = 204;
-
-  const equipmentCats = [
-    { label: 'PAT Testing',       items: 2,  status: 'Not Scheduled' },
-    { label: 'Equipment Service', items: 4,  status: 'Not Scheduled' },
-    { label: 'Fire Safety',       items: 3,  status: 'Not Scheduled' },
-    { label: 'Medicines',         items: 4,  status: 'Not Scheduled' },
-    { label: 'Clinical Stock',    items: 4,  status: 'Not Scheduled' },
-    { label: 'Legionella',        items: 2,  status: 'Not Scheduled' },
-    { label: 'Environmental',     items: 1,  status: 'Not Scheduled' },
-  ];
-
-  const medicines = [
-    { label: 'Emergency Drug Kit',       freq: 'Monthly',  status: 'schedule' },
-    { label: 'Controlled Drugs Cabinet', freq: 'Weekly',   status: 'schedule' },
-    { label: 'Fridge Temperature Log',   freq: 'Daily',    status: 'schedule' },
-    { label: 'Vaccine Stock & Cold Chain',freq: 'Weekly',  status: 'schedule' },
-    { label: 'Sharps Bins',             freq: 'Quarterly', status: 'schedule' },
-    { label: 'Clinical Stock Expiry',   freq: 'Monthly',   status: 'schedule' },
-  ];
-
-  const cqcDomains = [
-    { label: 'SAFE',       answered: 0, total: 20 },
-    { label: 'EFFECTIVE',  answered: 0, total: 10 },
-    { label: 'CARING',     answered: 0, total: 7  },
-    { label: 'RESPONSIVE', answered: 0, total: 7  },
-    { label: 'WELL-LED',   answered: 0, total: 13 },
+  const kpiTiles = [
+    {
+      label: 'CQC Score',
+      value: `${dash.cqc_score_pct}%`,
+      valueColor: cqcColor,
+      sub: `${dash.cqc_answered} of ${dash.cqc_total} questions answered`,
+    },
+    {
+      label: 'Training Compliance',
+      value: `${trainingPct}%`,
+      valueColor: trainingPct >= 80 ? GREEN : trainingPct >= 60 ? ORANGE : RED,
+      sub: `${dash.training_compliant} / ${dash.training_total} modules compliant`,
+    },
+    {
+      label: 'Equipment',
+      value: dash.equipment_overdue,
+      valueColor: dash.equipment_overdue > 0 ? RED : GREEN,
+      sub: dash.equipment_due_soon > 0 ? `${dash.equipment_due_soon} due soon` : 'No overdue items',
+    },
+    {
+      label: 'HR Records',
+      value: dash.total_staff,
+      valueColor: NAVY,
+      sub: dash.dbs_issues > 0 ? `${dash.dbs_issues} DBS issues` : 'All DBS checks current',
+    },
+    {
+      label: 'Governance',
+      value: dash.governance_open,
+      valueColor: dash.governance_open > 0 ? ORANGE : GREEN,
+      sub: dash.governance_overdue > 0 ? `${dash.governance_overdue} overdue` : 'No overdue actions',
+    },
+    {
+      label: 'Medicines',
+      value: dash.medicine_expiring_soon,
+      valueColor: dash.medicine_expiring_soon > 0 ? ORANGE : GREEN,
+      sub: 'expiring within 30 days',
+    },
   ];
 
-  const govSummary = {
-    lastMeeting: '28 Feb 2026',
-    nextDue: 'Apr 2026',
-    openActions: 5,
-    sigEvents: 2,
-    riskRegister: 'Jan 2026',
-    meetingHistory: [1, 1, 1, 0, 1, 1], // last 6 months attended
-  };
-
-  const trainingTrend = [22, 34, 40, 52, 60, 68];
-  const cqcScore = 0;
-
-  // ─────────────────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-5">
 
-      {/* ── Demo notice ── */}
-      <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-medium"
-        style={{ background: `${BLUE}0d`, border: `1px solid ${BLUE}25`, color: BLUE }}>
-        Demo data — run migration 069 in Supabase to connect live compliance records.
-      </div>
-
-      {/* ── Row 1: KPI strip (6 tiles) ─────────────────────────────────────────── */}
+      {/* ── Row 1: 6 KPI tiles ─────────────────────────────────────────────────── */}
       <div className="grid grid-cols-6 gap-3">
-        {[
-          { label: 'Total Staff',       value: TOTAL_STAFF,       sub: 'active',          spark: [8,9,10,10,11,12] },
-          { label: 'DBS Due / Expired', value: dbs.dueSoon,       sub: 'need attention',  spark: [0,1,2,1,2,2]    },
-          { label: 'Training Gaps',     value: 136,               sub: 'not yet recorded',spark: [204,180,160,140,136,136] },
-          { label: 'Appraisals Overdue',value: appraisal.overdue, sub: 'staff',           spark: [0,1,1,2,2,2]    },
-          { label: 'Equipment Items',   value: 20,                sub: 'tracked',         spark: [10,14,16,18,20,20] },
-          { label: 'CQC Answered',      value: `${cqcScore}%`,    sub: '0 / 57 questions',spark: [0,0,0,0,0,0]    },
-        ].map(t => (
+        {kpiTiles.map(t => (
           <Panel key={t.label}>
             <SectionLabel>{t.label}</SectionLabel>
-            <div className="flex items-end justify-between">
-              <div>
-                <p className="text-[28px] font-black tracking-[-0.04em] leading-none mb-0.5" style={{ color: NAVY }}>
-                  {t.value}
-                </p>
-                <p className="text-[9px]" style={{ color: MUTED }}>{t.sub}</p>
-              </div>
-              <Sparkline data={t.spark} color={BLUE} />
-            </div>
+            <p className="text-[36px] font-black tracking-[-0.04em] leading-none mb-1" style={{ color: t.valueColor }}>
+              {t.value}
+            </p>
+            <p className="text-[10px]" style={{ color: MUTED }}>{t.sub}</p>
           </Panel>
         ))}
       </div>
 
-      {/* ── Row 2: HR & Staffing | Training Matrix ─────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-5">
-
-        {/* HR & Staffing */}
-        <Panel>
-          <SectionLabel>HR &amp; Staffing</SectionLabel>
-          <div className="grid grid-cols-2 gap-6">
-
-            {/* DBS Status donut */}
-            <div>
-              <p className="text-[10px] font-semibold mb-3" style={{ color: SEC }}>DBS Check Status</p>
-              <div className="flex items-center gap-3 mb-4">
-                <div style={{ position: 'relative', width: 72, height: 72 }}>
-                  <DonutRing value={dbs.valid} max={TOTAL_STAFF} color={BLUE} />
-                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <span className="text-[13px] font-black" style={{ color: NAVY }}>
-                      {Math.round((dbs.valid / TOTAL_STAFF) * 100)}%
-                    </span>
-                  </div>
-                </div>
-                <div className="space-y-1.5 flex-1">
-                  {[
-                    { label: 'Valid',   value: dbs.valid,   color: BLUE  },
-                    { label: 'Due soon',value: dbs.dueSoon, color: BLUE2 },
-                    { label: 'No DBS',  value: dbs.noDbs,   color: BORDER},
-                  ].map(r => (
-                    <div key={r.label} className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: r.color }} />
-                      <span className="text-[10px] flex-1" style={{ color: MUTED }}>{r.label}</span>
-                      <span className="text-[11px] font-semibold" style={{ color: NAVY }}>{r.value}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Appraisal status */}
-            <div>
-              <p className="text-[10px] font-semibold mb-3" style={{ color: SEC }}>Appraisal Status</p>
-              <div className="space-y-2.5">
-                {[
-                  { label: 'On Track',  value: appraisal.onTrack, color: BLUE  },
-                  { label: 'Due Soon',  value: appraisal.dueSoon, color: BLUE2 },
-                  { label: 'Overdue',   value: appraisal.overdue, color: ORANGE },
-                ].map(r => (
-                  <div key={r.label}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[10px]" style={{ color: MUTED }}>{r.label}</span>
-                      <span className="text-[10px] font-semibold" style={{ color: NAVY }}>{r.value}/{TOTAL_STAFF}</span>
-                    </div>
-                    <HBar value={r.value} max={TOTAL_STAFF} color={r.color} h={4} />
-                  </div>
-                ))}
-              </div>
-
-              <div style={{ borderTop: `1px solid ${BORDER}`, marginTop: 16, paddingTop: 14 }}>
-                <p className="text-[10px] font-semibold mb-2.5" style={{ color: SEC }}>Right to Work</p>
-                {[
-                  { label: 'UK / Permanent', value: rtw.permanent, color: BLUE  },
-                  { label: 'Visa / Permit',  value: rtw.visa,      color: BLUE2 },
-                  { label: 'Pending Check',  value: rtw.pending,   color: ORANGE },
-                ].map(r => (
-                  <div key={r.label} className="flex items-center gap-2 mb-1.5">
-                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: r.color }} />
-                    <span className="text-[10px] flex-1" style={{ color: MUTED }}>{r.label}</span>
-                    <span className="text-[11px] font-semibold" style={{ color: NAVY }}>{r.value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </Panel>
-
-        {/* Training Matrix Overview */}
-        <Panel>
-          <div className="flex items-start justify-between mb-4">
-            <SectionLabel>Mandatory Training</SectionLabel>
-            <div className="flex items-center gap-1.5">
-              <div style={{ position: 'relative', width: 40, height: 40 }}>
-                <DonutRing value={trainingCompliant} max={trainingTotal} size={40} strokeWidth={4} color={BLUE} />
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span className="text-[8px] font-black" style={{ color: NAVY }}>
-                    {Math.round((trainingCompliant / trainingTotal) * 100)}%
-                  </span>
-                </div>
-              </div>
-              <div>
-                <p className="text-[11px] font-bold" style={{ color: NAVY }}>{trainingCompliant}/{trainingTotal}</p>
-                <p className="text-[9px]" style={{ color: MUTED }}>modules compliant</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            {trainingModules.map(m => (
-              <div key={m.label} className="flex items-center gap-3">
-                <span className="text-[10px] w-[120px] flex-shrink-0" style={{ color: SEC }}>{m.label}</span>
-                <HBar value={m.compliant} max={m.total} color={BLUE} h={4} />
-                <span className="text-[10px] font-semibold w-8 text-right flex-shrink-0" style={{ color: NAVY }}>
-                  {m.compliant}/{m.total}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          <div style={{ borderTop: `1px solid ${BORDER}`, marginTop: 14, paddingTop: 12 }}>
-            <div className="flex items-center justify-between">
-              <p className="text-[10px]" style={{ color: MUTED }}>Training completions (last 6 months)</p>
-              <Sparkline data={trainingTrend} color={BLUE} />
-            </div>
-          </div>
-        </Panel>
-      </div>
-
-      {/* ── Row 3: Equipment | Medicines & Stock | CQC + Governance ─────────────── */}
+      {/* ── Row 2: Training bar + Equipment + Upcoming ─────────────────────────── */}
       <div className="grid grid-cols-3 gap-5">
 
-        {/* Equipment & Safety */}
+        {/* Training status bar */}
         <Panel>
-          <SectionLabel>Equipment &amp; Safety</SectionLabel>
-          <div className="space-y-1">
-            {equipmentCats.map(e => (
-              <div key={e.label}
-                className="flex items-center justify-between py-2"
-                style={{ borderBottom: `1px solid ${BORDER}` }}>
-                <div>
-                  <p className="text-[11px] font-medium" style={{ color: NAVY }}>{e.label}</p>
-                  <p className="text-[9px]" style={{ color: MUTED }}>{e.items} items tracked</p>
-                </div>
-                <span className="text-[9px] font-semibold px-2 py-1 rounded-lg"
-                  style={{ background: `${BLUE}0d`, color: BLUE }}>
-                  {e.status}
-                </span>
+          <SectionLabel>Training Status</SectionLabel>
+          {dash.training_total > 0 ? (
+            <>
+              {/* Stacked bar */}
+              <div className="flex rounded-full overflow-hidden mb-3" style={{ height: 8 }}>
+                <div style={{ width: `${Math.round((dash.training_compliant / dash.training_total) * 100)}%`, background: GREEN }} />
+                <div style={{ width: `${Math.round((dash.training_due / dash.training_total) * 100)}%`, background: ORANGE }} />
+                <div style={{ width: `${Math.round((dash.training_gaps / dash.training_total) * 100)}%`, background: RED }} />
               </div>
-            ))}
-          </div>
-          <div className="mt-4 flex items-center justify-between">
-            <div style={{ textAlign: 'center' }}>
-              <p className="text-[22px] font-black tracking-[-0.04em]" style={{ color: NAVY }}>20</p>
-              <p className="text-[9px]" style={{ color: MUTED }}>Total Items</p>
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <p className="text-[22px] font-black tracking-[-0.04em]" style={{ color: BLUE }}>0</p>
-              <p className="text-[9px]" style={{ color: MUTED }}>Scheduled</p>
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <p className="text-[22px] font-black tracking-[-0.04em]" style={{ color: ORANGE }}>0</p>
-              <p className="text-[9px]" style={{ color: MUTED }}>Overdue</p>
-            </div>
-          </div>
-        </Panel>
-
-        {/* Medicines & Stock */}
-        <Panel>
-          <SectionLabel>Medicines &amp; Stock</SectionLabel>
-          <div className="space-y-1">
-            {medicines.map(m => (
-              <div key={m.label}
-                className="flex items-center justify-between py-2"
-                style={{ borderBottom: `1px solid ${BORDER}` }}>
-                <div>
-                  <p className="text-[11px] font-medium" style={{ color: NAVY }}>{m.label}</p>
-                  <p className="text-[9px]" style={{ color: MUTED }}>{m.freq} check</p>
-                </div>
-                <span className="text-[9px] font-semibold px-2 py-1 rounded-lg"
-                  style={{ background: `${BLUE}0d`, color: BLUE }}>
-                  Set schedule
-                </span>
-              </div>
-            ))}
-          </div>
-          <div className="mt-4 pt-3" style={{ borderTop: `1px solid ${BORDER}` }}>
-            <p className="text-[9px]" style={{ color: MUTED }}>
-              Use the Calendar tab to assign responsible persons and set next check dates for each medicine/stock item.
-            </p>
-          </div>
-        </Panel>
-
-        {/* CQC Score + Governance */}
-        <div className="space-y-5">
-
-          {/* CQC Domain Overview */}
-          <Panel>
-            <SectionLabel>CQC Audit Progress</SectionLabel>
-            <div className="space-y-2">
-              {cqcDomains.map(d => (
-                <div key={d.label}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] font-semibold" style={{ color: SEC }}>{d.label}</span>
-                    <span className="text-[9px]" style={{ color: MUTED }}>{d.answered}/{d.total}</span>
+              <div className="space-y-1.5">
+                {[
+                  { label: 'Compliant', value: dash.training_compliant, color: GREEN },
+                  { label: 'Due soon',  value: dash.training_due,       color: ORANGE },
+                  { label: 'Overdue',   value: dash.training_gaps,      color: RED },
+                  { label: 'Not recorded', value: dash.training_total - dash.training_compliant - dash.training_due - dash.training_gaps, color: MUTED },
+                ].map(r => (
+                  <div key={r.label} className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full" style={{ background: r.color }} />
+                      <span className="text-[10px]" style={{ color: MUTED }}>{r.label}</span>
+                    </div>
+                    <span className="text-[11px] font-semibold" style={{ color: r.value > 0 && r.color !== GREEN && r.color !== MUTED ? r.color : NAVY }}>{r.value}</span>
                   </div>
-                  <HBar value={d.answered} max={d.total} color={BLUE} h={4} />
-                </div>
-              ))}
-            </div>
-            <div className="mt-3 flex items-center gap-2">
-              <div style={{ position: 'relative', width: 32, height: 32, flexShrink: 0 }}>
-                <DonutRing value={0} max={57} size={32} strokeWidth={3} color={BLUE} />
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span style={{ fontSize: 7, fontWeight: 900, color: NAVY }}>0%</span>
-                </div>
+                ))}
               </div>
-              <p className="text-[9px]" style={{ color: MUTED }}>
-                0 of 57 CQC questions answered. Go to CQC Audit tab to start.
-              </p>
-            </div>
-          </Panel>
+            </>
+          ) : (
+            <p className="text-[11px]" style={{ color: MUTED }}>No training records yet. Go to the Training tab to add records.</p>
+          )}
+        </Panel>
 
-          {/* Governance Summary */}
-          <Panel>
-            <SectionLabel>Governance</SectionLabel>
-            <div className="space-y-2">
-              {[
-                { label: 'Last meeting',     value: govSummary.lastMeeting },
-                { label: 'Next meeting due', value: govSummary.nextDue     },
-                { label: 'Open actions',     value: String(govSummary.openActions) },
-                { label: 'Significant events (MTD)', value: String(govSummary.sigEvents) },
-                { label: 'Risk register reviewed',   value: govSummary.riskRegister    },
-              ].map(r => (
-                <div key={r.label} className="flex items-center justify-between py-1.5"
-                  style={{ borderBottom: `1px solid ${BORDER}` }}>
+        {/* Equipment alerts */}
+        <Panel>
+          <SectionLabel>Equipment Alerts</SectionLabel>
+          <div className="space-y-2">
+            {[
+              { label: 'Overdue',    value: dash.equipment_overdue,   color: RED    },
+              { label: 'Due soon',   value: dash.equipment_due_soon,  color: ORANGE },
+            ].map(r => (
+              <div key={r.label} className="flex items-center justify-between py-2" style={{ borderBottom: `1px solid ${BORDER}` }}>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full" style={{ background: r.color }} />
                   <span className="text-[10px]" style={{ color: MUTED }}>{r.label}</span>
-                  <span className="text-[11px] font-semibold" style={{ color: NAVY }}>{r.value}</span>
                 </div>
-              ))}
-            </div>
-            <div className="mt-3 flex items-center justify-between">
-              <p className="text-[9px]" style={{ color: MUTED }}>Meeting attendance (6mo)</p>
-              <Sparkline data={govSummary.meetingHistory} color={BLUE2} />
-            </div>
-          </Panel>
-        </div>
+                <span
+                  className="text-[20px] font-black tracking-[-0.03em]"
+                  style={{ color: r.value > 0 ? r.color : NAVY }}
+                >
+                  {r.value}
+                </span>
+              </div>
+            ))}
+          </div>
+          <p className="text-[9px] mt-3" style={{ color: MUTED }}>
+            Go to the Equipment tab to log service dates and assign responsible persons.
+          </p>
+        </Panel>
+
+        {/* Upcoming deadlines */}
+        <Panel>
+          <SectionLabel>Attention Required</SectionLabel>
+          <div className="space-y-2">
+            {[
+              { label: 'Governance overdue',    value: dash.governance_overdue,    color: RED    },
+              { label: 'Equipment overdue',     value: dash.equipment_overdue,     color: RED    },
+              { label: 'Calendar tasks overdue',value: dash.calendar_overdue,      color: RED    },
+              { label: 'Calendar tasks due soon',value: dash.calendar_due_soon,    color: ORANGE },
+              { label: 'Medicines expiring',    value: dash.medicine_expiring_soon, color: ORANGE },
+              { label: 'HR DBS issues',         value: dash.dbs_issues,            color: ORANGE },
+            ].filter(r => r.value > 0).map(r => (
+              <div key={r.label} className="flex items-center justify-between py-1.5" style={{ borderBottom: `1px solid ${BORDER}` }}>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: r.color }} />
+                  <span className="text-[10px]" style={{ color: SEC }}>{r.label}</span>
+                </div>
+                <span
+                  className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold"
+                  style={{ background: `${r.color}18`, color: r.color }}
+                >
+                  {r.value}
+                </span>
+              </div>
+            ))}
+            {dash.governance_overdue === 0 && dash.equipment_overdue === 0 && dash.calendar_overdue === 0 && dash.dbs_issues === 0 && dash.medicine_expiring_soon === 0 && (
+              <p className="text-[11px] py-2" style={{ color: GREEN }}>All items are up to date.</p>
+            )}
+          </div>
+        </Panel>
 
       </div>
     </div>
@@ -915,24 +745,39 @@ function HRTrackerTab({ records, users, currentUserId, onRefresh }: {
       : <span className="text-[9px] font-medium" style={{ color: MUTED }}>—</span>;
   }
 
+  // Stats
+  const dbsExpiring = records.filter(r => r.dbs_status === 'due_soon' || r.dbs_status === 'expired').length;
+  const rtwExpiring = records.filter(r => r.rtw_status === 'due_soon' || r.rtw_status === 'expired').length;
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <p className="text-[10px]" style={{ color: MUTED }}>
-          Click <span style={{ color: BLUE }}>Edit</span> on any row to enter DBS, RTW, registration, appraisal and sign-off details.
-        </p>
-        <span className="text-[11px] font-semibold" style={{ color: NAVY }}>{records.length} staff members</span>
+      {/* Stats strip */}
+      <div className="grid grid-cols-3 gap-3 mb-5">
+        {[
+          { label: 'Total Staff',       value: records.length, color: NAVY   },
+          { label: 'DBS Expiring / Expired',  value: dbsExpiring,    color: dbsExpiring > 0 ? ORANGE : GREEN  },
+          { label: 'RTW Expiring / Expired',  value: rtwExpiring,    color: rtwExpiring > 0 ? ORANGE : GREEN  },
+        ].map(s => (
+          <div key={s.label} className="rounded-2xl p-4" style={{ border: `1px solid ${BORDER}` }}>
+            <p className="text-[8px] uppercase tracking-[0.22em] font-semibold mb-1.5" style={{ color: MUTED }}>{s.label}</p>
+            <p className="text-[28px] font-black tracking-[-0.04em] leading-none" style={{ color: s.color }}>{s.value}</p>
+          </div>
+        ))}
       </div>
+
+      <p className="text-[10px] mb-3" style={{ color: MUTED }}>
+        Click <span style={{ color: BLUE }}>Edit</span> on any row to enter DBS, RTW, registration, appraisal and sign-off details.
+      </p>
 
       <div className="overflow-x-auto rounded-2xl" style={{ border: `1px solid ${BORDER}` }}>
         <table style={{ width: 'max-content', minWidth: '100%', borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ borderBottom: `1px solid ${BORDER}`, background: '#F5F7FB' }}>
+            <tr style={{ background: NAVY }}>
               {COLS.map((c, i) => (
                 <th
                   key={i}
-                  className="text-left px-3 py-3 text-[8px] uppercase tracking-[0.22em] font-semibold whitespace-nowrap"
-                  style={{ color: MUTED, minWidth: c.w, maxWidth: c.w }}
+                  className="text-left px-3 py-3 text-[8px] uppercase tracking-[0.18em] font-semibold whitespace-nowrap"
+                  style={{ color: '#A8C4FF', minWidth: c.w, maxWidth: c.w }}
                 >
                   {c.label}
                 </th>
@@ -1678,15 +1523,35 @@ function EquipmentTab({ equipment, users, currentUserId, onRefresh }: {
     'Check Frequency', 'Status', 'Responsible Person', 'Action Required', 'Notes', '',
   ];
 
+  const totalEq = equipment.length;
+  const overdueEq = equipment.filter(e => e.status === 'overdue').length;
+  const dueSoonEq = equipment.filter(e => e.status === 'due_this_month').length;
+  const okEq = equipment.filter(e => e.status === 'ok').length;
+
   return (
     <div>
+      {/* Stats strip */}
+      <div className="grid grid-cols-4 gap-3 mb-5">
+        {[
+          { label: 'Total Items',  value: totalEq,   color: NAVY   },
+          { label: 'Overdue',      value: overdueEq, color: overdueEq > 0 ? RED : GREEN    },
+          { label: 'Due Soon',     value: dueSoonEq, color: dueSoonEq > 0 ? ORANGE : GREEN },
+          { label: 'OK / Current', value: okEq,      color: GREEN  },
+        ].map(s => (
+          <div key={s.label} className="rounded-2xl p-4" style={{ border: `1px solid ${BORDER}` }}>
+            <p className="text-[8px] uppercase tracking-[0.22em] font-semibold mb-1.5" style={{ color: MUTED }}>{s.label}</p>
+            <p className="text-[28px] font-black tracking-[-0.04em] leading-none" style={{ color: s.color }}>{s.value}</p>
+          </div>
+        ))}
+      </div>
+
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-2">
           {(['all', 'overdue', 'due_soon'] as const).map(f => (
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className="px-3 py-1.5 rounded-xl text-[11px] font-medium transition-colors"
+              className="px-3 py-1.5 rounded-full text-[11px] font-semibold transition-colors"
               style={{
                 background: filter === f ? NAVY : 'transparent',
                 color: filter === f ? '#F8FAFF' : SEC,
@@ -2251,10 +2116,29 @@ function GovernanceTab({ log, users, currentUserId, onRefresh }: {
     open: BLUE, in_progress: ORANGE, completed: GREEN, overdue: RED,
   };
 
+  const govOpen = log.filter(e => e.status === 'open' || e.status === 'in_progress').length;
+  const govOverdue = log.filter(e => e.status === 'overdue').length;
+  const govCompleted = log.filter(e => e.status === 'completed').length;
+
   return (
     <div>
+      {/* Stats strip */}
+      <div className="grid grid-cols-4 gap-3 mb-5">
+        {[
+          { label: 'Total Entries', value: log.length,  color: NAVY   },
+          { label: 'Open / In Progress', value: govOpen, color: govOpen > 0 ? BLUE : GREEN },
+          { label: 'Overdue',       value: govOverdue,  color: govOverdue > 0 ? RED : GREEN },
+          { label: 'Completed',     value: govCompleted,color: GREEN  },
+        ].map(s => (
+          <div key={s.label} className="rounded-2xl p-4" style={{ border: `1px solid ${BORDER}` }}>
+            <p className="text-[8px] uppercase tracking-[0.22em] font-semibold mb-1.5" style={{ color: MUTED }}>{s.label}</p>
+            <p className="text-[28px] font-black tracking-[-0.04em] leading-none" style={{ color: s.color }}>{s.value}</p>
+          </div>
+        ))}
+      </div>
+
       <div className="flex items-center justify-between mb-5">
-        <p className="text-[11px]" style={{ color: MUTED }}>{log.length} {log.length === 1 ? 'entry' : 'entries'}</p>
+        <p className="text-[10px]" style={{ color: MUTED }}>{log.length} {log.length === 1 ? 'entry' : 'entries'}</p>
         <BtnPrimary onClick={() => setModal({ open: true, entry: null })}>
           <Plus size={12} />
           Add Entry
@@ -2533,10 +2417,30 @@ function CalendarTab({ tasks, users, currentUserId, onRefresh }: {
     onRefresh();
   }
 
+  const totalCal = tasks.length;
+  const overdueCal = tasks.filter(t => t.status === 'overdue').length;
+  const dueSoonCal = tasks.filter(t => t.status === 'due_soon').length;
+  const okCal = tasks.filter(t => t.status === 'ok').length;
+
   return (
     <div>
+      {/* Stats strip */}
+      <div className="grid grid-cols-4 gap-3 mb-5">
+        {[
+          { label: 'Total Tasks',  value: totalCal,   color: NAVY   },
+          { label: 'Overdue',      value: overdueCal, color: overdueCal > 0 ? RED : GREEN    },
+          { label: 'Due Soon',     value: dueSoonCal, color: dueSoonCal > 0 ? ORANGE : GREEN },
+          { label: 'OK / Current', value: okCal,      color: GREEN  },
+        ].map(s => (
+          <div key={s.label} className="rounded-2xl p-4" style={{ border: `1px solid ${BORDER}` }}>
+            <p className="text-[8px] uppercase tracking-[0.22em] font-semibold mb-1.5" style={{ color: MUTED }}>{s.label}</p>
+            <p className="text-[28px] font-black tracking-[-0.04em] leading-none" style={{ color: s.color }}>{s.value}</p>
+          </div>
+        ))}
+      </div>
+
       <div className="flex items-center justify-between mb-5">
-        <p className="text-[11px]" style={{ color: MUTED }}>{tasks.length} tasks</p>
+        <p className="text-[10px]" style={{ color: MUTED }}>{tasks.length} tasks</p>
         <BtnPrimary onClick={() => setShowAdd(true)}>
           <Plus size={12} />
           Add Task
@@ -2546,9 +2450,9 @@ function CalendarTab({ tasks, users, currentUserId, onRefresh }: {
       <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${BORDER}` }}>
         <table className="w-full">
           <thead>
-            <tr style={{ borderBottom: `1px solid ${BORDER}` }}>
+            <tr style={{ background: NAVY }}>
               {['Task', 'Frequency', 'Month Due', 'Responsible', 'Last Completed', 'Next Due', 'Status', ''].map((h, i) => (
-                <th key={i} className="text-left px-4 py-3 text-[8px] uppercase tracking-[0.18em] font-semibold whitespace-nowrap" style={{ color: MUTED }}>
+                <th key={i} className="text-left px-4 py-3 text-[8px] uppercase tracking-[0.18em] font-semibold whitespace-nowrap" style={{ color: '#A8C4FF' }}>
                   {h}
                 </th>
               ))}
@@ -2740,9 +2644,11 @@ function medStatusInfo(status: MedicineItem['status']): { color: string; label: 
 function MedStatusDot({ status }: { status: MedicineItem['status'] }) {
   const { color, label } = medStatusInfo(status);
   return (
-    <span className="flex items-center gap-1.5">
-      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: color }} />
-      <span className="text-[10px] font-medium" style={{ color }}>{label}</span>
+    <span
+      className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-semibold whitespace-nowrap"
+      style={{ background: `${color}18`, color, border: `1px solid ${color}30` }}
+    >
+      {label}
     </span>
   );
 }
@@ -3081,9 +2987,9 @@ function MedicinesTab({ medicines, users, currentUserId: _currentUserId, onRefre
         <div className="rounded-2xl overflow-hidden overflow-x-auto" style={{ border: `1px solid ${BORDER}` }}>
           <table className="w-full" style={{ minWidth: 1200 }}>
             <thead>
-              <tr style={{ borderBottom: `1px solid ${BORDER}` }}>
+              <tr style={{ background: NAVY }}>
                 {['Code', 'Name', 'Type', 'Category', 'Qty', 'Unit', 'Batch No.', 'Expiry', 'Storage', 'Status', 'Responsible', 'Last Checked', 'Notes', ''].map((h, i) => (
-                  <th key={i} className="text-left px-4 py-2.5 text-[8px] uppercase tracking-[0.18em] font-semibold whitespace-nowrap" style={{ color: MUTED }}>{h}</th>
+                  <th key={i} className="text-left px-4 py-3 text-[8px] uppercase tracking-[0.18em] font-semibold whitespace-nowrap" style={{ color: '#A8C4FF' }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -3170,15 +3076,27 @@ function MedicinesTab({ medicines, users, currentUserId: _currentUserId, onRefre
 // ═══════════════════════════════════════════════════════════════════════════════
 type Tab = 'dashboard' | 'hr' | 'training' | 'equipment' | 'medicines' | 'cqc' | 'governance' | 'calendar';
 
-const TABS: Array<{ key: Tab; label: string }> = [
+type TabDef = { key: Tab; label: string; getCount?: (state: TabCountState) => number | null };
+
+interface TabCountState {
+  hrRecords: HRRecord[];
+  matrix: TrainingMatrixRow[];
+  equipment: EquipmentItem[];
+  medicines: MedicineItem[];
+  cqcAnswers: CQCAnswer[];
+  govLog: GovernanceEntry[];
+  calTasks: CalendarTask[];
+}
+
+const TABS: TabDef[] = [
   { key: 'dashboard', label: 'Dashboard' },
-  { key: 'hr', label: 'HR Tracker' },
-  { key: 'training', label: 'Training' },
-  { key: 'equipment', label: 'Equipment' },
-  { key: 'medicines', label: 'Medicines & Stock' },
-  { key: 'cqc', label: 'CQC Audit' },
-  { key: 'governance', label: 'Governance' },
-  { key: 'calendar', label: 'Calendar' },
+  { key: 'hr', label: 'HR', getCount: (s) => s.hrRecords.length },
+  { key: 'training', label: 'Training', getCount: (s) => s.matrix.length },
+  { key: 'equipment', label: 'Equipment', getCount: (s) => s.equipment.length },
+  { key: 'medicines', label: 'Medicines', getCount: (s) => s.medicines.length },
+  { key: 'cqc', label: 'CQC Audit', getCount: (s) => s.cqcAnswers.length },
+  { key: 'governance', label: 'Governance', getCount: (s) => s.govLog.length },
+  { key: 'calendar', label: 'Calendar', getCount: (s) => s.calTasks.length },
 ];
 
 export default function CompliancePage() {
@@ -3257,40 +3175,55 @@ export default function CompliancePage() {
               <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-2" style={{ color: MUTED }}>
                 CQC Compliance · {today}
               </p>
-              <h1 className="text-[38px] font-black tracking-[-0.035em] leading-none" style={{ color: NAVY }}>
-                Compliance Management
+              <h1 className="text-[28px] font-black tracking-[-0.03em] leading-none mb-1" style={{ color: NAVY }}>
+                Compliance &amp; Governance
               </h1>
+              <p className="text-[12px]" style={{ color: MUTED }}>HR records, training matrix, equipment, CQC audit, medicines, governance log</p>
             </div>
             <a
               href="/api/compliance/evidence-pack"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-[12px] font-medium transition-colors hover:bg-[#F0F4FF] mt-3"
+              className="flex items-center gap-2 rounded-xl px-3 py-1.5 text-[11px] font-medium transition-colors hover:bg-[#F0F4FF] mt-2"
               style={{ border: `1px solid ${BORDER}`, color: SEC }}
             >
-              <FileDown size={14} />
+              <FileDown size={13} />
               Download Evidence Pack
             </a>
           </div>
 
           {/* Tab bar */}
-          <div className="flex items-center gap-0 mb-8" style={{ borderBottom: `1px solid ${BORDER}` }}>
-            {TABS.map(t => (
-              <button
-                key={t.key}
-                onClick={() => setTab(t.key)}
-                className="relative px-4 py-3 text-[12px] font-semibold transition-colors"
-                style={{ color: tab === t.key ? BLUE : MUTED }}
-              >
-                {t.label}
-                {tab === t.key && (
-                  <span
-                    className="absolute bottom-0 left-0 right-0 h-0.5"
-                    style={{ background: BLUE }}
-                  />
-                )}
-              </button>
-            ))}
+          <div className="flex items-center gap-1.5 flex-wrap mb-8">
+            {TABS.map(t => {
+              const countState: TabCountState = { hrRecords, matrix, equipment, medicines, cqcAnswers: cqcAnswers, govLog, calTasks };
+              const count = t.getCount ? t.getCount(countState) : null;
+              const active = tab === t.key;
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => setTab(t.key)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-all"
+                  style={{
+                    background: active ? NAVY : 'transparent',
+                    color: active ? '#F8FAFF' : SEC,
+                    border: `1px solid ${active ? NAVY : BORDER}`,
+                  }}
+                >
+                  {t.label}
+                  {count !== null && count > 0 && (
+                    <span
+                      className="text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none"
+                      style={{
+                        background: active ? 'rgba(255,255,255,0.15)' : `${BLUE}14`,
+                        color: active ? '#F8FAFF' : BLUE,
+                      }}
+                    >
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
 
           {/* Tab content */}
