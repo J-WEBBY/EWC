@@ -90,6 +90,28 @@ export function StaffNav({
       }}
     >
 
+      {/* ── Brand text ── */}
+      <AnimatePresence>
+        {!collapsed && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            style={{
+              padding: '18px 18px 14px',
+              borderBottom: `1px solid ${DIVIDER}`,
+              flexShrink: 0,
+            }}
+          >
+            <p style={{ fontSize: 12, fontWeight: 700, letterSpacing: '-0.01em', color: 'rgba(255,255,255,0.88)', lineHeight: 1.2 }}>
+              Edgbaston Wellness
+            </p>
+            <p style={{ fontSize: 8, color: 'rgba(107,150,255,0.65)', letterSpacing: '0.20em', textTransform: 'uppercase', marginTop: 3 }}>
+              Operational Intelligence
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ── Nav ── */}
       <nav
         className="flex-1 overflow-y-auto scrollbar-none"
