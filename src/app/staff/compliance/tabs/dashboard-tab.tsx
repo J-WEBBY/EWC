@@ -49,34 +49,48 @@ function donutSegment(
   ].join(' ');
 }
 
-// ─── Overall donut ring ──────────────────────────────────────────────────────
-function OverallDonut({ score }: { score: number }) {
-  const cx = 80, cy = 80, r = 64, stroke = 11;
+// ─── Overall donut ring (dark bg variant) ───────────────────────────────────
+function OverallDonut({ score, statusLabel }: { score: number; statusLabel: string }) {
+  const cx = 90, cy = 90, r = 72, stroke = 12;
   const circ = 2 * Math.PI * r;
   const filled = (score / 100) * circ;
   const statusCol = score >= 80 ? GREEN : score >= 60 ? ORANGE : RED;
 
   return (
-    <div className="relative flex-shrink-0" style={{ width: 160, height: 160 }}>
-      <svg width={160} height={160} viewBox="0 0 160 160">
-        {/* Track */}
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke={BORDER} strokeWidth={stroke} />
-        {/* Score arc - BLUE */}
-        <circle
-          cx={cx} cy={cy} r={r} fill="none" stroke={BLUE}
-          strokeWidth={stroke}
-          strokeDasharray={`${filled} ${circ}`}
-          strokeLinecap="round"
-          transform={`rotate(-90 ${cx} ${cy})`}
-          style={{ transition: 'stroke-dasharray 1.2s ease' }}
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span style={{ fontSize: 30, fontWeight: 900, letterSpacing: '-0.04em', color: NAVY, lineHeight: 1 }}>{score}%</span>
-        <div className="flex items-center gap-1.5 mt-1">
-          <div style={{ width: 6, height: 6, borderRadius: '50%', background: statusCol }} />
-          <span style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.2em', fontWeight: 700, color: MUTED }}>Overall</span>
-        </div>
+    <div className="flex flex-col items-center flex-shrink-0">
+      <div className="relative" style={{ width: 180, height: 180 }}>
+        <svg width={180} height={180} viewBox="0 0 180 180">
+          {/* Outer glow ring */}
+          <circle cx={cx} cy={cy} r={r + 6} fill="none" stroke={`${BLUE}12`} strokeWidth={4} />
+          {/* Track */}
+          <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={stroke} />
+          {/* Score arc */}
+          <circle
+            cx={cx} cy={cy} r={r} fill="none" stroke={BLUE}
+            strokeWidth={stroke}
+            strokeDasharray={`${filled} ${circ}`}
+            strokeLinecap="round"
+            transform={`rotate(-90 ${cx} ${cy})`}
+            style={{ transition: 'stroke-dasharray 1.2s ease', filter: 'drop-shadow(0 0 6px rgba(0,88,230,0.5))' }}
+          />
+          {/* Center score */}
+          <text x={cx} y={cy - 10} textAnchor="middle" style={{ fontSize: 34, fontWeight: 900, fill: '#FFFFFF', fontFamily: 'inherit', letterSpacing: '-0.04em' }}>
+            {score}%
+          </text>
+          <text x={cx} y={cy + 12} textAnchor="middle" style={{ fontSize: 8, fontWeight: 700, fill: 'rgba(255,255,255,0.4)', letterSpacing: '0.24em', fontFamily: 'inherit', textTransform: 'uppercase' }}>
+            OVERALL
+          </text>
+        </svg>
+      </div>
+      {/* Status badge below ring */}
+      <div
+        className="px-3 py-1 rounded-full -mt-2"
+        style={{
+          background: statusCol === GREEN ? `${GREEN}25` : statusCol === ORANGE ? `${ORANGE}25` : `${RED}25`,
+          border: `1px solid ${statusCol === GREEN ? `${GREEN}50` : statusCol === ORANGE ? `${ORANGE}50` : `${RED}50`}`,
+        }}
+      >
+        <span style={{ fontSize: 10, fontWeight: 700, color: statusCol }}>{statusLabel}</span>
       </div>
     </div>
   );
@@ -299,8 +313,16 @@ export default function DashboardTab({ dash, onNavigate }: Props) {
   const hrIssues     = dash.dbs_issues + dash.rtw_issues + dash.appraisals_overdue;
   const overall      = overallCompliance(dash);
   const totalIssues  = hrIssues + dash.training_gaps + dash.equipment_overdue + dash.medicine_expiring_soon + dash.governance_overdue;
-  const overallStatus = overall >= 80 ? 'ok' : overall >= 60 ? 'warn' : 'crit';
   const hasCritical  = hrIssues > 0 || dash.equipment_overdue > 0 || dash.medicine_expiring_soon > 0;
+
+  // Smart status label — no contradiction
+  const statusLabel = totalIssues > 0
+    ? 'Action Required'
+    : overall >= 80
+      ? 'Fully Compliant'
+      : dash.cqc_answered === 0
+        ? 'Audit Pending'
+        : 'In Progress';
 
   // CQC domain scores — estimated from dash data if no questions passed
   // We'll derive approximate domain scores from cqc_score_pct with some spread
@@ -374,85 +396,176 @@ export default function DashboardTab({ dash, onNavigate }: Props) {
         )}
       </AnimatePresence>
 
-      {/* ── Row 1: Overall ring + hero stat strip ─────────────── */}
-      <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${BORDER}` }}>
-        {/* Overall ring + status + grade */}
-        <div className="flex items-center gap-8 px-6 py-5" style={{ background: NAVY, borderBottom: `1px solid rgba(255,255,255,0.06)` }}>
-          <OverallDonut score={overall} />
+      {/* ── Row 1: Hero command panel ─────────────────────────── */}
+      <div
+        className="rounded-2xl overflow-hidden"
+        style={{
+          background: `linear-gradient(135deg, #0D1420 0%, #181D23 60%, #1a2035 100%)`,
+          border: `1px solid rgba(255,255,255,0.06)`,
+        }}
+      >
+        {/* Top section: donut + metrics + mini bars */}
+        <div className="flex items-stretch gap-0" style={{ borderBottom: `1px solid rgba(255,255,255,0.06)` }}>
 
-          <div className="flex-1">
-            <p style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.26em', fontWeight: 700, color: '#4A5568', marginBottom: 10 }}>
-              Compliance Status
-            </p>
-            <div className="flex items-center gap-3 mb-4">
-              <div
-                className="px-4 py-1.5 rounded-full"
-                style={{
-                  background: overall >= 80 ? `${GREEN}20` : overall >= 60 ? `${ORANGE}20` : `${RED}20`,
-                  border: `1px solid ${overall >= 80 ? `${GREEN}40` : overall >= 60 ? `${ORANGE}40` : `${RED}40`}`,
-                }}
+          {/* Donut */}
+          <div className="flex items-center justify-center px-8 py-6" style={{ borderRight: `1px solid rgba(255,255,255,0.06)` }}>
+            <OverallDonut score={overall} statusLabel={statusLabel} />
+          </div>
+
+          {/* 3 key metrics */}
+          <div className="grid flex-shrink-0" style={{ gridTemplateColumns: 'repeat(3, 1fr)', borderRight: `1px solid rgba(255,255,255,0.06)` }}>
+            {[
+              {
+                label: 'CQC Score',
+                value: `${dash.cqc_score_pct}%`,
+                sub: `${dash.cqc_answered} of ${dash.cqc_total} answered`,
+                col: dash.cqc_score_pct >= 80 ? GREEN : dash.cqc_score_pct >= 60 ? ORANGE : RED,
+                nav: 'cqc',
+              },
+              {
+                label: 'Training',
+                value: `${trainingPct}%`,
+                sub: `${dash.training_compliant}/${dash.training_total} modules`,
+                col: trainingPct >= 80 ? GREEN : trainingPct >= 60 ? ORANGE : RED,
+                nav: 'training',
+              },
+              {
+                label: 'HR Issues',
+                value: String(hrIssues),
+                sub: 'DBS · RTW · Appraisals',
+                col: hrIssues === 0 ? GREEN : hrIssues <= 2 ? ORANGE : RED,
+                nav: 'hr',
+              },
+            ].map((m, i) => (
+              <button
+                key={m.label}
+                onClick={() => onNavigate(m.nav)}
+                className="text-left px-6 py-6 transition-all"
+                style={{ borderRight: i < 2 ? `1px solid rgba(255,255,255,0.06)` : 'none', background: 'transparent' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
               >
-                <span style={{ fontSize: 11, fontWeight: 700, color: overall >= 80 ? GREEN : overall >= 60 ? ORANGE : RED }}>
-                  {overallStatus === 'ok' ? 'Compliant' : overallStatus === 'warn' ? 'Needs Attention' : 'Non-Compliant'}
-                </span>
-              </div>
-              <span style={{ fontSize: 11, color: '#4A5568' }}>
-                {totalIssues === 0 ? 'No active issues across all areas' : `${totalIssues} issue${totalIssues !== 1 ? 's' : ''} across ${issueSegs.length} area${issueSegs.length !== 1 ? 's' : ''}`}
-              </span>
-            </div>
-            {/* Mini bar strip */}
-            <div className="flex items-end gap-1.5" style={{ height: 32 }}>
-              {barRows.map(row => (
-                <div key={row.label} className="flex flex-col items-center gap-1 flex-1 group cursor-pointer" onClick={() => onNavigate(row.label === 'HR Records' ? 'hr' : row.label === 'Training' ? 'training' : row.label === 'CQC Audit' ? 'cqc' : row.label === 'Equipment' ? 'equipment' : row.label === 'Medicines' ? 'medicines' : row.label === 'Governance' ? 'governance' : 'calendar')}>
-                  <div style={{ height: 24, width: '100%', background: 'rgba(255,255,255,0.06)', borderRadius: 4, overflow: 'hidden', display: 'flex', alignItems: 'flex-end' }}>
-                    <motion.div
-                      initial={{ height: 0 }}
-                      animate={{ height: `${row.pct}%` }}
-                      transition={{ duration: 1, delay: barRows.indexOf(row) * 0.07, ease: 'easeOut' }}
-                      style={{ width: '100%', background: BLUE, borderRadius: 4 }}
-                    />
-                  </div>
-                  <div style={{ width: 4, height: 4, borderRadius: '50%', background: statusCol(row.status) }} />
+                <p style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.24em', fontWeight: 700, color: 'rgba(255,255,255,0.3)', marginBottom: 10 }}>
+                  {m.label}
+                </p>
+                <div className="flex items-end gap-2 mb-1">
+                  <span style={{ fontSize: 36, fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1, color: '#FFFFFF' }}>
+                    {m.value}
+                  </span>
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: m.col, marginBottom: 4, flexShrink: 0 }} />
                 </div>
-              ))}
+                <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>{m.sub}</p>
+              </button>
+            ))}
+          </div>
+
+          {/* Mini area bar chart */}
+          <div className="flex-1 px-6 py-5 flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-4">
+              <p style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.24em', fontWeight: 700, color: 'rgba(255,255,255,0.3)' }}>
+                Areas at a Glance
+              </p>
+              <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)' }}>Click to navigate</p>
+            </div>
+            <div className="flex items-end gap-2 flex-1" style={{ minHeight: 80 }}>
+              {barRows.map((row, i) => {
+                const tabKey = ['hr', 'training', 'cqc', 'equipment', 'medicines', 'governance', 'calendar'][i];
+                const barLabel = ['HR', 'Train', 'CQC', 'Equip', 'Med', 'Gov', 'Cal'][i];
+                return (
+                  <div
+                    key={row.label}
+                    className="flex flex-col items-center gap-1.5 flex-1 cursor-pointer group"
+                    onClick={() => onNavigate(tabKey)}
+                    title={row.label}
+                  >
+                    <div
+                      style={{
+                        height: 72,
+                        width: '100%',
+                        background: 'rgba(255,255,255,0.06)',
+                        borderRadius: 6,
+                        overflow: 'hidden',
+                        display: 'flex',
+                        alignItems: 'flex-end',
+                        position: 'relative',
+                      }}
+                    >
+                      <motion.div
+                        initial={{ height: 0 }}
+                        animate={{ height: `${Math.max(row.pct, 4)}%` }}
+                        transition={{ duration: 1.1, delay: i * 0.06, ease: [0.16, 1, 0.3, 1] }}
+                        style={{
+                          width: '100%',
+                          background: `linear-gradient(to top, ${BLUE}, ${BLUE}AA)`,
+                          borderRadius: 6,
+                        }}
+                      />
+                      {/* Status dot overlay at top */}
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: 4,
+                          left: '50%',
+                          transform: 'translateX(-50%)',
+                          width: 5,
+                          height: 5,
+                          borderRadius: '50%',
+                          background: statusCol(row.status),
+                        }}
+                      />
+                    </div>
+                    <span style={{ fontSize: 8, fontWeight: 600, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.06em' }}>{barLabel}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
-          <div className="flex flex-col gap-3 flex-shrink-0">
+          {/* Action buttons */}
+          <div className="flex flex-col gap-3 justify-center px-6 py-6 flex-shrink-0" style={{ borderLeft: `1px solid rgba(255,255,255,0.06)`, minWidth: 180 }}>
             <button
               onClick={() => router.push('/staff/teams')}
-              className="rounded-xl px-4 py-2.5 text-[11px] font-semibold flex items-center gap-2 transition-all"
-              style={{ background: 'rgba(255,255,255,0.08)', color: BG, border: '1px solid rgba(255,255,255,0.12)' }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.14)'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)'; }}
+              className="rounded-xl px-4 py-3 text-[11px] font-semibold flex items-center gap-2 transition-all w-full"
+              style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.85)', border: '1px solid rgba(255,255,255,0.10)' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.12)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)'; }}
             >
-              <Users size={12} /> Teams &amp; Meetings
+              <Users size={13} /> Teams &amp; Meetings
             </button>
             <button
               onClick={() => onNavigate('cqc')}
-              className="rounded-xl px-4 py-2.5 text-[11px] font-semibold flex items-center gap-2 transition-all"
-              style={{ background: `${BLUE}25`, color: BG, border: `1px solid ${BLUE}50` }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = `${BLUE}40`; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = `${BLUE}25`; }}
+              className="rounded-xl px-4 py-3 text-[11px] font-semibold flex items-center gap-2 transition-all w-full"
+              style={{ background: `${BLUE}`, color: '#FFFFFF', border: `1px solid ${BLUE}` }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.85'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}
             >
-              <Shield size={12} /> CQC Audit
+              <Shield size={13} /> CQC Audit
+            </button>
+            <button
+              onClick={() => router.push('/staff/chat?q=' + encodeURIComponent('Give me a full compliance health check — what are the key risks and what should we prioritise?'))}
+              className="rounded-xl px-4 py-3 text-[11px] font-semibold flex items-center gap-2 transition-all w-full"
+              style={{ background: 'transparent', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.08)' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.85)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.2)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.5)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)'; }}
+            >
+              <Sparkles size={13} /> Ask Aria
             </button>
           </div>
         </div>
 
-        {/* Hero stat strip */}
+        {/* Bottom stat strip — on dark bg */}
         <div className="grid" style={{ gridTemplateColumns: 'repeat(6, 1fr)' }}>
           {heroStats.map((s, i) => (
             <div
               key={s.label}
               className="px-5 py-4"
-              style={{ borderRight: i < heroStats.length - 1 ? `1px solid ${BORDER}` : 'none' }}
+              style={{ borderRight: i < heroStats.length - 1 ? `1px solid rgba(255,255,255,0.05)` : 'none' }}
             >
-              <p style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.24em', fontWeight: 700, color: MUTED, marginBottom: 6 }}>
+              <p style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.22em', fontWeight: 700, color: 'rgba(255,255,255,0.28)', marginBottom: 6 }}>
                 {s.label}
               </p>
               <div className="flex items-center gap-2">
-                <span style={{ fontSize: 28, fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1, color: NAVY }}>
+                <span style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1, color: '#FFFFFF' }}>
                   {s.value}
                 </span>
                 {s.dot && (
