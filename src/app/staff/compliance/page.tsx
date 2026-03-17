@@ -15,12 +15,13 @@ import {
   getComplianceDashboard, getHRRecords, upsertHRRecord, deleteHRRecord,
   getTrainingMatrix, upsertTrainingEntry, deleteTrainingEntry,
   getEquipmentList, updateEquipmentItem, createEquipmentItem, deleteEquipmentItem,
+  getMedicines, createMedicine, updateMedicine, deleteMedicine,
   getCQCAudit, saveCQCAnswer,
   getGovernanceLog, createGovernanceEntry, updateGovernanceEntry, deleteGovernanceEntry,
   getCalendarTasks, updateCalendarTask, createCalendarTask, deleteCalendarTask,
   getActiveUsers,
   type ActiveUser, type HRRecord, type TrainingMatrixRow,
-  type EquipmentItem, type CQCAnswer, type GovernanceEntry,
+  type EquipmentItem, type MedicineItem, type CQCAnswer, type GovernanceEntry,
   type CalendarTask, type ComplianceDashboard,
 } from '@/lib/actions/compliance';
 import { TRAINING_MODULES, MODULE_FREQ_LABEL } from '@/lib/constants/compliance-constants';
@@ -1368,14 +1369,17 @@ function TrainingMatrixTab({ matrix, currentUserId, onRefresh }: {
 // ═══════════════════════════════════════════════════════════════════════════════
 // TAB: Equipment
 // ═══════════════════════════════════════════════════════════════════════════════
-function EquipmentModal({ item, users, currentUserId, onClose, onSave }: {
+function EquipmentModal({ item, users, currentUserId, onClose, onSave, onDelete }: {
   item: EquipmentItem;
   users: ActiveUser[];
   currentUserId: string;
   onClose: () => void;
   onSave: () => void;
+  onDelete: (id: string) => void;
 }) {
   const [form, setForm] = useState({
+    name: item.name ?? '',
+    check_frequency: item.check_frequency ?? '',
     serial_number: item.serial_number ?? '',
     location: item.location ?? '',
     last_service_date: item.last_service_date ?? '',
@@ -1386,11 +1390,14 @@ function EquipmentModal({ item, users, currentUserId, onClose, onSave }: {
   });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
 
   async function handleSave() {
     setSaving(true);
     setErr('');
     const res = await updateEquipmentItem(item.id, {
+      name: form.name || undefined,
+      check_frequency: form.check_frequency || undefined,
       serial_number: form.serial_number || undefined,
       location: form.location || undefined,
       last_service_date: form.last_service_date || undefined,
@@ -1425,7 +1432,15 @@ function EquipmentModal({ item, users, currentUserId, onClose, onSave }: {
         </div>
 
         <div className="space-y-3">
+          <div>
+            <Lbl>Name</Lbl>
+            <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className={INP} style={INP_STYLE} />
+          </div>
           <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Lbl>Check Frequency</Lbl>
+              <input value={form.check_frequency} onChange={e => setForm(f => ({ ...f, check_frequency: e.target.value }))} className={INP} style={INP_STYLE} placeholder="e.g. Annual" />
+            </div>
             <div>
               <Lbl>Serial Number</Lbl>
               <input value={form.serial_number} onChange={e => setForm(f => ({ ...f, serial_number: e.target.value }))} className={INP} style={INP_STYLE} />
@@ -1465,12 +1480,36 @@ function EquipmentModal({ item, users, currentUserId, onClose, onSave }: {
 
         {err && <p className="mt-2 text-[11px]" style={{ color: RED }}>{err}</p>}
 
-        <div className="flex items-center gap-2 mt-4">
-          <BtnPrimary onClick={handleSave} disabled={saving}>
-            <Save size={12} />
-            {saving ? 'Saving...' : 'Save'}
-          </BtnPrimary>
-          <BtnGhost onClick={onClose}>Cancel</BtnGhost>
+        <div className="flex items-center justify-between mt-4">
+          <div className="flex items-center gap-2">
+            <BtnPrimary onClick={handleSave} disabled={saving}>
+              <Save size={12} />
+              {saving ? 'Saving...' : 'Save'}
+            </BtnPrimary>
+            <BtnGhost onClick={onClose}>Cancel</BtnGhost>
+          </div>
+          {deleteConfirm ? (
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => { onDelete(item.id); onClose(); }}
+                className="flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-lg"
+                style={{ background: `${RED}14`, color: RED }}
+              >
+                Confirm delete
+              </button>
+              <button onClick={() => setDeleteConfirm(false)} className="p-1 rounded-lg hover:bg-[#F0F4FF]">
+                <X size={10} color={MUTED} />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setDeleteConfirm(true)}
+              className="flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-lg hover:bg-[#FEF2F2] transition-colors"
+              style={{ color: RED }}
+            >
+              <Trash2 size={10} />Delete
+            </button>
+          )}
         </div>
       </motion.div>
     </div>
@@ -1662,7 +1701,7 @@ function EquipmentTab({ equipment, users, currentUserId, onRefresh }: {
               <table className="w-full">
                 <thead>
                   <tr style={{ borderBottom: `1px solid ${BORDER}` }}>
-                    {['Code', 'Name', 'Location', 'Serial', 'Last Service', 'Next Due', 'Status', 'Responsible', ''].map((h, i) => (
+                    {['Code', 'Name', 'Location', 'Serial', 'Last Service', 'Next Due', 'Frequency', 'Status', 'Responsible', ''].map((h, i) => (
                       <th key={i} className="text-left px-4 py-2.5 text-[8px] uppercase tracking-[0.18em] font-semibold whitespace-nowrap" style={{ color: MUTED }}>
                         {h}
                       </th>
@@ -1682,6 +1721,7 @@ function EquipmentTab({ equipment, users, currentUserId, onRefresh }: {
                       <td className="px-4 py-3 text-[11px] font-mono whitespace-nowrap" style={{ color: SEC }}>{e.serial_number ?? '—'}</td>
                       <td className="px-4 py-3 text-[11px] whitespace-nowrap" style={{ color: SEC }}>{fmt(e.last_service_date)}</td>
                       <td className="px-4 py-3 text-[11px] whitespace-nowrap" style={{ color: SEC }}>{fmt(e.next_due_date)}</td>
+                      <td className="px-4 py-3 text-[11px] whitespace-nowrap" style={{ color: SEC }}>{e.check_frequency ?? '—'}</td>
                       <td className="px-4 py-3"><StatusDot status={e.status} /></td>
                       <td className="px-4 py-3 text-[11px] whitespace-nowrap" style={{ color: SEC }}>{e.responsible_name ?? '—'}</td>
                       <td className="px-4 py-3">
@@ -1747,6 +1787,7 @@ function EquipmentTab({ equipment, users, currentUserId, onRefresh }: {
             currentUserId={currentUserId}
             onClose={() => setEditItem(null)}
             onSave={() => { setEditItem(null); onRefresh(); }}
+            onDelete={async (id) => { await deleteEquipmentItem(id); setEditItem(null); onRefresh(); }}
           />
         )}
         {showAdd && (
@@ -2601,15 +2642,471 @@ function CalendarTab({ tasks, users, currentUserId, onRefresh }: {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// TAB: Medicines & Stock
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const MEDICINE_CATEGORIES = [
+  'Controlled Drug', 'Prescription Only', 'Over the Counter', 'Vaccine',
+  'Anaesthetic', 'Antibiotic', 'Clinical Stock', 'PPE', 'Consumable', 'Other',
+];
+
+const UNIT_OPTIONS = [
+  'units', 'ml', 'mg', 'boxes', 'ampoules', 'vials', 'sachets', 'patches', 'capsules', 'tablets',
+];
+
+const ITEM_TYPE_OPTIONS: Array<{ value: MedicineItem['item_type']; label: string }> = [
+  { value: 'medicine',    label: 'Medicine'    },
+  { value: 'stock',       label: 'Stock'       },
+  { value: 'consumable',  label: 'Consumable'  },
+];
+
+function medStatusInfo(status: MedicineItem['status']): { color: string; label: string } {
+  if (status === 'expired')        return { color: RED,    label: 'Expired'       };
+  if (status === 'out_of_stock')   return { color: RED,    label: 'Out of Stock'  };
+  if (status === 'low_stock')      return { color: ORANGE, label: 'Low Stock'     };
+  if (status === 'expiring_soon')  return { color: ORANGE, label: 'Expiring Soon' };
+  return { color: BLUE, label: 'OK' };
+}
+
+function MedStatusDot({ status }: { status: MedicineItem['status'] }) {
+  const { color, label } = medStatusInfo(status);
+  return (
+    <span className="flex items-center gap-1.5">
+      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: color }} />
+      <span className="text-[10px] font-medium" style={{ color }}>{label}</span>
+    </span>
+  );
+}
+
+interface MedForm {
+  name: string;
+  item_type: string;
+  category: string;
+  quantity: string;
+  unit: string;
+  batch_number: string;
+  expiry_date: string;
+  storage_location: string;
+  min_stock_level: string;
+  responsible_user_id: string;
+  last_checked_date: string;
+  notes: string;
+}
+
+const EMPTY_MED_FORM: MedForm = {
+  name: '', item_type: 'medicine', category: '', quantity: '', unit: '',
+  batch_number: '', expiry_date: '', storage_location: '', min_stock_level: '',
+  responsible_user_id: '', last_checked_date: '', notes: '',
+};
+
+function medFormFromItem(item: MedicineItem): MedForm {
+  return {
+    name:                item.name,
+    item_type:           item.item_type,
+    category:            item.category ?? '',
+    quantity:            item.quantity !== null ? String(item.quantity) : '',
+    unit:                item.unit ?? '',
+    batch_number:        item.batch_number ?? '',
+    expiry_date:         item.expiry_date ?? '',
+    storage_location:    item.storage_location ?? '',
+    min_stock_level:     item.min_stock_level !== null ? String(item.min_stock_level) : '',
+    responsible_user_id: item.responsible_user_id ?? '',
+    last_checked_date:   item.last_checked_date ?? '',
+    notes:               item.notes ?? '',
+  };
+}
+
+function MedFormFields({
+  form, setForm, users,
+}: {
+  form: MedForm;
+  setForm: React.Dispatch<React.SetStateAction<MedForm>>;
+  users: ActiveUser[];
+}) {
+  const set = (k: keyof MedForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
+    setForm(f => ({ ...f, [k]: e.target.value }));
+
+  return (
+    <div className="space-y-4">
+      {/* Item Details */}
+      <div>
+        <p className="text-[8px] uppercase tracking-[0.22em] font-semibold mb-2" style={{ color: MUTED }}>Item Details</p>
+        <div className="space-y-2">
+          <div>
+            <Lbl>Name *</Lbl>
+            <input value={form.name} onChange={set('name')} className={INP} style={INP_STYLE} placeholder="e.g. Adrenaline 1:1000" />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Lbl>Type *</Lbl>
+              <select value={form.item_type} onChange={set('item_type')} className={INP} style={INP_STYLE}>
+                {ITEM_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <Lbl>Category</Lbl>
+              <select value={form.category} onChange={set('category')} className={INP} style={INP_STYLE}>
+                <option value="">Select...</option>
+                {MEDICINE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <Lbl>Unit</Lbl>
+              <select value={form.unit} onChange={set('unit')} className={INP} style={INP_STYLE}>
+                <option value="">Select...</option>
+                {UNIT_OPTIONS.map(u => <option key={u} value={u}>{u}</option>)}
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Stock */}
+      <div>
+        <p className="text-[8px] uppercase tracking-[0.22em] font-semibold mb-2" style={{ color: MUTED }}>Stock</p>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <Lbl>Quantity</Lbl>
+            <input type="number" value={form.quantity} onChange={set('quantity')} className={INP} style={INP_STYLE} placeholder="0" />
+          </div>
+          <div>
+            <Lbl>Min Stock Level</Lbl>
+            <input type="number" value={form.min_stock_level} onChange={set('min_stock_level')} className={INP} style={INP_STYLE} placeholder="0" />
+          </div>
+          <div>
+            <Lbl>Storage Location</Lbl>
+            <input value={form.storage_location} onChange={set('storage_location')} className={INP} style={INP_STYLE} placeholder="e.g. Fridge, Cabinet A" />
+          </div>
+          <div>
+            <Lbl>Last Checked Date</Lbl>
+            <input type="date" value={form.last_checked_date} onChange={set('last_checked_date')} className={INP} style={INP_STYLE} />
+          </div>
+        </div>
+      </div>
+
+      {/* Tracking */}
+      <div>
+        <p className="text-[8px] uppercase tracking-[0.22em] font-semibold mb-2" style={{ color: MUTED }}>Tracking</p>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <Lbl>Batch Number</Lbl>
+            <input value={form.batch_number} onChange={set('batch_number')} className={INP} style={INP_STYLE} />
+          </div>
+          <div>
+            <Lbl>Expiry Date</Lbl>
+            <input type="date" value={form.expiry_date} onChange={set('expiry_date')} className={INP} style={INP_STYLE} />
+          </div>
+          <div className="col-span-2">
+            <Lbl>Responsible Person</Lbl>
+            <select value={form.responsible_user_id} onChange={set('responsible_user_id')} className={INP} style={INP_STYLE}>
+              <option value="">Unassigned</option>
+              {users.map(u => <option key={u.id} value={u.id}>{u.full_name}</option>)}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Notes */}
+      <div>
+        <p className="text-[8px] uppercase tracking-[0.22em] font-semibold mb-2" style={{ color: MUTED }}>Notes</p>
+        <textarea value={form.notes} onChange={set('notes')} rows={2} className="w-full rounded-xl px-3 py-2 text-[12px] focus:outline-none" style={TA_STYLE} />
+      </div>
+    </div>
+  );
+}
+
+function AddMedicineModal({ users, onClose, onSave }: {
+  users: ActiveUser[];
+  onClose: () => void;
+  onSave: () => void;
+}) {
+  const [form, setForm] = useState<MedForm>(EMPTY_MED_FORM);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+
+  async function handleSave() {
+    if (!form.name) { setErr('Name is required.'); return; }
+    setSaving(true); setErr('');
+    const res = await createMedicine({
+      name:                form.name,
+      item_type:           form.item_type,
+      category:            form.category || undefined,
+      quantity:            form.quantity !== '' ? parseInt(form.quantity, 10) : undefined,
+      unit:                form.unit || undefined,
+      batch_number:        form.batch_number || undefined,
+      expiry_date:         form.expiry_date || undefined,
+      storage_location:    form.storage_location || undefined,
+      min_stock_level:     form.min_stock_level !== '' ? parseInt(form.min_stock_level, 10) : undefined,
+      responsible_user_id: form.responsible_user_id || null,
+      last_checked_date:   form.last_checked_date || undefined,
+      notes:               form.notes || undefined,
+    });
+    setSaving(false);
+    if (res.success) { onSave(); onClose(); }
+    else setErr(res.error ?? 'Save failed');
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(24,29,35,0.35)' }}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.97 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.97 }}
+        className="w-full max-w-md rounded-2xl p-6 overflow-y-auto max-h-[90vh]"
+        style={{ background: BG, border: `1px solid ${BORDER}` }}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <p className="text-[8px] uppercase tracking-[0.22em] font-semibold mb-0.5" style={{ color: MUTED }}>New Item</p>
+            <h3 className="text-[14px] font-bold" style={{ color: NAVY }}>Add Medicine / Stock</h3>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[#F0F4FF]"><X size={16} color={MUTED} /></button>
+        </div>
+        <MedFormFields form={form} setForm={setForm} users={users} />
+        {err && <p className="mt-2 text-[11px]" style={{ color: RED }}>{err}</p>}
+        <div className="flex items-center gap-2 mt-4">
+          <BtnPrimary onClick={handleSave} disabled={saving}><Save size={12} />{saving ? 'Saving...' : 'Add Item'}</BtnPrimary>
+          <BtnGhost onClick={onClose}>Cancel</BtnGhost>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+function EditMedicinePanel({ item, users, onClose, onSave }: {
+  item: MedicineItem;
+  users: ActiveUser[];
+  onClose: () => void;
+  onSave: () => void;
+}) {
+  const [form, setForm] = useState<MedForm>(() => medFormFromItem(item));
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+
+  async function handleSave() {
+    if (!form.name) { setErr('Name is required.'); return; }
+    setSaving(true); setErr('');
+    const res = await updateMedicine(item.id, {
+      name:                form.name,
+      item_type:           form.item_type,
+      category:            form.category || null,
+      quantity:            form.quantity !== '' ? parseInt(form.quantity, 10) : null,
+      unit:                form.unit || null,
+      batch_number:        form.batch_number || null,
+      expiry_date:         form.expiry_date || null,
+      storage_location:    form.storage_location || null,
+      min_stock_level:     form.min_stock_level !== '' ? parseInt(form.min_stock_level, 10) : null,
+      responsible_user_id: form.responsible_user_id || null,
+      last_checked_date:   form.last_checked_date || null,
+      notes:               form.notes || null,
+    });
+    setSaving(false);
+    if (res.success) { onSave(); onClose(); }
+    else setErr(res.error ?? 'Save failed');
+  }
+
+  return (
+    <motion.div
+      initial={{ x: 480 }}
+      animate={{ x: 0 }}
+      exit={{ x: 480 }}
+      transition={{ type: 'spring', damping: 30, stiffness: 280 }}
+      className="fixed right-0 top-0 h-full z-50 overflow-y-auto"
+      style={{ width: 480, background: BG, borderLeft: `1px solid ${BORDER}`, boxShadow: '-8px 0 32px rgba(0,0,0,0.08)' }}
+    >
+      <div className="p-6">
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <p className="text-[8px] uppercase tracking-[0.22em] font-semibold mb-0.5" style={{ color: MUTED }}>{item.item_code}</p>
+            <h3 className="text-[14px] font-bold" style={{ color: NAVY }}>Edit Item</h3>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[#F0F4FF]"><X size={16} color={MUTED} /></button>
+        </div>
+        <MedFormFields form={form} setForm={setForm} users={users} />
+        {err && <p className="mt-2 text-[11px]" style={{ color: RED }}>{err}</p>}
+        <div className="flex items-center gap-2 mt-5">
+          <BtnPrimary onClick={handleSave} disabled={saving}><Save size={12} />{saving ? 'Saving...' : 'Save'}</BtnPrimary>
+          <BtnGhost onClick={onClose}>Cancel</BtnGhost>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function MedicinesTab({ medicines, users, currentUserId: _currentUserId, onRefresh }: {
+  medicines: MedicineItem[];
+  users: ActiveUser[];
+  currentUserId: string;
+  onRefresh: () => void;
+}) {
+  const [typeFilter, setTypeFilter] = useState<'all' | MedicineItem['item_type']>('all');
+  const [showAdd, setShowAdd] = useState(false);
+  const [editItem, setEditItem] = useState<MedicineItem | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const filtered = medicines.filter(m => typeFilter === 'all' || m.item_type === typeFilter);
+
+  // Stats
+  const total       = medicines.length;
+  const expiringSoon = medicines.filter(m => m.status === 'expiring_soon').length;
+  const expired     = medicines.filter(m => m.status === 'expired').length;
+  const lowOrOut    = medicines.filter(m => m.status === 'low_stock' || m.status === 'out_of_stock').length;
+
+  async function handleDelete(id: string) {
+    setDeleting(true);
+    await deleteMedicine(id);
+    setDeleting(false);
+    setDeleteConfirm(null);
+    onRefresh();
+  }
+
+  return (
+    <div>
+      {/* Stats strip */}
+      <div className="grid grid-cols-4 gap-3 mb-5">
+        {[
+          { label: 'Total Items',      value: total,       color: BLUE   },
+          { label: 'Expiring Soon',    value: expiringSoon,color: ORANGE },
+          { label: 'Expired',          value: expired,     color: RED    },
+          { label: 'Low / Out of Stock',value: lowOrOut,   color: ORANGE },
+        ].map(s => (
+          <div key={s.label} className="rounded-2xl p-4" style={{ border: `1px solid ${BORDER}` }}>
+            <p className="text-[8px] uppercase tracking-[0.22em] font-semibold mb-2" style={{ color: MUTED }}>{s.label}</p>
+            <p className="text-[28px] font-black tracking-[-0.04em] leading-none" style={{ color: s.value > 0 && s.color !== BLUE ? s.color : NAVY }}>{s.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Filter + Add */}
+      <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center gap-2">
+          {(['all', 'medicine', 'stock', 'consumable'] as const).map(f => (
+            <button
+              key={f}
+              onClick={() => setTypeFilter(f)}
+              className="px-3 py-1.5 rounded-xl text-[11px] font-medium transition-colors"
+              style={{
+                background: typeFilter === f ? NAVY : 'transparent',
+                color: typeFilter === f ? '#F8FAFF' : SEC,
+                border: `1px solid ${typeFilter === f ? NAVY : BORDER}`,
+              }}
+            >
+              {f === 'all' ? 'All' : f === 'medicine' ? 'Medicines' : f === 'stock' ? 'Stock' : 'Consumables'}
+            </button>
+          ))}
+        </div>
+        <BtnPrimary onClick={() => setShowAdd(true)}>
+          <Plus size={12} />
+          Add Item
+        </BtnPrimary>
+      </div>
+
+      {/* Table */}
+      {filtered.length === 0 ? (
+        <div className="text-center py-12">
+          <p className="text-[12px] mb-3" style={{ color: MUTED }}>No items found.</p>
+          <BtnGhost onClick={() => setShowAdd(true)}><Plus size={12} />Add first item</BtnGhost>
+        </div>
+      ) : (
+        <div className="rounded-2xl overflow-hidden overflow-x-auto" style={{ border: `1px solid ${BORDER}` }}>
+          <table className="w-full" style={{ minWidth: 1200 }}>
+            <thead>
+              <tr style={{ borderBottom: `1px solid ${BORDER}` }}>
+                {['Code', 'Name', 'Type', 'Category', 'Qty', 'Unit', 'Batch No.', 'Expiry', 'Storage', 'Status', 'Responsible', 'Last Checked', 'Notes', ''].map((h, i) => (
+                  <th key={i} className="text-left px-4 py-2.5 text-[8px] uppercase tracking-[0.18em] font-semibold whitespace-nowrap" style={{ color: MUTED }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(m => (
+                <tr key={m.id} className="group transition-colors hover:bg-[#F0F4FF]" style={{ borderBottom: `1px solid ${BORDER}` }}>
+                  <td className="px-4 py-3 text-[10px] font-mono whitespace-nowrap" style={{ color: MUTED }}>{m.item_code}</td>
+                  <td className="px-4 py-3 text-[11px] font-semibold whitespace-nowrap" style={{ color: NAVY }}>{m.name}</td>
+                  <td className="px-4 py-3 text-[11px] whitespace-nowrap" style={{ color: SEC }}>{ITEM_TYPE_OPTIONS.find(o => o.value === m.item_type)?.label ?? m.item_type}</td>
+                  <td className="px-4 py-3 text-[11px] whitespace-nowrap" style={{ color: SEC }}>{m.category ?? '—'}</td>
+                  <td className="px-4 py-3 text-[11px] font-semibold whitespace-nowrap" style={{ color: NAVY }}>{m.quantity !== null ? m.quantity : '—'}</td>
+                  <td className="px-4 py-3 text-[11px] whitespace-nowrap" style={{ color: SEC }}>{m.unit ?? '—'}</td>
+                  <td className="px-4 py-3 text-[11px] font-mono whitespace-nowrap" style={{ color: SEC }}>{m.batch_number ?? '—'}</td>
+                  <td className="px-4 py-3 text-[11px] whitespace-nowrap" style={{ color: SEC }}>{fmt(m.expiry_date)}</td>
+                  <td className="px-4 py-3 text-[11px] whitespace-nowrap" style={{ color: SEC }}>{m.storage_location ?? '—'}</td>
+                  <td className="px-4 py-3"><MedStatusDot status={m.status} /></td>
+                  <td className="px-4 py-3 text-[11px] whitespace-nowrap" style={{ color: SEC }}>{m.responsible_name ?? '—'}</td>
+                  <td className="px-4 py-3 text-[11px] whitespace-nowrap" style={{ color: SEC }}>{fmt(m.last_checked_date)}</td>
+                  <td className="px-4 py-3 text-[11px] max-w-[120px] truncate" style={{ color: SEC }}>{m.notes ?? '—'}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => setEditItem(m)}
+                        className="flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-lg"
+                        style={{ background: `${BLUE}14`, color: BLUE }}
+                      >
+                        <Edit2 size={10} />Edit
+                      </button>
+                      {deleteConfirm === m.id ? (
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleDelete(m.id)}
+                            disabled={deleting}
+                            className="flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-lg"
+                            style={{ background: `${RED}14`, color: RED }}
+                          >
+                            {deleting ? '...' : 'Confirm'}
+                          </button>
+                          <button onClick={() => setDeleteConfirm(null)} className="p-1 rounded-lg hover:bg-[#F0F4FF]">
+                            <X size={10} color={MUTED} />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setDeleteConfirm(m.id)}
+                          className="flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-lg hover:bg-[#FEF2F2] transition-colors"
+                          style={{ color: RED }}
+                        >
+                          <Trash2 size={10} />Delete
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <AnimatePresence>
+        {showAdd && (
+          <AddMedicineModal
+            users={users}
+            onClose={() => setShowAdd(false)}
+            onSave={() => { setShowAdd(false); onRefresh(); }}
+          />
+        )}
+        {editItem && (
+          <EditMedicinePanel
+            item={editItem}
+            users={users}
+            onClose={() => setEditItem(null)}
+            onSave={() => { setEditItem(null); onRefresh(); }}
+          />
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // MAIN PAGE
 // ═══════════════════════════════════════════════════════════════════════════════
-type Tab = 'dashboard' | 'hr' | 'training' | 'equipment' | 'cqc' | 'governance' | 'calendar';
+type Tab = 'dashboard' | 'hr' | 'training' | 'equipment' | 'medicines' | 'cqc' | 'governance' | 'calendar';
 
 const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'dashboard', label: 'Dashboard' },
   { key: 'hr', label: 'HR Tracker' },
   { key: 'training', label: 'Training' },
   { key: 'equipment', label: 'Equipment' },
+  { key: 'medicines', label: 'Medicines & Stock' },
   { key: 'cqc', label: 'CQC Audit' },
   { key: 'governance', label: 'Governance' },
   { key: 'calendar', label: 'Calendar' },
@@ -2625,18 +3122,20 @@ export default function CompliancePage() {
   const [hrRecords, setHrRecords] = useState<HRRecord[]>([]);
   const [matrix, setMatrix] = useState<TrainingMatrixRow[]>([]);
   const [equipment, setEquipment] = useState<EquipmentItem[]>([]);
+  const [medicines, setMedicines] = useState<MedicineItem[]>([]);
   const [cqcAnswers, setCqcAnswers] = useState<CQCAnswer[]>([]);
   const [govLog, setGovLog] = useState<GovernanceEntry[]>([]);
   const [calTasks, setCalTasks] = useState<CalendarTask[]>([]);
   const [users, setUsers] = useState<ActiveUser[]>([]);
 
   const loadAll = useCallback(async () => {
-    const [cu, dashRes, hrRes, matRes, eqRes, cqcRes, govRes, calRes, usersRes] = await Promise.all([
+    const [cu, dashRes, hrRes, matRes, eqRes, medRes, cqcRes, govRes, calRes, usersRes] = await Promise.all([
       getCurrentUser(),
       getComplianceDashboard(),
       getHRRecords(),
       getTrainingMatrix(),
       getEquipmentList(),
+      getMedicines(),
       getCQCAudit(),
       getGovernanceLog(),
       getCalendarTasks(),
@@ -2655,6 +3154,7 @@ export default function CompliancePage() {
     setHrRecords(hrRes);
     setMatrix(matRes);
     setEquipment(eqRes);
+    setMedicines(medRes);
     setCqcAnswers(cqcRes);
     setGovLog(govRes);
     setCalTasks(calRes);
@@ -2746,6 +3246,14 @@ export default function CompliancePage() {
           {tab === 'equipment' && (
             <EquipmentTab
               equipment={equipment}
+              users={users}
+              currentUserId={currentUserId}
+              onRefresh={loadAll}
+            />
+          )}
+          {tab === 'medicines' && (
+            <MedicinesTab
+              medicines={medicines}
               users={users}
               currentUserId={currentUserId}
               onRefresh={loadAll}

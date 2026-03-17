@@ -137,6 +137,25 @@ export interface CalendarTask {
   notes:                string | null;
 }
 
+export interface MedicineItem {
+  id:                   string;
+  item_code:            string;
+  name:                 string;
+  item_type:            'medicine' | 'stock' | 'consumable';
+  category:             string | null;
+  quantity:             number | null;
+  unit:                 string | null;
+  batch_number:         string | null;
+  expiry_date:          string | null;
+  storage_location:     string | null;
+  min_stock_level:      number | null;
+  status:               'ok' | 'low_stock' | 'expiring_soon' | 'expired' | 'out_of_stock';
+  responsible_user_id:  string | null;
+  responsible_name:     string | null;
+  last_checked_date:    string | null;
+  notes:                string | null;
+}
+
 export interface ComplianceDashboard {
   // HR
   total_staff:            number;
@@ -237,6 +256,22 @@ function computeCalendarStatus(nextDue: string | null): CalendarTask['status'] {
   const in30 = new Date(now); in30.setDate(now.getDate() + 30);
   if (d < now) return 'overdue';
   if (d < in30) return 'due_soon';
+  return 'ok';
+}
+
+function computeMedicineStatus(
+  expiryDate: string | null,
+  quantity: number | null,
+  minStock: number | null
+): MedicineItem['status'] {
+  if (quantity !== null && quantity === 0) return 'out_of_stock';
+  if (quantity !== null && minStock !== null && quantity <= minStock) return 'low_stock';
+  if (!expiryDate) return 'ok';
+  const exp = new Date(expiryDate);
+  const now = new Date();
+  const in60 = new Date(now); in60.setDate(now.getDate() + 60);
+  if (exp < now) return 'expired';
+  if (exp < in60) return 'expiring_soon';
   return 'ok';
 }
 
@@ -563,9 +598,11 @@ export async function createEquipmentItem(data: {
 }): Promise<{ success: boolean; error?: string }> {
   const session = await getStaffSession();
   if (!session) return { success: false, error: 'UNAUTHORIZED' };
-  const { tenantId } = session;
   try {
     const db = createSovereignClient();
+    const { data: userRow } = await db.from('users').select('tenant_id').eq('id', session.userId).single();
+    const tenantId = userRow?.tenant_id as string | undefined;
+    if (!tenantId) return { success: false, error: 'Tenant not found' };
     // Generate next item code
     const { data: existing } = await db
       .from('compliance_equipment')
@@ -589,14 +626,12 @@ export async function deleteEquipmentItem(
 ): Promise<{ success: boolean; error?: string }> {
   const session = await getStaffSession();
   if (!session) return { success: false, error: 'UNAUTHORIZED' };
-  const { tenantId } = session;
   try {
     const db = createSovereignClient();
     const { error } = await db
       .from('compliance_equipment')
       .delete()
-      .eq('id', id)
-      .eq('tenant_id', tenantId);
+      .eq('id', id);
     if (error) return { success: false, error: error.message };
     return { success: true };
   } catch (e) { return { success: false, error: String(e) }; }
@@ -605,6 +640,8 @@ export async function deleteEquipmentItem(
 export async function updateEquipmentItem(
   id: string,
   data: {
+    name?: string;
+    check_frequency?: string;
     last_service_date?: string;
     next_due_date?: string;
     serial_number?: string;
@@ -617,14 +654,137 @@ export async function updateEquipmentItem(
 ): Promise<{ success: boolean; error?: string }> {
   const session = await getStaffSession();
   if (!session) return { success: false, error: 'UNAUTHORIZED' };
-  const { tenantId } = session;
   try {
     const db = createSovereignClient();
     const { error } = await db
       .from('compliance_equipment')
       .update(data)
-      .eq('id', id)
-      .eq('tenant_id', tenantId);
+      .eq('id', id);
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (e) { return { success: false, error: String(e) }; }
+}
+
+// =============================================================================
+// MEDICINES & STOCK
+// =============================================================================
+
+export async function getMedicines(): Promise<MedicineItem[]> {
+  const session = await getStaffSession();
+  if (!session) return [];
+  try {
+    const db = createSovereignClient();
+    const { data, error } = await db
+      .from('compliance_medicines')
+      .select(`
+        id, item_code, name, item_type, category, quantity, unit, batch_number,
+        expiry_date, storage_location, min_stock_level,
+        responsible_user_id, last_checked_date, notes,
+        users:responsible_user_id(first_name, last_name)
+      `)
+      .order('item_code');
+    if (error || !data) return [];
+    return data.map((e: Record<string, unknown>) => {
+      const ru = e.users as Record<string, string> | null;
+      return {
+        id:                  e.id as string,
+        item_code:           e.item_code as string,
+        name:                e.name as string,
+        item_type:           (e.item_type as MedicineItem['item_type']) ?? 'medicine',
+        category:            (e.category as string | null) ?? null,
+        quantity:            (e.quantity as number | null) ?? null,
+        unit:                (e.unit as string | null) ?? null,
+        batch_number:        (e.batch_number as string | null) ?? null,
+        expiry_date:         (e.expiry_date as string | null) ?? null,
+        storage_location:    (e.storage_location as string | null) ?? null,
+        min_stock_level:     (e.min_stock_level as number | null) ?? null,
+        status:              computeMedicineStatus(e.expiry_date as string | null, e.quantity as number | null, e.min_stock_level as number | null),
+        responsible_user_id: (e.responsible_user_id as string | null) ?? null,
+        responsible_name:    ru ? `${ru.first_name} ${ru.last_name}`.trim() : null,
+        last_checked_date:   (e.last_checked_date as string | null) ?? null,
+        notes:               (e.notes as string | null) ?? null,
+      };
+    });
+  } catch { return []; }
+}
+
+export async function createMedicine(data: {
+  name: string;
+  item_type: string;
+  category?: string;
+  quantity?: number;
+  unit?: string;
+  batch_number?: string;
+  expiry_date?: string;
+  storage_location?: string;
+  min_stock_level?: number;
+  responsible_user_id?: string | null;
+  last_checked_date?: string;
+  notes?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
+  try {
+    const db = createSovereignClient();
+    const { data: userRow } = await db.from('users').select('tenant_id').eq('id', session.userId).single();
+    const tenantId = userRow?.tenant_id as string | undefined;
+    if (!tenantId) return { success: false, error: 'Tenant not found' };
+    // Generate item code
+    const { data: existing } = await db
+      .from('compliance_medicines')
+      .select('item_code')
+      .eq('tenant_id', tenantId)
+      .order('item_code', { ascending: false })
+      .limit(1);
+    const lastCode = existing?.[0]?.item_code ?? 'MED000';
+    const lastNum = parseInt(lastCode.replace(/\D/g, ''), 10) || 0;
+    const item_code = `MED${String(lastNum + 1).padStart(3, '0')}`;
+    const { error } = await db
+      .from('compliance_medicines')
+      .insert({ tenant_id: tenantId, item_code, ...data });
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (e) { return { success: false, error: String(e) }; }
+}
+
+export async function updateMedicine(
+  id: string,
+  data: {
+    name?: string;
+    item_type?: string;
+    category?: string | null;
+    quantity?: number | null;
+    unit?: string | null;
+    batch_number?: string | null;
+    expiry_date?: string | null;
+    storage_location?: string | null;
+    min_stock_level?: number | null;
+    responsible_user_id?: string | null;
+    last_checked_date?: string | null;
+    notes?: string | null;
+  }
+): Promise<{ success: boolean; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
+  try {
+    const db = createSovereignClient();
+    const { error } = await db
+      .from('compliance_medicines')
+      .update({ ...data, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (e) { return { success: false, error: String(e) }; }
+}
+
+export async function deleteMedicine(
+  id: string
+): Promise<{ success: boolean; error?: string }> {
+  const session = await getStaffSession();
+  if (!session) return { success: false, error: 'UNAUTHORIZED' };
+  try {
+    const db = createSovereignClient();
+    const { error } = await db.from('compliance_medicines').delete().eq('id', id);
     if (error) return { success: false, error: error.message };
     return { success: true };
   } catch (e) { return { success: false, error: String(e) }; }
