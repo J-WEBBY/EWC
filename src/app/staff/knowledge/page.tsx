@@ -29,6 +29,7 @@ import { getStaffProfile } from '@/lib/actions/staff-onboarding';
 import type { StaffProfile } from '@/lib/actions/staff-onboarding';
 import { getStaffSession } from '@/lib/supabase/tenant-context';
 import { StaffNav } from '@/components/staff-nav';
+import OrbLoader from '@/components/orb-loader';
 
 // =============================================================================
 // DESIGN TOKENS
@@ -967,17 +968,7 @@ export default function KnowledgeBasePage() {
     ? documents.filter(d => d.category_id === activeCategoryId)
     : documents;
 
-  if (loading) {
-    return (
-      <div style={{ minHeight: '100vh', backgroundColor: BG, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ width: 32, height: 32, border: `2px solid ${BORDER}`, borderTopColor: BLUE, borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
-          <p style={{ fontSize: 12, color: MUTED }}>Loading knowledge base…</p>
-        </div>
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      </div>
-    );
-  }
+  if (loading) return <OrbLoader />;
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: BG }}>

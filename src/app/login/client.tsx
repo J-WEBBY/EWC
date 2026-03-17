@@ -410,7 +410,7 @@ export default function LoginClient({ initialClinicName, tenantId, tenantSlug }:
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}
                   >
-                    <span style={{ fontSize: 15, fontWeight: 900, color: BG, letterSpacing: '-0.02em' }}>EW</span>
+                    <div style={{ width: 18, height: 18, borderRadius: 4, background: BG, opacity: 0.88 }} />
                   </motion.div>
                 </div>
 
