@@ -855,17 +855,35 @@ function TaskHub({ task, userId, users, onClose, onDelete, onRefresh }: TaskHubP
 
   return (
     <div style={{
-      width:         '40%',
-      minWidth:      460,
-      maxWidth:      600,
-      flexShrink:    0,
-      borderLeft:    `1px solid ${BORDER}`,
-      overflowY:     'auto',
-      display:       'flex',
-      flexDirection: 'column',
-      height:        '100%',
-      background:    BG,
-    }}>
+      position:       'fixed',
+      inset:          0,
+      zIndex:         40,
+      display:        'flex',
+      alignItems:     'center',
+      justifyContent: 'center',
+      background:     'rgba(24,29,35,0.45)',
+      backdropFilter: 'blur(2px)',
+    }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
+    <motion.div
+      initial={{ opacity: 0, scale: 0.97, y: 12 }}
+      animate={{ opacity: 1, scale: 1,    y: 0  }}
+      exit={{    opacity: 0, scale: 0.97, y: 12  }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
+      style={{
+        width:         '90vw',
+        maxWidth:      960,
+        height:        '88vh',
+        borderRadius:  20,
+        border:        `1px solid ${BORDER}`,
+        overflowY:     'auto',
+        display:       'flex',
+        flexDirection: 'column',
+        background:    BG,
+        boxShadow:     '0 24px 80px rgba(0,0,0,0.18)',
+      }}
+    >
 
       {/* ── HEADER ─────────────────────────────────────────────────────────── */}
       <div style={{ padding: '20px 24px 0', borderBottom: `1px solid ${BORDER}` }}>
@@ -1230,6 +1248,7 @@ function TaskHub({ task, userId, users, onClose, onDelete, onRefresh }: TaskHubP
         />
         <div style={{ fontSize: 9, color: MUTED, marginTop: 5 }}>Auto-saves on blur</div>
       </div>
+    </motion.div>
     </div>
   );
 }
@@ -1689,7 +1708,10 @@ export default function KPIsPage() {
           </div>
         </div>
 
-        {/* RIGHT — Task Hub */}
+      </div>
+
+      {/* Task Hub — fullscreen modal */}
+      <AnimatePresence>
         {activeTask && (
           <TaskHub
             task={activeTask}
@@ -1700,7 +1722,7 @@ export default function KPIsPage() {
             onRefresh={handleRefresh}
           />
         )}
-      </div>
+      </AnimatePresence>
 
       {/* Create Task Modal */}
       <AnimatePresence>
