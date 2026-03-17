@@ -50,7 +50,7 @@ const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'medicines',  label: 'Medicines' },
   { key: 'cqc',        label: 'CQC Audit' },
   { key: 'governance', label: 'Governance' },
-  { key: 'calendar',   label: 'Feed' },
+  { key: 'calendar',   label: 'Calendar' },
 ];
 
 function getTabBadge(
