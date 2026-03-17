@@ -170,8 +170,10 @@ export interface ComplianceDashboard {
   // Equipment
   equipment_overdue:      number;
   equipment_due_soon:     number;
+  equipment_total:        number;
   // Medicines
   medicine_expiring_soon: number;
+  medicine_total:         number;
   // CQC
   cqc_score_pct:          number;   // yes / answered * 100
   cqc_answered:           number;
@@ -181,9 +183,13 @@ export interface ComplianceDashboard {
   // Governance
   governance_open:        number;
   governance_overdue:     number;
+  governance_total:       number;
+  governance_completed:   number;
   // Calendar
   calendar_overdue:       number;
   calendar_due_soon:      number;
+  calendar_total:         number;
+  calendar_ok:            number;
 }
 
 // =============================================================================
@@ -1093,10 +1099,11 @@ export async function updateCalendarTask(
 const EMPTY_DASHBOARD: ComplianceDashboard = {
   total_staff: 0, dbs_issues: 0, rtw_issues: 0, appraisals_overdue: 0,
   training_gaps: 0, training_compliant: 0, training_total: 0, training_due: 0,
-  equipment_overdue: 0, equipment_due_soon: 0,
-  medicine_expiring_soon: 0,
+  equipment_overdue: 0, equipment_due_soon: 0, equipment_total: 0,
+  medicine_expiring_soon: 0, medicine_total: 0,
   cqc_score_pct: 0, cqc_answered: 0, cqc_total: 0, cqc_no_count: 0, cqc_partial_count: 0,
-  governance_open: 0, governance_overdue: 0, calendar_overdue: 0, calendar_due_soon: 0,
+  governance_open: 0, governance_overdue: 0, governance_total: 0, governance_completed: 0,
+  calendar_overdue: 0, calendar_due_soon: 0, calendar_total: 0, calendar_ok: 0,
 };
 
 export async function getComplianceDashboard(): Promise<ComplianceDashboard> {
@@ -1156,6 +1163,7 @@ export async function getComplianceDashboard(): Promise<ComplianceDashboard> {
 
   // Equipment
   let equipOverdue = 0; let equipDueSoon = 0;
+  const equipTotal = (equipment.data ?? []).length;
   for (const e of equipment.data ?? []) {
     const eq = e as Record<string, unknown>;
     const s = computeEquipmentStatus(eq.next_due_date as string | null);
@@ -1173,21 +1181,28 @@ export async function getComplianceDashboard(): Promise<ComplianceDashboard> {
   const cqcScore = cqcAnswered > 0 ? Math.round((cqcYes / cqcAnswered) * 100) : 0;
 
   // Governance
-  let govOpen = 0; let govOverdue = 0;
+  let govOpen = 0; let govOverdue = 0; let govCompleted = 0;
+  const govTotal = (govLog.data ?? []).length;
   for (const e of govLog.data ?? []) {
     const g = e as Record<string, unknown>;
     if (g.status === 'open' || g.status === 'in_progress') govOpen++;
     if (g.status === 'overdue') govOverdue++;
+    if (g.status === 'completed') govCompleted++;
   }
 
   // Calendar
-  let calOverdue = 0; let calDueSoon = 0;
+  let calOverdue = 0; let calDueSoon = 0; let calOk = 0;
+  const calTotal = (calendar.data ?? []).length;
   for (const t of calendar.data ?? []) {
     const c = t as Record<string, unknown>;
     const s = computeCalendarStatus(c.next_due_date as string | null);
     if (s === 'overdue') calOverdue++;
-    if (s === 'due_soon') calDueSoon++;
+    else if (s === 'due_soon') calDueSoon++;
+    else if (s === 'ok') calOk++;
   }
+
+  // Medicine total
+  const medTotal = (medicines.data ?? []).length;
 
   return {
     total_staff:            totalStaff,
@@ -1200,7 +1215,9 @@ export async function getComplianceDashboard(): Promise<ComplianceDashboard> {
     training_due:           trainingDue,
     equipment_overdue:      equipOverdue,
     equipment_due_soon:     equipDueSoon,
+    equipment_total:        equipTotal,
     medicine_expiring_soon: medExpiringSoon,
+    medicine_total:         medTotal,
     cqc_score_pct:          cqcScore,
     cqc_answered:           cqcAnswered,
     cqc_total:              cqcTotal,
@@ -1208,8 +1225,12 @@ export async function getComplianceDashboard(): Promise<ComplianceDashboard> {
     cqc_partial_count:      cqcPartial,
     governance_open:        govOpen,
     governance_overdue:     govOverdue,
+    governance_total:       govTotal,
+    governance_completed:   govCompleted,
     calendar_overdue:       calOverdue,
     calendar_due_soon:      calDueSoon,
+    calendar_total:         calTotal,
+    calendar_ok:            calOk,
   };
   } catch { return EMPTY_DASHBOARD; }
 }
