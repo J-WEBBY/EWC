@@ -10,7 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   BookOpen, Upload, FileText, FileCode, Table2, File,
   Trash2, Plus, Search, X, Tag, CheckCircle, Clock,
-  AlertCircle, Layers, Eye,
+  AlertCircle, Layers, Eye, Inbox, ChevronDown, Send,
 } from 'lucide-react';
 import {
   getKnowledgeData,
@@ -23,6 +23,8 @@ import type {
   KnowledgeDocument,
   KnowledgeStats,
 } from '@/lib/actions/knowledge-wellness';
+import { getMyReceivedReports, acknowledgeReport, markReportRead } from '@/lib/actions/agenda-hub';
+import type { AgendaReport } from '@/lib/actions/agenda-hub';
 import { getStaffProfile } from '@/lib/actions/staff-onboarding';
 import type { StaffProfile } from '@/lib/actions/staff-onboarding';
 import { getStaffSession } from '@/lib/supabase/tenant-context';
@@ -686,6 +688,179 @@ function StatsBar({ stats }: { stats: KnowledgeStats }) {
 }
 
 // =============================================================================
+// REPORTS PANEL
+// =============================================================================
+
+function ReportsPanel({ reports, onAcknowledge }: {
+  reports: AgendaReport[];
+  onAcknowledge: (id: string) => void;
+}) {
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  function catColor(cat: string) {
+    if (cat === 'clinical')    return BLUE;
+    if (cat === 'compliance')  return ORANGE;
+    if (cat === 'operational') return NAVY;
+    return MUTED;
+  }
+
+  if (reports.length === 0) {
+    return (
+      <div style={{ textAlign: 'center', padding: '80px 0' }}>
+        <Inbox size={32} style={{ color: BORDER, margin: '0 auto 16px', display: 'block' }} />
+        <p style={{ fontSize: 15, fontWeight: 700, color: NAVY, marginBottom: 6 }}>No reports yet</p>
+        <p style={{ fontSize: 12, color: MUTED }}>Reports sent to you from colleagues will appear here.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ padding: '24px 0' }}>
+      <AnimatePresence>
+        {reports.map(r => {
+          const snapshot = r.agenda_snapshot ?? {};
+          const agendaData = (snapshot.agenda ?? {}) as Record<string, unknown>;
+          const ev  = (snapshot.evidence as unknown[]) ?? [];
+          const tl  = (snapshot.timeline as unknown[]) ?? [];
+          const isOpen = expanded === r.id;
+
+          return (
+            <motion.div key={r.id}
+              initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+              style={{ borderBottom: `1px solid ${BORDER}` }}>
+
+              {/* Summary row */}
+              <div
+                onClick={() => { setExpanded(e => e === r.id ? null : r.id); }}
+                className="flex items-start justify-between gap-4 cursor-pointer"
+                style={{
+                  padding: '16px 32px',
+                  background: !r.is_read ? `${BLUE}04` : 'transparent',
+                  transition: 'background 0.15s',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = `${BLUE}06`)}
+                onMouseLeave={e => (e.currentTarget.style.background = !r.is_read ? `${BLUE}04` : 'transparent')}>
+
+                <div className="flex items-start gap-3" style={{ flex: 1, minWidth: 0 }}>
+                  {/* Unread dot */}
+                  <div style={{
+                    width: 7, height: 7, borderRadius: '50%', flexShrink: 0, marginTop: 5,
+                    background: !r.is_read ? BLUE : 'transparent',
+                    border: !r.is_read ? 'none' : `1.5px solid ${BORDER}`,
+                  }} />
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span style={{ fontSize: 13, fontWeight: 700, color: NAVY, lineHeight: 1.3 }}>{r.agenda_title}</span>
+                      {r.agenda_category && (
+                        <span style={{
+                          fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.18em', fontWeight: 700,
+                          color: catColor(r.agenda_category),
+                        }}>{r.agenda_category}</span>
+                      )}
+                      {r.acknowledged_at && (
+                        <span style={{ fontSize: 9, color: GREEN, fontWeight: 600 }}>Acknowledged</span>
+                      )}
+                    </div>
+                    <p style={{ fontSize: 11, color: TER, marginBottom: 2 }}>
+                      From {r.sender_name} · {new Date(r.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </p>
+                    {r.cover_note && (
+                      <p style={{ fontSize: 11, color: SEC, fontStyle: 'italic', marginTop: 3 }}>&ldquo;{r.cover_note}&rdquo;</p>
+                    )}
+                    <div className="flex items-center gap-3 mt-2">
+                      <span style={{ fontSize: 9, color: MUTED }}>{ev.length} file{ev.length !== 1 ? 's' : ''}</span>
+                      <span style={{ fontSize: 9, color: MUTED }}>{tl.length} note{tl.length !== 1 ? 's' : ''}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {!r.acknowledged_at && (
+                    <button
+                      onClick={e => { e.stopPropagation(); onAcknowledge(r.id); }}
+                      style={{ fontSize: 10, fontWeight: 600, padding: '4px 12px', borderRadius: 8, cursor: 'pointer', background: `${GREEN}12`, border: `1px solid ${GREEN}28`, color: GREEN }}>
+                      Acknowledge
+                    </button>
+                  )}
+                  <ChevronDown size={14} style={{ color: MUTED, transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+                </div>
+              </div>
+
+              {/* Expanded detail */}
+              <AnimatePresence>
+                {isOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+                    style={{ overflow: 'hidden' }}>
+                    <div style={{ padding: '0 32px 20px 52px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+
+                      {/* Agenda details */}
+                      <div>
+                        <p style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.24em', fontWeight: 700, color: MUTED, marginBottom: 10 }}>Agenda Details</p>
+                        <div className="space-y-2">
+                          {[
+                            { label: 'Status',   value: String(agendaData.status  ?? '') },
+                            { label: 'Due Date', value: agendaData.due_date ? new Date(agendaData.due_date as string).toLocaleDateString('en-GB') : '' },
+                            { label: 'Owner',    value: String(snapshot.sender_name ?? '') },
+                          ].filter(r2 => r2.value).map(row => (
+                            <div key={row.label} className="flex justify-between">
+                              <span style={{ fontSize: 10, color: MUTED }}>{row.label}</span>
+                              <span style={{ fontSize: 10, color: SEC, textTransform: 'capitalize' }}>{row.value}</span>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Timeline notes */}
+                        {tl.length > 0 && (
+                          <div style={{ marginTop: 16 }}>
+                            <p style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.24em', fontWeight: 700, color: MUTED, marginBottom: 8 }}>Notes</p>
+                            <div className="space-y-2">
+                              {(tl as Record<string, unknown>[]).map((n, i) => (
+                                <div key={i} style={{ padding: '8px 10px', borderRadius: 8, background: `${BORDER}40`, border: `1px solid ${BORDER}` }}>
+                                  <p style={{ fontSize: 9, color: MUTED, textTransform: 'capitalize', marginBottom: 2 }}>{String(n.note_type ?? 'update')}</p>
+                                  <p style={{ fontSize: 11, color: SEC }}>{String(n.content ?? '')}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Evidence */}
+                      <div>
+                        {ev.length > 0 && (
+                          <>
+                            <p style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.24em', fontWeight: 700, color: MUTED, marginBottom: 10 }}>Evidence</p>
+                            <div className="space-y-2">
+                              {(ev as Record<string, unknown>[]).map((e2, i) => (
+                                <div key={i} className="flex items-center gap-2"
+                                  style={{ padding: '8px 10px', borderRadius: 8, border: `1px solid ${BORDER}` }}>
+                                  <FileText size={12} style={{ color: BLUE, flexShrink: 0 }} />
+                                  <div style={{ minWidth: 0 }}>
+                                    <p style={{ fontSize: 10, fontWeight: 600, color: NAVY, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{String(e2.file_name ?? 'File')}</p>
+                                    {!!e2.caption && <p style={{ fontSize: 9, color: MUTED }}>{String(e2.caption)}</p>}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </div>
+
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          );
+        })}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// =============================================================================
 // MAIN PAGE
 // =============================================================================
 
@@ -701,6 +876,9 @@ export default function KnowledgeBasePage() {
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showUpload, setShowUpload] = useState(false);
+  const [activeTab, setActiveTab] = useState<'documents' | 'reports'>('documents');
+  const [reports, setReports] = useState<AgendaReport[]>([]);
+  const [reportsLoaded, setReportsLoaded] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Awaited<ReturnType<typeof searchKnowledgeChunks>> | null>(null);
@@ -739,6 +917,23 @@ export default function KnowledgeBasePage() {
   }, [userId, tenantId]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  async function handleTabSwitch(tab: 'documents' | 'reports') {
+    setActiveTab(tab);
+    if (tab === 'reports' && !reportsLoaded && userId) {
+      const data = await getMyReceivedReports(userId);
+      setReports(data);
+      setReportsLoaded(true);
+      // Mark all as read
+      data.filter(r => !r.is_read).forEach(r => markReportRead(r.id));
+      setReports(d => d.map(r => ({ ...r, is_read: true })));
+    }
+  }
+
+  async function handleAcknowledge(reportId: string) {
+    await acknowledgeReport(reportId);
+    setReports(d => d.map(r => r.id === reportId ? { ...r, acknowledged_at: new Date().toISOString(), is_read: true } : r));
+  }
 
   function handleCategoryClick(id: string | null) {
     setActiveCategoryId(id);
@@ -827,11 +1022,45 @@ export default function KnowledgeBasePage() {
           </button>
         </div>
 
-        {/* ── Stats ── */}
-        {stats && <StatsBar stats={stats} />}
+        {/* ── Tab strip ── */}
+        <div className="flex items-center gap-0 px-10"
+          style={{ borderBottom: `1px solid ${BORDER}` }}>
+          {([
+            { key: 'documents' as const, label: 'Documents', count: documents.length },
+            { key: 'reports'   as const, label: 'Reports',   count: reports.filter(r => !r.acknowledged_at).length },
+          ]).map(t => (
+            <button key={t.key}
+              onClick={() => handleTabSwitch(t.key)}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                padding: '14px 0', marginRight: 24,
+                color: activeTab === t.key ? NAVY : MUTED,
+                fontSize: 12, fontWeight: activeTab === t.key ? 700 : 500,
+                borderBottom: activeTab === t.key ? `2px solid ${BLUE}` : '2px solid transparent',
+                display: 'flex', alignItems: 'center', gap: 6, transition: 'all 0.15s',
+              }}>
+              {t.label}
+              {t.count > 0 && (
+                <span style={{
+                  fontSize: 9, padding: '1px 6px', borderRadius: 999, fontWeight: 700,
+                  background: activeTab === t.key ? `${BLUE}18` : `${MUTED}18`,
+                  color: activeTab === t.key ? BLUE : MUTED,
+                }}>{t.count}</span>
+              )}
+            </button>
+          ))}
+        </div>
 
-        {/* ── Search bar ── */}
-        <div style={{ padding: '20px 40px', borderBottom: `1px solid ${BORDER}` }}>
+        {/* ── Stats ── */}
+        {activeTab === 'documents' && stats && <StatsBar stats={stats} />}
+
+        {/* ── Reports tab ── */}
+        {activeTab === 'reports' && (
+          <ReportsPanel reports={reports} onAcknowledge={handleAcknowledge} />
+        )}
+
+        {/* ── Search bar (documents only) ── */}
+        {activeTab === 'documents' && <div style={{ padding: '20px 40px', borderBottom: `1px solid ${BORDER}` }}>
           <div style={{ position: 'relative', maxWidth: 480 }}>
             <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: MUTED, pointerEvents: 'none' }} />
             <input
@@ -858,10 +1087,10 @@ export default function KnowledgeBasePage() {
               </button>
             )}
           </div>
-        </div>
+        </div>}
 
-        {/* ── Body: two-column ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: 0 }}>
+        {/* ── Body: two-column (documents only) ── */}
+        {activeTab === 'documents' && <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: 0 }}>
 
           {/* Left: categories sidebar */}
           <div style={{ borderRight: `1px solid ${BORDER}`, padding: '24px 20px', minHeight: 'calc(100vh - 260px)' }}>
@@ -996,7 +1225,7 @@ export default function KnowledgeBasePage() {
               </>
             )}
           </div>
-        </div>
+        </div>}
       </main>
 
       {/* Upload Modal */}

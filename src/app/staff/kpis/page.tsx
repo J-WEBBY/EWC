@@ -282,7 +282,7 @@ function OverviewSection({ goals, assignedGoals }: { goals: StaffGoal[]; assigne
 
 // ── Agenda card ────────────────────────────────────────────────────────────────
 function AgendaCard({ goal, isSelected, onClick }: {
-  goal: StaffGoal; isSelected: boolean; onClick: () => void;
+  goal: StaffGoal; isSelected: boolean; onClick: () => void; hubHref?: string;
 }) {
   const meta  = getMeta(goal);
   const over  = isOverdue(goal);
@@ -1213,7 +1213,7 @@ export default function StaffKPIPage() {
                           key={g.id}
                           goal={g}
                           isSelected={selected?.id === g.id}
-                          onClick={() => setSelected(s => s?.id === g.id ? null : g)}
+                          onClick={() => router.push(`/staff/kpis/${g.id}?userId=${userId}&tenantId=clinic`)}
                         />
                       ))}
                     </div>
