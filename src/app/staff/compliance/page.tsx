@@ -54,13 +54,11 @@ function statusInfo(status: string): { color: string; label: string } {
 
 function StatusDot({ status }: { status: string }) {
   const { color, label } = statusInfo(status);
-  if (label === '—') return <span className="text-[10px]" style={{ color: MUTED }}>—</span>;
+  if (label === '—') return <span style={{ color: MUTED, fontSize: 11 }}>—</span>;
   return (
-    <span
-      className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-semibold whitespace-nowrap"
-      style={{ background: `${color}18`, color, border: `1px solid ${color}30` }}
-    >
-      {label}
+    <span className="inline-flex items-center gap-1.5">
+      <span className="inline-block w-2 h-2 rounded-full flex-shrink-0" style={{ background: color }} />
+      <span className="text-[10px]" style={{ color: SEC }}>{label}</span>
     </span>
   );
 }
@@ -218,36 +216,42 @@ function DashboardTab({ dash }: { dash: ComplianceDashboard }) {
       value: `${dash.cqc_score_pct}%`,
       valueColor: cqcColor,
       sub: `${dash.cqc_answered} of ${dash.cqc_total} questions answered`,
+      subColor: MUTED,
     },
     {
       label: 'Training Compliance',
       value: `${trainingPct}%`,
       valueColor: trainingPct >= 80 ? GREEN : trainingPct >= 60 ? ORANGE : RED,
-      sub: `${dash.training_compliant} / ${dash.training_total} modules compliant`,
+      sub: `${dash.training_compliant} / ${dash.training_total} compliant`,
+      subColor: MUTED,
     },
     {
-      label: 'Equipment',
+      label: 'Equipment Overdue',
       value: dash.equipment_overdue,
-      valueColor: dash.equipment_overdue > 0 ? RED : GREEN,
+      valueColor: NAVY,
       sub: dash.equipment_due_soon > 0 ? `${dash.equipment_due_soon} due soon` : 'No overdue items',
+      subColor: dash.equipment_due_soon > 0 ? ORANGE : MUTED,
     },
     {
       label: 'HR Records',
       value: dash.total_staff,
       valueColor: NAVY,
-      sub: dash.dbs_issues > 0 ? `${dash.dbs_issues} DBS issues` : 'All DBS checks current',
+      sub: dash.dbs_issues > 0 ? `${dash.dbs_issues} DBS issues` : 'All checks current',
+      subColor: dash.dbs_issues > 0 ? ORANGE : MUTED,
     },
     {
-      label: 'Governance',
+      label: 'Open Actions',
       value: dash.governance_open,
-      valueColor: dash.governance_open > 0 ? ORANGE : GREEN,
+      valueColor: NAVY,
       sub: dash.governance_overdue > 0 ? `${dash.governance_overdue} overdue` : 'No overdue actions',
+      subColor: dash.governance_overdue > 0 ? RED : MUTED,
     },
     {
-      label: 'Medicines',
+      label: 'Medicines Expiring',
       value: dash.medicine_expiring_soon,
-      valueColor: dash.medicine_expiring_soon > 0 ? ORANGE : GREEN,
-      sub: 'expiring within 30 days',
+      valueColor: NAVY,
+      sub: 'within 30 days',
+      subColor: MUTED,
     },
   ];
 
@@ -258,11 +262,11 @@ function DashboardTab({ dash }: { dash: ComplianceDashboard }) {
       <div className="grid grid-cols-6 gap-3">
         {kpiTiles.map(t => (
           <Panel key={t.label}>
-            <SectionLabel>{t.label}</SectionLabel>
-            <p className="text-[36px] font-black tracking-[-0.04em] leading-none mb-1" style={{ color: t.valueColor }}>
+            <p className="text-[9px] uppercase tracking-[0.22em] font-semibold mb-3" style={{ color: MUTED }}>{t.label}</p>
+            <p className="text-[38px] font-black tracking-[-0.04em] leading-none mb-1" style={{ color: t.valueColor }}>
               {t.value}
             </p>
-            <p className="text-[10px]" style={{ color: MUTED }}>{t.sub}</p>
+            <p className="text-[10px]" style={{ color: t.subColor }}>{t.sub}</p>
           </Panel>
         ))}
       </div>
@@ -343,16 +347,8 @@ function DashboardTab({ dash }: { dash: ComplianceDashboard }) {
               { label: 'HR DBS issues',         value: dash.dbs_issues,            color: ORANGE },
             ].filter(r => r.value > 0).map(r => (
               <div key={r.label} className="flex items-center justify-between py-1.5" style={{ borderBottom: `1px solid ${BORDER}` }}>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: r.color }} />
-                  <span className="text-[10px]" style={{ color: SEC }}>{r.label}</span>
-                </div>
-                <span
-                  className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold"
-                  style={{ background: `${r.color}18`, color: r.color }}
-                >
-                  {r.value}
-                </span>
+                <span className="text-[10px]" style={{ color: SEC }}>{r.label}</span>
+                <span className="text-[12px] font-bold" style={{ color: r.color }}>{r.value}</span>
               </div>
             ))}
             {dash.governance_overdue === 0 && dash.equipment_overdue === 0 && dash.calendar_overdue === 0 && dash.dbs_issues === 0 && dash.medicine_expiring_soon === 0 && (
@@ -752,15 +748,15 @@ function HRTrackerTab({ records, users, currentUserId, onRefresh }: {
   return (
     <div>
       {/* Stats strip */}
-      <div className="grid grid-cols-3 gap-3 mb-5">
+      <div className="flex items-center gap-0 mb-5" style={{ borderBottom: `1px solid ${BORDER}`, paddingBottom: 16 }}>
         {[
-          { label: 'Total Staff',       value: records.length, color: NAVY   },
-          { label: 'DBS Expiring / Expired',  value: dbsExpiring,    color: dbsExpiring > 0 ? ORANGE : GREEN  },
-          { label: 'RTW Expiring / Expired',  value: rtwExpiring,    color: rtwExpiring > 0 ? ORANGE : GREEN  },
-        ].map(s => (
-          <div key={s.label} className="rounded-2xl p-4" style={{ border: `1px solid ${BORDER}` }}>
-            <p className="text-[8px] uppercase tracking-[0.22em] font-semibold mb-1.5" style={{ color: MUTED }}>{s.label}</p>
-            <p className="text-[28px] font-black tracking-[-0.04em] leading-none" style={{ color: s.color }}>{s.value}</p>
+          { label: 'Total Staff',            value: records.length, color: NAVY   },
+          { label: 'DBS Expiring / Expired', value: dbsExpiring,    color: dbsExpiring > 0 ? ORANGE : NAVY },
+          { label: 'RTW Expiring / Expired', value: rtwExpiring,    color: rtwExpiring > 0 ? ORANGE : NAVY },
+        ].map((s, i, arr) => (
+          <div key={s.label} className="flex flex-col pr-8" style={{ borderRight: i < arr.length - 1 ? `1px solid ${BORDER}` : 'none', marginRight: i < arr.length - 1 ? 32 : 0 }}>
+            <span className="text-[22px] font-black tracking-[-0.03em]" style={{ color: s.color }}>{s.value}</span>
+            <span className="text-[9px] uppercase tracking-[0.16em]" style={{ color: MUTED }}>{s.label}</span>
           </div>
         ))}
       </div>
@@ -772,12 +768,12 @@ function HRTrackerTab({ records, users, currentUserId, onRefresh }: {
       <div className="overflow-x-auto rounded-2xl" style={{ border: `1px solid ${BORDER}` }}>
         <table style={{ width: 'max-content', minWidth: '100%', borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ background: NAVY }}>
+            <tr style={{ borderBottom: `1px solid ${BORDER}` }}>
               {COLS.map((c, i) => (
                 <th
                   key={i}
-                  className="text-left px-3 py-3 text-[8px] uppercase tracking-[0.18em] font-semibold whitespace-nowrap"
-                  style={{ color: '#A8C4FF', minWidth: c.w, maxWidth: c.w }}
+                  className="text-left px-3 py-3 text-[9px] uppercase tracking-[0.16em] font-semibold whitespace-nowrap"
+                  style={{ color: MUTED, minWidth: c.w, maxWidth: c.w }}
                 >
                   {c.label}
                 </th>
@@ -1056,16 +1052,16 @@ function TrainingMatrixTab({ matrix, currentUserId, onRefresh }: {
   return (
     <div>
       {/* Stats strip */}
-      <div className="grid grid-cols-4 gap-3 mb-5">
+      <div className="flex items-center gap-0 mb-5" style={{ borderBottom: `1px solid ${BORDER}`, paddingBottom: 16 }}>
         {[
-          { label: 'Overall Compliance', value: `${pctComplete}%`, color: BLUE },
-          { label: 'Compliant',          value: compliant,          color: BLUE   },
-          { label: 'Due / Expiring',     value: dueSoon,            color: ORANGE },
-          { label: 'Overdue / Gaps',     value: overdue + notRecorded, color: RED },
-        ].map(s => (
-          <div key={s.label} className="rounded-2xl p-4" style={{ border: `1px solid ${BORDER}` }}>
-            <p className="text-[8px] uppercase tracking-[0.22em] font-semibold mb-1" style={{ color: MUTED }}>{s.label}</p>
-            <p className="text-[24px] font-black tracking-[-0.04em]" style={{ color: s.color }}>{s.value}</p>
+          { label: 'Overall Compliance', value: `${pctComplete}%`, color: NAVY },
+          { label: 'Compliant',          value: compliant,          color: NAVY  },
+          { label: 'Due / Expiring',     value: dueSoon,            color: dueSoon > 0 ? ORANGE : NAVY },
+          { label: 'Overdue / Gaps',     value: overdue + notRecorded, color: (overdue + notRecorded) > 0 ? RED : NAVY },
+        ].map((s, i, arr) => (
+          <div key={s.label} className="flex flex-col pr-8" style={{ borderRight: i < arr.length - 1 ? `1px solid ${BORDER}` : 'none', marginRight: i < arr.length - 1 ? 32 : 0 }}>
+            <span className="text-[22px] font-black tracking-[-0.03em]" style={{ color: s.color }}>{s.value}</span>
+            <span className="text-[9px] uppercase tracking-[0.16em]" style={{ color: MUTED }}>{s.label}</span>
           </div>
         ))}
       </div>
@@ -1093,37 +1089,37 @@ function TrainingMatrixTab({ matrix, currentUserId, onRefresh }: {
         <table style={{ borderCollapse: 'collapse', width: 'max-content', minWidth: '100%' }}>
           <thead>
             {/* Title row */}
-            <tr>
+            <tr style={{ borderBottom: `1px solid ${BORDER}` }}>
               <th colSpan={2}
-                className="px-4 py-3 text-left text-[11px] font-bold whitespace-nowrap"
-                style={{ background: NAVY, color: '#fff', position: 'sticky', left: 0, zIndex: 20, borderRight: `1px solid rgba(255,255,255,0.1)` }}>
-                MANDATORY TRAINING MATRIX
+                className="px-4 py-3 text-left text-[9px] uppercase tracking-[0.16em] font-semibold whitespace-nowrap"
+                style={{ color: MUTED, position: 'sticky', left: 0, zIndex: 20, background: BG, borderRight: `1px solid ${BORDER}` }}>
+                Mandatory Training Matrix
               </th>
               {TRAINING_MODULES.map(m => (
                 <th key={m}
                   className="px-2 py-2 text-center"
-                  style={{ background: NAVY, borderLeft: `1px solid rgba(255,255,255,0.08)`, minWidth: 84, maxWidth: 84 }}>
-                  <div className="text-[9px] font-semibold leading-tight" style={{ color: '#fff' }}>
+                  style={{ background: BG, borderLeft: `1px solid ${BORDER}`, minWidth: 84, maxWidth: 84 }}>
+                  <div className="text-[9px] font-semibold leading-tight" style={{ color: NAVY }}>
                     {MODULE_LABELS[m]}
                   </div>
-                  <div className="text-[8px] mt-0.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                  <div className="text-[8px] mt-0.5" style={{ color: MUTED }}>
                     ({MODULE_FREQ_LABEL[m]})
                   </div>
                 </th>
               ))}
             </tr>
             {/* Sub-header row */}
-            <tr style={{ borderBottom: `1px solid ${BORDER}`, background: '#F5F7FB' }}>
-              <th className="px-4 py-2 text-left text-[8px] uppercase tracking-[0.22em] font-semibold whitespace-nowrap"
-                style={{ position: 'sticky', left: 0, zIndex: 10, background: '#F5F7FB', color: MUTED, borderRight: `1px solid ${BORDER}`, minWidth: 160 }}>
+            <tr style={{ borderBottom: `1px solid ${BORDER}`, background: BG }}>
+              <th className="px-4 py-2 text-left text-[9px] uppercase tracking-[0.16em] font-semibold whitespace-nowrap"
+                style={{ position: 'sticky', left: 0, zIndex: 10, background: BG, color: MUTED, borderRight: `1px solid ${BORDER}`, minWidth: 160 }}>
                 Staff Name
               </th>
-              <th className="px-3 py-2 text-left text-[8px] uppercase tracking-[0.22em] font-semibold whitespace-nowrap"
-                style={{ background: '#F5F7FB', color: MUTED, borderRight: `1px solid ${BORDER}`, minWidth: 100 }}>
+              <th className="px-3 py-2 text-left text-[9px] uppercase tracking-[0.16em] font-semibold whitespace-nowrap"
+                style={{ background: BG, color: MUTED, borderRight: `1px solid ${BORDER}`, minWidth: 100 }}>
                 Role
               </th>
               {TRAINING_MODULES.map(m => (
-                <th key={m} className="px-2 py-2 text-center text-[8px] uppercase tracking-[0.18em] font-semibold"
+                <th key={m} className="px-2 py-2 text-center text-[9px] uppercase tracking-[0.16em] font-semibold"
                   style={{ color: MUTED, borderLeft: `1px solid ${BORDER}`, minWidth: 84, maxWidth: 84 }}>
                   Status
                 </th>
@@ -1531,31 +1527,34 @@ function EquipmentTab({ equipment, users, currentUserId, onRefresh }: {
   return (
     <div>
       {/* Stats strip */}
-      <div className="grid grid-cols-4 gap-3 mb-5">
+      <div className="flex items-center gap-0 mb-5" style={{ borderBottom: `1px solid ${BORDER}`, paddingBottom: 16 }}>
         {[
           { label: 'Total Items',  value: totalEq,   color: NAVY   },
-          { label: 'Overdue',      value: overdueEq, color: overdueEq > 0 ? RED : GREEN    },
-          { label: 'Due Soon',     value: dueSoonEq, color: dueSoonEq > 0 ? ORANGE : GREEN },
-          { label: 'OK / Current', value: okEq,      color: GREEN  },
-        ].map(s => (
-          <div key={s.label} className="rounded-2xl p-4" style={{ border: `1px solid ${BORDER}` }}>
-            <p className="text-[8px] uppercase tracking-[0.22em] font-semibold mb-1.5" style={{ color: MUTED }}>{s.label}</p>
-            <p className="text-[28px] font-black tracking-[-0.04em] leading-none" style={{ color: s.color }}>{s.value}</p>
+          { label: 'Overdue',      value: overdueEq, color: overdueEq > 0 ? RED : NAVY  },
+          { label: 'Due Soon',     value: dueSoonEq, color: dueSoonEq > 0 ? ORANGE : NAVY },
+          { label: 'OK / Current', value: okEq,      color: NAVY  },
+        ].map((s, i, arr) => (
+          <div key={s.label} className="flex flex-col pr-8" style={{ borderRight: i < arr.length - 1 ? `1px solid ${BORDER}` : 'none', marginRight: i < arr.length - 1 ? 32 : 0 }}>
+            <span className="text-[22px] font-black tracking-[-0.03em]" style={{ color: s.color }}>{s.value}</span>
+            <span className="text-[9px] uppercase tracking-[0.16em]" style={{ color: MUTED }}>{s.label}</span>
           </div>
         ))}
       </div>
 
       <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4" style={{ borderBottom: `1px solid ${BORDER}` }}>
           {(['all', 'overdue', 'due_soon'] as const).map(f => (
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className="px-3 py-1.5 rounded-full text-[11px] font-semibold transition-colors"
+              className="pb-2 text-[11px] font-medium transition-all whitespace-nowrap"
               style={{
-                background: filter === f ? NAVY : 'transparent',
-                color: filter === f ? '#F8FAFF' : SEC,
-                border: `1px solid ${filter === f ? NAVY : BORDER}`,
+                background: 'none',
+                border: 'none',
+                borderBottom: filter === f ? `2px solid ${BLUE}` : '2px solid transparent',
+                color: filter === f ? NAVY : MUTED,
+                fontWeight: filter === f ? 700 : 500,
+                marginBottom: -1,
               }}
             >
               {f === 'all' ? 'All' : f === 'overdue' ? 'Overdue' : 'Due Soon'}
@@ -1572,9 +1571,9 @@ function EquipmentTab({ equipment, users, currentUserId, onRefresh }: {
         <div className="overflow-x-auto">
           <table style={{ width: 'max-content', minWidth: '100%' }}>
             <thead>
-              <tr style={{ background: NAVY }}>
+              <tr style={{ borderBottom: `1px solid ${BORDER}` }}>
                 {TABLE_COLS.map((h, i) => (
-                  <th key={i} className="text-left px-4 py-3 text-[8px] uppercase tracking-[0.18em] font-semibold whitespace-nowrap" style={{ color: '#A8C4FF' }}>
+                  <th key={i} className="text-left px-4 py-3 text-[9px] uppercase tracking-[0.16em] font-semibold whitespace-nowrap" style={{ color: MUTED }}>
                     {h}
                   </th>
                 ))}
@@ -1969,6 +1968,8 @@ function GovModal({ entry, users, currentUserId, onClose, onSave }: {
   });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   async function handleSave() {
     if (!form.type || !form.event_date) { setErr('Type and date are required.'); return; }
@@ -1995,6 +1996,15 @@ function GovModal({ entry, users, currentUserId, onClose, onSave }: {
     setSaving(false);
     if (res.success) { onSave(); onClose(); }
     else setErr(res.error ?? 'Save failed');
+  }
+
+  async function handleDelete() {
+    if (!entry) return;
+    setDeleting(true);
+    await deleteGovernanceEntry(entry.id);
+    setDeleting(false);
+    onSave();
+    onClose();
   }
 
   return (
@@ -2082,12 +2092,40 @@ function GovModal({ entry, users, currentUserId, onClose, onSave }: {
 
         {err && <p className="mt-2 text-[11px]" style={{ color: RED }}>{err}</p>}
 
-        <div className="flex items-center gap-2 mt-5">
-          <BtnPrimary onClick={handleSave} disabled={saving}>
-            <Save size={12} />
-            {saving ? 'Saving...' : 'Save Entry'}
-          </BtnPrimary>
-          <BtnGhost onClick={onClose}>Cancel</BtnGhost>
+        <div className="flex items-center justify-between mt-5">
+          <div className="flex items-center gap-2">
+            <BtnPrimary onClick={handleSave} disabled={saving}>
+              <Save size={12} />
+              {saving ? 'Saving...' : 'Save Entry'}
+            </BtnPrimary>
+            <BtnGhost onClick={onClose}>Cancel</BtnGhost>
+          </div>
+          {entry && (
+            deleteConfirm ? (
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-lg"
+                  style={{ background: `${RED}14`, color: RED }}
+                >
+                  {deleting ? '...' : 'Confirm delete'}
+                </button>
+                <button onClick={() => setDeleteConfirm(false)} className="p-1 rounded-lg hover:bg-[#F0F4FF]">
+                  <X size={10} color={MUTED} />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setDeleteConfirm(true)}
+                className="flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-lg hover:bg-[#FEF2F2] transition-colors"
+                style={{ color: RED }}
+              >
+                <Trash2 size={10} />
+                Delete
+              </button>
+            )
+          )}
         </div>
       </motion.div>
     </div>
@@ -2123,16 +2161,16 @@ function GovernanceTab({ log, users, currentUserId, onRefresh }: {
   return (
     <div>
       {/* Stats strip */}
-      <div className="grid grid-cols-4 gap-3 mb-5">
+      <div className="flex items-center gap-0 mb-5" style={{ borderBottom: `1px solid ${BORDER}`, paddingBottom: 16 }}>
         {[
-          { label: 'Total Entries', value: log.length,  color: NAVY   },
-          { label: 'Open / In Progress', value: govOpen, color: govOpen > 0 ? BLUE : GREEN },
-          { label: 'Overdue',       value: govOverdue,  color: govOverdue > 0 ? RED : GREEN },
-          { label: 'Completed',     value: govCompleted,color: GREEN  },
-        ].map(s => (
-          <div key={s.label} className="rounded-2xl p-4" style={{ border: `1px solid ${BORDER}` }}>
-            <p className="text-[8px] uppercase tracking-[0.22em] font-semibold mb-1.5" style={{ color: MUTED }}>{s.label}</p>
-            <p className="text-[28px] font-black tracking-[-0.04em] leading-none" style={{ color: s.color }}>{s.value}</p>
+          { label: 'Total Entries',      value: log.length,   color: NAVY  },
+          { label: 'Open / In Progress', value: govOpen,      color: govOpen > 0 ? BLUE : NAVY },
+          { label: 'Overdue',            value: govOverdue,   color: govOverdue > 0 ? RED : NAVY },
+          { label: 'Completed',          value: govCompleted, color: NAVY  },
+        ].map((s, i, arr) => (
+          <div key={s.label} className="flex flex-col pr-8" style={{ borderRight: i < arr.length - 1 ? `1px solid ${BORDER}` : 'none', marginRight: i < arr.length - 1 ? 32 : 0 }}>
+            <span className="text-[22px] font-black tracking-[-0.03em]" style={{ color: s.color }}>{s.value}</span>
+            <span className="text-[9px] uppercase tracking-[0.16em]" style={{ color: MUTED }}>{s.label}</span>
           </div>
         ))}
       </div>
@@ -2148,9 +2186,9 @@ function GovernanceTab({ log, users, currentUserId, onRefresh }: {
       <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${BORDER}` }}>
         <table className="w-full">
           <thead>
-            <tr style={{ background: NAVY }}>
+            <tr style={{ borderBottom: `1px solid ${BORDER}` }}>
               {['Type', 'Date', 'Agenda Items', 'Attendees', 'Minutes', 'Actions Arising', 'Owner', 'Due Date', 'Status', ''].map((h, i) => (
-                <th key={i} className="text-left px-4 py-3 text-[8px] uppercase tracking-[0.18em] font-semibold whitespace-nowrap" style={{ color: '#A8C4FF' }}>
+                <th key={i} className="text-left px-4 py-3 text-[9px] uppercase tracking-[0.16em] font-semibold whitespace-nowrap" style={{ color: MUTED }}>
                   {h}
                 </th>
               ))}
@@ -2175,14 +2213,9 @@ function GovernanceTab({ log, users, currentUserId, onRefresh }: {
                 <td className="px-4 py-3 text-[11px] whitespace-nowrap" style={{ color: SEC }}>{e.owner_name ?? '—'}</td>
                 <td className="px-4 py-3 text-[11px] whitespace-nowrap" style={{ color: SEC }}>{fmt(e.due_date)}</td>
                 <td className="px-4 py-3">
-                  <span
-                    className="px-2 py-0.5 rounded-full text-[9px] font-semibold"
-                    style={{
-                      background: `${GOV_STATUS_COLOR[e.status] ?? MUTED}18`,
-                      color: GOV_STATUS_COLOR[e.status] ?? MUTED,
-                    }}
-                  >
-                    {e.status.replace(/_/g, ' ')}
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="inline-block w-2 h-2 rounded-full flex-shrink-0" style={{ background: GOV_STATUS_COLOR[e.status] ?? MUTED }} />
+                    <span className="text-[10px]" style={{ color: SEC }}>{e.status.replace(/_/g, ' ')}</span>
                   </span>
                 </td>
                 <td className="px-4 py-3" onClick={ev => ev.stopPropagation()}>
@@ -2425,16 +2458,16 @@ function CalendarTab({ tasks, users, currentUserId, onRefresh }: {
   return (
     <div>
       {/* Stats strip */}
-      <div className="grid grid-cols-4 gap-3 mb-5">
+      <div className="flex items-center gap-0 mb-5" style={{ borderBottom: `1px solid ${BORDER}`, paddingBottom: 16 }}>
         {[
-          { label: 'Total Tasks',  value: totalCal,   color: NAVY   },
-          { label: 'Overdue',      value: overdueCal, color: overdueCal > 0 ? RED : GREEN    },
-          { label: 'Due Soon',     value: dueSoonCal, color: dueSoonCal > 0 ? ORANGE : GREEN },
-          { label: 'OK / Current', value: okCal,      color: GREEN  },
-        ].map(s => (
-          <div key={s.label} className="rounded-2xl p-4" style={{ border: `1px solid ${BORDER}` }}>
-            <p className="text-[8px] uppercase tracking-[0.22em] font-semibold mb-1.5" style={{ color: MUTED }}>{s.label}</p>
-            <p className="text-[28px] font-black tracking-[-0.04em] leading-none" style={{ color: s.color }}>{s.value}</p>
+          { label: 'Total Tasks',  value: totalCal,   color: NAVY  },
+          { label: 'Overdue',      value: overdueCal, color: overdueCal > 0 ? RED : NAVY    },
+          { label: 'Due Soon',     value: dueSoonCal, color: dueSoonCal > 0 ? ORANGE : NAVY },
+          { label: 'OK / Current', value: okCal,      color: NAVY  },
+        ].map((s, i, arr) => (
+          <div key={s.label} className="flex flex-col pr-8" style={{ borderRight: i < arr.length - 1 ? `1px solid ${BORDER}` : 'none', marginRight: i < arr.length - 1 ? 32 : 0 }}>
+            <span className="text-[22px] font-black tracking-[-0.03em]" style={{ color: s.color }}>{s.value}</span>
+            <span className="text-[9px] uppercase tracking-[0.16em]" style={{ color: MUTED }}>{s.label}</span>
           </div>
         ))}
       </div>
@@ -2450,9 +2483,9 @@ function CalendarTab({ tasks, users, currentUserId, onRefresh }: {
       <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${BORDER}` }}>
         <table className="w-full">
           <thead>
-            <tr style={{ background: NAVY }}>
+            <tr style={{ borderBottom: `1px solid ${BORDER}` }}>
               {['Task', 'Frequency', 'Month Due', 'Responsible', 'Last Completed', 'Next Due', 'Status', ''].map((h, i) => (
-                <th key={i} className="text-left px-4 py-3 text-[8px] uppercase tracking-[0.18em] font-semibold whitespace-nowrap" style={{ color: '#A8C4FF' }}>
+                <th key={i} className="text-left px-4 py-3 text-[9px] uppercase tracking-[0.16em] font-semibold whitespace-nowrap" style={{ color: MUTED }}>
                   {h}
                 </th>
               ))}
@@ -2644,11 +2677,9 @@ function medStatusInfo(status: MedicineItem['status']): { color: string; label: 
 function MedStatusDot({ status }: { status: MedicineItem['status'] }) {
   const { color, label } = medStatusInfo(status);
   return (
-    <span
-      className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-semibold whitespace-nowrap"
-      style={{ background: `${color}18`, color, border: `1px solid ${color}30` }}
-    >
-      {label}
+    <span className="inline-flex items-center gap-1.5">
+      <span className="inline-block w-2 h-2 rounded-full flex-shrink-0" style={{ background: color }} />
+      <span className="text-[10px]" style={{ color: SEC }}>{label}</span>
     </span>
   );
 }
@@ -2939,32 +2970,35 @@ function MedicinesTab({ medicines, users, currentUserId: _currentUserId, onRefre
   return (
     <div>
       {/* Stats strip */}
-      <div className="grid grid-cols-4 gap-3 mb-5">
+      <div className="flex items-center gap-0 mb-5" style={{ borderBottom: `1px solid ${BORDER}`, paddingBottom: 16 }}>
         {[
-          { label: 'Total Items',      value: total,       color: BLUE   },
-          { label: 'Expiring Soon',    value: expiringSoon,color: ORANGE },
-          { label: 'Expired',          value: expired,     color: RED    },
-          { label: 'Low / Out of Stock',value: lowOrOut,   color: ORANGE },
-        ].map(s => (
-          <div key={s.label} className="rounded-2xl p-4" style={{ border: `1px solid ${BORDER}` }}>
-            <p className="text-[8px] uppercase tracking-[0.22em] font-semibold mb-2" style={{ color: MUTED }}>{s.label}</p>
-            <p className="text-[28px] font-black tracking-[-0.04em] leading-none" style={{ color: s.value > 0 && s.color !== BLUE ? s.color : NAVY }}>{s.value}</p>
+          { label: 'Total Items',       value: total,        color: NAVY  },
+          { label: 'Expiring Soon',     value: expiringSoon, color: expiringSoon > 0 ? ORANGE : NAVY },
+          { label: 'Expired',           value: expired,      color: expired > 0 ? RED : NAVY },
+          { label: 'Low / Out of Stock',value: lowOrOut,     color: lowOrOut > 0 ? ORANGE : NAVY },
+        ].map((s, i, arr) => (
+          <div key={s.label} className="flex flex-col pr-8" style={{ borderRight: i < arr.length - 1 ? `1px solid ${BORDER}` : 'none', marginRight: i < arr.length - 1 ? 32 : 0 }}>
+            <span className="text-[22px] font-black tracking-[-0.03em]" style={{ color: s.color }}>{s.value}</span>
+            <span className="text-[9px] uppercase tracking-[0.16em]" style={{ color: MUTED }}>{s.label}</span>
           </div>
         ))}
       </div>
 
       {/* Filter + Add */}
       <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4" style={{ borderBottom: `1px solid ${BORDER}` }}>
           {(['all', 'medicine', 'stock', 'consumable'] as const).map(f => (
             <button
               key={f}
               onClick={() => setTypeFilter(f)}
-              className="px-3 py-1.5 rounded-xl text-[11px] font-medium transition-colors"
+              className="pb-2 text-[11px] font-medium transition-all whitespace-nowrap"
               style={{
-                background: typeFilter === f ? NAVY : 'transparent',
-                color: typeFilter === f ? '#F8FAFF' : SEC,
-                border: `1px solid ${typeFilter === f ? NAVY : BORDER}`,
+                background: 'none',
+                border: 'none',
+                borderBottom: typeFilter === f ? `2px solid ${BLUE}` : '2px solid transparent',
+                color: typeFilter === f ? NAVY : MUTED,
+                fontWeight: typeFilter === f ? 700 : 500,
+                marginBottom: -1,
               }}
             >
               {f === 'all' ? 'All' : f === 'medicine' ? 'Medicines' : f === 'stock' ? 'Stock' : 'Consumables'}
@@ -2987,9 +3021,9 @@ function MedicinesTab({ medicines, users, currentUserId: _currentUserId, onRefre
         <div className="rounded-2xl overflow-hidden overflow-x-auto" style={{ border: `1px solid ${BORDER}` }}>
           <table className="w-full" style={{ minWidth: 1200 }}>
             <thead>
-              <tr style={{ background: NAVY }}>
+              <tr style={{ borderBottom: `1px solid ${BORDER}` }}>
                 {['Code', 'Name', 'Type', 'Category', 'Qty', 'Unit', 'Batch No.', 'Expiry', 'Storage', 'Status', 'Responsible', 'Last Checked', 'Notes', ''].map((h, i) => (
-                  <th key={i} className="text-left px-4 py-3 text-[8px] uppercase tracking-[0.18em] font-semibold whitespace-nowrap" style={{ color: '#A8C4FF' }}>{h}</th>
+                  <th key={i} className="text-left px-4 py-3 text-[9px] uppercase tracking-[0.16em] font-semibold whitespace-nowrap" style={{ color: MUTED }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -3193,7 +3227,7 @@ export default function CompliancePage() {
           </div>
 
           {/* Tab bar */}
-          <div className="flex items-center gap-1.5 flex-wrap mb-8">
+          <div className="flex items-center gap-6 mb-8" style={{ borderBottom: `1px solid ${BORDER}` }}>
             {TABS.map(t => {
               const countState: TabCountState = { hrRecords, matrix, equipment, medicines, cqcAnswers: cqcAnswers, govLog, calTasks };
               const count = t.getCount ? t.getCount(countState) : null;
@@ -3202,21 +3236,21 @@ export default function CompliancePage() {
                 <button
                   key={t.key}
                   onClick={() => setTab(t.key)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-all"
+                  className="flex items-center gap-1.5 pb-3 text-[11px] font-medium transition-all whitespace-nowrap"
                   style={{
-                    background: active ? NAVY : 'transparent',
-                    color: active ? '#F8FAFF' : SEC,
-                    border: `1px solid ${active ? NAVY : BORDER}`,
+                    color: active ? NAVY : MUTED,
+                    fontWeight: active ? 700 : 500,
+                    background: 'none',
+                    border: 'none',
+                    borderBottom: active ? `2px solid ${BLUE}` : '2px solid transparent',
+                    marginBottom: -1,
                   }}
                 >
                   {t.label}
                   {count !== null && count > 0 && (
                     <span
-                      className="text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none"
-                      style={{
-                        background: active ? 'rgba(255,255,255,0.15)' : `${BLUE}14`,
-                        color: active ? '#F8FAFF' : BLUE,
-                      }}
+                      className="text-[9px] px-1.5 py-0.5 rounded-full"
+                      style={{ background: BORDER, color: MUTED }}
                     >
                       {count}
                     </span>
