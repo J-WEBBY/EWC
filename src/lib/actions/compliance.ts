@@ -912,9 +912,11 @@ export async function createGovernanceEntry(data: {
 }): Promise<{ success: boolean; id?: string; error?: string }> {
   const session = await getStaffSession();
   if (!session) return { success: false, error: 'UNAUTHORIZED' };
-  const { tenantId } = session;
   try {
     const db = createSovereignClient();
+    const { data: userRow } = await db.from('users').select('tenant_id').eq('id', session.userId).single();
+    const tenantId = userRow?.tenant_id as string | undefined;
+    if (!tenantId) return { success: false, error: 'Tenant not found' };
     const { data: row, error } = await db
       .from('compliance_governance_log')
       .insert({ tenant_id: tenantId, ...data })
@@ -941,14 +943,12 @@ export async function updateGovernanceEntry(
 ): Promise<{ success: boolean; error?: string }> {
   const session = await getStaffSession();
   if (!session) return { success: false, error: 'UNAUTHORIZED' };
-  const { tenantId } = session;
   try {
     const db = createSovereignClient();
     const { error } = await db
       .from('compliance_governance_log')
       .update(data)
-      .eq('id', id)
-      .eq('tenant_id', tenantId);
+      .eq('id', id);
     if (error) return { success: false, error: error.message };
     return { success: true };
   } catch (e) { return { success: false, error: String(e) }; }
@@ -959,14 +959,12 @@ export async function deleteGovernanceEntry(
 ): Promise<{ success: boolean; error?: string }> {
   const session = await getStaffSession();
   if (!session) return { success: false, error: 'UNAUTHORIZED' };
-  const { tenantId } = session;
   try {
     const db = createSovereignClient();
     const { error } = await db
       .from('compliance_governance_log')
       .delete()
-      .eq('id', id)
-      .eq('tenant_id', tenantId);
+      .eq('id', id);
     if (error) return { success: false, error: error.message };
     return { success: true };
   } catch (e) { return { success: false, error: String(e) }; }
