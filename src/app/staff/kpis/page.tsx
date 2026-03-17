@@ -1234,6 +1234,174 @@ function TaskHub({ task, userId, users, onClose, onDelete, onRefresh }: TaskHubP
   );
 }
 
+// =============================================================================
+// OVERVIEW PANEL — shown when no task is selected
+// =============================================================================
+interface OverviewPanelProps {
+  tasks:          StaffGoal[];
+  users:          ActiveUser[];
+  pendingTasks:   StaffGoal[];
+  overduePending: StaffGoal[];
+  completedTasks: StaffGoal[];
+  onSelectTask:   (task: StaffGoal) => void;
+}
+
+function OverviewPanel({ tasks, users, pendingTasks, overduePending, completedTasks, onSelectTask }: OverviewPanelProps) {
+  const categories = ['clinical', 'operational', 'training', 'compliance'] as const;
+
+  const categoryRows = categories
+    .map(cat => ({ cat, count: pendingTasks.filter(t => t.category === cat).length }))
+    .filter(c => c.count > 0);
+  const maxCat = Math.max(...categoryRows.map(c => c.count), 1);
+
+  const workload = users
+    .map(u => ({
+      user:    u,
+      open:    pendingTasks.filter(t => t.owner_id === u.id).length,
+      overdue: overduePending.filter(t => t.owner_id === u.id).length,
+    }))
+    .filter(w => w.open > 0)
+    .sort((a, b) => b.open - a.open);
+
+  const topOverdue = [...overduePending]
+    .sort((a, b) => new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime())
+    .slice(0, 5);
+
+  const completionRate = tasks.length > 0
+    ? Math.round((completedTasks.length / tasks.length) * 100)
+    : 0;
+
+  const panelSection: React.CSSProperties = { padding: '20px 24px', borderBottom: `1px solid ${BORDER}` };
+  const sectionLabel: React.CSSProperties = { fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.28em', fontWeight: 600, color: MUTED, margin: '0 0 14px', display: 'block' };
+
+  return (
+    <div style={{
+      width: '40%', minWidth: 460, maxWidth: 600, flexShrink: 0,
+      borderLeft: `1px solid ${BORDER}`,
+      overflowY: 'auto', display: 'flex', flexDirection: 'column',
+      height: '100%', background: BG,
+    }}>
+
+      {/* Header */}
+      <div style={{ padding: '24px 24px 20px', borderBottom: `1px solid ${BORDER}` }}>
+        <p style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.28em', fontWeight: 600, color: MUTED, margin: '0 0 4px' }}>
+          Board Overview
+        </p>
+        <h2 style={{ fontSize: 18, fontWeight: 800, color: NAVY, letterSpacing: '-0.025em', margin: '0 0 4px' }}>
+          At a glance
+        </h2>
+        <p style={{ fontSize: 11, color: TER, margin: 0 }}>
+          {completionRate}% completion rate · {tasks.length} total tasks
+        </p>
+      </div>
+
+      {/* Summary stats */}
+      <div style={panelSection}>
+        <span style={sectionLabel}>Summary</span>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+          <StatTile label="Pending"   value={pendingTasks.length}   color={overduePending.length > 0 ? RED : BLUE} />
+          <StatTile label="Overdue"   value={overduePending.length} color={RED} />
+          <StatTile label="Completed" value={completedTasks.length} color={GREEN} />
+        </div>
+      </div>
+
+      {/* Category breakdown */}
+      {categoryRows.length > 0 && (
+        <div style={panelSection}>
+          <span style={sectionLabel}>Pending by Category</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {categoryRows.map(({ cat, count }) => (
+              <div key={cat}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                  <span style={{ fontSize: 11, color: SEC, textTransform: 'capitalize' }}>{cat}</span>
+                  <span style={{ fontSize: 11, color: MUTED, fontWeight: 600 }}>{count}</span>
+                </div>
+                <div style={{ height: 3, background: BORDER, borderRadius: 99, overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%',
+                    width: `${(count / maxCat) * 100}%`,
+                    background: categoryColor(cat),
+                    opacity: 0.7,
+                    borderRadius: 99,
+                    transition: 'width 0.4s',
+                  }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Team workload */}
+      {workload.length > 0 && (
+        <div style={panelSection}>
+          <span style={sectionLabel}>Team Workload</span>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {workload.map(({ user, open, overdue }) => (
+              <div key={user.id} style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                padding: '9px 0', borderBottom: `1px solid ${BORDER}`,
+              }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: NAVY }}>{user.full_name}</div>
+                  <div style={{ fontSize: 10, color: MUTED }}>{user.role_name}</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                  <span style={{ fontSize: 11, color: SEC }}>{open} open</span>
+                  {overdue > 0 && (
+                    <span style={{ fontSize: 10, fontWeight: 700, color: RED }}>{overdue} overdue</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Most urgent overdue */}
+      {topOverdue.length > 0 && (
+        <div style={{ padding: '20px 24px' }}>
+          <span style={sectionLabel}>Most Urgent</span>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {topOverdue.map(task => (
+              <div
+                key={task.id}
+                onClick={() => onSelectTask(task)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '9px 0', borderBottom: `1px solid ${BORDER}`,
+                  cursor: 'pointer', transition: 'background 0.15s',
+                }}
+                className="group"
+              >
+                <div style={{ width: 3, height: 30, borderRadius: 2, background: RED, flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: NAVY, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {task.title}
+                  </div>
+                  <div style={{ fontSize: 10, color: RED }}>
+                    Due {fmtDate(task.due_date!)}
+                    {task.owner_name && <span style={{ color: MUTED }}> · {task.owner_name}</span>}
+                  </div>
+                </div>
+                <ChevronRight size={13} style={{ color: MUTED, opacity: 0, transition: 'opacity 0.15s', flexShrink: 0 }} className="group-hover:opacity-100" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* All clear state */}
+      {topOverdue.length === 0 && workload.length === 0 && (
+        <div style={{ padding: '48px 24px', textAlign: 'center' }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: NAVY, marginBottom: 6 }}>All clear</div>
+          <div style={{ fontSize: 11, color: MUTED, lineHeight: 1.7 }}>No overdue tasks and no active workload.<br />Select a task from the list to view details.</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <div style={{ display: 'flex', gap: 4, alignItems: 'baseline' }}>
@@ -1690,8 +1858,8 @@ export default function KPIsPage() {
           </div>
         </div>
 
-        {/* RIGHT — Task Hub */}
-        {activeTask && (
+        {/* RIGHT — Task Hub or Overview */}
+        {activeTask ? (
           <TaskHub
             task={activeTask}
             userId={userId ?? ''}
@@ -1699,6 +1867,15 @@ export default function KPIsPage() {
             onClose={() => setActiveTask(null)}
             onDelete={handleTaskDelete}
             onRefresh={handleRefresh}
+          />
+        ) : (
+          <OverviewPanel
+            tasks={tasks}
+            users={users}
+            pendingTasks={pendingTasks}
+            overduePending={overduePending}
+            completedTasks={completedTasks}
+            onSelectTask={setActiveTask}
           />
         )}
       </div>
