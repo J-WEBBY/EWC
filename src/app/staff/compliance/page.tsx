@@ -1533,8 +1533,10 @@ function AddEquipmentModal({ users, currentUserId, onClose, onSave }: {
     check_frequency: '',
     location: '',
     serial_number: '',
+    last_service_date: '',
     next_due_date: '',
     responsible_user_id: '',
+    action_required: '',
     notes: '',
   });
   const [saving, setSaving] = useState(false);
@@ -1550,8 +1552,10 @@ function AddEquipmentModal({ users, currentUserId, onClose, onSave }: {
       check_frequency: form.check_frequency || undefined,
       location: form.location || undefined,
       serial_number: form.serial_number || undefined,
+      last_service_date: form.last_service_date || undefined,
       next_due_date: form.next_due_date || undefined,
       responsible_user_id: form.responsible_user_id || null,
+      action_required: form.action_required || undefined,
       notes: form.notes || undefined,
     });
     setSaving(false);
@@ -1565,7 +1569,7 @@ function AddEquipmentModal({ users, currentUserId, onClose, onSave }: {
         initial={{ opacity: 0, scale: 0.97 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.97 }}
-        className="w-full max-w-md rounded-2xl p-6 overflow-y-auto max-h-[90vh]"
+        className="w-full max-w-lg rounded-2xl p-6 overflow-y-auto max-h-[90vh]"
         style={{ background: BG, border: `1px solid ${BORDER}` }}
       >
         <div className="flex items-center justify-between mb-4">
@@ -1579,11 +1583,11 @@ function AddEquipmentModal({ users, currentUserId, onClose, onSave }: {
         </div>
 
         <div className="space-y-3">
-          <div>
-            <Lbl>Name *</Lbl>
-            <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className={INP} style={INP_STYLE} placeholder="e.g. Autoclave Unit 2" />
-          </div>
           <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2">
+              <Lbl>Item Name / Description *</Lbl>
+              <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className={INP} style={INP_STYLE} placeholder="e.g. Autoclave Unit 2" />
+            </div>
             <div>
               <Lbl>Category *</Lbl>
               <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} className={INP} style={INP_STYLE}>
@@ -1592,32 +1596,40 @@ function AddEquipmentModal({ users, currentUserId, onClose, onSave }: {
               </select>
             </div>
             <div>
-              <Lbl>Check Frequency</Lbl>
-              <input value={form.check_frequency} onChange={e => setForm(f => ({ ...f, check_frequency: e.target.value }))} className={INP} style={INP_STYLE} placeholder="e.g. Annual" />
+              <Lbl>Location</Lbl>
+              <input value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} className={INP} style={INP_STYLE} placeholder="e.g. Treatment Room 1" />
             </div>
             <div>
               <Lbl>Serial Number</Lbl>
               <input value={form.serial_number} onChange={e => setForm(f => ({ ...f, serial_number: e.target.value }))} className={INP} style={INP_STYLE} />
             </div>
             <div>
-              <Lbl>Location</Lbl>
-              <input value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} className={INP} style={INP_STYLE} placeholder="e.g. Treatment Room 1" />
+              <Lbl>Check Frequency</Lbl>
+              <input value={form.check_frequency} onChange={e => setForm(f => ({ ...f, check_frequency: e.target.value }))} className={INP} style={INP_STYLE} placeholder="e.g. Annual" />
             </div>
-            <div className="col-span-2">
+            <div>
+              <Lbl>Last Check / Service Date</Lbl>
+              <input type="date" value={form.last_service_date} onChange={e => setForm(f => ({ ...f, last_service_date: e.target.value }))} className={INP} style={INP_STYLE} />
+            </div>
+            <div>
               <Lbl>Next Due Date</Lbl>
               <input type="date" value={form.next_due_date} onChange={e => setForm(f => ({ ...f, next_due_date: e.target.value }))} className={INP} style={INP_STYLE} />
             </div>
-          </div>
-          <div>
-            <Lbl>Responsible Person</Lbl>
-            <select value={form.responsible_user_id} onChange={e => setForm(f => ({ ...f, responsible_user_id: e.target.value }))} className={INP} style={INP_STYLE}>
-              <option value="">Unassigned</option>
-              {users.map(u => <option key={u.id} value={u.id}>{u.full_name}</option>)}
-            </select>
-          </div>
-          <div>
-            <Lbl>Notes</Lbl>
-            <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} className="w-full rounded-xl px-3 py-2 text-[12px] focus:outline-none" style={TA_STYLE} />
+            <div className="col-span-2">
+              <Lbl>Responsible Person</Lbl>
+              <select value={form.responsible_user_id} onChange={e => setForm(f => ({ ...f, responsible_user_id: e.target.value }))} className={INP} style={INP_STYLE}>
+                <option value="">Unassigned</option>
+                {users.map(u => <option key={u.id} value={u.id}>{u.full_name}</option>)}
+              </select>
+            </div>
+            <div className="col-span-2">
+              <Lbl>Action Required</Lbl>
+              <input value={form.action_required} onChange={e => setForm(f => ({ ...f, action_required: e.target.value }))} className={INP} style={INP_STYLE} placeholder="e.g. Annual PAT test due" />
+            </div>
+            <div className="col-span-2">
+              <Lbl>Notes</Lbl>
+              <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} className="w-full rounded-xl px-3 py-2 text-[12px] focus:outline-none" style={TA_STYLE} />
+            </div>
           </div>
         </div>
 
@@ -1652,12 +1664,6 @@ function EquipmentTab({ equipment, users, currentUserId, onRefresh }: {
     return true;
   });
 
-  const grouped: Record<string, EquipmentItem[]> = {};
-  for (const e of filtered) {
-    if (!grouped[e.category]) grouped[e.category] = [];
-    grouped[e.category].push(e);
-  }
-
   async function handleDelete(id: string) {
     setDeleting(true);
     await deleteEquipmentItem(id);
@@ -1665,6 +1671,12 @@ function EquipmentTab({ equipment, users, currentUserId, onRefresh }: {
     setDeleteConfirm(null);
     onRefresh();
   }
+
+  const TABLE_COLS = [
+    'Item ID', 'Item Name / Description', 'Category', 'Location',
+    'Serial Number', 'Last Check / Service Date', 'Next Due Date',
+    'Check Frequency', 'Status', 'Responsible Person', 'Action Required', 'Notes', '',
+  ];
 
   return (
     <div>
@@ -1691,93 +1703,94 @@ function EquipmentTab({ equipment, users, currentUserId, onRefresh }: {
         </BtnPrimary>
       </div>
 
-      <div className="space-y-6">
-        {Object.entries(grouped).map(([cat, items]) => (
-          <div key={cat}>
-            <p className="text-[8px] uppercase tracking-[0.22em] font-semibold mb-3" style={{ color: MUTED }}>
-              {CAT_LABELS[cat] ?? cat}
-            </p>
-            <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${BORDER}` }}>
-              <table className="w-full">
-                <thead>
-                  <tr style={{ borderBottom: `1px solid ${BORDER}` }}>
-                    {['Code', 'Name', 'Location', 'Serial', 'Last Service', 'Next Due', 'Frequency', 'Status', 'Responsible', ''].map((h, i) => (
-                      <th key={i} className="text-left px-4 py-2.5 text-[8px] uppercase tracking-[0.18em] font-semibold whitespace-nowrap" style={{ color: MUTED }}>
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map(e => (
-                    <tr
-                      key={e.id}
-                      className="group transition-colors hover:bg-[#F0F4FF]"
-                      style={{ borderBottom: `1px solid ${BORDER}` }}
-                    >
-                      <td className="px-4 py-3 text-[10px] font-mono" style={{ color: MUTED }}>{e.item_code}</td>
-                      <td className="px-4 py-3 text-[11px] font-semibold whitespace-nowrap" style={{ color: NAVY }}>{e.name}</td>
-                      <td className="px-4 py-3 text-[11px] whitespace-nowrap" style={{ color: SEC }}>{e.location ?? '—'}</td>
-                      <td className="px-4 py-3 text-[11px] font-mono whitespace-nowrap" style={{ color: SEC }}>{e.serial_number ?? '—'}</td>
-                      <td className="px-4 py-3 text-[11px] whitespace-nowrap" style={{ color: SEC }}>{fmt(e.last_service_date)}</td>
-                      <td className="px-4 py-3 text-[11px] whitespace-nowrap" style={{ color: SEC }}>{fmt(e.next_due_date)}</td>
-                      <td className="px-4 py-3 text-[11px] whitespace-nowrap" style={{ color: SEC }}>{e.check_frequency ?? '—'}</td>
-                      <td className="px-4 py-3"><StatusDot status={e.status} /></td>
-                      <td className="px-4 py-3 text-[11px] whitespace-nowrap" style={{ color: SEC }}>{e.responsible_name ?? '—'}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${BORDER}` }}>
+        <div className="overflow-x-auto">
+          <table style={{ width: 'max-content', minWidth: '100%' }}>
+            <thead>
+              <tr style={{ background: NAVY }}>
+                {TABLE_COLS.map((h, i) => (
+                  <th key={i} className="text-left px-4 py-3 text-[8px] uppercase tracking-[0.18em] font-semibold whitespace-nowrap" style={{ color: '#A8C4FF' }}>
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={TABLE_COLS.length} className="px-4 py-12 text-center text-[12px]" style={{ color: MUTED }}>
+                    No equipment found.
+                  </td>
+                </tr>
+              ) : filtered.map((e, idx) => (
+                <tr
+                  key={e.id}
+                  className="group transition-colors hover:bg-[#F0F4FF]"
+                  style={{ borderBottom: idx < filtered.length - 1 ? `1px solid ${BORDER}` : 'none' }}
+                >
+                  <td className="px-4 py-3 text-[10px] font-mono whitespace-nowrap" style={{ color: MUTED }}>{e.item_code}</td>
+                  <td className="px-4 py-3 text-[11px] font-semibold whitespace-nowrap" style={{ color: NAVY }}>{e.name}</td>
+                  <td className="px-4 py-3 text-[11px] whitespace-nowrap" style={{ color: SEC }}>{CAT_LABELS[e.category] ?? e.category}</td>
+                  <td className="px-4 py-3 text-[11px] whitespace-nowrap" style={{ color: SEC }}>{e.location ?? '—'}</td>
+                  <td className="px-4 py-3 text-[11px] font-mono whitespace-nowrap" style={{ color: SEC }}>{e.serial_number ?? '—'}</td>
+                  <td className="px-4 py-3 text-[11px] whitespace-nowrap" style={{ color: SEC }}>{fmt(e.last_service_date)}</td>
+                  <td className="px-4 py-3 text-[11px] whitespace-nowrap" style={{ color: SEC }}>{fmt(e.next_due_date)}</td>
+                  <td className="px-4 py-3 text-[11px] whitespace-nowrap" style={{ color: SEC }}>{e.check_frequency ?? '—'}</td>
+                  <td className="px-4 py-3"><StatusDot status={e.status} /></td>
+                  <td className="px-4 py-3 text-[11px] whitespace-nowrap" style={{ color: SEC }}>{e.responsible_name ?? '—'}</td>
+                  <td className="px-4 py-3 text-[11px] whitespace-nowrap max-w-[160px] truncate" style={{ color: e.action_required ? ORANGE : MUTED }}>{e.action_required ?? '—'}</td>
+                  <td className="px-4 py-3 text-[11px] whitespace-nowrap max-w-[160px] truncate" style={{ color: SEC }}>{e.notes ?? '—'}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => setEditItem(e)}
+                        className="flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-lg whitespace-nowrap"
+                        style={{ background: `${BLUE}14`, color: BLUE }}
+                      >
+                        <Edit2 size={10} />
+                        Edit
+                      </button>
+                      {deleteConfirm === e.id ? (
+                        <div className="flex items-center gap-1">
                           <button
-                            onClick={() => setEditItem(e)}
-                            className="flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-lg"
-                            style={{ background: `${BLUE}14`, color: BLUE }}
+                            onClick={() => handleDelete(e.id)}
+                            disabled={deleting}
+                            className="flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-lg whitespace-nowrap"
+                            style={{ background: `${RED}14`, color: RED }}
                           >
-                            <Edit2 size={10} />
-                            Edit
+                            {deleting ? '...' : 'Confirm'}
                           </button>
-                          {deleteConfirm === e.id ? (
-                            <div className="flex items-center gap-1">
-                              <button
-                                onClick={() => handleDelete(e.id)}
-                                disabled={deleting}
-                                className="flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-lg"
-                                style={{ background: `${RED}14`, color: RED }}
-                              >
-                                {deleting ? '...' : 'Confirm'}
-                              </button>
-                              <button onClick={() => setDeleteConfirm(null)} className="p-1 rounded-lg hover:bg-[#F0F4FF]">
-                                <X size={10} color={MUTED} />
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              onClick={() => setDeleteConfirm(e.id)}
-                              className="flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-lg hover:bg-[#FEF2F2] transition-colors"
-                              style={{ color: RED }}
-                            >
-                              <Trash2 size={10} />
-                              Delete
-                            </button>
-                          )}
+                          <button onClick={() => setDeleteConfirm(null)} className="p-1 rounded-lg hover:bg-[#F0F4FF]">
+                            <X size={10} color={MUTED} />
+                          </button>
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        ))}
-
-        {Object.keys(grouped).length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-[12px] mb-3" style={{ color: MUTED }}>No equipment found.</p>
-            <BtnGhost onClick={() => setShowAdd(true)}>
-              <Plus size={12} />
-              Add first item
-            </BtnGhost>
-          </div>
-        )}
+                      ) : (
+                        <button
+                          onClick={() => setDeleteConfirm(e.id)}
+                          className="flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-lg hover:bg-[#FEF2F2] transition-colors whitespace-nowrap"
+                          style={{ color: RED }}
+                        >
+                          <Trash2 size={10} />
+                          Delete
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
+
+      {filtered.length === 0 && equipment.length === 0 && (
+        <div className="text-center py-4">
+          <BtnGhost onClick={() => setShowAdd(true)}>
+            <Plus size={12} />
+            Add first item
+          </BtnGhost>
+        </div>
+      )}
 
       <AnimatePresence>
         {editItem && (

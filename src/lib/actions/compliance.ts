@@ -592,8 +592,10 @@ export async function createEquipmentItem(data: {
   check_frequency?: string;
   location?: string;
   serial_number?: string;
+  last_service_date?: string;
   next_due_date?: string;
   responsible_user_id?: string | null;
+  action_required?: string;
   notes?: string;
 }): Promise<{ success: boolean; error?: string }> {
   const session = await getStaffSession();
