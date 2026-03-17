@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import Image from 'next/image';
 import {
   Eye, EyeOff, ArrowRight, Loader2, Check,
   ChevronLeft, Shield,
@@ -12,11 +13,11 @@ import { verifyLogin, changePassword, getClinicInfo, requestPasswordReset, setSe
 type Step = 'email' | 'password' | 'change-password' | 'forgot' | 'forgot-sent' | 'authenticated';
 interface AuthUser { id: string; first_name: string; last_name: string; email: string; tenant_id: string; }
 
-const BG     = '#E6F0FF';
-const INK    = '#011440';
-const SEC    = '#2A4A8F';
-const MUTED  = '#7A96C4';
-const BORDER = '#C5D5EE';
+const BG     = '#EFF4FF';
+const INK    = '#1B3080';
+const SEC    = '#2E4FA3';
+const MUTED  = '#7B91C9';
+const BORDER = '#C8D5F0';
 const GRN    = '#059669';
 
 function FormInput({
@@ -211,11 +212,16 @@ export default function LoginClient({ initialClinicName, tenantId, tenantSlug }:
       {/* ── LEFT: brand ── */}
       <div style={{ width: '50%', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', zIndex: 2 }}>
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
-          style={{ textAlign: 'center', padding: '0 48px' }}>
-          <div style={{ fontSize: 22, fontWeight: 900, color: INK, letterSpacing: '-0.03em', lineHeight: 1.15, marginBottom: 8 }}>
-            Edgbaston Wellness Clinic
-          </div>
-          <div style={{ fontSize: 10, fontWeight: 600, color: '#D8A600', letterSpacing: '0.22em', textTransform: 'uppercase', marginBottom: 28 }}>
+          style={{ textAlign: 'center', padding: '0 64px' }}>
+          <Image
+            src="/logo.png"
+            alt="Edgbaston Wellness Clinic"
+            width={280}
+            height={180}
+            style={{ objectFit: 'contain', marginBottom: 32 }}
+            priority
+          />
+          <div style={{ fontSize: 10, fontWeight: 600, color: MUTED, letterSpacing: '0.22em', textTransform: 'uppercase', marginBottom: 24 }}>
             Operational Intelligence
           </div>
           <div style={{ width: 40, height: 1, background: BORDER, margin: '0 auto 20px' }} />

@@ -16,7 +16,6 @@ const geistMono = localFont({
 export const metadata: Metadata = {
   title: "EWC",
   description: "Edgbaston Wellness Clinic — Operational Intelligence",
-  icons: { icon: [] },
 };
 
 export default function RootLayout({
