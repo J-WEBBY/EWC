@@ -1394,7 +1394,7 @@ export default function KPIsPage() {
   }).length;
   const hour             = new Date().getHours();
   const greeting         = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-  const firstName        = profile?.first_name ?? profile?.full_name?.split(' ')[0] ?? '';
+  const firstName        = profile?.firstName ?? '';
 
   // ---- Stats ----
   const today = new Date().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
