@@ -1434,7 +1434,7 @@ export default function KPIsPage() {
       <div style={{ display: 'flex', flex: 1, height: '100vh', overflow: 'hidden', paddingLeft: 240 }}>
 
         {/* LEFT — Task List */}
-        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', maxWidth: 680 }}>
+        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
 
           {/* Page header */}
           <div style={{
