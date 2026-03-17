@@ -278,29 +278,89 @@ function SectionToggle({ label, count, open, onToggle }: { label: string; count:
         display:        'flex',
         alignItems:     'center',
         gap:            8,
-        padding:        '10px 0 8px',
+        padding:        '11px 0',
         background:     'none',
         border:         'none',
-        borderTop:      `1px solid ${BORDER}`,
+        borderTop:      '1px solid #D4E2FF',
         cursor:         'pointer',
         width:          '100%',
         marginTop:      4,
+        transition:     'background 0.15s',
       }}
+      className="hover:bg-[#D4E2FF20] rounded"
     >
-      <span style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.28em', fontWeight: 600, color: MUTED }}>
+      <span style={{ fontSize: 8, textTransform: 'uppercase' as const, letterSpacing: '0.28em', fontWeight: 600, color: '#96989B' }}>
         {label}
       </span>
       <span style={{
-        fontSize:        9,
-        backgroundColor: `${MUTED}18`,
-        color:           MUTED,
-        padding:         '1px 7px',
-        borderRadius:    999,
-        fontWeight:      600,
+        fontSize: 9, backgroundColor: '#96989B18', color: '#96989B',
+        padding: '1px 7px', borderRadius: 999, fontWeight: 600,
       }}>{count}</span>
       <div style={{ flex: 1 }} />
-      {open ? <ChevronUp size={11} style={{ color: MUTED }} /> : <ChevronDown size={11} style={{ color: MUTED }} />}
+      {open ? <ChevronUp size={11} style={{ color: '#96989B' }} /> : <ChevronDown size={11} style={{ color: '#96989B' }} />}
     </button>
+  );
+}
+
+// =============================================================================
+// GROUP PENDING TASKS BY DUE DATE
+// =============================================================================
+function groupPendingTasks(tasks: StaffGoal[]): { key: string; label: string; labelColor: string; tasks: StaffGoal[] }[] {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const endOfWeek = new Date(today);
+  endOfWeek.setDate(today.getDate() + 7);
+
+  const groups: { key: string; label: string; labelColor: string; tasks: StaffGoal[] }[] = [
+    { key: 'overdue',   label: 'Overdue',     labelColor: '#DC2626', tasks: [] },
+    { key: 'today',     label: 'Today',       labelColor: '#0058E6', tasks: [] },
+    { key: 'this_week', label: 'This Week',   labelColor: '#181D23', tasks: [] },
+    { key: 'later',     label: 'Later',       labelColor: '#96989B', tasks: [] },
+    { key: 'no_date',   label: 'No Due Date', labelColor: '#96989B', tasks: [] },
+  ];
+
+  for (const task of tasks) {
+    if (isOverdue(task)) {
+      groups[0].tasks.push(task);
+    } else if (task.due_date) {
+      const due = new Date(task.due_date);
+      due.setHours(0, 0, 0, 0);
+      if (due.getTime() === today.getTime()) {
+        groups[1].tasks.push(task);
+      } else if (due < endOfWeek) {
+        groups[2].tasks.push(task);
+      } else {
+        groups[3].tasks.push(task);
+      }
+    } else {
+      groups[4].tasks.push(task);
+    }
+  }
+
+  return groups.filter(g => g.tasks.length > 0);
+}
+
+// =============================================================================
+// EMPTY STATE
+// =============================================================================
+function EmptyState({ title, body, action }: { title: string; body: string; action?: { label: string; onClick: () => void } }) {
+  return (
+    <div style={{ padding: '48px 24px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: '#181D23', marginBottom: 6 }}>{title}</div>
+      <div style={{ fontSize: 11, color: '#96989B', lineHeight: 1.7, maxWidth: 280, marginBottom: action ? 16 : 0 }}>{body}</div>
+      {action && (
+        <button
+          onClick={action.onClick}
+          style={{
+            padding: '7px 18px', background: 'transparent',
+            border: '1px solid #D4E2FF', borderRadius: 8,
+            fontSize: 11, fontWeight: 600, color: '#3D4451', cursor: 'pointer',
+          }}
+        >
+          {action.label}
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -795,7 +855,9 @@ function TaskHub({ task, userId, users, onClose, onDelete, onRefresh }: TaskHubP
 
   return (
     <div style={{
-      width:         560,
+      width:         '40%',
+      minWidth:      460,
+      maxWidth:      600,
       flexShrink:    0,
       borderLeft:    `1px solid ${BORDER}`,
       overflowY:     'auto',
@@ -1270,6 +1332,23 @@ export default function KPIsPage() {
     }
   }, [searchParams, tasks]);
 
+  // ---- Keyboard shortcut: N = new task ----
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (
+        e.key === 'n' &&
+        !e.metaKey && !e.ctrlKey && !e.altKey &&
+        !(e.target instanceof HTMLInputElement) &&
+        !(e.target instanceof HTMLTextAreaElement) &&
+        !(e.target instanceof HTMLSelectElement)
+      ) {
+        setShowCreateModal(true);
+      }
+    }
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, []);
+
   // ---- Derived lists ----
   const closedTasks    = tasks.filter(t => getMetaNotes(t).closed);
   const completedTasks = tasks.filter(t => !getMetaNotes(t).closed && t.status === 'completed');
@@ -1305,6 +1384,17 @@ export default function KPIsPage() {
     const meta = getMetaNotes(t);
     return acc + (parseFloat(meta.revenue || '0') || 0);
   }, 0);
+
+  const myPendingTasks   = pendingTasks.filter(t => t.owner_id === userId);
+  const myOverdueCount   = myPendingTasks.filter(t => isOverdue(t)).length;
+  const endOfWeekDate    = new Date(); endOfWeekDate.setDate(endOfWeekDate.getDate() + 7);
+  const myDueThisWeek    = myPendingTasks.filter(t => {
+    if (!t.due_date || isOverdue(t)) return false;
+    return new Date(t.due_date) <= endOfWeekDate;
+  }).length;
+  const hour             = new Date().getHours();
+  const greeting         = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const firstName        = profile?.first_name ?? profile?.full_name?.split(' ')[0] ?? '';
 
   // ---- Stats ----
   const today = new Date().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
@@ -1345,40 +1435,41 @@ export default function KPIsPage() {
       <div style={{ display: 'flex', flex: 1, height: '100vh', overflow: 'hidden', paddingLeft: 240 }}>
 
         {/* LEFT — Task List */}
-        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', maxWidth: 680 }}>
 
           {/* Page header */}
           <div style={{
-            padding:       '32px 32px 24px',
-            borderBottom:  `1px solid ${BORDER}`,
-            display:       'flex',
-            alignItems:    'flex-start',
+            padding:        '28px 32px 20px',
+            borderBottom:   '1px solid #D4E2FF',
+            display:        'flex',
+            alignItems:     'flex-start',
             justifyContent: 'space-between',
           }}>
             <div>
-              <p style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.28em', fontWeight: 600, color: MUTED, margin: '0 0 6px' }}>
+              <p style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.28em', fontWeight: 600, color: '#96989B', margin: '0 0 4px' }}>
                 Tasks &amp; KPIs · {today}
               </p>
-              <h1 style={{ fontSize: 36, fontWeight: 900, letterSpacing: '-0.035em', color: NAVY, margin: '0 0 4px' }}>
-                Tasks &amp; KPIs
+              <h1 style={{ fontSize: 32, fontWeight: 900, letterSpacing: '-0.035em', color: '#181D23', margin: '0 0 6px', lineHeight: 1.1 }}>
+                {greeting}{firstName ? `, ${firstName}` : ''}
               </h1>
-              <p style={{ fontSize: 12, color: TER, margin: 0 }}>Shared task board — all staff</p>
+              <p style={{ fontSize: 11, color: '#5A6475', margin: 0 }}>
+                {myPendingTasks.length === 0
+                  ? 'No pending tasks assigned to you'
+                  : myOverdueCount > 0
+                    ? `${myOverdueCount} overdue · ${myDueThisWeek} due this week`
+                    : myDueThisWeek > 0
+                      ? `${myDueThisWeek} due this week · ${myPendingTasks.length} total pending`
+                      : `${myPendingTasks.length} pending tasks`
+                }
+              </p>
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <button
                 onClick={handleRefresh}
                 style={{
-                  display:      'flex',
-                  alignItems:   'center',
-                  gap:          4,
-                  padding:      '8px 12px',
-                  border:       `1px solid ${BORDER}`,
-                  borderRadius: 8,
-                  background:   'transparent',
-                  color:        SEC,
-                  fontSize:     11,
-                  fontWeight:   600,
-                  cursor:       'pointer',
+                  display: 'flex', alignItems: 'center', gap: 4,
+                  padding: '8px 12px', border: '1px solid #D4E2FF', borderRadius: 8,
+                  background: 'transparent', color: '#3D4451', fontSize: 11, fontWeight: 600, cursor: 'pointer',
                 }}
               >
                 <RefreshCw size={12} />
@@ -1386,33 +1477,24 @@ export default function KPIsPage() {
               <button
                 onClick={() => setShowCreateModal(true)}
                 style={{
-                  display:      'flex',
-                  alignItems:   'center',
-                  gap:          5,
-                  padding:      '8px 16px',
-                  border:       'none',
-                  borderRadius: 8,
-                  background:   BLUE,
-                  color:        '#fff',
-                  fontSize:     12,
-                  fontWeight:   700,
-                  cursor:       'pointer',
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  padding: '8px 16px', border: 'none', borderRadius: 8,
+                  background: '#0058E6', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer',
                 }}
               >
                 <Plus size={13} />
                 New Task
+                <span style={{ fontSize: 9, color: '#ffffff80', marginLeft: 4, fontWeight: 500 }}>N</span>
               </button>
             </div>
           </div>
 
           {/* Stats strip */}
-          <div style={{ padding: '20px 32px', borderBottom: `1px solid ${BORDER}` }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
-              <StatTile label="Pending"   value={pendingTasks.length}    color={overduePending.length > 0 ? RED : BLUE} sub={`${filteredPending.length} visible`} />
-              <StatTile label="Overdue"   value={overduePending.length}  color={RED}   sub={overduePending.length > 0 ? 'needs attention' : 'all clear'} />
-              <StatTile label="Completed" value={completedTasks.length}  color={GREEN} sub="this period" />
-              <StatTile label="Closed"    value={closedTasks.length}     color={MUTED} sub="archived" />
-              <StatTile label="Revenue"   value={`£${totalRevenue.toLocaleString('en-GB', { minimumFractionDigits: 0 })}`} color={GOLD} sub="logged sessions" />
+          <div style={{ padding: '16px 32px', borderBottom: `1px solid ${BORDER}` }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+              <StatTile label="Pending"   value={pendingTasks.length}   color={overduePending.length > 0 ? '#DC2626' : '#0058E6'} sub={`${filteredPending.length} visible`} />
+              <StatTile label="Overdue"   value={overduePending.length} color='#DC2626' sub={overduePending.length > 0 ? 'needs attention' : 'all clear'} />
+              <StatTile label="Completed" value={completedTasks.length} color='#059669' sub="this period" />
             </div>
           </div>
 
@@ -1511,25 +1593,63 @@ export default function KPIsPage() {
             </div>
           </div>
 
-          {/* Pending task list */}
-          <div style={{ padding: '0 32px' }}>
+          {/* Task list — grouped */}
+          <div style={{ padding: '0 32px', paddingBottom: 32 }}>
             <AnimatePresence>
-              {filteredPending.length === 0 && (
-                <motion.p
-                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                  style={{ fontSize: 12, color: MUTED, padding: '20px 0' }}
-                >
-                  No pending tasks
-                </motion.p>
+              {filteredPending.length === 0 ? (
+                <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                  <EmptyState
+                    title={assigneeFilter === 'mine' ? 'No tasks assigned to you' : 'No pending tasks'}
+                    body={
+                      assigneeFilter === 'mine'
+                        ? 'Tasks assigned to you will appear here. Switch to All tasks to see the full board.'
+                        : searchQuery || categoryFilter !== 'all' || priorityFilter !== 'all'
+                          ? 'No tasks match your current filters. Try adjusting the search or filter options.'
+                          : 'All clear — no pending tasks right now.'
+                    }
+                    action={assigneeFilter === 'mine' ? { label: 'View all tasks', onClick: () => setAssigneeFilter('all') } : undefined}
+                  />
+                </motion.div>
+              ) : (
+                groupPendingTasks(filteredPending).map(group => (
+                  <div key={group.key}>
+                    {/* Group header */}
+                    <div style={{
+                      display:       'flex',
+                      alignItems:    'center',
+                      gap:           8,
+                      padding:       '14px 0 6px',
+                      borderBottom:  '1px solid #D4E2FF',
+                      marginBottom:  0,
+                    }}>
+                      <span style={{
+                        fontSize:      8,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.28em',
+                        fontWeight:    700,
+                        color:         group.labelColor,
+                      }}>
+                        {group.label}
+                      </span>
+                      <span style={{
+                        fontSize: 9, color: '#96989B',
+                        background: '#96989B14', padding: '1px 6px',
+                        borderRadius: 999, fontWeight: 600,
+                      }}>
+                        {group.tasks.length}
+                      </span>
+                    </div>
+                    {group.tasks.map(task => (
+                      <TaskCard
+                        key={task.id}
+                        task={task}
+                        isActive={activeTask?.id === task.id}
+                        onClick={() => setActiveTask(t => t?.id === task.id ? null : task)}
+                      />
+                    ))}
+                  </div>
+                ))
               )}
-              {filteredPending.map(task => (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  isActive={activeTask?.id === task.id}
-                  onClick={() => setActiveTask(t => t?.id === task.id ? null : task)}
-                />
-              ))}
             </AnimatePresence>
 
             {/* Completed section */}
