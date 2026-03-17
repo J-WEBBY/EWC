@@ -837,9 +837,11 @@ export async function saveCQCAnswer(
 ): Promise<{ success: boolean; error?: string }> {
   const session = await getStaffSession();
   if (!session) return { success: false, error: 'UNAUTHORIZED' };
-  const { tenantId } = session;
   try {
     const db = createSovereignClient();
+    const { data: userRow } = await db.from('users').select('tenant_id').eq('id', session.userId).single();
+    const tenantId = userRow?.tenant_id as string | undefined;
+    if (!tenantId) return { success: false, error: 'Tenant not found' };
     const { error } = await db
       .from('compliance_cqc_answers')
       .update({
@@ -1020,9 +1022,11 @@ export async function createCalendarTask(data: {
 }): Promise<{ success: boolean; error?: string }> {
   const session = await getStaffSession();
   if (!session) return { success: false, error: 'UNAUTHORIZED' };
-  const { tenantId } = session;
   try {
     const db = createSovereignClient();
+    const { data: userRow } = await db.from('users').select('tenant_id').eq('id', session.userId).single();
+    const tenantId = userRow?.tenant_id as string | undefined;
+    if (!tenantId) return { success: false, error: 'Tenant not found' };
     const { data: existing } = await db
       .from('compliance_calendar')
       .select('task_order')
@@ -1043,14 +1047,12 @@ export async function deleteCalendarTask(
 ): Promise<{ success: boolean; error?: string }> {
   const session = await getStaffSession();
   if (!session) return { success: false, error: 'UNAUTHORIZED' };
-  const { tenantId } = session;
   try {
     const db = createSovereignClient();
     const { error } = await db
       .from('compliance_calendar')
       .delete()
-      .eq('id', id)
-      .eq('tenant_id', tenantId);
+      .eq('id', id);
     if (error) return { success: false, error: error.message };
     return { success: true };
   } catch (e) { return { success: false, error: String(e) }; }
@@ -1068,14 +1070,12 @@ export async function updateCalendarTask(
 ): Promise<{ success: boolean; error?: string }> {
   const session = await getStaffSession();
   if (!session) return { success: false, error: 'UNAUTHORIZED' };
-  const { tenantId } = session;
   try {
     const db = createSovereignClient();
     const { error } = await db
       .from('compliance_calendar')
       .update(data)
-      .eq('id', id)
-      .eq('tenant_id', tenantId);
+      .eq('id', id);
     if (error) return { success: false, error: error.message };
     return { success: true };
   } catch (e) { return { success: false, error: String(e) }; }

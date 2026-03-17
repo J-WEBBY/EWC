@@ -1841,10 +1841,15 @@ function CQCTab({ questions, users, currentUserId, onRefresh }: {
   async function handleAnswer(q: CQCAnswer, ans: 'yes' | 'no' | 'partial' | 'na') {
     const next = q.answer === ans ? null : ans;
     setLocalQs(prev => prev.map(x => x.question_number === q.question_number ? { ...x, answer: next } : x));
-    await saveCQCAnswer(q.question_number, { answer: next, answered_by: currentUserId });
+    const res = await saveCQCAnswer(q.question_number, { answer: next, answered_by: currentUserId });
+    if (!res.success) {
+      // revert on failure
+      setLocalQs(prev => prev.map(x => x.question_number === q.question_number ? { ...x, answer: q.answer } : x));
+    }
   }
 
   function openEdit(q: CQCAnswer) {
+    if (editQNum === q.question_number) { setEditQNum(null); return; }
     setEditQNum(q.question_number);
     setEditForm({
       evidence_notes: q.evidence_notes ?? '',
@@ -1856,7 +1861,7 @@ function CQCTab({ questions, users, currentUserId, onRefresh }: {
 
   async function saveEdit(qNum: number) {
     setSaving(qNum);
-    await saveCQCAnswer(qNum, {
+    const res = await saveCQCAnswer(qNum, {
       answer: localQs.find(q => q.question_number === qNum)?.answer ?? null,
       evidence_notes: editForm.evidence_notes || undefined,
       action_required: editForm.action_required || undefined,
@@ -1864,8 +1869,19 @@ function CQCTab({ questions, users, currentUserId, onRefresh }: {
       answered_by: editForm.answered_by || currentUserId,
     });
     setSaving(null);
-    setEditQNum(null);
-    onRefresh();
+    if (res.success) {
+      // update local state immediately without full refresh flicker
+      setLocalQs(prev => prev.map(q => q.question_number === qNum ? {
+        ...q,
+        evidence_notes:  editForm.evidence_notes || null,
+        action_required: editForm.action_required || null,
+        target_date:     editForm.target_date || null,
+        answered_by:     editForm.answered_by || q.answered_by,
+        audit_date:      new Date().toISOString().split('T')[0],
+      } : q));
+      setEditQNum(null);
+      onRefresh();
+    }
   }
 
   function ansBtn(q: CQCAnswer, label: string, val: 'yes' | 'no' | 'partial' | 'na', color: string) {
@@ -1935,23 +1951,38 @@ function CQCTab({ questions, users, currentUserId, onRefresh }: {
                   {domainQs.map(q => (
                     <div key={q.question_number} style={{ borderTop: `1px solid ${BORDER}` }}>
                       <div className="px-5 py-4">
-                        <div className="flex items-start justify-between gap-4 mb-3">
-                          <div className="flex-1">
-                            <div className="flex items-baseline gap-2 mb-1">
-                              <span className="text-[10px] font-semibold" style={{ color: MUTED }}>Q{q.question_number}</span>
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-baseline gap-2 mb-0.5">
+                              <span className="text-[10px] font-semibold flex-shrink-0" style={{ color: MUTED }}>Q{q.question_number}</span>
                               <span className="text-[11px] font-semibold" style={{ color: NAVY }}>{q.question_text}</span>
                             </div>
                             <span className="text-[10px]" style={{ color: MUTED }}>{q.audit_area}</span>
-                            {q.evidence_notes && (
-                              <p className="mt-1.5 text-[10px] italic" style={{ color: SEC }}>{q.evidence_notes}</p>
-                            )}
-                            {q.action_required && (
-                              <p className="mt-1 text-[10px]" style={{ color: MUTED }}>Action: {q.action_required}</p>
-                            )}
-                            {(q.answered_by || q.audit_date) && (
-                              <p className="mt-1 text-[10px]" style={{ color: MUTED }}>
-                                {q.answered_by ? 'Completed · ' : ''}{q.audit_date ? fmt(q.audit_date) : ''}
-                              </p>
+
+                            {/* Saved evidence strip */}
+                            {(q.evidence_notes || q.action_required || q.target_date || q.answered_by) && (
+                              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+                                {q.evidence_notes && (
+                                  <span className="text-[10px] italic" style={{ color: SEC }}>
+                                    Evidence: {q.evidence_notes}
+                                  </span>
+                                )}
+                                {q.action_required && (
+                                  <span className="text-[10px]" style={{ color: ORANGE }}>
+                                    Action: {q.action_required}
+                                  </span>
+                                )}
+                                {q.target_date && (
+                                  <span className="text-[10px]" style={{ color: MUTED }}>
+                                    Target: {fmt(q.target_date)}
+                                  </span>
+                                )}
+                                {q.audit_date && (
+                                  <span className="text-[10px]" style={{ color: MUTED }}>
+                                    Audited: {fmt(q.audit_date)}
+                                  </span>
+                                )}
+                              </div>
                             )}
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
@@ -1960,23 +1991,30 @@ function CQCTab({ questions, users, currentUserId, onRefresh }: {
                             {ansBtn(q, 'No', 'no', RED)}
                             {ansBtn(q, 'N/A', 'na', MUTED)}
                             <button
-                              onClick={() => editQNum === q.question_number ? setEditQNum(null) : openEdit(q)}
-                              className="p-1.5 rounded-lg hover:bg-[#F0F4FF] transition-colors"
+                              onClick={() => openEdit(q)}
+                              className="p-1.5 rounded-lg transition-colors"
+                              style={{
+                                background: editQNum === q.question_number ? `${BLUE}14` : 'transparent',
+                                color: editQNum === q.question_number ? BLUE : MUTED,
+                              }}
+                              title="Add/edit notes"
                             >
-                              <Edit2 size={12} color={MUTED} />
+                              <Edit2 size={12} />
                             </button>
                           </div>
                         </div>
 
                         {editQNum === q.question_number && (
-                          <div className="mt-3 p-4 rounded-xl space-y-3" style={{ background: '#F0F4FF', border: `1px solid ${BORDER}` }}>
+                          <div className="mt-3 p-4 rounded-xl space-y-3" style={{ background: `${BLUE}06`, border: `1px solid ${BORDER}` }}>
+                            <p className="text-[9px] uppercase tracking-[0.2em] font-semibold" style={{ color: BLUE }}>Evidence & Notes</p>
                             <div className="grid grid-cols-2 gap-3">
                               <div>
                                 <Lbl>Evidence Notes</Lbl>
                                 <textarea
                                   value={editForm.evidence_notes}
                                   onChange={e => setEditForm(f => ({ ...f, evidence_notes: e.target.value }))}
-                                  rows={2}
+                                  rows={3}
+                                  placeholder="Describe the evidence in place..."
                                   className="w-full rounded-xl px-3 py-2 text-[11px] focus:outline-none"
                                   style={TA_STYLE}
                                 />
@@ -1986,13 +2024,12 @@ function CQCTab({ questions, users, currentUserId, onRefresh }: {
                                 <textarea
                                   value={editForm.action_required}
                                   onChange={e => setEditForm(f => ({ ...f, action_required: e.target.value }))}
-                                  rows={2}
+                                  rows={3}
+                                  placeholder="What action is needed to achieve compliance?"
                                   className="w-full rounded-xl px-3 py-2 text-[11px] focus:outline-none"
                                   style={TA_STYLE}
                                 />
                               </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-3">
                               <div>
                                 <Lbl>Target Date</Lbl>
                                 <input
@@ -2011,7 +2048,7 @@ function CQCTab({ questions, users, currentUserId, onRefresh }: {
                                   className={INP}
                                   style={INP_STYLE}
                                 >
-                                  <option value="">Select user...</option>
+                                  <option value="">Select staff member...</option>
                                   {users.map(u => <option key={u.id} value={u.id}>{u.full_name}</option>)}
                                 </select>
                               </div>
@@ -2210,10 +2247,14 @@ function GovernanceTab({ log, users, currentUserId, onRefresh }: {
     onRefresh();
   }
 
+  const GOV_STATUS_COLOR: Record<string, string> = {
+    open: BLUE, in_progress: ORANGE, completed: GREEN, overdue: RED,
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
-        <div />
+        <p className="text-[11px]" style={{ color: MUTED }}>{log.length} {log.length === 1 ? 'entry' : 'entries'}</p>
         <BtnPrimary onClick={() => setModal({ open: true, entry: null })}>
           <Plus size={12} />
           Add Entry
@@ -2223,19 +2264,25 @@ function GovernanceTab({ log, users, currentUserId, onRefresh }: {
       <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${BORDER}` }}>
         <table className="w-full">
           <thead>
-            <tr style={{ borderBottom: `1px solid ${BORDER}` }}>
-              {['Type', 'Date', 'Attendees', 'Minutes', 'Actions Arising', 'Owner', 'Due Date', 'Status', ''].map((h, i) => (
-                <th key={i} className="text-left px-4 py-3 text-[8px] uppercase tracking-[0.18em] font-semibold whitespace-nowrap" style={{ color: MUTED }}>
+            <tr style={{ background: NAVY }}>
+              {['Type', 'Date', 'Agenda Items', 'Attendees', 'Minutes', 'Actions Arising', 'Owner', 'Due Date', 'Status', ''].map((h, i) => (
+                <th key={i} className="text-left px-4 py-3 text-[8px] uppercase tracking-[0.18em] font-semibold whitespace-nowrap" style={{ color: '#A8C4FF' }}>
                   {h}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {log.map(e => (
-              <tr key={e.id} style={{ borderBottom: `1px solid ${BORDER}` }} className="group hover:bg-[#F0F4FF] transition-colors">
+            {log.map((e, idx) => (
+              <tr
+                key={e.id}
+                style={{ borderBottom: idx < log.length - 1 ? `1px solid ${BORDER}` : 'none', cursor: 'pointer' }}
+                className="group hover:bg-[#F0F4FF] transition-colors"
+                onClick={() => setModal({ open: true, entry: e })}
+              >
                 <td className="px-4 py-3 text-[11px] font-semibold whitespace-nowrap" style={{ color: NAVY }}>{e.type}</td>
                 <td className="px-4 py-3 text-[11px] whitespace-nowrap" style={{ color: SEC }}>{fmt(e.event_date)}</td>
+                <td className="px-4 py-3 text-[11px] max-w-[180px] truncate" style={{ color: SEC }}>{e.agenda_items ?? '—'}</td>
                 <td className="px-4 py-3 text-[11px] max-w-[120px] truncate" style={{ color: SEC }}>{e.attendees ?? '—'}</td>
                 <td className="px-4 py-3 text-[11px]" style={{ color: e.minutes_uploaded ? GREEN : MUTED }}>
                   {e.minutes_uploaded ? 'Yes' : 'No'}
@@ -2243,17 +2290,19 @@ function GovernanceTab({ log, users, currentUserId, onRefresh }: {
                 <td className="px-4 py-3 text-[11px] max-w-[150px] truncate" style={{ color: SEC }}>{e.actions_arising ?? '—'}</td>
                 <td className="px-4 py-3 text-[11px] whitespace-nowrap" style={{ color: SEC }}>{e.owner_name ?? '—'}</td>
                 <td className="px-4 py-3 text-[11px] whitespace-nowrap" style={{ color: SEC }}>{fmt(e.due_date)}</td>
-                <td className="px-4 py-3"><StatusDot status={e.status} /></td>
                 <td className="px-4 py-3">
+                  <span
+                    className="px-2 py-0.5 rounded-full text-[9px] font-semibold"
+                    style={{
+                      background: `${GOV_STATUS_COLOR[e.status] ?? MUTED}18`,
+                      color: GOV_STATUS_COLOR[e.status] ?? MUTED,
+                    }}
+                  >
+                    {e.status.replace(/_/g, ' ')}
+                  </span>
+                </td>
+                <td className="px-4 py-3" onClick={ev => ev.stopPropagation()}>
                   <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={() => setModal({ open: true, entry: e })}
-                      className="flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-lg"
-                      style={{ background: `${BLUE}14`, color: BLUE }}
-                    >
-                      <Edit2 size={10} />
-                      Edit
-                    </button>
                     {deleteConfirm === e.id ? (
                       <div className="flex items-center gap-1">
                         <button
@@ -2262,12 +2311,9 @@ function GovernanceTab({ log, users, currentUserId, onRefresh }: {
                           className="flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-lg"
                           style={{ background: `${RED}14`, color: RED }}
                         >
-                          {deleting ? '...' : 'Confirm'}
+                          {deleting ? '...' : 'Confirm delete'}
                         </button>
-                        <button
-                          onClick={() => setDeleteConfirm(null)}
-                          className="p-1 rounded-lg hover:bg-[#F0F4FF]"
-                        >
+                        <button onClick={() => setDeleteConfirm(null)} className="p-1 rounded-lg hover:bg-[#F0F4FF]">
                           <X size={10} color={MUTED} />
                         </button>
                       </div>
@@ -2287,8 +2333,8 @@ function GovernanceTab({ log, users, currentUserId, onRefresh }: {
             ))}
             {log.length === 0 && (
               <tr>
-                <td colSpan={9} className="px-4 py-8 text-center text-[12px]" style={{ color: MUTED }}>
-                  No governance log entries found.
+                <td colSpan={10} className="px-4 py-12 text-center text-[12px]" style={{ color: MUTED }}>
+                  No governance log entries yet. Click &quot;Add Entry&quot; to create the first one.
                 </td>
               </tr>
             )}
@@ -2303,7 +2349,7 @@ function GovernanceTab({ log, users, currentUserId, onRefresh }: {
             users={users}
             currentUserId={currentUserId}
             onClose={() => setModal(null)}
-            onSave={onRefresh}
+            onSave={() => { setModal(null); onRefresh(); }}
           />
         )}
       </AnimatePresence>
@@ -2432,6 +2478,7 @@ function CalendarTab({ tasks, users, currentUserId, onRefresh }: {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [forms, setForms] = useState<Record<string, CalendarRowForm>>({});
   const [saving, setSaving] = useState<string | null>(null);
+  const [saveErr, setSaveErr] = useState<Record<string, string>>({});
   const [showAdd, setShowAdd] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -2458,7 +2505,8 @@ function CalendarTab({ tasks, users, currentUserId, onRefresh }: {
   async function handleSave(t: CalendarTask) {
     const f = getForm(t);
     setSaving(t.id);
-    await updateCalendarTask(t.id, {
+    setSaveErr(e => ({ ...e, [t.id]: '' }));
+    const res = await updateCalendarTask(t.id, {
       last_completed_date: f.last_completed_date || undefined,
       next_due_date: f.next_due_date || undefined,
       responsible_user_id: f.responsible_user_id || null,
@@ -2466,8 +2514,8 @@ function CalendarTab({ tasks, users, currentUserId, onRefresh }: {
       assigned_by: currentUserId,
     });
     setSaving(null);
-    setExpandedId(null);
-    onRefresh();
+    if (res.success) { setExpandedId(null); onRefresh(); }
+    else setSaveErr(e => ({ ...e, [t.id]: res.error ?? 'Save failed' }));
   }
 
   function handleMarkComplete(t: CalendarTask) {
@@ -2572,10 +2620,13 @@ function CalendarTab({ tasks, users, currentUserId, onRefresh }: {
                   {isExpanded && (
                     <tr key={`${t.id}-expand`} style={{ borderBottom: `1px solid ${BORDER}` }}>
                       <td colSpan={8} className="px-4 pb-4">
-                        <div className="p-4 rounded-xl space-y-3" style={{ background: '#F0F4FF', border: `1px solid ${BORDER}` }}>
+                        <div className="p-4 rounded-xl space-y-3" style={{ background: `${BLUE}06`, border: `1px solid ${BORDER}` }}>
+                          <p className="text-[9px] uppercase tracking-[0.2em] font-semibold" style={{ color: BLUE }}>
+                            Update: {t.task_name}
+                          </p>
                           <div className="grid grid-cols-3 gap-3">
                             <div>
-                              <Lbl>Last Completed</Lbl>
+                              <Lbl>Last Completed Date</Lbl>
                               <input
                                 type="date"
                                 value={f.last_completed_date}
@@ -2595,7 +2646,7 @@ function CalendarTab({ tasks, users, currentUserId, onRefresh }: {
                               />
                             </div>
                             <div>
-                              <Lbl>Assign To</Lbl>
+                              <Lbl>Responsible Person</Lbl>
                               <select
                                 value={f.responsible_user_id}
                                 onChange={e => setFormPatch(t.id, { responsible_user_id: e.target.value })}
@@ -2609,13 +2660,18 @@ function CalendarTab({ tasks, users, currentUserId, onRefresh }: {
                           </div>
                           <div>
                             <Lbl>Notes</Lbl>
-                            <input
+                            <textarea
                               value={f.notes}
                               onChange={e => setFormPatch(t.id, { notes: e.target.value })}
-                              className={INP}
-                              style={INP_STYLE}
+                              rows={3}
+                              placeholder="Add any notes, evidence, or observations..."
+                              className="w-full rounded-xl px-3 py-2 text-[11px] focus:outline-none"
+                              style={TA_STYLE}
                             />
                           </div>
+                          {saveErr[t.id] && (
+                            <p className="text-[11px]" style={{ color: RED }}>{saveErr[t.id]}</p>
+                          )}
                           <div className="flex items-center gap-2">
                             <BtnPrimary onClick={() => handleSave(t)} disabled={saving === t.id}>
                               <Save size={11} />
