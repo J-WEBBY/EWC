@@ -356,15 +356,6 @@ export default function DashboardTab({ dash, onNavigate }: Props) {
     { label: 'Governance',         value: dash.governance_overdue,     color: SEC },
   ].filter(s => s.value > 0);
 
-  // Hero stat strip data
-  const heroStats = [
-    { label: 'Staff Members',     value: dash.total_staff,                  dot: null },
-    { label: 'DBS Expired',        value: dash.dbs_issues,                  dot: dash.dbs_issues > 0 ? RED : GREEN },
-    { label: 'Equipment Overdue',  value: dash.equipment_overdue,           dot: dash.equipment_overdue > 0 ? ORANGE : GREEN },
-    { label: 'Medicines Expiring', value: dash.medicine_expiring_soon,      dot: dash.medicine_expiring_soon > 0 ? ORANGE : GREEN },
-    { label: 'Training Gaps',      value: dash.training_gaps,               dot: dash.training_gaps > 0 ? ORANGE : GREEN },
-    { label: 'Open Issues',        value: totalIssues,                      dot: totalIssues > 0 ? RED : GREEN },
-  ];
 
   return (
     <div className="space-y-5">
@@ -404,44 +395,51 @@ export default function DashboardTab({ dash, onNavigate }: Props) {
           border: `1px solid rgba(255,255,255,0.06)`,
         }}
       >
-        {/* Top section: donut + metrics + mini bars */}
-        <div className="flex items-stretch gap-0" style={{ borderBottom: `1px solid rgba(255,255,255,0.06)` }}>
+        {/* Hero row: donut + 4 alert counts + actions */}
+        <div className="flex items-stretch gap-0">
 
           {/* Donut */}
-          <div className="flex items-center justify-center px-8 py-6" style={{ borderRight: `1px solid rgba(255,255,255,0.06)` }}>
+          <div className="flex items-center justify-center px-8 py-7" style={{ borderRight: `1px solid rgba(255,255,255,0.06)` }}>
             <OverallDonut score={overall} statusLabel={statusLabel} />
           </div>
 
-          {/* 3 key metrics */}
-          <div className="grid flex-shrink-0" style={{ gridTemplateColumns: 'repeat(3, 1fr)', borderRight: `1px solid rgba(255,255,255,0.06)` }}>
+          {/* 4 key alert counts — raw actionable numbers only */}
+          <div className="grid flex-1" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
             {[
               {
-                label: 'CQC Score',
-                value: `${dash.cqc_score_pct}%`,
-                sub: `${dash.cqc_answered} of ${dash.cqc_total} answered`,
-                col: dash.cqc_score_pct >= 80 ? GREEN : dash.cqc_score_pct >= 60 ? ORANGE : RED,
-                nav: 'cqc',
-              },
-              {
-                label: 'Training',
-                value: `${trainingPct}%`,
-                sub: `${dash.training_compliant}/${dash.training_total} modules`,
-                col: trainingPct >= 80 ? GREEN : trainingPct >= 60 ? ORANGE : RED,
-                nav: 'training',
-              },
-              {
-                label: 'HR Issues',
-                value: String(hrIssues),
-                sub: 'DBS · RTW · Appraisals',
-                col: hrIssues === 0 ? GREEN : hrIssues <= 2 ? ORANGE : RED,
+                label: 'Staff Members',
+                value: String(dash.total_staff),
+                sub: `${hrIssues > 0 ? hrIssues + ' with issues' : 'all current'}`,
+                col: hrIssues === 0 ? GREEN : ORANGE,
                 nav: 'hr',
+              },
+              {
+                label: 'DBS & RTW',
+                value: String(dash.dbs_issues + dash.rtw_issues),
+                sub: `${dash.dbs_issues} DBS · ${dash.rtw_issues} RTW expiring`,
+                col: (dash.dbs_issues + dash.rtw_issues) === 0 ? GREEN : RED,
+                nav: 'hr',
+              },
+              {
+                label: 'Equipment & Meds',
+                value: String(dash.equipment_overdue + dash.medicine_expiring_soon),
+                sub: `${dash.equipment_overdue} equipment · ${dash.medicine_expiring_soon} medicines`,
+                col: (dash.equipment_overdue + dash.medicine_expiring_soon) === 0 ? GREEN : ORANGE,
+                nav: 'equipment',
+              },
+              {
+                label: 'Open Issues',
+                value: String(totalIssues),
+                sub: totalIssues === 0 ? 'all areas compliant' : `across ${issueSegs.length} area${issueSegs.length !== 1 ? 's' : ''}`,
+                col: totalIssues === 0 ? GREEN : totalIssues <= 3 ? ORANGE : RED,
+                nav: 'dashboard',
               },
             ].map((m, i) => (
               <button
                 key={m.label}
                 onClick={() => onNavigate(m.nav)}
-                className="text-left px-6 py-6 transition-all"
-                style={{ borderRight: i < 2 ? `1px solid rgba(255,255,255,0.06)` : 'none', background: 'transparent' }}
+                className="text-left px-6 py-7 transition-all"
+                style={{ borderRight: i < 3 ? `1px solid rgba(255,255,255,0.06)` : 'none', background: 'transparent' }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)'; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
               >
@@ -449,80 +447,18 @@ export default function DashboardTab({ dash, onNavigate }: Props) {
                   {m.label}
                 </p>
                 <div className="flex items-end gap-2 mb-1">
-                  <span style={{ fontSize: 36, fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1, color: '#FFFFFF' }}>
+                  <span style={{ fontSize: 38, fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1, color: '#FFFFFF' }}>
                     {m.value}
                   </span>
-                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: m.col, marginBottom: 4, flexShrink: 0 }} />
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: m.col, marginBottom: 6, flexShrink: 0 }} />
                 </div>
-                <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>{m.sub}</p>
+                <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.32)', lineHeight: 1.4 }}>{m.sub}</p>
               </button>
             ))}
           </div>
 
-          {/* Mini area bar chart */}
-          <div className="flex-1 px-6 py-5 flex flex-col justify-between">
-            <div className="flex items-center justify-between mb-4">
-              <p style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.24em', fontWeight: 700, color: 'rgba(255,255,255,0.3)' }}>
-                Areas at a Glance
-              </p>
-              <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)' }}>Click to navigate</p>
-            </div>
-            <div className="flex items-end gap-2 flex-1" style={{ minHeight: 80 }}>
-              {barRows.map((row, i) => {
-                const tabKey = ['hr', 'training', 'cqc', 'equipment', 'medicines', 'governance', 'calendar'][i];
-                const barLabel = ['HR', 'Train', 'CQC', 'Equip', 'Med', 'Gov', 'Cal'][i];
-                return (
-                  <div
-                    key={row.label}
-                    className="flex flex-col items-center gap-1.5 flex-1 cursor-pointer group"
-                    onClick={() => onNavigate(tabKey)}
-                    title={row.label}
-                  >
-                    <div
-                      style={{
-                        height: 72,
-                        width: '100%',
-                        background: 'rgba(255,255,255,0.06)',
-                        borderRadius: 6,
-                        overflow: 'hidden',
-                        display: 'flex',
-                        alignItems: 'flex-end',
-                        position: 'relative',
-                      }}
-                    >
-                      <motion.div
-                        initial={{ height: 0 }}
-                        animate={{ height: `${Math.max(row.pct, 4)}%` }}
-                        transition={{ duration: 1.1, delay: i * 0.06, ease: [0.16, 1, 0.3, 1] }}
-                        style={{
-                          width: '100%',
-                          background: `linear-gradient(to top, ${BLUE}, ${BLUE}AA)`,
-                          borderRadius: 6,
-                        }}
-                      />
-                      {/* Status dot overlay at top */}
-                      <div
-                        style={{
-                          position: 'absolute',
-                          top: 4,
-                          left: '50%',
-                          transform: 'translateX(-50%)',
-                          width: 5,
-                          height: 5,
-                          borderRadius: '50%',
-                          background: statusCol(row.status),
-                        }}
-                      />
-                    </div>
-                    <span style={{ fontSize: 8, fontWeight: 600, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.06em' }}>{barLabel}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
           {/* Action buttons */}
-          <div className="flex flex-col gap-3 justify-center px-6 py-6 flex-shrink-0" style={{ borderLeft: `1px solid rgba(255,255,255,0.06)`, minWidth: 180 }}>
+          <div className="flex flex-col gap-3 justify-center px-6 py-6 flex-shrink-0" style={{ borderLeft: `1px solid rgba(255,255,255,0.06)`, minWidth: 186 }}>
             <button
               onClick={() => router.push('/staff/teams')}
               className="rounded-xl px-4 py-3 text-[11px] font-semibold flex items-center gap-2 transition-all w-full"
@@ -535,7 +471,7 @@ export default function DashboardTab({ dash, onNavigate }: Props) {
             <button
               onClick={() => onNavigate('cqc')}
               className="rounded-xl px-4 py-3 text-[11px] font-semibold flex items-center gap-2 transition-all w-full"
-              style={{ background: `${BLUE}`, color: '#FFFFFF', border: `1px solid ${BLUE}` }}
+              style={{ background: BLUE, color: '#FFFFFF', border: `1px solid ${BLUE}` }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.85'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}
             >
@@ -548,32 +484,9 @@ export default function DashboardTab({ dash, onNavigate }: Props) {
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.85)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.2)'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.5)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)'; }}
             >
-              <Sparkles size={13} /> Ask Aria
+              <Sparkles size={13} /> Ask EWC
             </button>
           </div>
-        </div>
-
-        {/* Bottom stat strip — on dark bg */}
-        <div className="grid" style={{ gridTemplateColumns: 'repeat(6, 1fr)' }}>
-          {heroStats.map((s, i) => (
-            <div
-              key={s.label}
-              className="px-5 py-4"
-              style={{ borderRight: i < heroStats.length - 1 ? `1px solid rgba(255,255,255,0.05)` : 'none' }}
-            >
-              <p style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.22em', fontWeight: 700, color: 'rgba(255,255,255,0.28)', marginBottom: 6 }}>
-                {s.label}
-              </p>
-              <div className="flex items-center gap-2">
-                <span style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1, color: '#FFFFFF' }}>
-                  {s.value}
-                </span>
-                {s.dot && (
-                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: s.dot, display: 'inline-block', flexShrink: 0 }} />
-                )}
-              </div>
-            </div>
-          ))}
         </div>
       </div>
 
@@ -649,24 +562,12 @@ export default function DashboardTab({ dash, onNavigate }: Props) {
             ))}
           </div>
 
-          {/* CQC overall bar */}
-          <div className="mt-5 pt-4" style={{ borderTop: `1px solid ${BORDER}` }}>
-            <div className="flex items-center justify-between mb-2">
-              <span style={{ fontSize: 10, color: SEC, fontWeight: 600 }}>Overall CQC Score</span>
-              <span style={{ fontSize: 13, fontWeight: 900, letterSpacing: '-0.02em', color: NAVY }}>{dash.cqc_score_pct}%</span>
-            </div>
-            <div style={{ height: 6, background: BORDER, borderRadius: 99, overflow: 'hidden' }}>
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${dash.cqc_score_pct}%` }}
-                transition={{ duration: 1.2, ease: 'easeOut' }}
-                style={{ height: '100%', background: BLUE, borderRadius: 99 }}
-              />
-            </div>
-            <div className="flex justify-between mt-1.5">
-              <span style={{ fontSize: 9, color: MUTED }}>{dash.cqc_answered} answered · {dash.cqc_total - dash.cqc_answered} remaining</span>
-              <span style={{ fontSize: 9, color: RED }}>{dash.cqc_no_count} failing</span>
-            </div>
+          {/* CQC answer progress */}
+          <div className="mt-5 pt-4 flex items-center justify-between" style={{ borderTop: `1px solid ${BORDER}` }}>
+            <span style={{ fontSize: 10, color: MUTED }}>{dash.cqc_answered} answered · {dash.cqc_total - dash.cqc_answered} remaining</span>
+            {dash.cqc_no_count > 0 && (
+              <span style={{ fontSize: 10, fontWeight: 600, color: RED }}>{dash.cqc_no_count} failing</span>
+            )}
           </div>
         </div>
 
@@ -711,32 +612,16 @@ export default function DashboardTab({ dash, onNavigate }: Props) {
             ))}
           </div>
 
-          {/* HR sub-breakdown: training + equipment + medicines */}
-          <div className="space-y-3 pt-4" style={{ borderTop: `1px solid ${BORDER}` }}>
-            <p style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.24em', fontWeight: 700, color: MUTED, marginBottom: 10 }}>
-              Other Watchlist
-            </p>
-            {[
-              { label: 'Training Gaps',      value: dash.training_gaps,          tab: 'training',   icon: <FileText size={11} /> },
-              { label: 'Equipment Overdue',  value: dash.equipment_overdue,      tab: 'equipment',  icon: <Stethoscope size={11} /> },
-              { label: 'Medicines Expiring', value: dash.medicine_expiring_soon, tab: 'medicines',  icon: <FlaskConical size={11} /> },
-            ].map((row, i, arr) => (
-              <button
-                key={row.label}
-                onClick={() => onNavigate(row.tab)}
-                className="flex items-center justify-between w-full py-2.5 hover:opacity-70 transition-opacity"
-                style={{ borderBottom: i < arr.length - 1 ? `1px solid ${BORDER}` : 'none' }}
-              >
-                <div className="flex items-center gap-2" style={{ color: TER }}>
-                  {row.icon}
-                  <span style={{ fontSize: 11, color: SEC }}>{row.label}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span style={{ fontSize: 13, fontWeight: 900, letterSpacing: '-0.02em', color: row.value > 0 ? RED : GREEN }}>{row.value}</span>
-                  <ChevronRight size={11} color={MUTED} />
-                </div>
-              </button>
-            ))}
+          {/* Staff summary footer */}
+          <div className="pt-4 flex items-center justify-between" style={{ borderTop: `1px solid ${BORDER}` }}>
+            <span style={{ fontSize: 10, color: MUTED }}>{dash.total_staff} registered staff · {dash.total_staff - Math.max(dash.dbs_issues, dash.rtw_issues)} records current</span>
+            <button
+              onClick={() => onNavigate('hr')}
+              className="flex items-center gap-1 text-[10px] font-semibold"
+              style={{ color: BLUE }}
+            >
+              View all <ChevronRight size={11} />
+            </button>
           </div>
         </div>
       </div>
@@ -749,21 +634,21 @@ export default function DashboardTab({ dash, onNavigate }: Props) {
         <div className="grid grid-cols-4 gap-4">
           <SmartCard
             icon={<Sparkles size={16} />}
-            title="Ask Aria: Compliance Health"
+            title="Ask EWC: Compliance Health"
             subtitle="Get an AI analysis of your current compliance status and what to prioritise next"
             color={BLUE}
             onClick={() => router.push('/staff/chat?q=' + encodeURIComponent('Analyse our current compliance health — what are the key risks and what should we prioritise?'))}
           />
           <SmartCard
             icon={<Shield size={16} />}
-            title="CQC Action Plan"
-            subtitle="Aria will review your CQC answers and generate a prioritised action plan"
+            title="Ask EWC: CQC Action Plan"
+            subtitle="EWC will review your audit answers and generate a prioritised action plan to improve your score"
             color={PURPLE}
             onClick={() => router.push('/staff/chat?q=' + encodeURIComponent(`Our CQC audit score is ${dash.cqc_score_pct}% with ${dash.cqc_no_count} failing questions. Generate a prioritised action plan to improve our score.`))}
           />
           <SmartCard
             icon={<FileText size={16} />}
-            title="Generate Evidence Pack"
+            title="Ask EWC: Evidence Pack"
             subtitle="Compile all compliance data into a structured CQC evidence summary document"
             color={TEAL}
             onClick={() => router.push('/staff/chat?q=' + encodeURIComponent('Generate a CQC evidence pack summary with our current compliance data across all five key domains.'))}
