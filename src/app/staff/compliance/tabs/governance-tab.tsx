@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Plus, X, Loader2, ChevronDown, ChevronUp, Trash2, Edit2,
-  Users, AlertTriangle, Shield, FileText, Pill, BookOpen, Briefcase, MoreHorizontal,
+  Plus, X, Loader2, ChevronDown, ChevronUp, Trash2,
+  AlertTriangle, Shield, FileText, Pill, BookOpen, MoreHorizontal,
 } from 'lucide-react';
 import {
   createGovernanceEntry, updateGovernanceEntry, deleteGovernanceEntry,
@@ -23,26 +24,31 @@ const ORANGE = '#EA580C';
 const RED    = '#DC2626';
 
 const GOV_TYPES = [
-  'Clinical Governance Meeting',
   'Significant Event Review',
-  'Staff Meeting',
   'Risk Assessment',
-  'Medicines Management Meeting',
+  'Medicines Management Review',
   'Safeguarding Case Discussion',
+  'Policy Review',
   'Other',
 ];
 
 const TYPE_ICONS: Record<string, React.ReactNode> = {
-  'Clinical Governance Meeting':    <Shield size={16} />,
-  'Significant Event Review':       <AlertTriangle size={16} />,
-  'Staff Meeting':                  <Users size={16} />,
-  'Risk Assessment':                <FileText size={16} />,
-  'Medicines Management Meeting':   <Pill size={16} />,
-  'Safeguarding Case Discussion':   <BookOpen size={16} />,
-  'Other':                          <MoreHorizontal size={16} />,
+  'Significant Event Review':       <AlertTriangle size={13} />,
+  'Risk Assessment':                <FileText size={13} />,
+  'Medicines Management Review':    <Pill size={13} />,
+  'Safeguarding Case Discussion':   <BookOpen size={13} />,
+  'Policy Review':                  <Shield size={13} />,
+  'Other':                          <MoreHorizontal size={13} />,
 };
 
-const MEETING_TYPES = ['Clinical Governance Meeting', 'Staff Meeting', 'Medicines Management Meeting', 'Safeguarding Case Discussion'];
+const TYPE_COLORS: Record<string, string> = {
+  'Significant Event Review':    '#DC2626',
+  'Risk Assessment':             '#0058E6',
+  'Medicines Management Review': '#D8A600',
+  'Safeguarding Case Discussion':'#7C3AED',
+  'Policy Review':               '#059669',
+  'Other':                       '#6B7280',
+};
 
 const INP_STYLE: React.CSSProperties = {
   background: 'transparent',
@@ -81,60 +87,74 @@ function parseList(val: string | null): string[] {
   try { return JSON.parse(val); } catch { return val.split('\n').filter(Boolean); }
 }
 
+type ActionItem = { text: string; assignee: string; due_date: string };
+
 type NewEntryForm = {
   type: string;
   event_date: string;
-  agenda_items: string[];
-  attendees: string[];
-  minutes_text: string;
-  actions_arising: Array<{ text: string; assignee: string; due_date: string }>;
   description: string;
   owner_id: string;
+  attendees: string[];
+  actions_arising: ActionItem[];
   due_date: string;
   status: string;
 };
 
-function defaultForm(type = 'Staff Meeting'): NewEntryForm {
+function defaultForm(): NewEntryForm {
   return {
-    type,
+    type: 'Significant Event Review',
     event_date: '',
-    agenda_items: [''],
-    attendees: [],
-    minutes_text: '',
-    actions_arising: [{ text: '', assignee: '', due_date: '' }],
     description: '',
     owner_id: '',
+    attendees: [],
+    actions_arising: [{ text: '', assignee: '', due_date: '' }],
     due_date: '',
     status: 'open',
   };
 }
 
+// ─── Label helper ─────────────────────────────────────────────────────────────
+function Label({ children }: { children: React.ReactNode }) {
+  return (
+    <label style={{
+      fontSize: 9,
+      textTransform: 'uppercase',
+      letterSpacing: '0.22em',
+      fontWeight: 700,
+      color: MUTED,
+      display: 'block',
+      marginBottom: 6,
+    }}>
+      {children}
+    </label>
+  );
+}
+
+// ─── New Entry Modal ───────────────────────────────────────────────────────────
 interface NewEntryModalProps {
   users: ActiveUser[];
-  initialType: string;
   onClose: () => void;
   onSave: () => void;
 }
 
-function NewEntryModal({ users, initialType, onClose, onSave }: NewEntryModalProps) {
-  const [form, setForm] = useState<NewEntryForm>(defaultForm(initialType));
+function NewEntryModal({ users, onClose, onSave }: NewEntryModalProps) {
+  const [form, setForm] = useState<NewEntryForm>(defaultForm());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const isMeeting = MEETING_TYPES.includes(form.type);
 
   async function handleSave() {
     if (!form.event_date) { setError('Date is required'); return; }
     setSaving(true);
 
-    const agendaItems = form.agenda_items.filter(a => a.trim());
-    const actions = form.actions_arising.filter(a => a.text.trim()).map(a => a.text + (a.assignee ? ` (${a.assignee})` : '') + (a.due_date ? ` — due ${a.due_date}` : ''));
+    const actions = form.actions_arising
+      .filter(a => a.text.trim())
+      .map(a => a.text + (a.assignee ? ` (${a.assignee})` : '') + (a.due_date ? ` — due ${a.due_date}` : ''));
 
     const res = await createGovernanceEntry({
       type: form.type,
       event_date: form.event_date,
-      agenda_items: agendaItems.join('\n') || undefined,
-      attendees: form.attendees.join('\n') || undefined,
+      agenda_items: form.description || undefined,
+      attendees: form.attendees.length ? form.attendees.join('\n') : undefined,
       actions_arising: actions.join('\n') || undefined,
       owner_id: form.owner_id || undefined,
       due_date: form.due_date || undefined,
@@ -150,7 +170,7 @@ function NewEntryModal({ users, initialType, onClose, onSave }: NewEntryModalPro
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 flex items-center justify-center z-50"
-      style={{ backdropFilter: 'blur(6px)', background: 'rgba(24,29,35,0.5)' }}
+      style={{ backdropFilter: 'blur(6px)', background: 'rgba(24,29,35,0.55)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <motion.div
@@ -165,159 +185,120 @@ function NewEntryModal({ users, initialType, onClose, onSave }: NewEntryModalPro
           <button onClick={onClose}><X size={16} color={MUTED} /></button>
         </div>
 
-        {error && <p className="mb-4 text-[11px] p-2 rounded-lg" style={{ background: `${RED}14`, color: RED }}>{error}</p>}
+        {error && (
+          <p className="mb-4 text-[11px] p-2 rounded-lg" style={{ background: `${RED}14`, color: RED }}>
+            {error}
+          </p>
+        )}
 
         <div className="space-y-4">
+          {/* Type + Date */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.22em', fontWeight: 700, color: MUTED, display: 'block', marginBottom: 6 }}>Type</label>
+              <Label>Type</Label>
               <select style={INP_STYLE} value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
                 {GOV_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
             <div>
-              <label style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.22em', fontWeight: 700, color: MUTED, display: 'block', marginBottom: 6 }}>Date *</label>
+              <Label>Date *</Label>
               <input type="date" style={INP_STYLE} value={form.event_date} onChange={e => setForm(f => ({ ...f, event_date: e.target.value }))} />
             </div>
           </div>
 
-          {isMeeting ? (
-            <>
-              {/* Attendees */}
-              <div>
-                <label style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.22em', fontWeight: 700, color: MUTED, display: 'block', marginBottom: 6 }}>Attendees</label>
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {form.attendees.map(a => (
-                    <span key={a} className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-full" style={{ background: `${BLUE}14`, color: BLUE }}>
-                      {a}
-                      <button onClick={() => setForm(f => ({ ...f, attendees: f.attendees.filter(x => x !== a) }))}><X size={8} /></button>
-                    </span>
-                  ))}
-                </div>
-                <select
-                  style={INP_STYLE}
-                  value=""
-                  onChange={e => {
-                    const name = users.find(u => u.id === e.target.value)?.full_name;
-                    if (name && !form.attendees.includes(name)) setForm(f => ({ ...f, attendees: [...f.attendees, name] }));
-                  }}
-                >
-                  <option value="">Add attendee...</option>
-                  {users.filter(u => !form.attendees.includes(u.full_name)).map(u => <option key={u.id} value={u.id}>{u.full_name}</option>)}
-                </select>
-              </div>
-
-              {/* Agenda items */}
-              <div>
-                <label style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.22em', fontWeight: 700, color: MUTED, display: 'block', marginBottom: 6 }}>Agenda Items</label>
-                {form.agenda_items.map((item, i) => (
-                  <div key={i} className="flex items-center gap-2 mb-2">
-                    <input
-                      style={{ ...INP_STYLE, flex: 1 }}
-                      value={item}
-                      placeholder={`Agenda item ${i + 1}...`}
-                      onChange={e => setForm(f => ({ ...f, agenda_items: f.agenda_items.map((x, j) => j === i ? e.target.value : x) }))}
-                    />
-                    <button onClick={() => setForm(f => ({ ...f, agenda_items: f.agenda_items.filter((_, j) => j !== i) }))}>
-                      <X size={12} color={MUTED} />
-                    </button>
-                  </div>
-                ))}
-                <button
-                  onClick={() => setForm(f => ({ ...f, agenda_items: [...f.agenda_items, ''] }))}
-                  style={{ fontSize: 11, color: BLUE, background: 'transparent', border: 'none', cursor: 'pointer' }}
-                >
-                  + Add Agenda Item
-                </button>
-              </div>
-
-              {/* Minutes */}
-              <div>
-                <label style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.22em', fontWeight: 700, color: MUTED, display: 'block', marginBottom: 6 }}>Meeting Notes / Minutes</label>
-                <textarea rows={4} style={{ ...INP_STYLE, resize: 'vertical' }} value={form.minutes_text} onChange={e => setForm(f => ({ ...f, minutes_text: e.target.value }))} placeholder="Key discussion points and outcomes..." />
-              </div>
-
-              {/* Actions arising */}
-              <div>
-                <label style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.22em', fontWeight: 700, color: MUTED, display: 'block', marginBottom: 6 }}>Actions Arising</label>
-                {form.actions_arising.map((action, i) => (
-                  <div key={i} className="flex items-center gap-2 mb-2">
-                    <input
-                      style={{ ...INP_STYLE, flex: 2 }}
-                      value={action.text}
-                      placeholder="Action description..."
-                      onChange={e => setForm(f => ({ ...f, actions_arising: f.actions_arising.map((a, j) => j === i ? { ...a, text: e.target.value } : a) }))}
-                    />
-                    <input
-                      style={{ ...INP_STYLE, flex: 1 }}
-                      value={action.assignee}
-                      placeholder="Assignee..."
-                      onChange={e => setForm(f => ({ ...f, actions_arising: f.actions_arising.map((a, j) => j === i ? { ...a, assignee: e.target.value } : a) }))}
-                    />
-                    <input
-                      type="date"
-                      style={{ ...INP_STYLE, flex: 1 }}
-                      value={action.due_date}
-                      onChange={e => setForm(f => ({ ...f, actions_arising: f.actions_arising.map((a, j) => j === i ? { ...a, due_date: e.target.value } : a) }))}
-                    />
-                    <button onClick={() => setForm(f => ({ ...f, actions_arising: f.actions_arising.filter((_, j) => j !== i) }))}>
-                      <X size={12} color={MUTED} />
-                    </button>
-                  </div>
-                ))}
-                <button
-                  onClick={() => setForm(f => ({ ...f, actions_arising: [...f.actions_arising, { text: '', assignee: '', due_date: '' }] }))}
-                  style={{ fontSize: 11, color: BLUE, background: 'transparent', border: 'none', cursor: 'pointer' }}
-                >
-                  + Add Action
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              {/* Review / assessment form */}
-              <div>
-                <label style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.22em', fontWeight: 700, color: MUTED, display: 'block', marginBottom: 6 }}>Description / Findings</label>
-                <textarea rows={4} style={{ ...INP_STYLE, resize: 'vertical' }} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Describe the event or assessment findings..." />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.22em', fontWeight: 700, color: MUTED, display: 'block', marginBottom: 6 }}>Owner</label>
-                  <select style={INP_STYLE} value={form.owner_id} onChange={e => setForm(f => ({ ...f, owner_id: e.target.value }))}>
-                    <option value="">Select owner...</option>
-                    {users.map(u => <option key={u.id} value={u.id}>{u.full_name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.22em', fontWeight: 700, color: MUTED, display: 'block', marginBottom: 6 }}>Due Date</label>
-                  <input type="date" style={INP_STYLE} value={form.due_date} onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))} />
-                </div>
-              </div>
-              <div>
-                <label style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.22em', fontWeight: 700, color: MUTED, display: 'block', marginBottom: 6 }}>Actions Arising</label>
-                {form.actions_arising.map((action, i) => (
-                  <div key={i} className="flex items-center gap-2 mb-2">
-                    <input
-                      style={{ ...INP_STYLE, flex: 1 }}
-                      value={action.text}
-                      placeholder={`Action ${i + 1}...`}
-                      onChange={e => setForm(f => ({ ...f, actions_arising: f.actions_arising.map((a, j) => j === i ? { ...a, text: e.target.value } : a) }))}
-                    />
-                    <button onClick={() => setForm(f => ({ ...f, actions_arising: f.actions_arising.filter((_, j) => j !== i) }))}>
-                      <X size={12} color={MUTED} />
-                    </button>
-                  </div>
-                ))}
-                <button onClick={() => setForm(f => ({ ...f, actions_arising: [...f.actions_arising, { text: '', assignee: '', due_date: '' }] }))} style={{ fontSize: 11, color: BLUE, background: 'transparent', border: 'none', cursor: 'pointer' }}>
-                  + Add Action
-                </button>
-              </div>
-            </>
-          )}
-
+          {/* Owner + Due Date */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.22em', fontWeight: 700, color: MUTED, display: 'block', marginBottom: 6 }}>Status</label>
+              <Label>Owner</Label>
+              <select style={INP_STYLE} value={form.owner_id} onChange={e => setForm(f => ({ ...f, owner_id: e.target.value }))}>
+                <option value="">Select owner...</option>
+                {users.map(u => <option key={u.id} value={u.id}>{u.full_name}</option>)}
+              </select>
+            </div>
+            <div>
+              <Label>Due Date</Label>
+              <input type="date" style={INP_STYLE} value={form.due_date} onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))} />
+            </div>
+          </div>
+
+          {/* Description / Findings */}
+          <div>
+            <Label>Description / Findings</Label>
+            <textarea
+              rows={4}
+              style={{ ...INP_STYLE, resize: 'vertical' }}
+              value={form.description}
+              onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+              placeholder="Describe the event, risk, or assessment findings..."
+            />
+          </div>
+
+          {/* Attendees */}
+          <div>
+            <Label>Attendees</Label>
+            <div className="flex flex-wrap gap-2 mb-2">
+              {form.attendees.map(a => (
+                <span key={a} className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-full" style={{ background: `${BLUE}14`, color: BLUE }}>
+                  {a}
+                  <button onClick={() => setForm(f => ({ ...f, attendees: f.attendees.filter(x => x !== a) }))}><X size={8} /></button>
+                </span>
+              ))}
+            </div>
+            <select
+              style={INP_STYLE}
+              value=""
+              onChange={e => {
+                const name = users.find(u => u.id === e.target.value)?.full_name;
+                if (name && !form.attendees.includes(name)) setForm(f => ({ ...f, attendees: [...f.attendees, name] }));
+              }}
+            >
+              <option value="">Add attendee...</option>
+              {users.filter(u => !form.attendees.includes(u.full_name)).map(u => (
+                <option key={u.id} value={u.id}>{u.full_name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Actions Arising */}
+          <div>
+            <Label>Actions Arising</Label>
+            {form.actions_arising.map((action, i) => (
+              <div key={i} className="flex items-center gap-2 mb-2">
+                <input
+                  style={{ ...INP_STYLE, flex: 2 }}
+                  value={action.text}
+                  placeholder="Action description..."
+                  onChange={e => setForm(f => ({ ...f, actions_arising: f.actions_arising.map((a, j) => j === i ? { ...a, text: e.target.value } : a) }))}
+                />
+                <input
+                  style={{ ...INP_STYLE, flex: 1 }}
+                  value={action.assignee}
+                  placeholder="Assignee..."
+                  onChange={e => setForm(f => ({ ...f, actions_arising: f.actions_arising.map((a, j) => j === i ? { ...a, assignee: e.target.value } : a) }))}
+                />
+                <input
+                  type="date"
+                  style={{ ...INP_STYLE, flex: 1 }}
+                  value={action.due_date}
+                  onChange={e => setForm(f => ({ ...f, actions_arising: f.actions_arising.map((a, j) => j === i ? { ...a, due_date: e.target.value } : a) }))}
+                />
+                <button onClick={() => setForm(f => ({ ...f, actions_arising: f.actions_arising.filter((_, j) => j !== i) }))}>
+                  <X size={12} color={MUTED} />
+                </button>
+              </div>
+            ))}
+            <button
+              onClick={() => setForm(f => ({ ...f, actions_arising: [...f.actions_arising, { text: '', assignee: '', due_date: '' }] }))}
+              style={{ fontSize: 11, color: BLUE, background: 'transparent', border: 'none', cursor: 'pointer' }}
+            >
+              + Add Action
+            </button>
+          </div>
+
+          {/* Status */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Status</Label>
               <select style={INP_STYLE} value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
                 <option value="open">Open</option>
                 <option value="in_progress">In Progress</option>
@@ -329,7 +310,12 @@ function NewEntryModal({ users, initialType, onClose, onSave }: NewEntryModalPro
 
         <div className="flex items-center justify-end gap-3 mt-5" style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 14 }}>
           <button onClick={onClose} style={{ fontSize: 11, color: MUTED, background: 'transparent', border: 'none', cursor: 'pointer' }}>Cancel</button>
-          <button onClick={handleSave} disabled={saving} className="flex items-center gap-1.5 rounded-xl px-4 py-2" style={{ background: NAVY, color: BG, fontSize: 12, fontWeight: 600, border: 'none', opacity: saving ? 0.7 : 1 }}>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex items-center gap-1.5 rounded-xl px-4 py-2"
+            style={{ background: NAVY, color: BG, fontSize: 12, fontWeight: 600, border: 'none', opacity: saving ? 0.7 : 1, cursor: 'pointer' }}
+          >
             {saving && <Loader2 size={12} className="animate-spin" />}
             Save Entry
           </button>
@@ -339,6 +325,15 @@ function NewEntryModal({ users, initialType, onClose, onSave }: NewEntryModalPro
   );
 }
 
+// ─── Status button bar ─────────────────────────────────────────────────────────
+const STATUSES: Array<{ key: GovernanceEntry['status']; label: string; color: string }> = [
+  { key: 'open',        label: 'Open',        color: BLUE },
+  { key: 'in_progress', label: 'In Progress', color: ORANGE },
+  { key: 'completed',   label: 'Completed',   color: GREEN },
+  { key: 'overdue',     label: 'Overdue',     color: RED },
+];
+
+// ─── Main Component ────────────────────────────────────────────────────────────
 interface Props {
   log: GovernanceEntry[];
   users: ActiveUser[];
@@ -347,20 +342,24 @@ interface Props {
   startMeeting?: boolean;
 }
 
-export default function GovernanceTab({ log, users, onRefresh, startMeeting = false }: Props) {
-  const [activeType, setActiveType] = useState<string | null>(null);
+export default function GovernanceTab({ log, users, onRefresh }: Props) {
+  const router = useRouter();
+  const [activeType, setActiveType] = useState<string>('All');
   const [expandedEntry, setExpandedEntry] = useState<string | null>(null);
-  const [showModal, setShowModal] = useState(startMeeting);
-  const [modalType, setModalType] = useState('Staff Meeting');
+  const [showModal, setShowModal] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (startMeeting) { setShowModal(true); setModalType('Staff Meeting'); }
-  }, [startMeeting]);
+  // ── Stats ──────────────────────────────────────────────────────────────────
+  const total     = log.length;
+  const openCount = log.filter(e => e.status === 'open').length;
+  const doneCount = log.filter(e => e.status === 'completed').length;
+  const overdueCount = log.filter(e => e.status === 'overdue').length;
 
-  const filteredLog = activeType ? log.filter(e => e.type === activeType) : log;
+  const filterTypes = ['All', ...GOV_TYPES];
+
+  const filteredLog = activeType === 'All' ? log : log.filter(e => e.type === activeType);
 
   async function handleDelete(id: string) {
     setDeleting(true);
@@ -370,123 +369,206 @@ export default function GovernanceTab({ log, users, onRefresh, startMeeting = fa
     onRefresh();
   }
 
-  async function handleStatusChange(id: string, status: string) {
+  async function handleStatusChange(id: string, status: GovernanceEntry['status']) {
     setUpdatingStatus(id);
-    await updateGovernanceEntry(id, { status: status as GovernanceEntry['status'] });
+    await updateGovernanceEntry(id, { status });
     setUpdatingStatus(null);
     onRefresh();
   }
 
   return (
     <div>
-      {/* Type selector grid */}
-      <div className="grid grid-cols-4 gap-3 mb-6">
-        <button
-          onClick={() => setActiveType(null)}
-          className="rounded-2xl p-4 text-left transition-all"
-          style={{
-            border: `1px solid ${activeType === null ? BLUE : BORDER}`,
-            background: activeType === null ? `${BLUE}08` : 'transparent',
-          }}
-        >
-          <p style={{ fontSize: 11, fontWeight: 700, color: NAVY, marginBottom: 4 }}>All Types</p>
-          <p style={{ fontSize: 20, fontWeight: 900, color: NAVY }}>{log.length}</p>
-          <p style={{ fontSize: 10, color: MUTED }}>entries</p>
-        </button>
-        {GOV_TYPES.map(type => {
-          const count = log.filter(e => e.type === type).length;
-          const isActive = activeType === type;
-          return (
+      {/* ── Stats strip ───────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-4 gap-3 mb-6 rounded-2xl overflow-hidden" style={{ border: `1px solid ${BORDER}` }}>
+        {[
+          { label: 'All Entries', value: total,        color: NAVY },
+          { label: 'Open',        value: openCount,    color: BLUE },
+          { label: 'Completed',   value: doneCount,    color: GREEN },
+          { label: 'Overdue',     value: overdueCount, color: RED },
+        ].map((tile, i) => (
+          <div
+            key={tile.label}
+            className="px-5 py-5"
+            style={{ borderRight: i < 3 ? `1px solid ${BORDER}` : 'none' }}
+          >
+            <p style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.28em', fontWeight: 700, color: MUTED, marginBottom: 8 }}>
+              {tile.label}
+            </p>
+            <p style={{ fontSize: 28, fontWeight: 900, color: tile.color, lineHeight: 1 }}>
+              {tile.value}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Filter chips + new entry ────────────────────────────────────────── */}
+      <div className="flex items-center justify-between gap-4 mb-5">
+        {/* Chips row */}
+        <div className="flex items-center gap-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+          {filterTypes.map(t => {
+            const count = t === 'All' ? log.length : log.filter(e => e.type === t).length;
+            const isActive = activeType === t;
+            return (
+              <button
+                key={t}
+                onClick={() => setActiveType(t)}
+                className="flex items-center gap-1.5 rounded-full whitespace-nowrap transition-all"
+                style={{
+                  padding: '5px 12px',
+                  fontSize: 11,
+                  fontWeight: isActive ? 700 : 500,
+                  background: isActive ? NAVY : 'transparent',
+                  color: isActive ? BG : TER,
+                  border: `1px solid ${isActive ? NAVY : BORDER}`,
+                  cursor: 'pointer',
+                }}
+              >
+                {t}
+                <span style={{
+                  fontSize: 9,
+                  fontWeight: 700,
+                  background: isActive ? `rgba(255,255,255,0.18)` : `${BORDER}`,
+                  color: isActive ? BG : MUTED,
+                  borderRadius: 99,
+                  padding: '1px 6px',
+                }}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Right: new entry + teams link */}
+        <div className="flex items-center gap-4 shrink-0">
+          <p style={{ fontSize: 10, color: MUTED }}>
+            Teams &amp; Meetings{' '}
             <button
-              key={type}
-              onClick={() => setActiveType(isActive ? null : type)}
-              className="rounded-2xl p-4 text-left transition-all"
-              style={{
-                border: `1px solid ${isActive ? BLUE : BORDER}`,
-                background: isActive ? `${BLUE}08` : 'transparent',
-              }}
-              onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = `${BLUE}04`; }}
-              onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+              onClick={() => router.push('/staff/teams')}
+              style={{ fontSize: 10, color: BLUE, background: 'transparent', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
             >
-              <div className="flex items-center gap-2 mb-2" style={{ color: isActive ? BLUE : MUTED }}>
-                {TYPE_ICONS[type]}
-              </div>
-              <p style={{ fontSize: 10, fontWeight: 600, color: NAVY, lineHeight: 1.3, marginBottom: 4 }} className="truncate">{type}</p>
-              <p style={{ fontSize: 18, fontWeight: 900, color: isActive ? BLUE : NAVY }}>{count}</p>
+              /staff/teams
             </button>
-          );
-        })}
+          </p>
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-[11px] font-semibold"
+            style={{ background: NAVY, color: BG, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}
+          >
+            <Plus size={12} />New Entry
+          </button>
+        </div>
       </div>
 
-      {/* New entry button */}
-      <div className="flex items-center justify-between mb-4">
-        <p style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.26em', fontWeight: 700, color: MUTED }}>
-          {activeType ?? 'All Entries'} ({filteredLog.length})
-        </p>
-        <button
-          onClick={() => { setModalType(activeType ?? 'Staff Meeting'); setShowModal(true); }}
-          className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-[11px] font-medium"
-          style={{ background: NAVY, color: BG, border: 'none' }}
-        >
-          <Plus size={12} />New Entry
-        </button>
-      </div>
-
-      {/* Log list */}
+      {/* ── Entry cards ───────────────────────────────────────────────────── */}
       {filteredLog.length === 0 ? (
         <div className="rounded-2xl p-12 text-center" style={{ border: `1px solid ${BORDER}` }}>
           <p style={{ fontSize: 13, color: MUTED }}>No governance entries found.</p>
         </div>
       ) : (
-        <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${BORDER}` }}>
+        <div>
           <AnimatePresence>
-            {filteredLog.map((entry, i) => {
-              const isExpanded = expandedEntry === entry.id;
-              const statusCol  = statusColor(entry.status);
-              const agendaItems = parseList(entry.agenda_items);
-              const attendees   = parseList(entry.attendees);
-              const actions     = parseList(entry.actions_arising);
+            {filteredLog.map(entry => {
+              const isExpanded   = expandedEntry === entry.id;
+              const statusCol    = statusColor(entry.status);
+              const leftColor    = entry.status === 'open' ? BLUE
+                                 : entry.status === 'in_progress' ? ORANGE
+                                 : entry.status === 'completed' ? GREEN
+                                 : RED;
+              const agendaItems  = parseList(entry.agenda_items);
+              const attendees    = parseList(entry.attendees);
+              const actions      = parseList(entry.actions_arising);
+              const typeColor    = TYPE_COLORS[entry.type] ?? MUTED;
 
               return (
                 <motion.div
                   key={entry.id}
                   layout
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  style={{ borderBottom: i < filteredLog.length - 1 ? `1px solid ${BORDER}` : 'none' }}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="rounded-2xl mb-3 overflow-hidden"
+                  style={{ border: `1px solid ${BORDER}`, borderLeft: `4px solid ${leftColor}` }}
                 >
-                  {/* Row header */}
-                  <button
-                    onClick={() => setExpandedEntry(isExpanded ? null : entry.id)}
-                    className="w-full text-left px-5 py-4 flex items-center gap-4 transition-all group"
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = `${BLUE}04`; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-                  >
-                    <div className="flex-1 grid grid-cols-4 gap-4 items-center">
-                      <div>
-                        <p style={{ fontSize: 12, fontWeight: 700, color: NAVY }}>{fmt(entry.event_date)}</p>
-                        <p style={{ fontSize: 10, color: TER }}>{entry.type}</p>
-                      </div>
-                      <div>
-                        <span className="text-[9px] px-2 py-0.5 rounded-full font-semibold" style={{ background: `${statusCol}14`, color: statusCol }}>
+                  {/* Card body */}
+                  <div className="px-5 py-4">
+                    {/* Row 1: date + badges + expand */}
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-3">
+                        <span style={{ fontSize: 15, fontWeight: 800, color: NAVY }}>{fmt(entry.event_date)}</span>
+                        {/* Type badge */}
+                        <span
+                          className="flex items-center gap-1 rounded-full px-2 py-0.5"
+                          style={{
+                            fontSize: 9,
+                            fontWeight: 700,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.15em',
+                            background: `${typeColor}14`,
+                            color: typeColor,
+                          }}
+                        >
+                          {TYPE_ICONS[entry.type]}
+                          {entry.type}
+                        </span>
+                        {/* Status badge */}
+                        <span
+                          className="rounded-full px-2 py-0.5"
+                          style={{
+                            fontSize: 9,
+                            fontWeight: 700,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.12em',
+                            background: `${statusCol}14`,
+                            color: statusCol,
+                          }}
+                        >
                           {statusLabel(entry.status)}
                         </span>
                       </div>
-                      <div>
-                        {entry.owner_name && <p style={{ fontSize: 11, color: SEC }}>{entry.owner_name}</p>}
-                        {attendees.length > 0 && <p style={{ fontSize: 10, color: MUTED }}>{attendees.length} attendee{attendees.length !== 1 ? 's' : ''}</p>}
-                      </div>
-                      <div>
-                        {agendaItems.slice(0, 2).map((item, j) => (
-                          <p key={j} style={{ fontSize: 10, color: TER }} className="truncate">{item}</p>
-                        ))}
-                        {agendaItems.length > 2 && <p style={{ fontSize: 9, color: MUTED }}>+{agendaItems.length - 2} more</p>}
-                      </div>
+                      <button
+                        onClick={() => setExpandedEntry(isExpanded ? null : entry.id)}
+                        style={{ color: MUTED, background: 'transparent', border: 'none', cursor: 'pointer' }}
+                      >
+                        {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                      </button>
                     </div>
-                    {isExpanded ? <ChevronUp size={14} color={MUTED} /> : <ChevronDown size={14} color={MUTED} />}
-                  </button>
 
-                  {/* Expanded content */}
+                    {/* Row 2: owner + attendees */}
+                    {(entry.owner_name || attendees.length > 0) && (
+                      <div className="flex items-center gap-3 mb-1.5">
+                        {entry.owner_name && (
+                          <span style={{ fontSize: 11, color: SEC, fontWeight: 600 }}>{entry.owner_name}</span>
+                        )}
+                        {attendees.length > 0 && (
+                          <span
+                            className="rounded-full px-2 py-0.5"
+                            style={{ fontSize: 9, background: `${BLUE}0d`, color: BLUE, fontWeight: 600 }}
+                          >
+                            {attendees.length} attendee{attendees.length !== 1 ? 's' : ''}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Row 3: description preview */}
+                    {(agendaItems.length > 0 || entry.agenda_items) && (
+                      <p
+                        className="truncate mb-1.5"
+                        style={{ fontSize: 11, color: TER, maxWidth: '70%' }}
+                      >
+                        {agendaItems[0] ?? entry.agenda_items}
+                      </p>
+                    )}
+
+                    {/* Row 4: actions count */}
+                    {actions.length > 0 && (
+                      <p style={{ fontSize: 11, color: ORANGE, fontWeight: 600 }}>
+                        {actions.length} action{actions.length !== 1 ? 's' : ''} arising
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Expanded section */}
                   <AnimatePresence>
                     {isExpanded && (
                       <motion.div
@@ -495,69 +577,106 @@ export default function GovernanceTab({ log, users, onRefresh, startMeeting = fa
                         exit={{ height: 0, opacity: 0 }}
                         style={{ overflow: 'hidden', borderTop: `1px solid ${BORDER}` }}
                       >
-                        <div className="px-5 py-4 grid grid-cols-3 gap-4">
-                          {agendaItems.length > 0 && (
-                            <div>
-                              <p style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.22em', fontWeight: 700, color: MUTED, marginBottom: 8 }}>Agenda</p>
+                        {/* 3-col grid */}
+                        <div className="px-5 py-4 grid grid-cols-3 gap-6">
+                          <div>
+                            <p style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.22em', fontWeight: 700, color: MUTED, marginBottom: 8 }}>
+                              Agenda / Description
+                            </p>
+                            {agendaItems.length > 0 ? (
                               <ul className="space-y-1">
                                 {agendaItems.map((item, j) => (
                                   <li key={j} style={{ fontSize: 11, color: SEC }}>• {item}</li>
                                 ))}
                               </ul>
-                            </div>
-                          )}
-                          {attendees.length > 0 && (
-                            <div>
-                              <p style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.22em', fontWeight: 700, color: MUTED, marginBottom: 8 }}>Attendees</p>
+                            ) : entry.agenda_items ? (
+                              <p style={{ fontSize: 11, color: SEC, lineHeight: 1.5 }}>{entry.agenda_items}</p>
+                            ) : (
+                              <p style={{ fontSize: 11, color: MUTED }}>No description</p>
+                            )}
+                          </div>
+
+                          <div>
+                            <p style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.22em', fontWeight: 700, color: MUTED, marginBottom: 8 }}>
+                              Attendees
+                            </p>
+                            {attendees.length > 0 ? (
                               <ul className="space-y-1">
                                 {attendees.map((a, j) => (
                                   <li key={j} style={{ fontSize: 11, color: SEC }}>• {a}</li>
                                 ))}
                               </ul>
-                            </div>
-                          )}
-                          {actions.length > 0 && (
-                            <div>
-                              <p style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.22em', fontWeight: 700, color: MUTED, marginBottom: 8 }}>Actions Arising</p>
+                            ) : (
+                              <p style={{ fontSize: 11, color: MUTED }}>None recorded</p>
+                            )}
+                          </div>
+
+                          <div>
+                            <p style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.22em', fontWeight: 700, color: MUTED, marginBottom: 8 }}>
+                              Actions Arising
+                            </p>
+                            {actions.length > 0 ? (
                               <ul className="space-y-1">
                                 {actions.map((a, j) => (
-                                  <li key={j} style={{ fontSize: 11, color: SEC }}>• {a}</li>
+                                  <li key={j} style={{ fontSize: 11, color: ORANGE }}>• {a}</li>
                                 ))}
                               </ul>
-                            </div>
-                          )}
-                          {entry.due_date && (
-                            <div>
-                              <p style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.22em', fontWeight: 700, color: MUTED, marginBottom: 4 }}>Due Date</p>
-                              <p style={{ fontSize: 11, color: SEC }}>{fmt(entry.due_date)}</p>
-                            </div>
-                          )}
+                            ) : (
+                              <p style={{ fontSize: 11, color: MUTED }}>No actions</p>
+                            )}
+                          </div>
                         </div>
 
-                        {/* Actions bar */}
-                        <div className="px-5 py-3 flex items-center gap-3" style={{ borderTop: `1px solid ${BORDER}`, background: `${BORDER}20` }}>
-                          <select
-                            style={{ ...INP_STYLE, width: 'auto', padding: '4px 8px', fontSize: 10 }}
-                            value={entry.status}
-                            disabled={updatingStatus === entry.id}
-                            onChange={e => handleStatusChange(entry.id, e.target.value)}
-                          >
-                            <option value="open">Open</option>
-                            <option value="in_progress">In Progress</option>
-                            <option value="completed">Completed</option>
-                            <option value="overdue">Overdue</option>
-                          </select>
+                        {/* Status + delete bar */}
+                        <div
+                          className="px-5 py-3 flex items-center gap-2"
+                          style={{ borderTop: `1px solid ${BORDER}`, background: `${BORDER}20` }}
+                        >
+                          <span style={{ fontSize: 10, color: MUTED, fontWeight: 600, marginRight: 4 }}>Status:</span>
+                          {STATUSES.map(s => {
+                            const isActive = entry.status === s.key;
+                            return (
+                              <button
+                                key={s.key}
+                                onClick={() => handleStatusChange(entry.id, s.key)}
+                                disabled={updatingStatus === entry.id}
+                                className="rounded-lg px-2.5 py-1 text-[10px] font-semibold transition-all"
+                                style={{
+                                  background: isActive ? s.color : `${s.color}14`,
+                                  color: isActive ? BG : s.color,
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  opacity: updatingStatus === entry.id ? 0.6 : 1,
+                                }}
+                              >
+                                {s.label}
+                              </button>
+                            );
+                          })}
                           {updatingStatus === entry.id && <Loader2 size={12} className="animate-spin" style={{ color: MUTED }} />}
+
                           <div className="flex-1" />
+
                           {deleteConfirm === entry.id ? (
                             <div className="flex items-center gap-2">
-                              <button onClick={() => handleDelete(entry.id)} disabled={deleting} className="rounded-lg px-2 py-1 text-[10px] font-medium" style={{ background: `${RED}14`, color: RED }}>
+                              <button
+                                onClick={() => handleDelete(entry.id)}
+                                disabled={deleting}
+                                className="rounded-lg px-2 py-1 text-[10px] font-semibold"
+                                style={{ background: `${RED}14`, color: RED, border: 'none', cursor: 'pointer' }}
+                              >
                                 {deleting ? '...' : 'Confirm Delete'}
                               </button>
-                              <button onClick={() => setDeleteConfirm(null)}><X size={12} color={MUTED} /></button>
+                              <button onClick={() => setDeleteConfirm(null)} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}>
+                                <X size={12} color={MUTED} />
+                              </button>
                             </div>
                           ) : (
-                            <button onClick={() => setDeleteConfirm(entry.id)} className="flex items-center gap-1 text-[10px]" style={{ color: RED, background: 'transparent', border: 'none', cursor: 'pointer' }}>
+                            <button
+                              onClick={() => setDeleteConfirm(entry.id)}
+                              className="flex items-center gap-1 text-[10px]"
+                              style={{ color: RED, background: 'transparent', border: 'none', cursor: 'pointer' }}
+                            >
                               <Trash2 size={11} />Delete
                             </button>
                           )}
@@ -572,11 +691,11 @@ export default function GovernanceTab({ log, users, onRefresh, startMeeting = fa
         </div>
       )}
 
+      {/* Modal */}
       <AnimatePresence>
         {showModal && (
           <NewEntryModal
             users={users}
-            initialType={modalType}
             onClose={() => setShowModal(false)}
             onSave={() => { setShowModal(false); onRefresh(); }}
           />

@@ -50,7 +50,7 @@ const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'medicines',  label: 'Medicines' },
   { key: 'cqc',        label: 'CQC Audit' },
   { key: 'governance', label: 'Governance' },
-  { key: 'calendar',   label: 'Calendar' },
+  { key: 'calendar',   label: 'Feed' },
 ];
 
 function getTabBadge(
@@ -104,7 +104,6 @@ export default function CompliancePage() {
   const [govLog, setGovLog]           = useState<GovernanceEntry[]>([]);
   const [calTasks, setCalTasks]       = useState<CalendarTask[]>([]);
   const [users, setUsers]             = useState<ActiveUser[]>([]);
-  const [startMeeting, setStartMeeting] = useState(false);
 
   const loadAll = useCallback(async () => {
     const [cu, dashRes, hrRes, matRes, eqRes, medRes, cqcRes, govRes, calRes, usersRes] = await Promise.all([
@@ -154,8 +153,7 @@ export default function CompliancePage() {
   };
 
   const handleStartMeeting = () => {
-    setStartMeeting(true);
-    setTab('governance');
+    router.push('/staff/teams');
   };
 
   if (loading) return <OrbLoader />;
@@ -298,8 +296,7 @@ export default function CompliancePage() {
                   log={govLog}
                   users={users}
                   currentUserId={currentUserId}
-                  onRefresh={() => { loadAll(); setStartMeeting(false); }}
-                  startMeeting={startMeeting}
+                  onRefresh={loadAll}
                 />
               )}
               {tab === 'calendar' && (

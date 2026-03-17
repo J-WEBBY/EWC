@@ -258,6 +258,37 @@ export default function HRTrackerTab({ records, users, currentUserId, onRefresh 
   );
 }
 
+function formatTenure(startDate: string): string {
+  const start = new Date(startDate);
+  const now = new Date();
+  const totalMonths = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
+  if (totalMonths < 1) return 'Just started';
+  if (totalMonths < 12) return `${totalMonths} month${totalMonths !== 1 ? 's' : ''}`;
+  const years = Math.floor(totalMonths / 12);
+  const months = totalMonths % 12;
+  return months > 0 ? `${years} yr ${months}mo` : `${years} yr`;
+}
+
+function formatDateShort(dateStr: string | null): string {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  const day = d.getDate();
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const yr = String(d.getFullYear()).slice(2);
+  return `${day} ${months[d.getMonth()]} ${yr}`;
+}
+
+function contractLabel(ct: string | null): string {
+  const map: Record<string, string> = {
+    full_time: 'Full Time',
+    part_time: 'Part Time',
+    bank: 'Bank',
+    contractor: 'Contractor',
+    volunteer: 'Volunteer',
+  };
+  return ct ? (map[ct] ?? ct.replace(/_/g, ' ')) : '';
+}
+
 function HRCard({ record, onClick }: { record: HRRecord; onClick: () => void }) {
   const [hovered, setHovered] = useState(false);
 
@@ -266,6 +297,16 @@ function HRCard({ record, onClick }: { record: HRRecord; onClick: () => void }) 
     { key: 'RTW', status: record.rtw_status },
     { key: 'Appraisal', status: record.appraisal_status },
   ];
+
+  // Determine avatar ring color based on worst status
+  const allStatuses = [record.dbs_status, record.rtw_status, record.appraisal_status];
+  const hasCritical = allStatuses.some(s => ['expired', 'overdue'].includes(s));
+  const hasWarn     = allStatuses.some(s => ['due_soon', 'expiring_soon', 'no_dbs'].includes(s));
+  const avatarShadow = hasCritical
+    ? `0 0 0 2.5px ${RED}`
+    : hasWarn
+      ? `0 0 0 2.5px ${ORANGE}`
+      : `0 0 0 2.5px ${GREEN}60`;
 
   return (
     <button
@@ -279,19 +320,43 @@ function HRCard({ record, onClick }: { record: HRRecord; onClick: () => void }) 
         cursor: 'pointer',
       }}
     >
-      {/* Avatar + name */}
-      <div className="flex items-start gap-3 mb-4">
-        <div
-          className="flex-shrink-0 flex items-center justify-center rounded-full"
-          style={{ width: 40, height: 40, background: NAVY, color: BG, fontSize: 13, fontWeight: 700 }}
-        >
-          {initials(record.full_name)}
+      {/* Avatar + name + contract badge */}
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-start gap-3 flex-1 min-w-0">
+          <div
+            className="flex-shrink-0 flex items-center justify-center rounded-full"
+            style={{ width: 40, height: 40, background: NAVY, color: BG, fontSize: 13, fontWeight: 700, boxShadow: avatarShadow }}
+          >
+            {initials(record.full_name)}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p style={{ fontSize: 14, fontWeight: 700, color: NAVY, marginBottom: 2 }} className="truncate">{record.full_name}</p>
+            <p style={{ fontSize: 11, color: TER }} className="truncate">{record.job_title ?? record.role_name}</p>
+            {record.dept_team && <p style={{ fontSize: 10, color: MUTED }} className="truncate">{record.dept_team}</p>}
+            {record.start_date && (
+              <p style={{ fontSize: 10, color: MUTED, marginTop: 2 }}>
+                Started {formatTenure(record.start_date)}
+              </p>
+            )}
+          </div>
         </div>
-        <div className="flex-1 min-w-0">
-          <p style={{ fontSize: 14, fontWeight: 700, color: NAVY, marginBottom: 2 }} className="truncate">{record.full_name}</p>
-          <p style={{ fontSize: 11, color: TER }} className="truncate">{record.job_title ?? record.role_name}</p>
-          {record.dept_team && <p style={{ fontSize: 10, color: MUTED }} className="truncate">{record.dept_team}</p>}
-        </div>
+        {record.contract_type && (
+          <span
+            style={{
+              background: `${MUTED}14`,
+              color: MUTED,
+              fontSize: 9,
+              fontWeight: 600,
+              padding: '3px 8px',
+              borderRadius: 999,
+              flexShrink: 0,
+              marginLeft: 8,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {contractLabel(record.contract_type)}
+          </span>
+        )}
       </div>
 
       {/* Status badges */}
@@ -310,11 +375,37 @@ function HRCard({ record, onClick }: { record: HRRecord; onClick: () => void }) 
         })}
       </div>
 
-      {/* Hover reveal */}
+      {/* Hover reveal panel */}
       {hovered && (
-        <div className="mt-3 flex items-center gap-1">
-          <span style={{ fontSize: 10, color: BLUE, fontWeight: 600 }}>View Record</span>
-          <span style={{ fontSize: 10, color: BLUE }}>→</span>
+        <div
+          style={{
+            background: `${NAVY}06`,
+            borderRadius: 10,
+            padding: 10,
+            marginTop: 10,
+          }}
+        >
+          <div className="space-y-1.5 mb-2">
+            <div className="flex items-center gap-1">
+              <span style={{ fontSize: 10, color: MUTED, minWidth: 56 }}>DBS:</span>
+              <span style={{ fontSize: 10, color: TER }}>
+                {record.dbs_expiry_date ? formatDateShort(record.dbs_expiry_date) : 'No DBS'}
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span style={{ fontSize: 10, color: MUTED, minWidth: 56 }}>RTW:</span>
+              <span style={{ fontSize: 10, color: TER }}>
+                {record.rtw_status === 'permanent' ? 'Permanent' : (record.rtw_expiry_date ? formatDateShort(record.rtw_expiry_date) : 'Not set')}
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span style={{ fontSize: 10, color: MUTED, minWidth: 56 }}>Appraisal:</span>
+              <span style={{ fontSize: 10, color: TER }}>
+                {record.next_appraisal_date ? formatDateShort(record.next_appraisal_date) : 'Not scheduled'}
+              </span>
+            </div>
+          </div>
+          <span style={{ fontSize: 11, color: BLUE, fontWeight: 700 }}>View full record →</span>
         </div>
       )}
     </button>

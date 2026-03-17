@@ -1,6 +1,7 @@
 'use client';
 
 import { ChevronRight, BarChart2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import type { ComplianceDashboard } from '@/lib/actions/compliance';
 
 const BG     = '#F8FAFF';
@@ -88,6 +89,46 @@ function BarFill({ pct, color = BLUE }: { pct: number; color?: string }) {
   );
 }
 
+function DonutRing({ score, color }: { score: number; color: string }) {
+  const r = 52;
+  const stroke = 10;
+  const cx = 70;
+  const cy = 70;
+  const circumference = 2 * Math.PI * r;
+  const filled = (score / 100) * circumference;
+  const gap = circumference - filled;
+
+  return (
+    <svg width={140} height={140} viewBox="0 0 140 140" style={{ flexShrink: 0 }}>
+      {/* Track */}
+      <circle
+        cx={cx} cy={cy} r={r}
+        fill="none"
+        stroke="#EBF2FF"
+        strokeWidth={stroke}
+      />
+      {/* Fill */}
+      <circle
+        cx={cx} cy={cy} r={r}
+        fill="none"
+        stroke={color}
+        strokeWidth={stroke}
+        strokeDasharray={`${filled} ${gap}`}
+        strokeLinecap="round"
+        transform={`rotate(-90 ${cx} ${cy})`}
+        style={{ transition: 'stroke-dasharray 0.8s ease' }}
+      />
+      {/* Center text */}
+      <text x={cx} y={cy - 6} textAnchor="middle" style={{ fontSize: 22, fontWeight: 900, fill: NAVY, fontFamily: 'inherit' }}>
+        {score}%
+      </text>
+      <text x={cx} y={cy + 12} textAnchor="middle" style={{ fontSize: 8, fontWeight: 700, fill: MUTED, letterSpacing: '0.22em', fontFamily: 'inherit', textTransform: 'uppercase' }}>
+        OVERALL
+      </text>
+    </svg>
+  );
+}
+
 interface Props {
   dash: ComplianceDashboard;
   onNavigate: (tab: string) => void;
@@ -95,6 +136,7 @@ interface Props {
 }
 
 export default function DashboardTab({ dash, onNavigate, onStartMeeting }: Props) {
+  const router = useRouter();
   const trainingPct = dash.training_total > 0 ? Math.round((dash.training_compliant / dash.training_total) * 100) : 0;
   const equipOkPct  = dash.equipment_total > 0 ? Math.round(((dash.equipment_total - dash.equipment_overdue - dash.equipment_due_soon) / dash.equipment_total) * 100) : 100;
   const govCompPct  = dash.governance_total > 0 ? Math.round((dash.governance_completed / dash.governance_total) * 100) : 100;
@@ -103,51 +145,16 @@ export default function DashboardTab({ dash, onNavigate, onStartMeeting }: Props
   const hrIssues    = dash.dbs_issues + dash.rtw_issues + dash.appraisals_overdue;
   const overall     = overallCompliance(dash);
   const insights    = computeInsights(dash);
+  const overallColor = overall >= 80 ? GREEN : overall >= 60 ? ORANGE : RED;
 
-  const metricStrip = [
-    {
-      label: 'Overall Compliance',
-      value: `${overall}%`,
-      sub: 'across all sections',
-      goodWhenHigh: true,
-      numVal: overall,
-    },
-    {
-      label: 'CQC Score',
-      value: `${dash.cqc_score_pct}%`,
-      sub: `${dash.cqc_answered}/${dash.cqc_total} answered`,
-      goodWhenHigh: true,
-      numVal: dash.cqc_score_pct,
-    },
-    {
-      label: 'Training Compliant',
-      value: `${trainingPct}%`,
-      sub: `${dash.training_compliant}/${dash.training_total} modules`,
-      goodWhenHigh: true,
-      numVal: trainingPct,
-    },
-    {
-      label: 'HR Issues',
-      value: hrIssues,
-      sub: `DBS/RTW/Appraisals`,
-      goodWhenHigh: false,
-      numVal: hrIssues,
-    },
-    {
-      label: 'Equipment Overdue',
-      value: dash.equipment_overdue,
-      sub: `of ${dash.equipment_total} items`,
-      goodWhenHigh: false,
-      numVal: dash.equipment_overdue,
-    },
-    {
-      label: 'Governance Open',
-      value: dash.governance_open,
-      sub: `${dash.governance_overdue} overdue`,
-      goodWhenHigh: false,
-      numVal: dash.governance_open,
-    },
-  ];
+  // Critical alerts pills
+  const alertPills: string[] = [];
+  if (dash.dbs_issues > 0) alertPills.push(`${dash.dbs_issues} DBS check${dash.dbs_issues > 1 ? 's' : ''} expiring`);
+  if (dash.rtw_issues > 0) alertPills.push(`${dash.rtw_issues} RTW document${dash.rtw_issues > 1 ? 's' : ''} expiring`);
+  if (dash.appraisals_overdue > 0) alertPills.push(`${dash.appraisals_overdue} appraisal${dash.appraisals_overdue > 1 ? 's' : ''} overdue`);
+  if (dash.equipment_overdue > 0) alertPills.push(`${dash.equipment_overdue} equipment overdue`);
+  if (dash.medicine_expiring_soon > 0) alertPills.push(`${dash.medicine_expiring_soon} medicine expiring`);
+  const hasCritical = hrIssues > 0 || dash.equipment_overdue > 0 || dash.medicine_expiring_soon > 0;
 
   const sectionCards = [
     {
@@ -155,6 +162,7 @@ export default function DashboardTab({ dash, onNavigate, onStartMeeting }: Props
       tab: 'hr',
       issues: hrIssues,
       total: dash.total_staff,
+      pct: dash.total_staff > 0 ? Math.round(((dash.total_staff - Math.max(dash.dbs_issues, dash.rtw_issues)) / dash.total_staff) * 100) : 100,
       status: hrIssues === 0 ? 'ok' : hrIssues <= 2 ? 'warn' : 'crit',
       detail: `${dash.total_staff} staff`,
     },
@@ -163,6 +171,7 @@ export default function DashboardTab({ dash, onNavigate, onStartMeeting }: Props
       tab: 'training',
       issues: dash.training_gaps,
       total: dash.training_total,
+      pct: trainingPct,
       status: dash.training_gaps === 0 ? 'ok' : dash.training_gaps <= 3 ? 'warn' : 'crit',
       detail: `${trainingPct}% compliant`,
     },
@@ -171,6 +180,7 @@ export default function DashboardTab({ dash, onNavigate, onStartMeeting }: Props
       tab: 'cqc',
       issues: dash.cqc_no_count,
       total: dash.cqc_total,
+      pct: dash.cqc_score_pct,
       status: dash.cqc_score_pct >= 80 ? 'ok' : dash.cqc_score_pct >= 60 ? 'warn' : 'crit',
       detail: `${dash.cqc_score_pct}% score`,
     },
@@ -179,6 +189,7 @@ export default function DashboardTab({ dash, onNavigate, onStartMeeting }: Props
       tab: 'equipment',
       issues: dash.equipment_overdue,
       total: dash.equipment_total,
+      pct: equipOkPct,
       status: dash.equipment_overdue === 0 ? 'ok' : dash.equipment_overdue <= 2 ? 'warn' : 'crit',
       detail: `${dash.equipment_total} items`,
     },
@@ -187,6 +198,7 @@ export default function DashboardTab({ dash, onNavigate, onStartMeeting }: Props
       tab: 'medicines',
       issues: dash.medicine_expiring_soon,
       total: dash.medicine_total,
+      pct: medOkPct,
       status: dash.medicine_expiring_soon === 0 ? 'ok' : dash.medicine_expiring_soon <= 2 ? 'warn' : 'crit',
       detail: `${dash.medicine_total} items`,
     },
@@ -195,6 +207,7 @@ export default function DashboardTab({ dash, onNavigate, onStartMeeting }: Props
       tab: 'governance',
       issues: dash.governance_overdue,
       total: dash.governance_total,
+      pct: govCompPct,
       status: dash.governance_overdue === 0 ? 'ok' : 'warn',
       detail: `${dash.governance_open} open`,
     },
@@ -203,6 +216,7 @@ export default function DashboardTab({ dash, onNavigate, onStartMeeting }: Props
       tab: 'calendar',
       issues: dash.calendar_overdue,
       total: dash.calendar_total,
+      pct: calOkPct,
       status: dash.calendar_overdue === 0 ? 'ok' : dash.calendar_overdue <= 2 ? 'warn' : 'crit',
       detail: `${calOkPct}% on track`,
     },
@@ -211,6 +225,7 @@ export default function DashboardTab({ dash, onNavigate, onStartMeeting }: Props
       tab: 'dashboard',
       issues: 0,
       total: 0,
+      pct: overall,
       status: overall >= 80 ? 'ok' : overall >= 60 ? 'warn' : 'crit',
       detail: `${overall}% overall`,
     },
@@ -222,27 +237,118 @@ export default function DashboardTab({ dash, onNavigate, onStartMeeting }: Props
     return RED;
   }
 
+  // Quick stat tiles for header panel right column
+  const quickStats = [
+    { label: 'Equipment Overdue', val: dash.equipment_overdue, bad: dash.equipment_overdue > 0 },
+    { label: 'Governance Open',   val: dash.governance_open,   bad: dash.governance_overdue > 0 },
+    { label: 'Medicines Expiring',val: dash.medicine_expiring_soon, bad: dash.medicine_expiring_soon > 0 },
+    { label: 'Calendar Overdue',  val: dash.calendar_overdue,  bad: dash.calendar_overdue > 0 },
+  ];
+
   return (
     <div className="space-y-6">
 
-      {/* Metric strip */}
-      <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${BORDER}` }}>
-        <div className="grid grid-cols-6">
-          {metricStrip.map((m, i) => (
-            <div
-              key={m.label}
-              className="px-5 py-5"
-              style={{ borderRight: i < 5 ? `1px solid ${BORDER}` : 'none' }}
-            >
-              <p style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.26em', fontWeight: 700, color: MUTED, marginBottom: 10 }}>
-                {m.label}
-              </p>
-              <p style={{ fontSize: 32, fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1, color: valueColor(m.numVal, m.goodWhenHigh), marginBottom: 4 }}>
-                {m.value}
-              </p>
-              <p style={{ fontSize: 10, color: MUTED }}>{m.sub}</p>
+      {/* Critical alerts banner */}
+      {hasCritical && (
+        <div
+          className="rounded-2xl p-4"
+          style={{ background: `${RED}08`, border: `1px solid ${RED}25`, marginBottom: 4 }}
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <div style={{ width: 7, height: 7, borderRadius: '50%', background: RED, flexShrink: 0 }} />
+            <p style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.26em', fontWeight: 700, color: RED }}>
+              Action Required
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {alertPills.map(pill => (
+              <span
+                key={pill}
+                style={{
+                  background: `${RED}14`,
+                  color: RED,
+                  fontSize: 10,
+                  fontWeight: 600,
+                  padding: '4px 12px',
+                  borderRadius: 999,
+                }}
+              >
+                {pill}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Combined header panel: donut + key metrics + quick stats */}
+      <div
+        className="rounded-2xl"
+        style={{ border: `1px solid ${BORDER}`, padding: 24 }}
+      >
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24 }}>
+
+          {/* LEFT: donut ring + 3 key metrics */}
+          <div className="flex items-center gap-6">
+            <DonutRing score={overall} color={overallColor} />
+            <div className="flex flex-col gap-4 flex-1">
+              {[
+                {
+                  label: 'CQC Score',
+                  value: `${dash.cqc_score_pct}%`,
+                  numVal: dash.cqc_score_pct,
+                  goodWhenHigh: true,
+                  sub: `${dash.cqc_answered}/${dash.cqc_total} answered`,
+                },
+                {
+                  label: 'Training',
+                  value: `${trainingPct}%`,
+                  numVal: trainingPct,
+                  goodWhenHigh: true,
+                  sub: `${dash.training_compliant}/${dash.training_total} modules`,
+                },
+                {
+                  label: 'HR Issues',
+                  value: String(hrIssues),
+                  numVal: hrIssues,
+                  goodWhenHigh: false,
+                  sub: 'DBS / RTW / Appraisals',
+                },
+              ].map((m, i) => (
+                <div key={m.label} style={{ paddingBottom: i < 2 ? 12 : 0, borderBottom: i < 2 ? `1px solid ${BORDER}` : 'none' }}>
+                  <p style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.24em', fontWeight: 700, color: MUTED, marginBottom: 3 }}>
+                    {m.label}
+                  </p>
+                  <div className="flex items-baseline gap-2">
+                    <span style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.03em', lineHeight: 1, color: valueColor(m.numVal, m.goodWhenHigh) }}>
+                      {m.value}
+                    </span>
+                    <span style={{ fontSize: 10, color: MUTED }}>{m.sub}</span>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
+
+          {/* RIGHT: quick stat 2x2 grid */}
+          <div style={{ borderLeft: `1px solid ${BORDER}`, paddingLeft: 24 }}>
+            <p style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.26em', fontWeight: 700, color: MUTED, marginBottom: 14 }}>
+              At a Glance
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              {quickStats.map(qs => (
+                <div
+                  key={qs.label}
+                  className="rounded-xl p-3"
+                  style={{ border: `1px solid ${BORDER}`, background: 'transparent' }}
+                >
+                  <p style={{ fontSize: 20, fontWeight: 900, letterSpacing: '-0.03em', color: qs.bad ? (qs.val > 2 ? RED : ORANGE) : GREEN, lineHeight: 1, marginBottom: 4 }}>
+                    {qs.val}
+                  </p>
+                  <p style={{ fontSize: 9, color: MUTED, fontWeight: 600 }}>{qs.label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -261,8 +367,8 @@ export default function DashboardTab({ dash, onNavigate, onStartMeeting }: Props
                 <button
                   key={sc.tab}
                   onClick={() => onNavigate(sc.tab)}
-                  className="text-left rounded-xl p-4 transition-all group"
-                  style={{ border: `1px solid ${BORDER}`, background: 'transparent' }}
+                  className="text-left rounded-xl transition-all group overflow-hidden"
+                  style={{ border: `1px solid ${BORDER}`, background: 'transparent', padding: '16px 16px 0 16px' }}
                   onMouseEnter={e => {
                     (e.currentTarget as HTMLElement).style.background = `${col}08`;
                     (e.currentTarget as HTMLElement).style.borderColor = `${col}40`;
@@ -281,15 +387,26 @@ export default function DashboardTab({ dash, onNavigate, onStartMeeting }: Props
                       {sc.status === 'ok' ? 'OK' : sc.status === 'warn' ? 'Warning' : 'Critical'}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between mb-3">
                     <span style={{ fontSize: 10, color: MUTED }}>{sc.detail}</span>
                     {sc.issues > 0 && (
                       <span style={{ fontSize: 11, fontWeight: 700, color: col }}>{sc.issues} issue{sc.issues !== 1 ? 's' : ''}</span>
                     )}
                   </div>
-                  <div className="mt-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="mb-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <span style={{ fontSize: 10, color: col, fontWeight: 600 }}>View section</span>
                     <ChevronRight size={10} color={col} />
+                  </div>
+                  {/* Colored progress bar at bottom */}
+                  <div style={{ height: 3, background: `${col}20`, width: '100%', position: 'relative', margin: '0 -0px' }}>
+                    <div
+                      style={{
+                        height: '100%',
+                        width: `${Math.min(sc.pct, 100)}%`,
+                        background: col,
+                        transition: 'width 0.8s ease',
+                      }}
+                    />
                   </div>
                 </button>
               );
@@ -341,9 +458,9 @@ export default function DashboardTab({ dash, onNavigate, onStartMeeting }: Props
             </div>
           </div>
 
-          {/* Action cards */}
+          {/* Teams & Meetings action card */}
           <button
-            onClick={onStartMeeting}
+            onClick={() => router.push('/staff/teams')}
             className="w-full text-left rounded-2xl p-5 transition-all group"
             style={{ background: NAVY, border: `1px solid ${NAVY}` }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#232B35'; }}
@@ -352,7 +469,7 @@ export default function DashboardTab({ dash, onNavigate, onStartMeeting }: Props
             <div className="flex items-center justify-between">
               <div>
                 <p style={{ fontSize: 13, fontWeight: 700, color: BG, marginBottom: 4 }}>
-                  Start Governance Meeting
+                  Teams &amp; Meetings
                 </p>
                 <p style={{ fontSize: 11, color: '#6B7A8D' }}>Conduct and log a governance meeting</p>
               </div>

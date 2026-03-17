@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Bot, Mic, LogOut, BarChart2,
-  ChevronLeft, Brain, BookOpen, Zap, Link2, Settings, ShieldCheck,
+  ChevronLeft, Brain, BookOpen, Zap, Link2, Settings, ShieldCheck, Users2,
 } from 'lucide-react';
 import type { StaffProfile } from '@/lib/actions/staff-onboarding';
 
@@ -61,6 +61,7 @@ export function StaffNav({
       items: [
         { label: 'Dashboard',     href: p('/staff/dashboard'),   icon: LayoutDashboard },
         { label: 'Staff KPIs',     href: p('/staff/kpis'),        icon: BarChart2 },
+        { label: 'Teams',         href: p('/staff/teams'),       icon: Users2 },
         { label: 'Compliance',    href: p('/staff/compliance'),  icon: ShieldCheck },
         { label: 'Knowledge Base',href: p('/staff/knowledge'),   icon: BookOpen },
       ],
