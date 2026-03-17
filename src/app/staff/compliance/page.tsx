@@ -43,7 +43,7 @@ const ORANGE = '#EA580C';
 type Tab = 'dashboard' | 'hr' | 'training' | 'equipment' | 'medicines' | 'cqc' | 'governance' | 'calendar';
 
 const TABS: Array<{ key: Tab; label: string }> = [
-  { key: 'dashboard',  label: 'Dashboard' },
+  { key: 'dashboard',  label: 'Overview' },
   { key: 'hr',         label: 'HR Tracker' },
   { key: 'training',   label: 'Training' },
   { key: 'equipment',  label: 'Equipment' },
