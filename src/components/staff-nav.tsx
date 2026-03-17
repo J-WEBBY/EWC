@@ -60,7 +60,7 @@ export function StaffNav({
       title: 'Operations',
       items: [
         { label: 'Dashboard',     href: p('/staff/dashboard'),   icon: LayoutDashboard },
-        { label: 'KPIs',          href: p('/staff/kpis'),        icon: BarChart2 },
+        { label: 'Staff KPIs',     href: p('/staff/kpis'),        icon: BarChart2 },
         { label: 'Compliance',    href: p('/staff/compliance'),  icon: ShieldCheck },
         { label: 'Knowledge Base',href: p('/staff/knowledge'),   icon: BookOpen },
       ],

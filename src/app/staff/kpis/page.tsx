@@ -1,31 +1,25 @@
 'use client';
 
-// =============================================================================
-// Tasks & KPIs — shared task board, all staff
-// =============================================================================
-
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Plus, X, Trash2, CheckCircle2, Circle, ChevronDown, ChevronUp,
-  Clock, Flag, Paperclip, Edit3, RefreshCw, Star, ChevronRight, Search,
+  Plus, X, Trash2, CheckCircle2, ChevronRight,
+  Clock, Users, Zap, ShieldCheck, Briefcase,
+  Stethoscope, ArrowLeft, Bell, User, Calendar,
+  RefreshCw,
 } from 'lucide-react';
 import { StaffNav } from '@/components/staff-nav';
 import OrbLoader from '@/components/orb-loader';
 import { getStaffProfile, getCurrentUser, type StaffProfile } from '@/lib/actions/staff-onboarding';
 import {
-  getAllStaffGoals, createGoal, updateGoal, deleteGoal, updateGoalProgress,
-  getSubTasks, createSubTask, updateTaskNotes,
-  addTaskEvidence, getTaskEvidence, deleteTaskEvidence,
-  type StaffGoal, type EvidenceEntry,
+  getMyGoals, getGoalsAssignedByMe, createGoal, updateGoalProgress, deleteGoal, getAllStaffGoals,
+  type StaffGoal,
 } from '@/lib/actions/kpi-goals';
 import { getActiveUsers, type ActiveUser } from '@/lib/actions/compliance';
 import { createSignal } from '@/lib/actions/signals';
 
-// =============================================================================
-// DESIGN TOKENS
-// =============================================================================
+// ── Design tokens ──────────────────────────────────────────────────────────────
 const BG     = '#F8FAFF';
 const NAVY   = '#181D23';
 const SEC    = '#3D4451';
@@ -36,200 +30,318 @@ const BLUE   = '#0058E6';
 const GREEN  = '#059669';
 const ORANGE = '#EA580C';
 const RED    = '#DC2626';
-const GOLD   = '#D8A600';
-const PURPLE = '#7C3AED';
 
-// =============================================================================
-// META NOTES
-// =============================================================================
-interface MetaNotes {
-  priority:       'high' | 'medium' | 'low';
-  remind_days:    number;
-  treatment_type: string;
-  patient_name:   string;
-  satisfaction:   string;
-  revenue:        string;
-  session_cost:   string;
-  task_notes:     string;
-  closed:         boolean;
-  due_time?:      string;
-}
-
-const META_DEFAULTS: MetaNotes = {
-  priority:       'medium',
-  remind_days:    0,
-  treatment_type: '',
-  patient_name:   '',
-  satisfaction:   '',
-  revenue:        '',
-  session_cost:   '',
-  task_notes:     '',
-  closed:         false,
-};
-
-function getMetaNotes(task: StaffGoal): MetaNotes {
-  try {
-    if (task.notes) {
-      const parsed = JSON.parse(task.notes);
-      return { ...META_DEFAULTS, ...parsed };
-    }
-  } catch { /* ignore */ }
-  return { ...META_DEFAULTS };
-}
-
-async function saveMetaNotes(task: StaffGoal, patch: Partial<MetaNotes>): Promise<void> {
-  const current = getMetaNotes(task);
-  const merged  = { ...current, ...patch };
-  await updateTaskNotes(task.id, JSON.stringify(merged));
-  // Mutate in place so callers can re-read
-  task.notes = JSON.stringify(merged);
-}
-
-// =============================================================================
-// HELPERS
-// =============================================================================
-function priorityColor(p: string) {
-  if (p === 'high')   return RED;
-  if (p === 'medium') return GOLD;
-  return GREEN;
-}
-
-function categoryColor(c: string) {
-  switch (c) {
-    case 'clinical':     return PURPLE;
-    case 'compliance':   return ORANGE;
-    case 'training':     return '#00A693';
-    case 'operational':  return BLUE;
-    default:             return MUTED;
-  }
-}
-
+// ── Helpers ────────────────────────────────────────────────────────────────────
 function fmtDate(d: string) {
   if (!d) return '';
   return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' });
 }
 
-function timeAgo(ts: string) {
-  const diff = Date.now() - new Date(ts).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1)   return 'just now';
-  if (mins < 60)  return `${mins}m ago`;
-  const h = Math.floor(mins / 60);
-  if (h < 24)     return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
+function fmtDateTime(d: string, t?: string) {
+  if (!d) return '';
+  const base = new Date(d).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  return t ? `${base} · ${t}` : base;
 }
 
-function isOverdue(task: StaffGoal) {
-  const meta = getMetaNotes(task);
-  if (meta.closed) return false;
-  if (task.status === 'completed') return false;
-  return task.due_date && new Date(task.due_date) < new Date();
+interface AgendaMeta {
+  priority:         'high' | 'medium' | 'low';
+  task_type:        string;
+  treatment_type:   string;
+  patient_name:     string;
+  event_time:       string;
+  duration_mins:    number;
+  reminder_mins:    number;
+  collaborator_id:  string;
+  collaborator_name: string;
+  category_other:   string;
+  compliance_area:  string;
+  closed:           boolean;
+}
+
+const META_DEFAULTS: AgendaMeta = {
+  priority: 'medium', task_type: '', treatment_type: '', patient_name: '',
+  event_time: '', duration_mins: 60, reminder_mins: 0,
+  collaborator_id: '', collaborator_name: '', category_other: '',
+  compliance_area: '', closed: false,
+};
+
+function getMeta(goal: StaffGoal): AgendaMeta {
+  try { if (goal.notes) return { ...META_DEFAULTS, ...JSON.parse(goal.notes) }; } catch { /* */ }
+  return { ...META_DEFAULTS };
+}
+
+function isOverdue(g: StaffGoal) {
+  const m = getMeta(g);
+  if (m.closed || g.status === 'completed') return false;
+  return !!g.due_date && new Date(g.due_date) < new Date();
 }
 
 const TREATMENT_TYPES = [
-  'None', 'Botox', 'Dermal Filler', 'CoolSculpting', 'IV Therapy',
+  'Botox', 'Dermal Filler', 'CoolSculpting', 'IV Therapy',
   'Weight Management', 'GP Consultation', 'Health Screening',
   'Aesthetic Consultation', 'General',
 ];
 
-// =============================================================================
-// TASK CARD
-// =============================================================================
-interface TaskCardProps {
-  task:       StaffGoal;
-  isActive:   boolean;
-  onClick:    () => void;
+const COMPLIANCE_AREAS = [
+  'DBS Check', 'Training & CPD', 'CQC Audit', 'Equipment Check',
+  'Insurance', 'GDPR', 'Health & Safety', 'Medicines', 'Other',
+];
+
+const DURATION_OPTIONS = [
+  { label: '15m', value: 15 }, { label: '30m', value: 30 },
+  { label: '45m', value: 45 }, { label: '1h', value: 60 },
+  { label: '1.5h', value: 90 }, { label: '2h', value: 120 },
+];
+
+const REMINDER_OPTIONS = [
+  { label: 'None', value: 0 }, { label: '30 min', value: 30 },
+  { label: '1 hour', value: 60 }, { label: '1 day', value: 1440 },
+];
+
+// ── SVG: Donut chart ───────────────────────────────────────────────────────────
+function DonutChart({ segments, size = 100, stroke = 10 }: {
+  segments: { value: number; color: string }[];
+  size?: number;
+  stroke?: number;
+}) {
+  const r     = (size - stroke) / 2;
+  const circ  = 2 * Math.PI * r;
+  const total = segments.reduce((s, x) => s + x.value, 0) || 1;
+  let offset  = 0;
+  return (
+    <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={BORDER} strokeWidth={stroke} />
+      {segments.map((seg, i) => {
+        const dash = (seg.value / total) * circ;
+        const gap  = circ - dash;
+        const el   = (
+          <circle key={i} cx={size/2} cy={size/2} r={r} fill="none"
+            stroke={seg.color} strokeWidth={stroke}
+            strokeDasharray={`${dash} ${gap}`}
+            strokeDashoffset={-offset}
+            strokeLinecap="butt" />
+        );
+        offset += dash;
+        return el;
+      })}
+    </svg>
+  );
 }
 
-function TaskCard({ task, isActive, onClick }: TaskCardProps) {
-  const meta        = getMetaNotes(task);
-  const over        = isOverdue(task);
-  const isCompleted = task.status === 'completed';
+// ── SVG: Bar trend ─────────────────────────────────────────────────────────────
+function BarTrend({ data, color = BLUE }: { data: { label: string; value: number }[]; color?: string }) {
+  const w = 200; const h = 48;
+  const max = Math.max(...data.map(d => d.value), 1);
+  const bw  = (w / data.length) * 0.55;
+  const gap = w / data.length;
+  return (
+    <svg width="100%" height={h + 16} viewBox={`0 0 ${w} ${h + 16}`} preserveAspectRatio="none">
+      {data.map((d, i) => {
+        const bh = Math.max(2, (d.value / max) * h);
+        const x  = i * gap + (gap - bw) / 2;
+        const y  = h - bh;
+        return (
+          <g key={i}>
+            <rect x={x} y={y} width={bw} height={bh} rx={2}
+              fill={color} opacity={d.value === 0 ? 0.12 : 0.85} />
+            <text x={x + bw / 2} y={h + 12} textAnchor="middle"
+              fontSize={7} fill={MUTED} fontFamily="inherit">
+              {d.label}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
 
-  // Muted bar colour — only high priority gets a vivid accent
-  const barColor = isActive ? BLUE
-    : isCompleted               ? '#D4E2FF'
-    : meta.priority === 'high'   ? RED
-    : meta.priority === 'medium' ? '#C8A96E'
-    : '#C8D8F0';
+// ── Overview section ───────────────────────────────────────────────────────────
+function OverviewSection({ goals, assignedGoals }: { goals: StaffGoal[]; assignedGoals: StaffGoal[] }) {
+  const all         = [...goals];
+  const total       = all.length;
+  const completed   = all.filter(g => g.status === 'completed').length;
+  const active      = all.filter(g => !['completed','paused'].includes(g.status)).length;
+  const overdue     = all.filter(g => isOverdue(g)).length;
+  const assignedCnt = assignedGoals.length;
+
+  // Category breakdown
+  const byCat = [
+    { label: 'Clinical',     value: all.filter(g => g.category === 'clinical').length,     color: BLUE },
+    { label: 'Operational',  value: all.filter(g => g.category === 'operational').length,  color: '#4080EE' },
+    { label: 'Compliance',   value: all.filter(g => g.category === 'compliance').length,   color: '#6B96FF' },
+    { label: 'Other',        value: all.filter(g => !['clinical','operational','compliance'].includes(g.category)).length, color: BORDER },
+  ].filter(c => c.value > 0);
+
+  // Monthly trend — last 6 months
+  const months = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - (5 - i));
+    const iso = d.toISOString().slice(0, 7);
+    return {
+      label: d.toLocaleDateString('en-GB', { month: 'short' }),
+      value: all.filter(g => g.created_at.startsWith(iso)).length,
+    };
+  });
+
+  const tiles = [
+    { label: 'Total Agendas',    value: total,       sub: 'all time',           accent: BLUE },
+    { label: 'Active',           value: active,      sub: 'in progress',        accent: BLUE },
+    { label: 'Completed',        value: completed,   sub: 'done',               accent: GREEN },
+    { label: 'Overdue',          value: overdue,     sub: 'need attention',     accent: overdue > 0 ? RED : MUTED },
+    { label: 'Assigned to Me',   value: assignedCnt, sub: 'by colleagues',      accent: BLUE },
+  ];
+
+  return (
+    <div style={{ borderBottom: `1px solid ${BORDER}` }}>
+      {/* Metric strip */}
+      <div className="grid grid-cols-5" style={{ borderBottom: `1px solid ${BORDER}` }}>
+        {tiles.map((t, i) => (
+          <div key={t.label} className="px-6 py-5"
+            style={{ borderRight: i < 4 ? `1px solid ${BORDER}` : 'none' }}>
+            <p className="text-[8px] uppercase tracking-[0.24em] font-semibold mb-2" style={{ color: MUTED }}>{t.label}</p>
+            <p className="text-[32px] font-black tracking-[-0.04em] leading-none mb-1"
+              style={{ color: t.accent === MUTED ? MUTED : NAVY }}>{t.value}</p>
+            <p className="text-[10px]" style={{ color: MUTED }}>{t.sub}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Charts row */}
+      <div className="grid grid-cols-3 gap-0">
+
+        {/* Donut by category */}
+        <div className="px-6 py-5" style={{ borderRight: `1px solid ${BORDER}` }}>
+          <p className="text-[8px] uppercase tracking-[0.24em] font-semibold mb-4" style={{ color: MUTED }}>By Category</p>
+          {total === 0 ? (
+            <p className="text-[11px]" style={{ color: MUTED }}>No agendas yet</p>
+          ) : (
+            <div className="flex items-center gap-5">
+              <div className="relative flex-shrink-0" style={{ width: 80, height: 80 }}>
+                <DonutChart segments={byCat} size={80} stroke={9} />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-[13px] font-black" style={{ color: NAVY }}>{total}</span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {byCat.map(c => (
+                  <div key={c.label} className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: c.color }} />
+                    <span className="text-[10px]" style={{ color: TER }}>{c.label}</span>
+                    <span className="text-[10px] font-semibold ml-auto pl-3" style={{ color: NAVY }}>{c.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Monthly trend */}
+        <div className="px-6 py-5" style={{ borderRight: `1px solid ${BORDER}` }}>
+          <p className="text-[8px] uppercase tracking-[0.24em] font-semibold mb-3" style={{ color: MUTED }}>Agendas Created — Last 6 Months</p>
+          <BarTrend data={months} />
+        </div>
+
+        {/* Completion rate */}
+        <div className="px-6 py-5">
+          <p className="text-[8px] uppercase tracking-[0.24em] font-semibold mb-4" style={{ color: MUTED }}>Completion Rate</p>
+          <div className="relative flex-shrink-0 mb-3" style={{ width: 80, height: 80 }}>
+            <DonutChart
+              segments={[
+                { value: completed, color: BLUE },
+                { value: Math.max(0, total - completed), color: BORDER },
+              ]}
+              size={80} stroke={9}
+            />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-[13px] font-black" style={{ color: NAVY }}>
+                {total > 0 ? Math.round((completed / total) * 100) : 0}%
+              </span>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <div className="flex justify-between">
+              <span className="text-[10px]" style={{ color: TER }}>Completed</span>
+              <span className="text-[10px] font-semibold" style={{ color: NAVY }}>{completed}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-[10px]" style={{ color: TER }}>Active</span>
+              <span className="text-[10px] font-semibold" style={{ color: NAVY }}>{active}</span>
+            </div>
+            {overdue > 0 && (
+              <div className="flex justify-between">
+                <span className="text-[10px]" style={{ color: RED }}>Overdue</span>
+                <span className="text-[10px] font-semibold" style={{ color: RED }}>{overdue}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Agenda card ────────────────────────────────────────────────────────────────
+function AgendaCard({ goal, isSelected, onClick }: {
+  goal: StaffGoal; isSelected: boolean; onClick: () => void;
+}) {
+  const meta  = getMeta(goal);
+  const over  = isOverdue(goal);
+  const done  = goal.status === 'completed';
+  const catColor = goal.category === 'clinical' ? BLUE
+    : goal.category === 'compliance' ? ORANGE
+    : goal.category === 'operational' ? BLUE
+    : MUTED;
 
   return (
     <motion.div
-      layout
-      initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -4 }}
-      transition={{ duration: 0.18 }}
+      layout initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.18 }}
       onClick={onClick}
+      className="group cursor-pointer"
       style={{
-        display:         'flex',
-        alignItems:      'stretch',
-        borderBottom:    `1px solid ${BORDER}`,
-        cursor:          'pointer',
-        backgroundColor: isActive ? `${BLUE}06` : 'transparent',
-        transition:      'background 0.15s',
+        display: 'flex', alignItems: 'stretch',
+        borderBottom: `1px solid ${BORDER}`,
+        background: isSelected ? `${BLUE}06` : 'transparent',
+        transition: 'background 0.15s',
       }}
-      className="hover:bg-[#0058E605] group"
     >
-      {/* Priority indicator bar */}
-      <div style={{ width: 3, flexShrink: 0, backgroundColor: barColor, transition: 'background 0.15s' }} />
+      {/* Left accent */}
+      <div style={{
+        width: 3, flexShrink: 0,
+        background: isSelected ? BLUE : over ? RED : done ? BORDER : catColor,
+        opacity: isSelected ? 1 : done ? 0.4 : 0.55,
+      }} />
 
-      {/* Content */}
-      <div style={{ flex: 1, minWidth: 0, padding: '11px 16px' }}>
-        {/* Title row */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 3 }}>
+      <div style={{ flex: 1, minWidth: 0, padding: '11px 14px 11px 12px' }}>
+        <div className="flex items-start justify-between gap-2 mb-1">
           <span style={{
-            fontSize:       12,
-            fontWeight:     600,
-            color:          isCompleted ? MUTED : NAVY,
-            lineHeight:     1.4,
-            flex:           1,
-            textDecoration: isCompleted ? 'line-through' : 'none',
+            fontSize: 12, fontWeight: 600, color: done ? MUTED : NAVY,
+            textDecoration: done ? 'line-through' : 'none', flex: 1, lineHeight: 1.4,
           }}>
-            {task.title}
+            {goal.title}
           </span>
-          <ChevronRight
-            size={13}
-            style={{ color: MUTED, opacity: 0, transition: 'opacity 0.15s', flexShrink: 0, marginTop: 2 }}
-            className="group-hover:opacity-100"
-          />
+          <ChevronRight size={12} style={{ color: MUTED, flexShrink: 0, marginTop: 2 }}
+            className="opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
 
-        {/* Description snippet */}
-        {task.description && (
-          <p style={{
-            fontSize:     11,
-            color:        TER,
-            margin:       '0 0 5px',
-            overflow:     'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace:   'nowrap',
-            lineHeight:   1.4,
-          }}>
-            {task.description}
-          </p>
-        )}
-
-        {/* Meta row — neutral text only, red for overdue */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
-          <span style={{ fontSize: 10, color: MUTED, textTransform: 'capitalize' }}>{task.category}</span>
-          {meta.treatment_type && meta.treatment_type !== 'None' && (
-            <span style={{ fontSize: 10, color: MUTED }}>&nbsp;· {meta.treatment_type}</span>
-          )}
-          {task.owner_name && (
-            <span style={{ fontSize: 10, color: MUTED }}>&nbsp;· {task.owner_name}</span>
+        <div className="flex items-center flex-wrap gap-x-3 gap-y-0.5">
+          <span style={{ fontSize: 9, color: catColor, textTransform: 'capitalize', fontWeight: 600, letterSpacing: '0.08em' }}>
+            {goal.category === 'personal' ? (meta.category_other || 'Other') : goal.category}
+          </span>
+          {meta.task_type && (
+            <span style={{ fontSize: 9, color: MUTED }}>· {meta.task_type}</span>
           )}
           {meta.patient_name && (
-            <span style={{ fontSize: 10, color: MUTED }}>&nbsp;· {meta.patient_name}</span>
+            <span style={{ fontSize: 9, color: MUTED }}>· {meta.patient_name}</span>
           )}
-          {task.due_date && (
-            <span style={{
-              fontSize: 10,
-              color:    over ? RED : MUTED,
-              fontWeight: over ? 600 : 400,
-            }}>
-              &nbsp;· {over ? 'Overdue ' : ''}{fmtDate(task.due_date)}
+          {goal.due_date && (
+            <span style={{ fontSize: 9, color: over ? RED : MUTED, fontWeight: over ? 600 : 400 }}>
+              · {over ? 'Overdue · ' : ''}{fmtDate(goal.due_date)}
+              {meta.event_time ? ` ${meta.event_time}` : ''}
             </span>
+          )}
+          {goal.assigner_name && (
+            <span style={{ fontSize: 9, color: MUTED }}>· from {goal.assigner_name}</span>
           )}
         </div>
       </div>
@@ -237,1501 +349,904 @@ function TaskCard({ task, isActive, onClick }: TaskCardProps) {
   );
 }
 
-// =============================================================================
-// STATS TILE
-// =============================================================================
-function StatTile({ label, value, color, sub }: { label: string; value: string | number; color: string; sub?: string }) {
+// ── Agenda detail panel ────────────────────────────────────────────────────────
+function AgendaDetailPanel({ goal, onClose, onComplete, onDelete }: {
+  goal: StaffGoal;
+  onClose: () => void;
+  onComplete: (id: string) => void;
+  onDelete:   (id: string) => void;
+}) {
+  const meta = getMeta(goal);
+  const done = goal.status === 'completed';
+  const over = isOverdue(goal);
+
+  const catColor = goal.category === 'clinical' ? BLUE
+    : goal.category === 'compliance' ? ORANGE
+    : BLUE;
+
+  const rows: { label: string; value: string }[] = [];
+  if (meta.task_type)         rows.push({ label: 'Type',        value: meta.task_type });
+  if (meta.treatment_type)    rows.push({ label: 'Treatment',   value: meta.treatment_type });
+  if (meta.patient_name)      rows.push({ label: 'Patient',     value: meta.patient_name });
+  if (meta.compliance_area)   rows.push({ label: 'Area',        value: meta.compliance_area });
+  if (goal.due_date)          rows.push({ label: 'Date',        value: fmtDateTime(goal.due_date, meta.event_time || undefined) });
+  if (meta.duration_mins)     rows.push({ label: 'Duration',    value: meta.duration_mins >= 60 ? `${meta.duration_mins/60}h` : `${meta.duration_mins}m` });
+  if (goal.assigner_name)     rows.push({ label: 'Assigned by', value: goal.assigner_name });
+  if (meta.collaborator_name) rows.push({ label: 'Collaborator', value: meta.collaborator_name });
+  if (meta.reminder_mins)     rows.push({ label: 'Reminder',    value: meta.reminder_mins >= 1440 ? '1 day before' : meta.reminder_mins >= 60 ? `${meta.reminder_mins/60}h before` : `${meta.reminder_mins}m before` });
+  if (meta.priority !== 'medium') rows.push({ label: 'Priority', value: meta.priority });
+
   return (
-    <div style={{
-      display:      'flex',
-      alignItems:   'stretch',
-      border:       `1px solid ${BORDER}`,
-      borderRadius: 12,
-      background:   'transparent',
-      overflow:     'hidden',
-    }}>
-      {/* Left accent */}
-      <div style={{ width: 3, flexShrink: 0, background: color, opacity: 0.5 }} />
-      <div style={{ padding: '14px 16px 14px' }}>
-        <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.28em', fontWeight: 600, color: MUTED, marginBottom: 6 }}>
-          {label}
+    <motion.div
+      initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.22 }}
+      style={{
+        position: 'sticky', top: 0, height: 'fit-content',
+        border: `1px solid ${BORDER}`, borderRadius: 16,
+        overflow: 'hidden', background: BG,
+      }}
+    >
+      {/* Header */}
+      <div style={{ padding: '16px 16px 12px', borderBottom: `1px solid ${BORDER}` }}>
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <span style={{
+            fontSize: 9, color: catColor, textTransform: 'uppercase',
+            letterSpacing: '0.18em', fontWeight: 700,
+          }}>
+            {goal.category === 'personal' ? (meta.category_other || 'Other') : goal.category}
+          </span>
+          <button onClick={onClose}
+            style={{ color: MUTED, background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex' }}>
+            <X size={14} />
+          </button>
         </div>
-        <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: '-0.04em', color: NAVY, lineHeight: 1 }}>
-          {value}
-        </div>
-        {sub && (
-          <div style={{ fontSize: 10, color: MUTED, marginTop: 4 }}>{sub}</div>
+        <p style={{
+          fontSize: 14, fontWeight: 700, lineHeight: 1.4,
+          textDecoration: done ? 'line-through' : 'none',
+          color: done ? MUTED : NAVY,
+        }}>
+          {goal.title}
+        </p>
+        {goal.description && (
+          <p style={{ fontSize: 11, color: TER, marginTop: 6, lineHeight: 1.5 }}>{goal.description}</p>
+        )}
+        {over && (
+          <div style={{ marginTop: 8, padding: '4px 8px', borderRadius: 6, background: `${RED}10`, border: `1px solid ${RED}28`, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <Clock size={10} style={{ color: RED }} />
+            <span style={{ fontSize: 9, color: RED, fontWeight: 600 }}>Overdue</span>
+          </div>
         )}
       </div>
-    </div>
-  );
-}
 
-// =============================================================================
-// SECTION COLLAPSE BUTTON
-// =============================================================================
-function SectionToggle({ label, count, open, onToggle }: { label: string; count: number; open: boolean; onToggle: () => void }) {
-  return (
-    <button
-      onClick={onToggle}
-      style={{
-        display:        'flex',
-        alignItems:     'center',
-        gap:            8,
-        padding:        '11px 0',
-        background:     'none',
-        border:         'none',
-        borderTop:      '1px solid #D4E2FF',
-        cursor:         'pointer',
-        width:          '100%',
-        marginTop:      4,
-        transition:     'background 0.15s',
-      }}
-      className="hover:bg-[#D4E2FF20] rounded"
-    >
-      <span style={{ fontSize: 8, textTransform: 'uppercase' as const, letterSpacing: '0.28em', fontWeight: 600, color: '#96989B' }}>
-        {label}
-      </span>
-      <span style={{
-        fontSize: 9, backgroundColor: '#96989B18', color: '#96989B',
-        padding: '1px 7px', borderRadius: 999, fontWeight: 600,
-      }}>{count}</span>
-      <div style={{ flex: 1 }} />
-      {open ? <ChevronUp size={11} style={{ color: '#96989B' }} /> : <ChevronDown size={11} style={{ color: '#96989B' }} />}
-    </button>
-  );
-}
-
-// =============================================================================
-// GROUP PENDING TASKS BY DUE DATE
-// =============================================================================
-function groupPendingTasks(tasks: StaffGoal[]): { key: string; label: string; labelColor: string; tasks: StaffGoal[] }[] {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const endOfWeek = new Date(today);
-  endOfWeek.setDate(today.getDate() + 7);
-
-  const groups: { key: string; label: string; labelColor: string; tasks: StaffGoal[] }[] = [
-    { key: 'overdue',   label: 'Overdue',     labelColor: '#DC2626', tasks: [] },
-    { key: 'today',     label: 'Today',       labelColor: '#0058E6', tasks: [] },
-    { key: 'this_week', label: 'This Week',   labelColor: '#181D23', tasks: [] },
-    { key: 'later',     label: 'Later',       labelColor: '#96989B', tasks: [] },
-    { key: 'no_date',   label: 'No Due Date', labelColor: '#96989B', tasks: [] },
-  ];
-
-  for (const task of tasks) {
-    if (isOverdue(task)) {
-      groups[0].tasks.push(task);
-    } else if (task.due_date) {
-      const due = new Date(task.due_date);
-      due.setHours(0, 0, 0, 0);
-      if (due.getTime() === today.getTime()) {
-        groups[1].tasks.push(task);
-      } else if (due < endOfWeek) {
-        groups[2].tasks.push(task);
-      } else {
-        groups[3].tasks.push(task);
-      }
-    } else {
-      groups[4].tasks.push(task);
-    }
-  }
-
-  return groups.filter(g => g.tasks.length > 0);
-}
-
-// =============================================================================
-// EMPTY STATE
-// =============================================================================
-function EmptyState({ title, body, action }: { title: string; body: string; action?: { label: string; onClick: () => void } }) {
-  return (
-    <div style={{ padding: '48px 24px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <div style={{ fontSize: 13, fontWeight: 700, color: '#181D23', marginBottom: 6 }}>{title}</div>
-      <div style={{ fontSize: 11, color: '#96989B', lineHeight: 1.7, maxWidth: 280, marginBottom: action ? 16 : 0 }}>{body}</div>
-      {action && (
-        <button
-          onClick={action.onClick}
-          style={{
-            padding: '7px 18px', background: 'transparent',
-            border: '1px solid #D4E2FF', borderRadius: 8,
-            fontSize: 11, fontWeight: 600, color: '#3D4451', cursor: 'pointer',
-          }}
-        >
-          {action.label}
-        </button>
+      {/* Details */}
+      {rows.length > 0 && (
+        <div style={{ padding: '12px 16px', borderBottom: `1px solid ${BORDER}` }}>
+          <div className="space-y-2.5">
+            {rows.map(r => (
+              <div key={r.label} className="flex items-start justify-between gap-4">
+                <span style={{ fontSize: 10, color: MUTED, flexShrink: 0 }}>{r.label}</span>
+                <span style={{ fontSize: 10, color: SEC, textAlign: 'right', textTransform: 'capitalize' }}>{r.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
-    </div>
+
+      {/* Actions */}
+      {!done && (
+        <div style={{ padding: 12, display: 'flex', gap: 8 }}>
+          <button onClick={() => onComplete(goal.id)}
+            className="flex items-center gap-1.5 flex-1 justify-center rounded-xl py-2 text-[11px] font-semibold transition-all"
+            style={{ background: `${BLUE}14`, border: `1px solid ${BLUE}30`, color: NAVY }}
+            onMouseEnter={e => (e.currentTarget.style.background = `${BLUE}22`)}
+            onMouseLeave={e => (e.currentTarget.style.background = `${BLUE}14`)}>
+            <CheckCircle2 size={12} style={{ color: BLUE }} /> Mark done
+          </button>
+          <button onClick={() => onDelete(goal.id)}
+            className="w-8 h-8 rounded-xl flex items-center justify-center transition-all flex-shrink-0"
+            style={{ background: `${RED}0c`, border: `1px solid ${RED}20`, color: RED }}
+            onMouseEnter={e => (e.currentTarget.style.background = `${RED}18`)}
+            onMouseLeave={e => (e.currentTarget.style.background = `${RED}0c`)}>
+            <Trash2 size={12} />
+          </button>
+        </div>
+      )}
+      {done && (
+        <div style={{ padding: 12, display: 'flex', gap: 8 }}>
+          <button onClick={() => onDelete(goal.id)}
+            className="flex items-center gap-1.5 flex-1 justify-center rounded-xl py-2 text-[11px] font-medium transition-all"
+            style={{ background: `${RED}0c`, border: `1px solid ${RED}20`, color: RED }}>
+            <Trash2 size={12} /> Delete
+          </button>
+        </div>
+      )}
+    </motion.div>
   );
 }
 
-// =============================================================================
-// CREATE TASK MODAL
-// =============================================================================
-interface CreateTaskModalProps {
+// ── Wizard modal ───────────────────────────────────────────────────────────────
+
+type WizCat = 'operational' | 'clinical' | 'compliance' | 'other';
+
+interface WizardForm {
+  category:          WizCat | null;
+  title:             string;
+  description:       string;
+  date:              string;
+  time:              string;
+  duration_mins:     number;
+  priority:          'low' | 'medium' | 'high';
+  task_type:         string;
+  treatment_type:    string;
+  patient_name:      string;
+  compliance_area:   string;
+  category_other:    string;
+  assign_to_id:      string;
+  assign_to_name:    string;
+  collaborator_id:   string;
+  collaborator_name: string;
+  reminder_mins:     number;
+}
+
+const WIZ_DEFAULTS: WizardForm = {
+  category: null, title: '', description: '', date: '', time: '',
+  duration_mins: 60, priority: 'medium', task_type: '', treatment_type: '',
+  patient_name: '', compliance_area: '', category_other: '',
+  assign_to_id: '', assign_to_name: '', collaborator_id: '',
+  collaborator_name: '', reminder_mins: 0,
+};
+
+const CAT_CARDS = [
+  {
+    id:    'operational' as WizCat,
+    icon:  Briefcase,
+    label: 'Operational',
+    desc:  'Tasks, admin, processes',
+  },
+  {
+    id:    'clinical' as WizCat,
+    icon:  Stethoscope,
+    label: 'Clinical',
+    desc:  'Patient care, appointments',
+  },
+  {
+    id:    'compliance' as WizCat,
+    icon:  ShieldCheck,
+    label: 'Compliance',
+    desc:  'CQC, regulations, audits',
+  },
+  {
+    id:    'other' as WizCat,
+    icon:  Zap,
+    label: 'Other',
+    desc:  'Specify your own type',
+  },
+];
+
+const CLINICAL_TASK_TYPES = ['Appointment', 'Follow-up', 'Consultation', 'Procedure'];
+
+function INP_STYLE(): React.CSSProperties {
+  return {
+    width: '100%', borderRadius: 10, padding: '9px 12px',
+    fontSize: 12, color: NAVY, background: 'transparent',
+    border: `1px solid ${BORDER}`, outline: 'none', fontFamily: 'inherit',
+    boxSizing: 'border-box',
+  };
+}
+
+function LBL({ children }: { children: React.ReactNode }) {
+  return (
+    <label style={{ display: 'block', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.22em', fontWeight: 600, color: MUTED, marginBottom: 6 }}>
+      {children}
+    </label>
+  );
+}
+
+function WizardModal({ onClose, onCreate, userId, users }: {
+  onClose:  () => void;
+  onCreate: (goal: StaffGoal) => void;
   userId:   string;
   users:    ActiveUser[];
-  onClose:  () => void;
-  onCreate: (task: StaffGoal) => void;
-}
+}) {
+  const [step,    setStep]    = useState<1 | 2 | 3>(1);
+  const [form,    setForm]    = useState<WizardForm>(WIZ_DEFAULTS);
+  const [saving,  setSaving]  = useState(false);
+  const [error,   setError]   = useState('');
 
-function CreateTaskModal({ userId, users, onClose, onCreate }: CreateTaskModalProps) {
-  const [title,         setTitle]         = useState('');
-  const [description,   setDescription]   = useState('');
-  const [category,      setCategory]      = useState<'clinical'|'operational'|'training'|'compliance'>('operational');
-  const [treatmentType, setTreatmentType] = useState('None');
-  const [patientName,   setPatientName]   = useState('');
-  const [assignTo,      setAssignTo]      = useState(userId);
-  const [dueDate,       setDueDate]       = useState('');
-  const [dueTime,       setDueTime]       = useState('');
-  const [remindDays,    setRemindDays]    = useState(0);
-  const [priority,      setPriority]      = useState<'high'|'medium'|'low'>('medium');
-  const [saving,        setSaving]        = useState(false);
-  const [error,         setError]         = useState('');
+  const upd = (patch: Partial<WizardForm>) => setForm(f => ({ ...f, ...patch }));
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!title.trim() || !dueDate) {
-      setError('Title and due date are required.');
-      return;
-    }
-    setSaving(true);
-    setError('');
+  const otherUsers = users.filter(u => u.id !== userId);
 
-    const notes: MetaNotes = {
-      priority,
-      remind_days:    remindDays,
-      treatment_type: treatmentType,
-      patient_name:   patientName,
-      satisfaction:   '',
-      revenue:        '',
-      session_cost:   '',
-      task_notes:     '',
-      closed:         false,
-      due_time:       dueTime || undefined,
+  async function submit() {
+    if (!form.title.trim()) { setError('Please enter an agenda name.'); return; }
+    if (!form.date)          { setError('Please set a date.'); return; }
+    setError(''); setSaving(true);
+
+    const cat = form.category === 'other' ? 'personal'
+      : form.category === 'clinical'      ? 'clinical'
+      : form.category === 'compliance'    ? 'compliance'
+      : 'operational';
+
+    const meta = {
+      priority:          form.priority,
+      task_type:         form.task_type,
+      treatment_type:    form.treatment_type,
+      patient_name:      form.patient_name,
+      event_time:        form.time,
+      duration_mins:     form.duration_mins,
+      reminder_mins:     form.reminder_mins,
+      collaborator_id:   form.collaborator_id,
+      collaborator_name: form.collaborator_name,
+      category_other:    form.category_other,
+      compliance_area:   form.compliance_area,
+      closed:            false,
     };
 
-    const res = await createGoal({
-      owner_id:    assignTo,
-      assigned_by: assignTo !== userId ? userId : undefined,
-      title:       title.trim(),
-      description: description.trim() || undefined,
-      category,
-      scope:       'personal',
+    const ownerId    = form.assign_to_id || userId;
+    const assignedBy = form.assign_to_id ? userId : undefined;
+
+    const result = await createGoal({
+      owner_id:     ownerId,
+      assigned_by:  assignedBy,
+      title:        form.title.trim(),
+      description:  form.description || undefined,
+      category:     cat as 'operational' | 'clinical' | 'compliance' | 'personal',
+      scope:        'personal',
       target_value: 1,
       unit:         'count',
       period:       'custom',
       start_date:   new Date().toISOString().split('T')[0],
-      due_date:     dueDate,
-      notes:        JSON.stringify(notes),
+      due_date:     form.date,
+      notes:        JSON.stringify(meta),
     });
 
-    if (!res.success) {
-      setError(res.error ?? 'Failed to create task.');
+    if (!result.success || !result.id) {
+      setError(result.error ?? 'Failed to create agenda. Please try again.');
       setSaving(false);
       return;
     }
 
-    // Notify assignee via signal if different user
-    if (assignTo !== userId) {
-      const assigneeName = users.find(u => u.id === assignTo)?.full_name ?? 'someone';
-      const selfName     = users.find(u => u.id === userId)?.full_name ?? 'A team member';
+    // Notify assigned user via signal
+    if (form.assign_to_id && form.assign_to_name) {
       await createSignal('clinic', {
-        signalType:  'task',
-        title:       `New task assigned to you: ${title.trim()}`,
-        description: `${selfName} assigned you a task: "${title.trim()}" — due ${fmtDate(dueDate)}. Assigned to ${assigneeName}.`,
-        priority:    priority === 'high' ? 'high' : priority === 'low' ? 'low' : 'medium',
-        status:      'new',
-        sourceType:  'manual',
+        signalType:      'task',
+        title:           `New agenda assigned to you: "${form.title}"`,
+        description:     `Assigned by a colleague. Due: ${fmtDate(form.date)}`,
+        priority:        form.priority === 'high' ? 'high' : 'medium',
+        status:          'new',
+        sourceType:      'manual',
         createdByUserId: userId,
       });
     }
 
-    // Reload to get joined data and open hub
-    const all = await getAllStaffGoals();
-    const created = all.find(t => t.id === res.id) ?? all[0];
-    if (created) onCreate(created);
+    // Reload to get the full joined StaffGoal object
+    const all     = await getAllStaffGoals();
+    const created = all.find(t => t.id === result.id) ?? all[0];
+    if (created) {
+      onCreate(created);
+      onClose();
+    } else {
+      setError('Agenda created but could not reload. Please refresh.');
+    }
     setSaving(false);
   }
 
-  const inputStyle: React.CSSProperties = {
-    width:        '100%',
-    padding:      '8px 10px',
-    border:       `1px solid ${BORDER}`,
-    borderRadius: 8,
-    fontSize:     12,
-    color:        NAVY,
-    background:   '#fff',
-    outline:      'none',
-    colorScheme:  'light',
-  };
-
-  const labelStyle: React.CSSProperties = {
-    fontSize:      10,
-    textTransform: 'uppercase',
-    letterSpacing: '0.22em',
-    fontWeight:    600,
-    color:         MUTED,
-    marginBottom:  4,
-    display:       'block',
-  };
+  const stepLabels = ['Category', 'Details', 'People & Reminders'];
 
   return (
-    <div style={{
-      position:   'fixed',
-      inset:      0,
-      zIndex:     50,
-      display:    'flex',
-      alignItems: 'flex-start',
-      justifyContent: 'flex-end',
-      background: 'rgba(24,29,35,0.35)',
-    }}>
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(15,29,92,0.45)',
+        backdropFilter: 'blur(4px)', zIndex: 100,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 24,
+      }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
       <motion.div
-        initial={{ x: 460 }}
-        animate={{ x: 0 }}
-        exit={{ x: 460 }}
-        transition={{ type: 'spring', damping: 28, stiffness: 280 }}
+        initial={{ opacity: 0, y: 24, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 24, scale: 0.97 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 28 }}
         style={{
-          width:      460,
-          height:     '100vh',
-          background: BG,
-          borderLeft: `1px solid ${BORDER}`,
-          overflowY:  'auto',
-          display:    'flex',
-          flexDirection: 'column',
+          background: BG, borderRadius: 20, width: '100%', maxWidth: 540,
+          border: `1px solid ${BORDER}`, overflow: 'hidden',
+          maxHeight: 'calc(100vh - 48px)', display: 'flex', flexDirection: 'column',
         }}
       >
         {/* Header */}
-        <div style={{
-          padding:       '20px 24px 16px',
-          borderBottom:  `1px solid ${BORDER}`,
-          display:       'flex',
-          alignItems:    'center',
-          justifyContent: 'space-between',
-        }}>
-          <span style={{ fontSize: 15, fontWeight: 800, color: NAVY }}>New Task</span>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED }}>
-            <X size={16} />
-          </button>
-        </div>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} style={{ padding: '20px 24px', flex: 1, display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div>
-            <label style={labelStyle}>Title *</label>
-            <input style={inputStyle} value={title} onChange={e => setTitle(e.target.value)} placeholder="Task title..." />
-          </div>
-
-          <div>
-            <label style={labelStyle}>Description</label>
-            <textarea
-              style={{ ...inputStyle, resize: 'vertical', minHeight: 56 }}
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              placeholder="Optional description..."
-              rows={2}
-            />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div>
-              <label style={labelStyle}>Category *</label>
-              <select style={inputStyle} value={category} onChange={e => setCategory(e.target.value as typeof category)}>
-                <option value="clinical">Clinical</option>
-                <option value="operational">Operational</option>
-                <option value="training">Training</option>
-                <option value="compliance">Compliance</option>
-              </select>
-            </div>
-            <div>
-              <label style={labelStyle}>Priority</label>
-              <select style={inputStyle} value={priority} onChange={e => setPriority(e.target.value as typeof priority)}>
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label style={labelStyle}>Treatment Type</label>
-            <select style={inputStyle} value={treatmentType} onChange={e => setTreatmentType(e.target.value)}>
-              {TREATMENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
-
-          <div>
-            <label style={labelStyle}>Patient Name</label>
-            <input style={inputStyle} value={patientName} onChange={e => setPatientName(e.target.value)} placeholder="Optional patient name..." />
-          </div>
-
-          <div>
-            <label style={labelStyle}>Assign To *</label>
-            <select style={inputStyle} value={assignTo} onChange={e => setAssignTo(e.target.value)}>
-              {users.map(u => (
-                <option key={u.id} value={u.id}>{u.full_name} ({u.role_name})</option>
-              ))}
-            </select>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div>
-              <label style={labelStyle}>Due Date *</label>
-              <input style={inputStyle} type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
-            </div>
-            <div>
-              <label style={labelStyle}>Due Time</label>
-              <input style={inputStyle} type="time" value={dueTime} onChange={e => setDueTime(e.target.value)} />
-            </div>
-          </div>
-
-          <div>
-            <label style={labelStyle}>Remind Me</label>
-            <select style={inputStyle} value={remindDays} onChange={e => setRemindDays(Number(e.target.value))}>
-              <option value={0}>No reminder</option>
-              <option value={1}>1 day before</option>
-              <option value={3}>3 days before</option>
-              <option value={7}>7 days before</option>
-              <option value={14}>14 days before</option>
-            </select>
-          </div>
-
-          {error && (
-            <p style={{ fontSize: 11, color: RED }}>{error}</p>
-          )}
-
-          <div style={{ display: 'flex', gap: 8, marginTop: 'auto', paddingTop: 8 }}>
-            <button
-              type="button"
-              onClick={onClose}
-              style={{
-                flex:         1,
-                padding:      '9px 0',
-                border:       `1px solid ${BORDER}`,
-                borderRadius: 8,
-                background:   'transparent',
-                color:        SEC,
-                fontSize:     12,
-                fontWeight:   600,
-                cursor:       'pointer',
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              style={{
-                flex:         2,
-                padding:      '9px 0',
-                border:       'none',
-                borderRadius: 8,
-                background:   BLUE,
-                color:        '#fff',
-                fontSize:     12,
-                fontWeight:   700,
-                cursor:       saving ? 'not-allowed' : 'pointer',
-                opacity:      saving ? 0.7 : 1,
-              }}
-            >
-              {saving ? 'Creating...' : 'Create Task'}
-            </button>
-          </div>
-        </form>
-      </motion.div>
-    </div>
-  );
-}
-
-// =============================================================================
-// TASK HUB (right panel)
-// =============================================================================
-interface TaskHubProps {
-  task:        StaffGoal;
-  userId:      string;
-  users:       ActiveUser[];
-  onClose:     () => void;
-  onDelete:    (id: string) => void;
-  onRefresh:   () => void;
-}
-
-function TaskHub({ task, userId, users, onClose, onDelete, onRefresh }: TaskHubProps) {
-  const meta = getMetaNotes(task);
-
-  // Sub-tasks
-  const [subTasks,         setSubTasks]         = useState<StaffGoal[]>([]);
-  const [subTaskInput,     setSubTaskInput]      = useState('');
-  const [subTaskSaving,    setSubTaskSaving]     = useState(false);
-
-  // Evidence
-  const [evidence,         setEvidence]         = useState<EvidenceEntry[]>([]);
-  const [evidenceNote,     setEvidenceNote]      = useState('');
-  const [selectedFile,     setSelectedFile]      = useState<File | null>(null);
-  const [uploadSaving,     setUploadSaving]      = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Session
-  const [sessionCost,      setSessionCost]      = useState(meta.session_cost ?? '');
-  const [satisfaction,     setSatisfaction]      = useState(meta.satisfaction ?? '');
-
-  // Notes
-  const [taskNotes,        setTaskNotes]         = useState(meta.task_notes ?? '');
-  const [notesSaving,      setNotesSaving]       = useState(false);
-
-  // Title edit
-  const [editingTitle,     setEditingTitle]      = useState(false);
-  const [titleDraft,       setTitleDraft]        = useState(task.title);
-  const [titleSaving,      setTitleSaving]       = useState(false);
-
-  // Due date edit
-  const [editingDueDate,   setEditingDueDate]    = useState(false);
-  const [dueDateDraft,     setDueDateDraft]      = useState(task.due_date ?? '');
-  const [dueDateSaving,    setDueDateSaving]     = useState(false);
-
-  // Assignee edit
-  const [editingAssignee,  setEditingAssignee]   = useState(false);
-  const [assigneeDraft,    setAssigneeDraft]     = useState(task.owner_id ?? '');
-  const [assigneeSaving,   setAssigneeSaving]    = useState(false);
-
-  // Confirm delete
-  const [confirmDelete,    setConfirmDelete]     = useState(false);
-
-  // Load sub-tasks + evidence
-  useEffect(() => {
-    getSubTasks(task.id).then(setSubTasks);
-    getTaskEvidence(task.id).then(setEvidence);
-    // Reset fields from fresh meta
-    const m = getMetaNotes(task);
-    setSessionCost(m.session_cost ?? '');
-    setSatisfaction(m.satisfaction ?? '');
-    setTaskNotes(m.task_notes ?? '');
-    setTitleDraft(task.title);
-    setDueDateDraft(task.due_date ?? '');
-    setAssigneeDraft(task.owner_id ?? '');
-  }, [task.id, task.notes, task.due_date, task.owner_id]);
-
-  // ---- Sub-task actions ----
-  async function handleAddSubTask() {
-    const t = subTaskInput.trim();
-    if (!t) return;
-    setSubTaskSaving(true);
-    await createSubTask({ parent_goal_id: task.id, owner_id: userId, assigned_by: userId, title: t });
-    setSubTaskInput('');
-    const fresh = await getSubTasks(task.id);
-    setSubTasks(fresh);
-    setSubTaskSaving(false);
-  }
-
-  async function handleSubTaskCheck(sub: StaffGoal) {
-    const newVal = sub.status === 'completed' ? 0 : 1;
-    await updateGoalProgress(sub.id, newVal, undefined, userId);
-    const fresh = await getSubTasks(task.id);
-    setSubTasks(fresh);
-  }
-
-  async function handleSubTaskDelete(subId: string) {
-    await deleteGoal(subId);
-    setSubTasks(prev => prev.filter(s => s.id !== subId));
-  }
-
-  // ---- Evidence actions ----
-  async function handleUploadEvidence() {
-    if (!selectedFile) return;
-    setUploadSaving(true);
-    const reader = new FileReader();
-    reader.onload = async e => {
-      const dataUrl = e.target?.result as string;
-      await addTaskEvidence(task.id, userId, dataUrl, selectedFile.name, evidenceNote);
-      const fresh = await getTaskEvidence(task.id);
-      setEvidence(fresh);
-      setSelectedFile(null);
-      setEvidenceNote('');
-      setUploadSaving(false);
-    };
-    reader.readAsDataURL(selectedFile);
-  }
-
-  async function handleDeleteEvidence(id: string) {
-    await deleteTaskEvidence(id);
-    setEvidence(prev => prev.filter(e => e.id !== id));
-  }
-
-  // ---- Session ----
-  async function handleSaveSessionCost() {
-    await saveMetaNotes(task, { session_cost: sessionCost });
-    onRefresh();
-  }
-
-  async function handleSatisfactionClick(val: string) {
-    setSatisfaction(val);
-    await saveMetaNotes(task, { satisfaction: val });
-    onRefresh();
-  }
-
-  // ---- Notes ----
-  async function handleSaveNotes() {
-    setNotesSaving(true);
-    await saveMetaNotes(task, { task_notes: taskNotes });
-    onRefresh();
-    setNotesSaving(false);
-  }
-
-  // ---- Title edit ----
-  async function handleSaveTitle() {
-    if (!titleDraft.trim()) return;
-    setTitleSaving(true);
-    await updateGoal(task.id, { title: titleDraft.trim() });
-    setEditingTitle(false);
-    setTitleSaving(false);
-    onRefresh();
-  }
-
-  // ---- Due date edit ----
-  async function handleSaveDueDate() {
-    if (!dueDateDraft) return;
-    setDueDateSaving(true);
-    await updateGoal(task.id, { due_date: dueDateDraft });
-    setEditingDueDate(false);
-    setDueDateSaving(false);
-    onRefresh();
-  }
-
-  // ---- Assignee edit ----
-  async function handleSaveAssignee(newOwnerId: string) {
-    setAssigneeSaving(true);
-    await updateGoal(task.id, { owner_id: newOwnerId });
-    setEditingAssignee(false);
-    setAssigneeSaving(false);
-    onRefresh();
-  }
-
-  // ---- Status actions ----
-  async function handleMarkComplete() {
-    const isCompleted = task.status === 'completed';
-    await updateGoalProgress(task.id, isCompleted ? 0 : 1, undefined, userId);
-    onRefresh();
-  }
-
-  async function handleCloseTask() {
-    await saveMetaNotes(task, { closed: true });
-    onRefresh();
-  }
-
-  async function handleDelete() {
-    if (!confirmDelete) { setConfirmDelete(true); return; }
-    await deleteGoal(task.id);
-    onDelete(task.id);
-  }
-
-  const isCompleted = task.status === 'completed';
-  const isClosed    = meta.closed;
-
-  const hubSectionStyle: React.CSSProperties = {
-    padding:      '18px 24px',
-    borderBottom: `1px solid ${BORDER}`,
-  };
-
-  const hubLabelStyle: React.CSSProperties = {
-    fontSize:      8,
-    textTransform: 'uppercase',
-    letterSpacing: '0.28em',
-    fontWeight:    600,
-    color:         MUTED,
-    marginBottom:  10,
-  };
-
-  const inputStyle: React.CSSProperties = {
-    width:        '100%',
-    padding:      '7px 10px',
-    border:       `1px solid ${BORDER}`,
-    borderRadius: 7,
-    fontSize:     12,
-    color:        NAVY,
-    background:   BG,
-    outline:      'none',
-  };
-
-  const completedSubCount = subTasks.filter(s => s.status === 'completed').length;
-  const subTaskProgress   = subTasks.length > 0 ? (completedSubCount / subTasks.length) * 100 : 0;
-
-  return (
-    <div style={{
-      position:       'fixed',
-      inset:          0,
-      zIndex:         40,
-      display:        'flex',
-      alignItems:     'center',
-      justifyContent: 'center',
-      background:     'rgba(24,29,35,0.45)',
-      backdropFilter: 'blur(2px)',
-    }}
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-    >
-    <motion.div
-      initial={{ opacity: 0, scale: 0.97, y: 12 }}
-      animate={{ opacity: 1, scale: 1,    y: 0  }}
-      exit={{    opacity: 0, scale: 0.97, y: 12  }}
-      transition={{ duration: 0.2, ease: 'easeOut' }}
-      style={{
-        width:         '90vw',
-        maxWidth:      960,
-        height:        '88vh',
-        borderRadius:  20,
-        border:        `1px solid ${BORDER}`,
-        overflowY:     'auto',
-        display:       'flex',
-        flexDirection: 'column',
-        background:    BG,
-        boxShadow:     '0 24px 80px rgba(0,0,0,0.18)',
-      }}
-    >
-
-      {/* ── HEADER ─────────────────────────────────────────────────────────── */}
-      <div style={{ padding: '20px 24px 0', borderBottom: `1px solid ${BORDER}` }}>
-
-        {/* Top row: close */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, padding: 2 }}>
-            <X size={14} />
-          </button>
-        </div>
-
-        {/* Title */}
-        {editingTitle ? (
-          <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-            <input
-              value={titleDraft}
-              onChange={e => setTitleDraft(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') handleSaveTitle(); if (e.key === 'Escape') setEditingTitle(false); }}
-              style={{ ...inputStyle, fontSize: 16, fontWeight: 700, flex: 1 }}
-              autoFocus
-            />
-            <button onClick={handleSaveTitle} disabled={titleSaving} style={{ padding: '6px 14px', background: BLUE, color: '#fff', border: 'none', borderRadius: 7, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
-              {titleSaving ? '...' : 'Save'}
-            </button>
-            <button onClick={() => setEditingTitle(false)} style={{ padding: '6px 8px', background: 'transparent', color: MUTED, border: `1px solid ${BORDER}`, borderRadius: 7, cursor: 'pointer' }}>
-              <X size={11} />
-            </button>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 8 }} className="group">
-            <h2 style={{ fontSize: 18, fontWeight: 800, color: NAVY, letterSpacing: '-0.025em', margin: 0, flex: 1, lineHeight: 1.3 }}>
-              {task.title}
-            </h2>
-            <button onClick={() => setEditingTitle(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, padding: 2, flexShrink: 0, opacity: 0, transition: 'opacity 0.15s', marginTop: 3 }} className="group-hover:opacity-100">
-              <Edit3 size={12} />
-            </button>
-          </div>
-        )}
-
-        {/* Status + meta row */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-          <span style={{
-            fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em',
-            color: isCompleted ? GREEN : isClosed ? MUTED : BLUE,
-            background: isCompleted ? `${GREEN}12` : isClosed ? `${MUTED}12` : `${BLUE}12`,
-            border: `1px solid ${isCompleted ? GREEN : isClosed ? MUTED : BLUE}30`,
-            padding: '2px 8px', borderRadius: 999,
-          }}>
-            {isCompleted ? 'Completed' : isClosed ? 'Closed' : 'Active'}
-          </span>
-          <span style={{ fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
-            {meta.priority} priority
-          </span>
-          <span style={{ fontSize: 9, color: MUTED }}>·</span>
-          <span style={{ fontSize: 9, color: MUTED, textTransform: 'capitalize', letterSpacing: '0.04em' }}>
-            {task.category}
-          </span>
-          {subTasks.length > 0 && (
-            <>
-              <span style={{ fontSize: 9, color: MUTED }}>·</span>
-              <span style={{ fontSize: 9, color: completedSubCount === subTasks.length ? GREEN : MUTED, fontWeight: 600 }}>
-                {completedSubCount}/{subTasks.length} sub-tasks
-              </span>
-            </>
-          )}
-        </div>
-
-        {/* Action strip */}
-        <div style={{ display: 'flex', borderTop: `1px solid ${BORDER}` }}>
-          <button
-            onClick={handleMarkComplete}
-            style={{
-              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-              padding: '10px 0', background: 'none', border: 'none', borderRight: `1px solid ${BORDER}`,
-              color: isCompleted ? MUTED : GREEN, fontSize: 11, fontWeight: 600, cursor: 'pointer',
-              transition: 'background 0.15s',
-            }}
-            className="hover:bg-[#05966908]"
-          >
-            <CheckCircle2 size={12} />
-            {isCompleted ? 'Reopen' : 'Complete'}
-          </button>
-          {!isClosed && (
-            <button
-              onClick={handleCloseTask}
-              style={{
-                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-                padding: '10px 0', background: 'none', border: 'none', borderRight: `1px solid ${BORDER}`,
-                color: MUTED, fontSize: 11, fontWeight: 600, cursor: 'pointer',
-              }}
-              className="hover:bg-[#96989B08]"
-            >
-              <X size={12} />
-              Close
-            </button>
-          )}
-          <button
-            onClick={handleDelete}
-            style={{
-              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-              padding: '10px 0', background: confirmDelete ? `${RED}08` : 'none', border: 'none',
-              color: RED, fontSize: 11, fontWeight: confirmDelete ? 700 : 600, cursor: 'pointer',
-            }}
-            className="hover:bg-[#DC262608]"
-          >
-            <Trash2 size={12} />
-            {confirmDelete ? 'Confirm?' : 'Delete'}
-          </button>
-        </div>
-      </div>
-
-      {/* ── DETAILS ────────────────────────────────────────────────────────── */}
-      <div style={hubSectionStyle}>
-        <div style={hubLabelStyle}>Details</div>
-        {task.description && (
-          <p style={{ fontSize: 12, color: SEC, margin: '0 0 12px', lineHeight: 1.6 }}>{task.description}</p>
-        )}
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          {/* Static rows */}
-          <HubRow label="Category" value={<span style={{ textTransform: 'capitalize' }}>{task.category}</span>} />
-          {meta.treatment_type && meta.treatment_type !== 'None' && (
-            <HubRow label="Treatment" value={meta.treatment_type} />
-          )}
-          {meta.patient_name && (
-            <HubRow label="Patient" value={meta.patient_name} />
-          )}
-          {task.assigner_name && (
-            <HubRow label="Assigned by" value={task.assigner_name} />
-          )}
-
-          {/* Editable — Assigned to */}
-          <HubRow label="Assigned to" value={
-            editingAssignee ? (
-              <div style={{ display: 'flex', gap: 4, flex: 1 }}>
-                <select value={assigneeDraft} onChange={e => setAssigneeDraft(e.target.value)} autoFocus
-                  style={{ flex: 1, padding: '3px 6px', border: `1px solid ${BORDER}`, borderRadius: 6, fontSize: 11, color: NAVY, background: BG, outline: 'none' }}>
-                  {users.map(u => <option key={u.id} value={u.id}>{u.full_name}</option>)}
-                </select>
-                <button onClick={() => handleSaveAssignee(assigneeDraft)} disabled={assigneeSaving}
-                  style={{ padding: '3px 10px', background: BLUE, color: '#fff', border: 'none', borderRadius: 6, fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>
-                  {assigneeSaving ? '...' : 'Save'}
+        <div style={{ padding: '20px 24px 16px', borderBottom: `1px solid ${BORDER}`, flexShrink: 0 }}>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              {step > 1 && (
+                <button onClick={() => setStep(s => (s - 1) as 1 | 2 | 3)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, display: 'flex', padding: 2 }}>
+                  <ArrowLeft size={14} />
                 </button>
-                <button onClick={() => { setEditingAssignee(false); setAssigneeDraft(task.owner_id ?? ''); }}
-                  style={{ padding: '3px 6px', background: 'transparent', color: MUTED, border: `1px solid ${BORDER}`, borderRadius: 6, cursor: 'pointer' }}>
-                  <X size={10} />
-                </button>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }} className="group">
-                <span>{task.owner_name ?? '—'}</span>
-                <button onClick={() => setEditingAssignee(true)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, padding: 0, opacity: 0, transition: 'opacity 0.15s' }}
-                  className="group-hover:opacity-100"><Edit3 size={10} /></button>
-              </div>
-            )
-          } />
-
-          {/* Editable — Due date */}
-          <HubRow label="Due date" value={
-            editingDueDate ? (
-              <div style={{ display: 'flex', gap: 4, flex: 1 }}>
-                <input type="date" value={dueDateDraft} onChange={e => setDueDateDraft(e.target.value)} autoFocus
-                  style={{ flex: 1, padding: '3px 6px', border: `1px solid ${BORDER}`, borderRadius: 6, fontSize: 11, color: NAVY, background: BG, outline: 'none', colorScheme: 'light' }} />
-                <button onClick={handleSaveDueDate} disabled={dueDateSaving || !dueDateDraft}
-                  style={{ padding: '3px 10px', background: BLUE, color: '#fff', border: 'none', borderRadius: 6, fontSize: 10, fontWeight: 600, cursor: 'pointer', opacity: !dueDateDraft ? 0.5 : 1 }}>
-                  {dueDateSaving ? '...' : 'Save'}
-                </button>
-                <button onClick={() => { setEditingDueDate(false); setDueDateDraft(task.due_date ?? ''); }}
-                  style={{ padding: '3px 6px', background: 'transparent', color: MUTED, border: `1px solid ${BORDER}`, borderRadius: 6, cursor: 'pointer' }}>
-                  <X size={10} />
-                </button>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }} className="group">
-                <span style={{ color: task.due_date && isOverdue(task) ? RED : SEC }}>
-                  {task.due_date ? fmtDate(task.due_date) : '—'}
-                  {task.due_date && isOverdue(task) && <span style={{ marginLeft: 5, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Overdue</span>}
-                </span>
-                <button onClick={() => setEditingDueDate(true)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, padding: 0, opacity: 0, transition: 'opacity 0.15s' }}
-                  className="group-hover:opacity-100"><Edit3 size={10} /></button>
-              </div>
-            )
-          } />
-        </div>
-      </div>
-
-      {/* ── SUB-TASKS ──────────────────────────────────────────────────────── */}
-      <div style={hubSectionStyle}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-          <span style={hubLabelStyle}>Sub-tasks</span>
-          {subTasks.length > 0 && (
-            <span style={{ fontSize: 10, color: completedSubCount === subTasks.length ? GREEN : MUTED, fontWeight: 600 }}>
-              {completedSubCount} of {subTasks.length} complete
-            </span>
-          )}
-        </div>
-
-        {/* Progress bar */}
-        {subTasks.length > 0 && (
-          <div style={{ height: 3, background: `${BORDER}`, borderRadius: 99, marginBottom: 12, overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: `${subTaskProgress}%`, background: subTaskProgress === 100 ? GREEN : BLUE, borderRadius: 99, transition: 'width 0.3s' }} />
-          </div>
-        )}
-
-        {subTasks.length === 0 && (
-          <p style={{ fontSize: 11, color: MUTED, margin: '0 0 10px' }}>No sub-tasks yet</p>
-        )}
-
-        <div style={{ marginBottom: 10 }}>
-          {subTasks.map(sub => (
-            <div key={sub.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderBottom: `1px solid ${BORDER}` }} className="group">
-              <button onClick={() => handleSubTaskCheck(sub)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: sub.status === 'completed' ? GREEN : MUTED, flexShrink: 0, padding: 0 }}>
-                {sub.status === 'completed' ? <CheckCircle2 size={14} /> : <Circle size={14} />}
-              </button>
-              <span style={{ fontSize: 11, color: sub.status === 'completed' ? MUTED : SEC, textDecoration: sub.status === 'completed' ? 'line-through' : 'none', flex: 1 }}>
-                {sub.title}
-              </span>
-              <button onClick={() => handleSubTaskDelete(sub.id)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, padding: 0, opacity: 0, transition: 'opacity 0.15s' }}
-                className="group-hover:opacity-100">
-                <Trash2 size={11} />
-              </button>
-            </div>
-          ))}
-        </div>
-
-        <div style={{ display: 'flex', gap: 6 }}>
-          <input value={subTaskInput} onChange={e => setSubTaskInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddSubTask(); } }}
-            placeholder="Add a sub-task..."
-            style={{ ...inputStyle, flex: 1 }} />
-          <button onClick={handleAddSubTask} disabled={subTaskSaving || !subTaskInput.trim()}
-            style={{ padding: '7px 12px', background: NAVY, color: '#fff', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: subTaskInput.trim() ? 'pointer' : 'not-allowed', opacity: subTaskInput.trim() ? 1 : 0.35, flexShrink: 0 }}>
-            <Plus size={13} />
-          </button>
-        </div>
-      </div>
-
-      {/* ── SESSION ────────────────────────────────────────────────────────── */}
-      <div style={hubSectionStyle}>
-        <div style={hubLabelStyle}>Session</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-
-          {/* Session Cost */}
-          <div style={{ border: `1px solid ${BORDER}`, borderRadius: 10, padding: '12px 14px' }}>
-            <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.24em', fontWeight: 600, color: MUTED, marginBottom: 8 }}>Session Cost</div>
-            {sessionCost ? (
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 3, marginBottom: 8 }}>
-                <span style={{ fontSize: 11, color: MUTED }}>£</span>
-                <span style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.04em', color: NAVY }}>{parseFloat(sessionCost).toLocaleString('en-GB')}</span>
-              </div>
-            ) : (
-              <div style={{ fontSize: 11, color: MUTED, marginBottom: 8 }}>Not logged</div>
-            )}
-            <div style={{ display: 'flex', alignItems: 'center', border: `1px solid ${BORDER}`, borderRadius: 6, overflow: 'hidden' }}>
-              <span style={{ padding: '5px 7px', color: MUTED, fontSize: 11, borderRight: `1px solid ${BORDER}` }}>£</span>
-              <input type="number" value={sessionCost} onChange={e => setSessionCost(e.target.value)}
-                onBlur={handleSaveSessionCost}
-                style={{ flex: 1, padding: '5px 7px', border: 'none', background: BG, color: NAVY, fontSize: 11, outline: 'none' }}
-                placeholder="0" />
-            </div>
-          </div>
-
-          {/* Satisfaction */}
-          <div style={{ border: `1px solid ${BORDER}`, borderRadius: 10, padding: '12px 14px' }}>
-            <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.24em', fontWeight: 600, color: MUTED, marginBottom: 8 }}>Satisfaction</div>
-            {satisfaction ? (
-              <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.04em', color: NAVY, marginBottom: 8 }}>
-                {satisfaction}<span style={{ fontSize: 11, color: MUTED, fontWeight: 400 }}>/5</span>
-              </div>
-            ) : (
-              <div style={{ fontSize: 11, color: MUTED, marginBottom: 8 }}>Not rated</div>
-            )}
-            <div style={{ display: 'flex', gap: 3 }}>
-              {[1, 2, 3, 4, 5].map(n => (
-                <button key={n} onClick={() => handleSatisfactionClick(String(n))}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 1, color: Number(satisfaction) >= n ? GOLD : BORDER, transition: 'color 0.15s' }}>
-                  <Star size={16} fill={Number(satisfaction) >= n ? GOLD : 'none'} />
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ── EVIDENCE ───────────────────────────────────────────────────────── */}
-      <div style={hubSectionStyle}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-          <span style={hubLabelStyle}>Evidence</span>
-          <button onClick={() => fileInputRef.current?.click()}
-            style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', border: `1px solid ${BORDER}`, borderRadius: 6, background: 'transparent', color: SEC, fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>
-            <Paperclip size={10} /> Attach
-          </button>
-        </div>
-
-        <input ref={fileInputRef} type="file" style={{ display: 'none' }} accept="image/*,.pdf,.doc,.docx,.txt,.csv"
-          onChange={e => setSelectedFile(e.target.files?.[0] ?? null)} />
-
-        {evidence.length === 0 && !selectedFile && (
-          <p style={{ fontSize: 11, color: MUTED, margin: 0 }}>No files attached</p>
-        )}
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {evidence.map(ev => (
-            <div key={ev.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', border: `1px solid ${BORDER}`, borderRadius: 8, background: 'transparent' }} className="group">
-              {ev.evidence_url?.startsWith('data:image') ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={ev.evidence_url} alt={ev.file_name} style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 5, flexShrink: 0 }} />
-              ) : (
-                <div style={{ width: 32, height: 32, border: `1px solid ${BORDER}`, borderRadius: 5, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Paperclip size={12} style={{ color: MUTED }} />
-                </div>
               )}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: NAVY, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.file_name}</div>
-                {ev.note && <div style={{ fontSize: 10, color: TER }}>{ev.note}</div>}
-                <div style={{ fontSize: 9, color: MUTED, marginTop: 1 }}>{timeAgo(ev.created_at)}</div>
-              </div>
-              <button onClick={() => handleDeleteEvidence(ev.id)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, padding: 0, opacity: 0, transition: 'opacity 0.15s' }}
-                className="group-hover:opacity-100">
-                <Trash2 size={11} />
-              </button>
+              <p style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>New Agenda</p>
             </div>
-          ))}
-        </div>
-
-        {selectedFile && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: evidence.length > 0 ? 8 : 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', border: `1px solid ${BLUE}40`, borderRadius: 7, background: `${BLUE}06` }}>
-              <Paperclip size={11} style={{ color: BLUE }} />
-              <span style={{ fontSize: 11, color: NAVY, flex: 1 }}>{selectedFile.name}</span>
-              <button onClick={() => setSelectedFile(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, padding: 0 }}>
-                <X size={11} />
-              </button>
-            </div>
-            <input value={evidenceNote} onChange={e => setEvidenceNote(e.target.value)} placeholder="Add a note (optional)..."
-              style={{ ...inputStyle }} />
-            <button onClick={handleUploadEvidence} disabled={uploadSaving}
-              style={{ padding: '7px 14px', background: NAVY, color: '#fff', border: 'none', borderRadius: 7, fontSize: 11, fontWeight: 600, cursor: uploadSaving ? 'not-allowed' : 'pointer', opacity: uploadSaving ? 0.7 : 1, alignSelf: 'flex-start' }}>
-              {uploadSaving ? 'Uploading...' : 'Upload File'}
+            <button onClick={onClose}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, display: 'flex' }}>
+              <X size={16} />
             </button>
           </div>
-        )}
-      </div>
-
-      {/* ── NOTES ──────────────────────────────────────────────────────────── */}
-      <div style={{ ...hubSectionStyle, borderBottom: 'none' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-          <span style={hubLabelStyle}>Notes</span>
-          {notesSaving && <span style={{ fontSize: 9, color: MUTED }}>Saving...</span>}
-        </div>
-        <textarea
-          value={taskNotes}
-          onChange={e => setTaskNotes(e.target.value)}
-          onBlur={handleSaveNotes}
-          rows={5}
-          placeholder="Add notes, observations, or follow-up actions..."
-          style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.6, fontSize: 12 }}
-        />
-        <div style={{ fontSize: 9, color: MUTED, marginTop: 5 }}>Auto-saves on blur</div>
-      </div>
-    </motion.div>
-    </div>
-  );
-}
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div style={{ display: 'flex', gap: 4, alignItems: 'baseline' }}>
-      <span style={{ fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.18em', fontWeight: 600, flexShrink: 0 }}>{label}:</span>
-      <span style={{ fontSize: 11, color: SEC }}>{value}</span>
-    </div>
-  );
-}
-
-function HubRow({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div style={{
-      display:      'flex',
-      alignItems:   'center',
-      padding:      '8px 0',
-      borderBottom: `1px solid ${BORDER}`,
-      gap:          12,
-      minHeight:    36,
-    }}>
-      <span style={{
-        fontSize:      9,
-        textTransform: 'uppercase',
-        letterSpacing: '0.2em',
-        fontWeight:    600,
-        color:         MUTED,
-        flexShrink:    0,
-        width:         88,
-      }}>
-        {label}
-      </span>
-      <div style={{ flex: 1, fontSize: 12, color: SEC, minWidth: 0 }}>
-        {value}
-      </div>
-    </div>
-  );
-}
-
-// =============================================================================
-// MAIN PAGE
-// =============================================================================
-export default function KPIsPage() {
-  const searchParams = useSearchParams();
-
-  const [userId,          setUserId]          = useState<string | null>(null);
-  const [profile,         setProfile]         = useState<StaffProfile | null>(null);
-  const [brandColor,      setBrandColor]      = useState(BLUE);
-  const [loading,         setLoading]         = useState(true);
-  const [tasks,           setTasks]           = useState<StaffGoal[]>([]);
-  const [users,           setUsers]           = useState<ActiveUser[]>([]);
-  const [activeTask,      setActiveTask]      = useState<StaffGoal | null>(null);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [assigneeFilter,  setAssigneeFilter]  = useState<'all'|'mine'|'unassigned'>('mine');
-  const [categoryFilter,  setCategoryFilter]  = useState<'all'|'clinical'|'operational'|'training'|'compliance'>('all');
-  const [priorityFilter,  setPriorityFilter]  = useState<'all'|'high'|'medium'|'low'>('all');
-  const [searchQuery,     setSearchQuery]     = useState('');
-  const [showCompleted,   setShowCompleted]   = useState(false);
-  const [showClosed,      setShowClosed]      = useState(false);
-
-  // ---- Load ----
-  const loadData = useCallback(async () => {
-    const [userResult, allTasks, activeUsers] = await Promise.all([
-      getCurrentUser(),
-      getAllStaffGoals(),
-      getActiveUsers(),
-    ]);
-    if (userResult.success && userResult.userId) {
-      setUserId(userResult.userId);
-      const prof = await getStaffProfile('clinic', userResult.userId);
-      if (prof.success && prof.data) {
-        setProfile(prof.data.profile);
-        if (prof.data.profile?.brandColor) setBrandColor(prof.data.profile.brandColor);
-      }
-    }
-    setTasks(allTasks);
-    setUsers(activeUsers);
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { loadData(); }, [loadData]);
-
-  // Update activeTask when tasks refresh
-  useEffect(() => {
-    if (activeTask) {
-      const updated = tasks.find(t => t.id === activeTask.id);
-      if (updated) setActiveTask(updated);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks]);
-
-  // Handle ?task= query param
-  useEffect(() => {
-    const taskId = searchParams.get('task');
-    if (taskId && tasks.length > 0) {
-      const t = tasks.find(t => t.id === taskId);
-      if (t) setActiveTask(t);
-    }
-  }, [searchParams, tasks]);
-
-  // ---- Keyboard shortcut: N = new task ----
-  useEffect(() => {
-    function handleKey(e: KeyboardEvent) {
-      if (
-        e.key === 'n' &&
-        !e.metaKey && !e.ctrlKey && !e.altKey &&
-        !(e.target instanceof HTMLInputElement) &&
-        !(e.target instanceof HTMLTextAreaElement) &&
-        !(e.target instanceof HTMLSelectElement)
-      ) {
-        setShowCreateModal(true);
-      }
-    }
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, []);
-
-  // ---- Derived lists ----
-  const closedTasks    = tasks.filter(t => getMetaNotes(t).closed);
-  const completedTasks = tasks.filter(t => !getMetaNotes(t).closed && t.status === 'completed');
-  const pendingTasks   = tasks.filter(t => !getMetaNotes(t).closed && t.status !== 'completed');
-
-  function applyFilters(list: StaffGoal[]) {
-    return list.filter(t => {
-      const meta = getMetaNotes(t);
-      if (assigneeFilter === 'mine'       && t.owner_id !== userId)           return false;
-      if (assigneeFilter === 'unassigned' && (t.owner_id && t.assigned_by))  return false;
-      if (categoryFilter !== 'all'        && t.category !== categoryFilter)   return false;
-      if (priorityFilter !== 'all'        && meta.priority !== priorityFilter) return false;
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const match =
-          t.title.toLowerCase().includes(q) ||
-          (t.description ?? '').toLowerCase().includes(q) ||
-          (t.owner_name ?? '').toLowerCase().includes(q) ||
-          meta.patient_name.toLowerCase().includes(q);
-        if (!match) return false;
-      }
-      return true;
-    });
-  }
-
-  const filteredPending   = applyFilters(pendingTasks);
-  const filteredCompleted = applyFilters(completedTasks);
-  const filteredClosed    = applyFilters(closedTasks);
-
-  const overduePending = pendingTasks.filter(t => isOverdue(t));
-
-  const totalRevenue = tasks.reduce((acc, t) => {
-    const meta = getMetaNotes(t);
-    return acc + (parseFloat(meta.revenue || '0') || 0);
-  }, 0);
-
-  const myPendingTasks   = pendingTasks.filter(t => t.owner_id === userId);
-  const myOverdueCount   = myPendingTasks.filter(t => isOverdue(t)).length;
-  const endOfWeekDate    = new Date(); endOfWeekDate.setDate(endOfWeekDate.getDate() + 7);
-  const myDueThisWeek    = myPendingTasks.filter(t => {
-    if (!t.due_date || isOverdue(t)) return false;
-    return new Date(t.due_date) <= endOfWeekDate;
-  }).length;
-  const hour             = new Date().getHours();
-  const greeting         = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-  const firstName        = profile?.firstName ?? '';
-
-  // ---- Stats ----
-  const today = new Date().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-
-  // ---- Handlers ----
-  function handleTaskDelete(id: string) {
-    setTasks(prev => prev.filter(t => t.id !== id));
-    if (activeTask?.id === id) setActiveTask(null);
-  }
-
-  async function handleRefresh() {
-    const all = await getAllStaffGoals();
-    setTasks(all);
-  }
-
-  function handleCreateDone(task: StaffGoal) {
-    setShowCreateModal(false);
-    setTasks(prev => [...prev.filter(t => t.id !== task.id), task]);
-    setActiveTask(task);
-  }
-
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', height: '100vh', background: BG }}>
-        {profile && <StaffNav profile={profile} userId={userId ?? ''} brandColor={brandColor} currentPath="Tasks & KPIs" />}
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <OrbLoader />
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ display: 'flex', height: '100vh', background: BG, overflow: 'hidden' }}>
-      {profile && <StaffNav profile={profile} userId={userId ?? ''} brandColor={brandColor} currentPath="Tasks & KPIs" />}
-
-      {/* Main container (everything right of nav) */}
-      <div style={{ display: 'flex', flex: 1, height: '100vh', overflow: 'hidden', paddingLeft: 240 }}>
-
-        {/* LEFT — Task List */}
-        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-
-          {/* Page header */}
-          <div style={{
-            padding:        '28px 32px 20px',
-            borderBottom:   '1px solid #D4E2FF',
-            display:        'flex',
-            alignItems:     'flex-start',
-            justifyContent: 'space-between',
-          }}>
-            <div>
-              <p style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.28em', fontWeight: 600, color: '#96989B', margin: '0 0 4px' }}>
-                Tasks &amp; KPIs · {today}
-              </p>
-              <h1 style={{ fontSize: 32, fontWeight: 900, letterSpacing: '-0.035em', color: '#181D23', margin: '0 0 6px', lineHeight: 1.1 }}>
-                {greeting}{firstName ? `, ${firstName}` : ''}
-              </h1>
-              <p style={{ fontSize: 11, color: '#5A6475', margin: 0 }}>
-                {myPendingTasks.length === 0
-                  ? 'No pending tasks assigned to you'
-                  : myOverdueCount > 0
-                    ? `${myOverdueCount} overdue · ${myDueThisWeek} due this week`
-                    : myDueThisWeek > 0
-                      ? `${myDueThisWeek} due this week · ${myPendingTasks.length} total pending`
-                      : `${myPendingTasks.length} pending tasks`
-                }
-              </p>
-            </div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <button
-                onClick={handleRefresh}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 4,
-                  padding: '8px 12px', border: '1px solid #D4E2FF', borderRadius: 8,
-                  background: 'transparent', color: '#3D4451', fontSize: 11, fontWeight: 600, cursor: 'pointer',
-                }}
-              >
-                <RefreshCw size={12} />
-              </button>
-              <button
-                onClick={() => setShowCreateModal(true)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 5,
-                  padding: '8px 16px', border: 'none', borderRadius: 8,
-                  background: '#0058E6', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                }}
-              >
-                <Plus size={13} />
-                New Task
-                <span style={{ fontSize: 9, color: '#ffffff80', marginLeft: 4, fontWeight: 500 }}>N</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Stats strip */}
-          <div style={{ padding: '16px 32px', borderBottom: `1px solid ${BORDER}` }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-              <StatTile label="Pending"   value={pendingTasks.length}   color={overduePending.length > 0 ? '#DC2626' : '#0058E6'} sub={`${filteredPending.length} visible`} />
-              <StatTile label="Overdue"   value={overduePending.length} color='#DC2626' sub={overduePending.length > 0 ? 'needs attention' : 'all clear'} />
-              <StatTile label="Completed" value={completedTasks.length} color='#059669' sub="this period" />
-            </div>
-          </div>
-
-          {/* Filters */}
-          <div style={{ borderBottom: `1px solid ${BORDER}` }}>
-            {/* Search row */}
-            <div style={{ padding: '12px 32px 10px', position: 'relative' }}>
-              <Search size={12} style={{ position: 'absolute', left: 44, top: '50%', transform: 'translateY(-50%)', color: MUTED, pointerEvents: 'none' }} />
-              <input
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search tasks, patients, owners..."
-                style={{
-                  width:        '100%',
-                  padding:      '8px 10px 8px 30px',
-                  border:       `1px solid ${BORDER}`,
-                  borderRadius: 8,
-                  fontSize:     12,
-                  color:        NAVY,
-                  background:   '#fff',
-                  outline:      'none',
-                  boxSizing:    'border-box',
-                }}
-              />
-            </div>
-            {/* Tab row */}
-            <div style={{ padding: '0 32px', display: 'flex', alignItems: 'center', gap: 0 }}>
-              {([
-                { key: 'all' as const,        label: 'All tasks' },
-                { key: 'mine' as const,       label: 'Mine' },
-                { key: 'unassigned' as const, label: 'Unassigned' },
-              ]).map(tab => (
-                <button
-                  key={tab.key}
-                  onClick={() => setAssigneeFilter(tab.key)}
-                  style={{
-                    padding:      '10px 14px',
-                    background:   'none',
-                    border:       'none',
-                    borderBottom: assigneeFilter === tab.key ? `2px solid ${BLUE}` : '2px solid transparent',
-                    color:        assigneeFilter === tab.key ? BLUE : MUTED,
-                    fontSize:     11,
-                    fontWeight:   assigneeFilter === tab.key ? 700 : 500,
-                    cursor:       'pointer',
-                    transition:   'all 0.15s',
-                    marginBottom: -1,
-                  }}
-                >
-                  {tab.label}
-                </button>
-              ))}
-              <div style={{ flex: 1 }} />
-              {/* Category + Priority selects */}
-              <select
-                value={categoryFilter}
-                onChange={e => setCategoryFilter(e.target.value as typeof categoryFilter)}
-                style={{
-                  padding:      '5px 10px',
-                  border:       categoryFilter !== 'all' ? `1px solid ${BLUE}40` : `1px solid ${BORDER}`,
-                  borderRadius: 20,
-                  background:   categoryFilter !== 'all' ? `${BLUE}0d` : 'transparent',
-                  color:        categoryFilter !== 'all' ? BLUE : SEC,
-                  fontSize:     11,
-                  fontWeight:   600,
-                  cursor:       'pointer',
-                  outline:      'none',
-                  marginRight:  6,
-                }}
-              >
-                <option value="all">All categories</option>
-                <option value="clinical">Clinical</option>
-                <option value="operational">Operational</option>
-                <option value="training">Training</option>
-                <option value="compliance">Compliance</option>
-              </select>
-              <select
-                value={priorityFilter}
-                onChange={e => setPriorityFilter(e.target.value as typeof priorityFilter)}
-                style={{
-                  padding:      '5px 10px',
-                  border:       priorityFilter !== 'all' ? `1px solid ${priorityColor(priorityFilter)}40` : `1px solid ${BORDER}`,
-                  borderRadius: 20,
-                  background:   priorityFilter !== 'all' ? `${priorityColor(priorityFilter)}0d` : 'transparent',
-                  color:        priorityFilter !== 'all' ? priorityColor(priorityFilter) : SEC,
-                  fontSize:     11,
-                  fontWeight:   600,
-                  cursor:       'pointer',
-                  outline:      'none',
-                }}
-              >
-                <option value="all">All priorities</option>
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Task list — grouped */}
-          <div style={{ padding: '0 32px', paddingBottom: 32 }}>
-            <AnimatePresence>
-              {filteredPending.length === 0 ? (
-                <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                  <EmptyState
-                    title={assigneeFilter === 'mine' ? 'No tasks assigned to you' : 'No pending tasks'}
-                    body={
-                      assigneeFilter === 'mine'
-                        ? 'Tasks assigned to you will appear here. Switch to All tasks to see the full board.'
-                        : searchQuery || categoryFilter !== 'all' || priorityFilter !== 'all'
-                          ? 'No tasks match your current filters. Try adjusting the search or filter options.'
-                          : 'All clear — no pending tasks right now.'
-                    }
-                    action={assigneeFilter === 'mine' ? { label: 'View all tasks', onClick: () => setAssigneeFilter('all') } : undefined}
-                  />
-                </motion.div>
-              ) : (
-                groupPendingTasks(filteredPending).map(group => (
-                  <div key={group.key}>
-                    {/* Group header */}
+          {/* Step indicator */}
+          <div className="flex items-center gap-2">
+            {stepLabels.map((lbl, i) => {
+              const n     = i + 1;
+              const isDone = step > n;
+              const isNow  = step === n;
+              return (
+                <React.Fragment key={lbl}>
+                  <div className="flex items-center gap-1.5">
                     <div style={{
-                      display:       'flex',
-                      alignItems:    'center',
-                      gap:           8,
-                      padding:       '14px 0 6px',
-                      borderBottom:  '1px solid #D4E2FF',
-                      marginBottom:  0,
+                      width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      background: isDone ? BLUE : isNow ? BLUE : BORDER,
+                      transition: 'all 0.2s',
                     }}>
-                      <span style={{
-                        fontSize:      8,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.28em',
-                        fontWeight:    700,
-                        color:         group.labelColor,
-                      }}>
-                        {group.label}
-                      </span>
-                      <span style={{
-                        fontSize: 9, color: '#96989B',
-                        background: '#96989B14', padding: '1px 6px',
-                        borderRadius: 999, fontWeight: 600,
-                      }}>
-                        {group.tasks.length}
-                      </span>
+                      {isDone
+                        ? <CheckCircle2 size={11} style={{ color: '#fff' }} />
+                        : <span style={{ fontSize: 9, fontWeight: 700, color: isNow ? '#fff' : MUTED }}>{n}</span>
+                      }
                     </div>
-                    {group.tasks.map(task => (
-                      <TaskCard
-                        key={task.id}
-                        task={task}
-                        isActive={activeTask?.id === task.id}
-                        onClick={() => setActiveTask(t => t?.id === task.id ? null : task)}
-                      />
+                    <span style={{ fontSize: 9, fontWeight: 600, color: isNow ? NAVY : MUTED, whiteSpace: 'nowrap' }}>{lbl}</span>
+                  </div>
+                  {i < stepLabels.length - 1 && (
+                    <div style={{ flex: 1, height: 1, background: step > n ? BLUE : BORDER, transition: 'background 0.3s' }} />
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Body */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
+          <AnimatePresence mode="wait">
+
+            {/* Step 1: Category */}
+            {step === 1 && (
+              <motion.div key="step1"
+                initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -16 }} transition={{ duration: 0.2 }}>
+                <p style={{ fontSize: 13, fontWeight: 600, color: NAVY, marginBottom: 4 }}>
+                  What type of agenda?
+                </p>
+                <p style={{ fontSize: 11, color: TER, marginBottom: 20 }}>
+                  Choose a category — the form will adapt to what you need.
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  {CAT_CARDS.map(c => {
+                    const Icon  = c.icon;
+                    const isSel = form.category === c.id;
+                    return (
+                      <button key={c.id}
+                        onClick={() => { upd({ category: c.id }); setStep(2); }}
+                        className="text-left rounded-2xl p-4 transition-all"
+                        style={{
+                          border: `1.5px solid ${isSel ? BLUE : BORDER}`,
+                          background: isSel ? `${BLUE}08` : 'transparent',
+                        }}
+                        onMouseEnter={e => { if (!isSel) (e.currentTarget as HTMLButtonElement).style.borderColor = `${BLUE}60`; }}
+                        onMouseLeave={e => { if (!isSel) (e.currentTarget as HTMLButtonElement).style.borderColor = BORDER; }}
+                      >
+                        <div style={{
+                          width: 32, height: 32, borderRadius: 9, marginBottom: 10,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          background: `${BLUE}10`, border: `1px solid ${BLUE}20`,
+                        }}>
+                          <Icon size={15} style={{ color: BLUE }} />
+                        </div>
+                        <p style={{ fontSize: 12, fontWeight: 700, color: NAVY, marginBottom: 3 }}>{c.label}</p>
+                        <p style={{ fontSize: 10, color: TER }}>{c.desc}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            )}
+
+            {/* Step 2: Details */}
+            {step === 2 && (
+              <motion.div key="step2"
+                initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -16 }} transition={{ duration: 0.2 }}
+                className="space-y-4">
+
+                {form.category === 'other' && (
+                  <div>
+                    <LBL>Category name</LBL>
+                    <input style={INP_STYLE()} placeholder="e.g. Marketing, Research…"
+                      value={form.category_other} onChange={e => upd({ category_other: e.target.value })} />
+                  </div>
+                )}
+
+                <div>
+                  <LBL>Agenda name</LBL>
+                  <input style={INP_STYLE()}
+                    placeholder={
+                      form.category === 'clinical'    ? 'e.g. Botox review — patient name' :
+                      form.category === 'compliance'  ? 'e.g. Annual DBS renewal' :
+                      form.category === 'operational' ? 'e.g. Update patient intake forms' :
+                      'e.g. My agenda title'
+                    }
+                    value={form.title}
+                    onChange={e => upd({ title: e.target.value })}
+                    autoFocus
+                  />
+                </div>
+
+                {form.category === 'clinical' && (
+                  <div>
+                    <LBL>Task type</LBL>
+                    <div className="grid grid-cols-4 gap-2">
+                      {CLINICAL_TASK_TYPES.map(t => (
+                        <button key={t}
+                          onClick={() => upd({ task_type: t })}
+                          style={{
+                            padding: '7px 0', borderRadius: 9, fontSize: 10, fontWeight: 500,
+                            border: `1px solid ${form.task_type === t ? BLUE : BORDER}`,
+                            background: form.task_type === t ? `${BLUE}10` : 'transparent',
+                            color: form.task_type === t ? NAVY : TER,
+                            cursor: 'pointer',
+                          }}>
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {form.category === 'clinical' && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <LBL>Treatment type</LBL>
+                      <select style={INP_STYLE()} value={form.treatment_type}
+                        onChange={e => upd({ treatment_type: e.target.value })}>
+                        <option value="">Select…</option>
+                        {TREATMENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <LBL>Patient name</LBL>
+                      <input style={INP_STYLE()} placeholder="Patient name"
+                        value={form.patient_name} onChange={e => upd({ patient_name: e.target.value })} />
+                    </div>
+                  </div>
+                )}
+
+                {form.category === 'compliance' && (
+                  <div>
+                    <LBL>Compliance area</LBL>
+                    <select style={INP_STYLE()} value={form.compliance_area}
+                      onChange={e => upd({ compliance_area: e.target.value })}>
+                      <option value="">Select area…</option>
+                      {COMPLIANCE_AREAS.map(a => <option key={a} value={a}>{a}</option>)}
+                    </select>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <LBL>Date</LBL>
+                    <input type="date" style={INP_STYLE()}
+                      value={form.date} onChange={e => upd({ date: e.target.value })} />
+                  </div>
+                  <div>
+                    <LBL>Time (optional)</LBL>
+                    <input type="time" style={INP_STYLE()}
+                      value={form.time} onChange={e => upd({ time: e.target.value })} />
+                  </div>
+                </div>
+
+                {(form.category === 'clinical' || form.category === 'operational') && (
+                  <div>
+                    <LBL>Duration</LBL>
+                    <div className="flex gap-2 flex-wrap">
+                      {DURATION_OPTIONS.map(d => (
+                        <button key={d.value}
+                          onClick={() => upd({ duration_mins: d.value })}
+                          style={{
+                            padding: '5px 12px', borderRadius: 8, fontSize: 10, fontWeight: 500,
+                            border: `1px solid ${form.duration_mins === d.value ? BLUE : BORDER}`,
+                            background: form.duration_mins === d.value ? `${BLUE}10` : 'transparent',
+                            color: form.duration_mins === d.value ? NAVY : TER,
+                            cursor: 'pointer',
+                          }}>
+                          {d.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <LBL>Priority</LBL>
+                  <div className="flex gap-2">
+                    {(['low','medium','high'] as const).map(p => {
+                      const pc = p === 'high' ? RED : p === 'medium' ? ORANGE : GREEN;
+                      return (
+                        <button key={p}
+                          onClick={() => upd({ priority: p })}
+                          style={{
+                            padding: '5px 14px', borderRadius: 8, fontSize: 10, fontWeight: 500,
+                            border: `1px solid ${form.priority === p ? pc : BORDER}`,
+                            background: form.priority === p ? `${pc}10` : 'transparent',
+                            color: form.priority === p ? pc : TER,
+                            cursor: 'pointer', textTransform: 'capitalize',
+                          }}>
+                          {p}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <LBL>Notes (optional)</LBL>
+                  <textarea style={{ ...INP_STYLE(), minHeight: 72, resize: 'vertical' as const }}
+                    placeholder="Add any additional notes or context…"
+                    value={form.description} onChange={e => upd({ description: e.target.value })} />
+                </div>
+
+                <button
+                  onClick={() => {
+                    if (!form.title.trim() || !form.date) { setError('Please fill in the name and date.'); return; }
+                    setError('');
+                    setStep(3);
+                  }}
+                  className="w-full rounded-xl py-2.5 text-[12px] font-semibold transition-all"
+                  style={{ background: `${BLUE}14`, border: `1px solid ${BLUE}30`, color: NAVY, cursor: 'pointer' }}>
+                  Continue →
+                </button>
+                {error && <p style={{ fontSize: 11, color: RED, marginTop: 6 }}>{error}</p>}
+              </motion.div>
+            )}
+
+            {/* Step 3: People & Reminders */}
+            {step === 3 && (
+              <motion.div key="step3"
+                initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -16 }} transition={{ duration: 0.2 }}
+                className="space-y-5">
+
+                <p style={{ fontSize: 13, fontWeight: 600, color: NAVY, marginBottom: 4 }}>People & Reminders</p>
+
+                <div>
+                  <LBL>Assign to (optional)</LBL>
+                  <p style={{ fontSize: 10, color: TER, marginBottom: 8 }}>
+                    They will be notified and it will appear on their Assigned tab.
+                  </p>
+                  <select style={INP_STYLE()}
+                    value={form.assign_to_id}
+                    onChange={e => {
+                      const user = otherUsers.find(u => u.id === e.target.value);
+                      upd({ assign_to_id: e.target.value, assign_to_name: user?.full_name ?? '' });
+                    }}>
+                    <option value="">Keep for myself</option>
+                    {otherUsers.map(u => <option key={u.id} value={u.id}>{u.full_name} — {u.role_name}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <LBL>Add collaborator (optional)</LBL>
+                  <p style={{ fontSize: 10, color: TER, marginBottom: 8 }}>
+                    Collaborators share the agenda but are not the lead owner.
+                  </p>
+                  <select style={INP_STYLE()}
+                    value={form.collaborator_id}
+                    onChange={e => {
+                      const user = otherUsers.find(u => u.id === e.target.value);
+                      upd({ collaborator_id: e.target.value, collaborator_name: user?.full_name ?? '' });
+                    }}>
+                    <option value="">No collaborator</option>
+                    {otherUsers.filter(u => u.id !== form.assign_to_id).map(u =>
+                      <option key={u.id} value={u.id}>{u.full_name} — {u.role_name}</option>
+                    )}
+                  </select>
+                </div>
+
+                <div>
+                  <LBL>Reminder</LBL>
+                  <div className="flex gap-2 flex-wrap">
+                    {REMINDER_OPTIONS.map(r => (
+                      <button key={r.value}
+                        onClick={() => upd({ reminder_mins: r.value })}
+                        style={{
+                          padding: '5px 12px', borderRadius: 8, fontSize: 10, fontWeight: 500,
+                          border: `1px solid ${form.reminder_mins === r.value ? BLUE : BORDER}`,
+                          background: form.reminder_mins === r.value ? `${BLUE}10` : 'transparent',
+                          color: form.reminder_mins === r.value ? NAVY : TER,
+                          cursor: 'pointer',
+                        }}>
+                        {r.label}
+                      </button>
                     ))}
                   </div>
-                ))
-              )}
-            </AnimatePresence>
+                </div>
 
-            {/* Completed section */}
-            <SectionToggle
-              label="Completed"
-              count={filteredCompleted.length}
-              open={showCompleted}
-              onToggle={() => setShowCompleted(v => !v)}
-            />
-            <AnimatePresence>
-              {showCompleted && filteredCompleted.map(task => (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  isActive={activeTask?.id === task.id}
-                  onClick={() => setActiveTask(t => t?.id === task.id ? null : task)}
-                />
-              ))}
-            </AnimatePresence>
+                <div style={{ padding: '14px 16px', borderRadius: 12, background: `${BLUE}06`, border: `1px solid ${BLUE}18` }}>
+                  <p style={{ fontSize: 9, fontWeight: 700, color: BLUE, textTransform: 'uppercase', letterSpacing: '0.18em', marginBottom: 8 }}>Summary</p>
+                  <div className="space-y-1.5">
+                    <p style={{ fontSize: 11, color: NAVY, fontWeight: 600 }}>{form.title}</p>
+                    <p style={{ fontSize: 10, color: TER }}>
+                      {form.category} · {fmtDate(form.date)}{form.time ? ` at ${form.time}` : ''}
+                    </p>
+                    {form.assign_to_name && (
+                      <p style={{ fontSize: 10, color: TER }}>Assigned to: {form.assign_to_name}</p>
+                    )}
+                    {form.collaborator_name && (
+                      <p style={{ fontSize: 10, color: TER }}>Collaborator: {form.collaborator_name}</p>
+                    )}
+                  </div>
+                </div>
 
-            {/* Closed section */}
-            <SectionToggle
-              label="Closed"
-              count={filteredClosed.length}
-              open={showClosed}
-              onToggle={() => setShowClosed(v => !v)}
-            />
-            <AnimatePresence>
-              {showClosed && filteredClosed.map(task => (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  isActive={activeTask?.id === task.id}
-                  onClick={() => setActiveTask(t => t?.id === task.id ? null : task)}
-                />
-              ))}
-            </AnimatePresence>
+                {error && <p style={{ fontSize: 11, color: RED }}>{error}</p>}
+
+                <button onClick={submit} disabled={saving}
+                  className="w-full rounded-xl py-2.5 text-[12px] font-semibold transition-all"
+                  style={{
+                    background: saving ? BORDER : NAVY,
+                    border: 'none', color: saving ? MUTED : BG,
+                    cursor: saving ? 'not-allowed' : 'pointer',
+                  }}>
+                  {saving ? 'Creating…' : 'Create Agenda'}
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ── Main page ──────────────────────────────────────────────────────────────────
+type Tab = 'my' | 'assigned' | 'completed';
+
+function groupByDate(goals: StaffGoal[]) {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const endOfWeek = new Date(today); endOfWeek.setDate(today.getDate() + 7);
+
+  const groups: Record<string, StaffGoal[]> = {
+    overdue: [], today: [], this_week: [], later: [], no_date: [],
+  };
+
+  for (const g of goals) {
+    if (isOverdue(g))        { groups.overdue.push(g); continue; }
+    if (!g.due_date)         { groups.no_date.push(g); continue; }
+    const due = new Date(g.due_date); due.setHours(0, 0, 0, 0);
+    if (due.getTime() === today.getTime()) groups.today.push(g);
+    else if (due < endOfWeek)             groups.this_week.push(g);
+    else                                  groups.later.push(g);
+  }
+
+  return [
+    { key: 'overdue',   label: 'Overdue',     color: RED,  goals: groups.overdue },
+    { key: 'today',     label: 'Today',       color: BLUE, goals: groups.today },
+    { key: 'this_week', label: 'This Week',   color: NAVY, goals: groups.this_week },
+    { key: 'later',     label: 'Upcoming',    color: MUTED, goals: groups.later },
+    { key: 'no_date',   label: 'No Due Date', color: MUTED, goals: groups.no_date },
+  ].filter(g => g.goals.length > 0);
+}
+
+export default function StaffKPIPage() {
+  const router       = useRouter();
+  const searchParams = useSearchParams();
+  const urlUserId    = searchParams.get('userId');
+
+  const [userId,        setUserId]        = useState<string | null>(urlUserId);
+  const [profile,       setProfile]       = useState<StaffProfile | null>(null);
+  const [myGoals,       setMyGoals]       = useState<StaffGoal[]>([]);
+  const [assignedGoals, setAssignedGoals] = useState<StaffGoal[]>([]);
+  const [users,         setUsers]         = useState<ActiveUser[]>([]);
+  const [loading,       setLoading]       = useState(true);
+  const [tab,           setTab]           = useState<Tab>('my');
+  const [selected,      setSelected]      = useState<StaffGoal | null>(null);
+  const [showWizard,    setShowWizard]    = useState(false);
+  const [refreshing,    setRefreshing]    = useState(false);
+
+  const loadData = useCallback(async (uid: string, silent = false) => {
+    if (!silent) setLoading(true); else setRefreshing(true);
+    const [pRes, gRes, agRes, uRes] = await Promise.allSettled([
+      getStaffProfile('clinic', uid),
+      getMyGoals(uid),
+      getGoalsAssignedByMe(uid),
+      getActiveUsers(),
+    ]);
+    if (pRes.status === 'fulfilled' && pRes.value.success && pRes.value.data)
+      setProfile(pRes.value.data.profile);
+    if (gRes.status === 'fulfilled')  setMyGoals(gRes.value);
+    if (agRes.status === 'fulfilled') setAssignedGoals(agRes.value);
+    if (uRes.status === 'fulfilled')  setUsers(uRes.value);
+    setLoading(false); setRefreshing(false);
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      let uid = urlUserId;
+      if (!uid) {
+        const fb = await getCurrentUser();
+        if (fb.success && fb.userId) uid = fb.userId;
+      }
+      if (!uid) { router.push('/login'); return; }
+      setUserId(uid);
+      await loadData(uid);
+    })();
+  }, [urlUserId, router, loadData]);
+
+  async function handleComplete(id: string) {
+    await updateGoalProgress(id, 1, undefined, id);
+    setMyGoals(g => g.map(x => x.id === id ? { ...x, status: 'completed', current_value: 1 } : x));
+    setSelected(s => s?.id === id ? { ...s, status: 'completed' as const, current_value: 1 } : s);
+  }
+
+  async function handleDelete(id: string) {
+    await deleteGoal(id);
+    setMyGoals(g => g.filter(x => x.id !== id));
+    setAssignedGoals(g => g.filter(x => x.id !== id));
+    if (selected?.id === id) setSelected(null);
+  }
+
+  function handleCreated(goal: StaffGoal) {
+    setMyGoals(g => [goal, ...g]);
+    setTab('my');
+  }
+
+  if (loading || !profile) return <OrbLoader />;
+
+  const brandColor = profile.brandColor || BLUE;
+
+  const assignedToMe = myGoals.filter(g => g.assigned_by && g.assigned_by !== userId);
+  const completedAll = myGoals.filter(g => g.status === 'completed');
+  const activeOwn    = myGoals.filter(g => g.status !== 'completed' && !(g.assigned_by && g.assigned_by !== userId));
+
+  const tabGoals = tab === 'my'        ? activeOwn
+    : tab === 'assigned'               ? assignedToMe
+    : completedAll;
+
+  const groups = tab !== 'completed'
+    ? groupByDate(tabGoals)
+    : [{ key: 'done', label: 'Completed', color: GREEN, goals: completedAll }];
+
+  return (
+    <div className="min-h-screen" style={{ background: BG }}>
+      <StaffNav profile={profile} userId={userId!} brandColor={brandColor} currentPath="Staff KPIs" />
+
+      <div className="nav-offset">
+        {/* Header */}
+        <div className="flex items-center justify-between px-10 py-7"
+          style={{ borderBottom: `1px solid ${BORDER}` }}>
+          <div>
+            <p className="text-[8px] uppercase tracking-[0.28em] font-semibold mb-2" style={{ color: MUTED }}>
+              {profile.firstName} {profile.lastName} · {profile.jobTitle || 'Staff'}
+            </p>
+            <h1 className="text-[30px] font-black tracking-[-0.04em] leading-none" style={{ color: NAVY }}>
+              Staff KPIs
+            </h1>
+          </div>
+          <div className="flex items-center gap-3">
+            <button onClick={() => userId && loadData(userId, true)} disabled={refreshing}
+              style={{ background: 'transparent', border: `1px solid ${BORDER}`, borderRadius: 10, padding: '7px 10px', cursor: 'pointer', color: TER, display: 'flex' }}>
+              <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
+            </button>
+            <button onClick={() => setShowWizard(true)}
+              className="flex items-center gap-2 rounded-xl px-4 py-2 text-[12px] font-semibold transition-all"
+              style={{ background: NAVY, color: BG, border: 'none', cursor: 'pointer' }}
+              onMouseEnter={e => (e.currentTarget.style.background = '#2A3550')}
+              onMouseLeave={e => (e.currentTarget.style.background = NAVY)}>
+              <Plus size={13} /> New Agenda
+            </button>
           </div>
         </div>
 
+        {/* Analytics overview */}
+        <OverviewSection goals={myGoals} assignedGoals={assignedToMe} />
+
+        {/* Agendas */}
+        <div className="grid grid-cols-12" style={{ minHeight: 400 }}>
+
+          {/* Left: list */}
+          <div className={selected ? 'col-span-7' : 'col-span-12'}
+            style={{ borderRight: selected ? `1px solid ${BORDER}` : 'none' }}>
+
+            {/* Tabs */}
+            <div className="flex items-center gap-0 px-6 pt-4 pb-0"
+              style={{ borderBottom: `1px solid ${BORDER}` }}>
+              {([
+                { key: 'my',        label: 'My Agendas',     count: activeOwn.length },
+                { key: 'assigned',  label: 'Assigned to Me', count: assignedToMe.length },
+                { key: 'completed', label: 'Completed',      count: completedAll.length },
+              ] as { key: Tab; label: string; count: number }[]).map(t => (
+                <button key={t.key}
+                  onClick={() => { setTab(t.key); setSelected(null); }}
+                  className="flex items-center gap-2 px-4 pb-3 text-[11px] font-semibold transition-all"
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    color: tab === t.key ? NAVY : MUTED,
+                    borderBottom: tab === t.key ? `2px solid ${BLUE}` : '2px solid transparent',
+                  }}>
+                  {t.label}
+                  <span style={{
+                    fontSize: 9, padding: '1px 6px', borderRadius: 999,
+                    background: tab === t.key ? `${BLUE}18` : `${MUTED}18`,
+                    color: tab === t.key ? BLUE : MUTED,
+                  }}>{t.count}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Agenda list */}
+            <div>
+              {groups.length === 0 ? (
+                <div className="flex flex-col items-center py-16 gap-3">
+                  <div style={{ width: 40, height: 40, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `${BLUE}0c`, border: `1px solid ${BORDER}` }}>
+                    {tab === 'my' ? <Briefcase size={16} style={{ color: MUTED }} />
+                      : tab === 'assigned' ? <User size={16} style={{ color: MUTED }} />
+                      : <CheckCircle2 size={16} style={{ color: MUTED }} />}
+                  </div>
+                  <p style={{ fontSize: 12, color: TER }}>
+                    {tab === 'my' ? 'No active agendas' : tab === 'assigned' ? 'Nothing assigned to you yet' : 'No completed agendas'}
+                  </p>
+                  {tab === 'my' && (
+                    <button onClick={() => setShowWizard(true)}
+                      className="text-[11px] font-semibold px-3 py-1.5 rounded-xl transition-all"
+                      style={{ background: `${BLUE}14`, border: `1px solid ${BLUE}30`, color: NAVY, cursor: 'pointer' }}>
+                      Create your first agenda
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <AnimatePresence>
+                  {groups.map(group => (
+                    <div key={group.key}>
+                      <div className="flex items-center gap-3 px-6 py-2.5"
+                        style={{ borderBottom: `1px solid ${BORDER}`, background: BG }}>
+                        <span style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.26em', fontWeight: 700, color: group.color }}>{group.label}</span>
+                        <span style={{ fontSize: 9, padding: '1px 7px', borderRadius: 999, background: `${group.color}14`, color: group.color, fontWeight: 600 }}>{group.goals.length}</span>
+                      </div>
+                      {group.goals.map(g => (
+                        <AgendaCard
+                          key={g.id}
+                          goal={g}
+                          isSelected={selected?.id === g.id}
+                          onClick={() => setSelected(s => s?.id === g.id ? null : g)}
+                        />
+                      ))}
+                    </div>
+                  ))}
+                </AnimatePresence>
+              )}
+            </div>
+          </div>
+
+          {/* Right: detail panel */}
+          <AnimatePresence>
+            {selected && (
+              <div className="col-span-5 p-5" style={{ position: 'sticky', top: 0, alignSelf: 'start' }}>
+                <AgendaDetailPanel
+                  goal={selected}
+                  onClose={() => setSelected(null)}
+                  onComplete={handleComplete}
+                  onDelete={handleDelete}
+                />
+              </div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
-      {/* Task Hub — fullscreen modal */}
+      {/* Wizard */}
       <AnimatePresence>
-        {activeTask && (
-          <TaskHub
-            task={activeTask}
-            userId={userId ?? ''}
-            users={users}
-            onClose={() => setActiveTask(null)}
-            onDelete={handleTaskDelete}
-            onRefresh={handleRefresh}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Create Task Modal */}
-      <AnimatePresence>
-        {showCreateModal && userId && (
-          <CreateTaskModal
+        {showWizard && userId && (
+          <WizardModal
+            onClose={() => setShowWizard(false)}
+            onCreate={handleCreated}
             userId={userId}
             users={users}
-            onClose={() => setShowCreateModal(false)}
-            onCreate={handleCreateDone}
           />
         )}
       </AnimatePresence>

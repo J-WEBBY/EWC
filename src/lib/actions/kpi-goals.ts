@@ -492,6 +492,37 @@ export async function deleteTaskEvidence(
   return { success: !error };
 }
 
+export async function getGoalsAssignedByMe(userId: string): Promise<StaffGoal[]> {
+  const db = createSovereignClient();
+  const { data, error } = await db
+    .from('staff_goals')
+    .select(`
+      *,
+      owner:owner_id(first_name, last_name, role_id(name)),
+      assigner:assigned_by(first_name, last_name)
+    `)
+    .eq('assigned_by', userId)
+    .neq('owner_id', userId)
+    .order('due_date', { ascending: true });
+
+  if (error) {
+    console.error('[kpi-goals] getGoalsAssignedByMe error:', error);
+    return [];
+  }
+
+  return (data ?? []).map((g: Record<string, unknown>) => {
+    const owner = g.owner as { first_name?: string; last_name?: string; role_id?: { name?: string } } | null;
+    const assigner = g.assigner as { first_name?: string; last_name?: string } | null;
+    return {
+      ...g,
+      owner_name:    owner ? `${owner.first_name ?? ''} ${owner.last_name ?? ''}`.trim() : undefined,
+      owner_role:    owner?.role_id?.name ?? undefined,
+      assigner_name: assigner ? `${assigner.first_name ?? ''} ${assigner.last_name ?? ''}`.trim() : undefined,
+      status:        calcGoalStatus(g as { target_value: number; current_value: number; due_date: string; status: GoalStatus }),
+    } as StaffGoal;
+  });
+}
+
 // =============================================================================
 // STAFF GOALS — DIRECTOR VIEW (all staff)
 // =============================================================================
