@@ -1295,16 +1295,6 @@ function OverviewPanel({ tasks, users, pendingTasks, overduePending, completedTa
         </p>
       </div>
 
-      {/* Summary stats */}
-      <div style={panelSection}>
-        <span style={sectionLabel}>Summary</span>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-          <StatTile label="Pending"   value={pendingTasks.length}   color={overduePending.length > 0 ? RED : BLUE} />
-          <StatTile label="Overdue"   value={overduePending.length} color={RED} />
-          <StatTile label="Completed" value={completedTasks.length} color={GREEN} />
-        </div>
-      </div>
-
       {/* Category breakdown */}
       {categoryRows.length > 0 && (
         <div style={panelSection}>
