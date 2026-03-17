@@ -6,8 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   CheckCircle2, XCircle, Activity, ArrowRight,
   TrendingUp, TrendingDown, RefreshCw, Bell,
-  Target, Calendar, Users, Zap, ShieldCheck,
-  Link2, BookOpen, BarChart2, FileText,
+  Target, Users, Zap, ShieldCheck, Mic,
+  Link2, FileText,
   type LucideIcon,
 } from 'lucide-react';
 import {
@@ -677,13 +677,13 @@ export default function DashboardPage() {
       detail: `${stats?.pending_approval_count ?? 0} pending approval`,
       seed: 2002, up: true,
       change: `${stats?.total_active ?? 0} total active`,
-      color: '#7C3AED',
+      color: '#0058E6',
     },
     {
       label:  'Upcoming Appts',
       value:  (clinikoStats?.appointments_upcoming ?? 0).toLocaleString(),
       detail: 'booked and scheduled ahead',
-      seed: 3003, up: true, change: 'Live', color: '#00A693',
+      seed: 3003, up: true, change: 'Live', color: '#0058E6',
     },
     {
       label:  'Tasks Today',
@@ -691,7 +691,7 @@ export default function DashboardPage() {
       detail: tasksToday === 0 ? 'all clear' : tasksToday === 1 ? '1 goal due today' : `${tasksToday} goals due or overdue`,
       seed: 4004, up: tasksToday === 0,
       change: `${myGoals.length} total goals`,
-      color: '#D8A600',
+      color: '#0058E6',
     },
   ];
 
@@ -913,11 +913,7 @@ export default function DashboardPage() {
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.36 }}>
               <Panel>
-                <PanelHeader
-                  title="Live Activity"
-                  action="View signals"
-                  onAction={() => router.push(`/staff/signals?userId=${userId}`)}
-                />
+                <PanelHeader title="Live Activity" />
                 <div className="px-5 py-2">
                   {activityFeed.length === 0 ? (
                     <div className="py-12 flex flex-col items-center gap-3">
@@ -948,40 +944,18 @@ export default function DashboardPage() {
             transition={{ delay: 0.24, type: 'spring', stiffness: 200, damping: 26 }}
             className="col-span-4 flex flex-col gap-5">
 
-            {/* Quick Tools — 2×3 grid */}
+            {/* Quick Tools — 2×2 grid */}
             <Panel>
-              <PanelHeader title="Quick Tools" />
+              <PanelHeader title="Quick Access" />
               <div className="p-4 grid grid-cols-2 gap-3">
-                <QuickToolCard icon={Users}      title="Patients"      sub="9,378 records"
-                  path="/staff/patients"     userId={userId!} color="#0058E6" />
-                <QuickToolCard icon={Calendar}   title="Calendar"      sub="Appointments"
-                  path="/staff/calendar"     userId={userId!} color="#00A693" />
-                <QuickToolCard icon={Zap}        title="Automations"   sub="Workflows"
-                  path="/staff/automations"  userId={userId!} color="#D8A600" badge="15" />
-                <QuickToolCard icon={ShieldCheck} title="Compliance"   sub="CQC, audits"
-                  path="/staff/compliance"   userId={userId!} color="#DC2626" />
+                <QuickToolCard icon={Zap}        title="Automations"   sub="15 workflows"
+                  path="/staff/automations"  userId={userId!} color="#0058E6" badge="15" />
+                <QuickToolCard icon={ShieldCheck} title="Compliance"   sub="CQC · audits"
+                  path="/staff/compliance"   userId={userId!} color="#0058E6" />
+                <QuickToolCard icon={Mic}        title="Receptionist"  sub="AI voice · Komal"
+                  path="/staff/voice"        userId={userId!} color="#0058E6" />
                 <QuickToolCard icon={Link2}      title="Integrations"  sub="Cliniko · Vapi"
-                  path="/staff/integrations" userId={userId!} color="#7C3AED" />
-                <QuickToolCard icon={BarChart2}  title="Analytics"     sub="Revenue · KPIs"
-                  path="/staff/analytics"    userId={userId!} color="#059669" />
-              </div>
-              <div className="px-4 pb-3">
-                <button
-                  onClick={() => router.push(`/staff/knowledge-base?userId=${userId}`)}
-                  className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl transition-all"
-                  style={{ background: 'rgba(0,0,0,0.015)', border: '1px solid #EBE5FF' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.04)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.015)')}>
-                  <div className="w-6 h-6 rounded-lg flex items-center justify-center"
-                    style={{ background: '#5A647514', border: '1px solid #EBE5FF' }}>
-                    <BookOpen size={12} className="text-[#5A6475]" />
-                  </div>
-                  <div className="flex-1 text-left">
-                    <p className="text-[11px] font-semibold text-[#3D4451]">Knowledge Base</p>
-                    <p className="text-[9px] text-[#96989B]">Protocols, training, documents</p>
-                  </div>
-                  <ArrowRight size={11} className="text-[#96989B]" />
-                </button>
+                  path="/staff/integrations" userId={userId!} color="#0058E6" />
               </div>
             </Panel>
 
@@ -990,9 +964,9 @@ export default function DashboardPage() {
               <PanelHeader title="Reports" />
               <div className="p-4 space-y-2">
                 {[
-                  { label: 'Monthly Revenue Report',   sub: 'Invoices + outstanding',    icon: FileText,  color: '#D8A600' },
-                  { label: 'Patient Retention Report', sub: 'Lifecycle + churn analysis', icon: Users,     color: '#00A693' },
-                  { label: 'Signal Activity Summary',  sub: 'Agent actions this month',   icon: Activity,  color: '#7C3AED' },
+                  { label: 'Monthly Revenue Report',   sub: 'Invoices + outstanding',    icon: FileText, color: '#0058E6' },
+                  { label: 'Patient Retention Report', sub: 'Lifecycle + churn analysis', icon: Users,   color: '#0058E6' },
+                  { label: 'Signal Activity Summary',  sub: 'Agent actions this month',   icon: Activity, color: '#0058E6' },
                 ].map(r => (
                   <button key={r.label}
                     onClick={() => router.push(`/staff/reports?userId=${userId}`)}
