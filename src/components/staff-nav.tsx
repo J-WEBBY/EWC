@@ -90,52 +90,6 @@ export function StaffNav({
       }}
     >
 
-      {/* ── Brand ── */}
-      <div
-        className="flex items-center h-[60px] flex-shrink-0"
-        style={{
-          padding: collapsed ? '0 14px' : '0 18px',
-          justifyContent: collapsed ? 'center' : 'flex-start',
-          borderBottom: `1px solid ${DIVIDER}`,
-        }}
-      >
-        {/* Monogram badge — always visible */}
-        <div style={{
-          width: 30, height: 30, borderRadius: 8, flexShrink: 0,
-          background: 'rgba(107,150,255,0.16)',
-          border: '1px solid rgba(107,150,255,0.28)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <span style={{ fontSize: 11, fontWeight: 900, color: ACCENT, letterSpacing: '-0.01em' }}>EW</span>
-        </div>
-
-        <AnimatePresence>
-          {!collapsed && (
-            <motion.div
-              initial={{ opacity: 0, x: -8 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -8 }}
-              transition={{ duration: 0.18 }}
-              style={{ marginLeft: 10, overflow: 'hidden' }}
-            >
-              <p style={{
-                fontSize: 12, fontWeight: 700, letterSpacing: '-0.01em',
-                color: 'rgba(255,255,255,0.88)', whiteSpace: 'nowrap', lineHeight: 1.2,
-              }}>
-                Edgbaston Wellness
-              </p>
-              <p style={{
-                fontSize: 8, color: 'rgba(107,150,255,0.65)',
-                letterSpacing: '0.20em', textTransform: 'uppercase',
-                whiteSpace: 'nowrap', marginTop: 2,
-              }}>
-                Operational Intelligence
-              </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
       {/* ── Nav ── */}
       <nav
         className="flex-1 overflow-y-auto scrollbar-none"
