@@ -5,8 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import {
-  Eye, EyeOff, ArrowRight, Loader2, Check,
-  ChevronLeft, Shield,
+  Eye, EyeOff, ArrowRight, Loader2, Check, ChevronLeft, Shield,
 } from 'lucide-react';
 import { verifyLogin, changePassword, getClinicInfo, requestPasswordReset, setSession } from '@/lib/actions/auth';
 
@@ -387,19 +386,49 @@ export default function LoginClient({ initialClinicName, tenantId, tenantSlug }:
 
             {step === 'authenticated' && (
               <motion.div key="authenticated" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                transition={{ duration: 0.25 }} style={{ textAlign: 'center', padding: '20px 0' }}>
-                <motion.div initial={{ scale: 0, rotate: -8 }} animate={{ scale: 1, rotate: 0 }}
-                  transition={{ type: 'spring', stiffness: 280, damping: 18, delay: 0.05 }}
-                  style={{ width: 56, height: 56, borderRadius: 16, background: `${GRN}10`, border: `1px solid ${GRN}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
-                  <Check size={24} color={GRN} strokeWidth={2.5} />
-                </motion.div>
-                <h2 style={{ fontSize: 24, fontWeight: 900, color: INK, letterSpacing: '-0.04em', marginBottom: 6 }}>
+                transition={{ duration: 0.4 }} style={{ textAlign: 'center', padding: '20px 0' }}>
+
+                {/* Animated broadcast rings */}
+                <div style={{ position: 'relative', width: 72, height: 72, margin: '0 auto 32px' }}>
+                  {[0, 1, 2].map(i => (
+                    <motion.div key={i}
+                      initial={{ scale: 0.6, opacity: 0.6 }}
+                      animate={{ scale: 2.6, opacity: 0 }}
+                      transition={{ duration: 2, delay: i * 0.55, repeat: Infinity, ease: 'easeOut' }}
+                      style={{
+                        position: 'absolute', inset: 0, borderRadius: '50%',
+                        border: `1px solid ${INK}`,
+                      }}
+                    />
+                  ))}
+                  <motion.div
+                    initial={{ scale: 0.7, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ type: 'spring', stiffness: 260, damping: 20, delay: 0.1 }}
+                    style={{
+                      position: 'absolute', inset: 0, borderRadius: '50%', background: INK,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}
+                  >
+                    <span style={{ fontSize: 15, fontWeight: 900, color: BG, letterSpacing: '-0.02em' }}>EW</span>
+                  </motion.div>
+                </div>
+
+                <motion.h2
+                  initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.25, duration: 0.4 }}
+                  style={{ fontSize: 24, fontWeight: 900, color: INK, letterSpacing: '-0.04em', marginBottom: 6 }}>
                   {user?.first_name ? `Welcome, ${user.first_name}` : 'Authenticated'}
-                </h2>
-                <p style={{ fontSize: 12, color: MUTED, marginBottom: 28 }}>Launching dashboard…</p>
-                <div style={{ height: 2, borderRadius: 2, overflow: 'hidden', background: BORDER }}>
+                </motion.h2>
+                <motion.p
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                  transition={{ delay: 0.4, duration: 0.3 }}
+                  style={{ fontSize: 12, color: MUTED, marginBottom: 32 }}>
+                  Launching dashboard…
+                </motion.p>
+                <div style={{ height: 1.5, borderRadius: 2, overflow: 'hidden', background: BORDER }}>
                   <motion.div initial={{ scaleX: 0 }} animate={{ scaleX: 1 }}
-                    transition={{ delay: 0.15, duration: 1.7, ease: [0.22, 1, 0.36, 1] }}
+                    transition={{ delay: 0.3, duration: 1.7, ease: [0.22, 1, 0.36, 1] }}
                     style={{ height: '100%', originX: 0, borderRadius: 2, background: INK }} />
                 </div>
               </motion.div>
