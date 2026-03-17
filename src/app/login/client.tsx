@@ -212,18 +212,6 @@ export default function LoginClient({ initialClinicName, tenantId, tenantSlug }:
       <div style={{ width: '50%', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', zIndex: 2 }}>
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
           style={{ textAlign: 'center', padding: '0 48px' }}>
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 28 }}>
-            <div style={{
-              width: 72, height: 72, borderRadius: 12, background: INK,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
-            }}>
-              <span style={{ fontSize: 30, fontWeight: 900, color: '#ffffff', letterSpacing: '-0.03em', lineHeight: 1 }}>E</span>
-              <div style={{
-                position: 'absolute', bottom: 8, right: 8,
-                width: 11, height: 11, borderRadius: '50%', background: '#D8A600',
-              }} />
-            </div>
-          </div>
           <div style={{ fontSize: 22, fontWeight: 900, color: INK, letterSpacing: '-0.03em', lineHeight: 1.15, marginBottom: 8 }}>
             Edgbaston Wellness Clinic
           </div>
